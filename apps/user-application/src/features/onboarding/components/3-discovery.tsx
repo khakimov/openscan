@@ -167,7 +167,7 @@ export function OnboardingDiscovery({
       // Extract hostname and IP data from discovery results
       const targetsData = selectedTargets.map((host) => {
         const result = results?.results?.[0]?.results?.find(
-          (r: any) => r.host === host
+          (r: any) => r.host === host,
         );
         return {
           host,
@@ -233,7 +233,8 @@ export function OnboardingDiscovery({
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium">Already Saved Assets</h3>
               <span className="text-xs text-muted-foreground">
-                {savedDevices.length} asset{savedDevices.length !== 1 ? "s" : ""}
+                {savedDevices.length} asset
+                {savedDevices.length !== 1 ? "s" : ""}
               </span>
             </div>
             <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
@@ -273,12 +274,10 @@ export function OnboardingDiscovery({
             disabled={isStarting || isRunning}
             aria-invalid={!!domainError}
           />
-          {domainError && (
-            <p className="text-sm text-red-600">{domainError}</p>
-          )}
+          {domainError && <p className="text-sm text-red-600">{domainError}</p>}
           <p className="text-xs text-muted-foreground">
-            We&apos;ll discover subdomains and assets associated with this
-            domain
+            Auto-discovery will find subdomains and assets. You can also add a
+            server manually later.
           </p>
         </div>
 

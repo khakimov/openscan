@@ -1,37 +1,17 @@
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { ArrowRight, Github, Sparkles, Zap, Shield } from "lucide-react";
+import { ArrowRight, Mail } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export function HeroSection() {
   return (
     <section className="relative px-6 lg:px-8 py-24 sm:py-32">
       <div className="mx-auto max-w-4xl text-center">
-        <div className="mb-8 flex flex-wrap justify-center gap-2">
-          <Badge variant="secondary" className="mb-4">
-            <Sparkles className="mr-1 h-3 w-3" />
-            Production-Ready
-          </Badge>
-          <Badge variant="secondary" className="mb-4">
-            <Zap className="mr-1 h-3 w-3" />
-            Edge-Optimized
-          </Badge>
-          <Badge variant="secondary" className="mb-4">
-            <Shield className="mr-1 h-3 w-3" />
-            Type-Safe
-          </Badge>
-        </div>
-
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
-          Modern SaaS
-          <span className="block text-primary">Starter Kit</span>
+          sec.🤘
         </h1>
 
-        <p className="mt-6 text-lg leading-8 text-muted-foreground max-w-2xl mx-auto">
-          Ship your SaaS faster with pre-configured authentication, database,
-          and payments. Built on TanStack Start with React 19, TypeScript, and
-          edge-ready infrastructure. Everything you need to launch your next
-          project.
+        <p className="mt-8 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto">
+          Monitor your attack surface. Fix vulnerabilities before breaches.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -44,13 +24,11 @@ export function HeroSection() {
 
           <Button variant="outline" size="lg" asChild>
             <a
-              href="https://github.com/backpine/saas-kit"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="mailto:contact@sec.rocks"
               className="inline-flex items-center"
             >
-              <Github className="mr-2 h-4 w-4" />
-              View on GitHub
+              <Mail className="mr-2 h-4 w-4" />
+              Contact
             </a>
           </Button>
         </div>
