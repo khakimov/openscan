@@ -1,13 +1,21 @@
 // packages/data-ops/drizzle.config.ts
 import type { Config } from "drizzle-kit";
+
 const config: Config = {
-  out: "./src/drizzle",
-  schema: ["./src/drizzle/auth-schema.ts"],
-  dialect: "mysql",
+  out: "./migrations",
+  schema: [
+    "./src/drizzle/auth-schema.ts",
+    "./src/schema/inventory.ts",
+    "./src/schema/scanners.ts",
+    "./src/schema/orchestration.ts",
+  ],
+  dialect: "sqlite",
+  driver: "d1-http",
   dbCredentials: {
-    url: `mysql://${process.env.DATABASE_USERNAME}:${process.env.DATABASE_PASSWORD}@${process.env.DATABASE_HOST}`,
+    accountId: process.env.CF_ACCOUNT_ID ?? "",
+    databaseId: process.env.CF_D1_DATABASE_ID ?? "",
+    token: process.env.CF_API_TOKEN ?? "",
   },
-  tablesFilter: ["!auth_*"],
 };
 
 export default config satisfies Config;

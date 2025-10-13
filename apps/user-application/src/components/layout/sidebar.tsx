@@ -1,7 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Home, Menu } from "lucide-react";
+import { Home, Menu, Shield, ScanLine } from "lucide-react";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
 import { useState } from "react";
 
@@ -17,6 +17,16 @@ const navigationItems: NavigationItem[] = [
     name: "Dashboard",
     icon: Home,
     href: "/dashboard",
+  },
+  {
+    name: "Assets",
+    icon: Shield,
+    href: "/assets",
+  },
+  {
+    name: "Scans",
+    icon: ScanLine,
+    href: "/scans",
   },
 ];
 

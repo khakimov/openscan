@@ -24,6 +24,11 @@ const config = defineConfig({
       },
     }),
   ],
+  build: {
+    rollupOptions: {
+      external: ["drizzle-orm"],
+    },
+  },
 });
 
 export default config;

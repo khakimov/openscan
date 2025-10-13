@@ -1,13 +1,16 @@
 import { betterAuth, type BetterAuthOptions } from "better-auth";
+import { organization } from "better-auth/plugins";
 
 export const createBetterAuth = (config: {
   database: BetterAuthOptions["database"];
   secret?: BetterAuthOptions["secret"];
   socialProviders?: BetterAuthOptions["socialProviders"];
+  baseURL?: string;
 }): ReturnType<typeof betterAuth> => {
   return betterAuth({
     database: config.database,
     secret: config.secret,
+    baseURL: config.baseURL || "http://localhost:3000",
     emailAndPassword: {
       enabled: false,
     },
@@ -24,5 +27,8 @@ export const createBetterAuth = (config: {
     account: {
       modelName: "auth_account",
     },
+    plugins: [
+      organization(),
+    ],
   });
 };

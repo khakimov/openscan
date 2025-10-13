@@ -4,6 +4,23 @@
 
 A monorepo SaaS application with user-facing frontend and data service backend.
 
+## Project Structure
+
+```
+├── apps/
+│   ├── user-application/          # TanStack Start frontend deployed to Cloudflare
+│   │   ├── public/docs/           # Markdown docs consumed by the docs routes
+│   │   └── src/                   # Routes, components, and middleware
+│   └── data-service/              # API worker scaffold (Cloudflare Worker)
+├── packages/
+│   └── data-ops/                  # Shared auth/database layer and migrations
+│       ├── config/                # Better Auth CLI + Drizzle configuration
+│       ├── migrations/            # Drizzle migrations pushed to Cloudflare D1
+│       └── src/                   # Reusable auth helpers, queries, and setup
+├── pnpm-workspace.yaml            # Workspace configuration for the monorepo
+└── README.md
+```
+
 ## Setup
 
 ```bash

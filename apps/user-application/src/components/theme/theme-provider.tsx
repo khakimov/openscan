@@ -14,18 +14,21 @@ type ThemeProviderProps = {
 type ThemeProviderState = {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  resolvedTheme?: "light" | "dark";
-  systemTheme?: "light" | "dark";
+  resolvedTheme: "light" | "dark";
+  systemTheme: "light" | "dark";
 };
 
-const initialState: ThemeProviderState = {
-  theme: "system",
-  setTheme: () => null,
-  resolvedTheme: undefined,
-  systemTheme: undefined,
+type ThemeScriptProps = {
+  defaultTheme?: Theme;
+  storageKey?: string;
+  attribute?: string;
+  enableSystem?: boolean;
 };
 
-const ThemeProviderContext = React.createContext<ThemeProviderState>(initialState);
+const ThemeProviderContext = React.createContext<ThemeProviderState | undefined>(undefined);
+
+const useIsomorphicLayoutEffect =
+  typeof window !== "undefined" ? React.useLayoutEffect : React.useEffect;
 
 export function ThemeProvider({
   children,
@@ -36,41 +39,39 @@ export function ThemeProvider({
   disableTransitionOnChange = false,
   ...props
 }: ThemeProviderProps) {
+  const fallbackTheme: "light" | "dark" = defaultTheme === "light" ? "light" : "dark";
+
   const [theme, setThemeState] = React.useState<Theme>(() => {
-    // During SSR, always return the default theme to avoid hydration mismatch
     if (typeof window === "undefined") {
       return defaultTheme;
     }
 
-    // Client-side: try to get theme from localStorage
     try {
-      const stored = localStorage.getItem(storageKey) as Theme;
+      const stored = window.localStorage.getItem(storageKey) as Theme | null;
       return stored || defaultTheme;
     } catch {
       return defaultTheme;
     }
   });
 
-  const [systemTheme, setSystemTheme] = React.useState<"light" | "dark" | undefined>(() => {
-    // During SSR, return undefined
-    if (typeof window === "undefined") {
-      return undefined;
+  const [systemTheme, setSystemTheme] = React.useState<"light" | "dark">(() => {
+    if (enableSystem && typeof window !== "undefined") {
+      return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
     }
 
-    // Client-side: detect system theme
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+    if (defaultTheme === "system") {
+      return fallbackTheme;
+    }
+
+    return defaultTheme;
   });
-
-  const [isMounted, setIsMounted] = React.useState(false);
-
-  const resolvedTheme = theme === "system" ? systemTheme : theme;
 
   const setTheme = React.useCallback(
     (newTheme: Theme) => {
       try {
-        localStorage.setItem(storageKey, newTheme);
+        window.localStorage.setItem(storageKey, newTheme);
       } catch {
-        // Ignore localStorage errors
+        // Ignore localStorage write errors
       }
       setThemeState(newTheme);
     },
@@ -78,8 +79,8 @@ export function ThemeProvider({
   );
 
   const applyTheme = React.useCallback(
-    (targetTheme: "light" | "dark" | undefined) => {
-      if (!targetTheme || typeof document === "undefined") return;
+    (targetTheme: "light" | "dark") => {
+      if (typeof document === "undefined") return;
 
       const root = document.documentElement;
 
@@ -93,7 +94,7 @@ export function ThemeProvider({
         document.head.appendChild(css);
 
         // Force reflow
-        (() => window.getComputedStyle(document.body))();
+        void window.getComputedStyle(document.body);
 
         setTimeout(() => {
           document.head.removeChild(css);
@@ -110,82 +111,94 @@ export function ThemeProvider({
     [attribute, disableTransitionOnChange]
   );
 
-  // Apply theme on mount and when resolvedTheme changes
-  React.useEffect(() => {
-    if (isMounted) {
-      applyTheme(resolvedTheme);
-    }
-  }, [resolvedTheme, applyTheme, isMounted]);
+  const resolvedTheme = theme === "system" ? systemTheme : theme;
 
-  // Handle system theme changes
+  useIsomorphicLayoutEffect(() => {
+    applyTheme(resolvedTheme);
+  }, [resolvedTheme, applyTheme]);
+
   React.useEffect(() => {
     if (!enableSystem || typeof window === "undefined") return;
 
     const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    
-    const handleSystemThemeChange = (e: MediaQueryListEvent) => {
-      setSystemTheme(e.matches ? "dark" : "light");
+    const handleSystemThemeChange = (event: MediaQueryListEvent) => {
+      setSystemTheme(event.matches ? "dark" : "light");
     };
 
-    mediaQuery.addEventListener("change", handleSystemThemeChange);
+    if (typeof mediaQuery.addEventListener === "function") {
+      mediaQuery.addEventListener("change", handleSystemThemeChange);
+      return () => mediaQuery.removeEventListener("change", handleSystemThemeChange);
+    }
 
-    return () => {
-      mediaQuery.removeEventListener("change", handleSystemThemeChange);
-    };
+    // Safari < 14
+    mediaQuery.addListener(handleSystemThemeChange);
+    return () => mediaQuery.removeListener(handleSystemThemeChange);
   }, [enableSystem]);
 
-  // Hydration effect - apply theme immediately on client
-  React.useEffect(() => {
-    setIsMounted(true);
-    
-    // Immediately apply the correct theme on hydration
-    const currentTheme = theme === "system" ? systemTheme : theme;
-    applyTheme(currentTheme);
-  }, [theme, systemTheme, applyTheme]);
-
-  // Prevent flash during SSR by applying theme via script
-  React.useEffect(() => {
-    if (typeof document === "undefined") return;
-
-    // Create a script that runs before React hydration to prevent FOIT
-    const script = document.createElement("script");
-    script.innerHTML = `
-      try {
-        var theme = localStorage.getItem('${storageKey}') || '${defaultTheme}';
-        var systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        var resolvedTheme = theme === 'system' ? systemTheme : theme;
-        
-        if (resolvedTheme === 'dark') {
-          document.documentElement.classList.add('dark');
-          document.documentElement.classList.remove('light');
-        } else {
-          document.documentElement.classList.add('light');
-          document.documentElement.classList.remove('dark');
-        }
-      } catch (e) {}
-    `;
-
-    // Only add if not already present
-    if (!document.querySelector(`script[data-theme-script]`)) {
-      script.setAttribute('data-theme-script', 'true');
-      document.head.appendChild(script);
-    }
-  }, [storageKey, defaultTheme]);
-
-  const value = React.useMemo(
+  const value = React.useMemo<ThemeProviderState>(
     () => ({
       theme,
       setTheme,
-      resolvedTheme: isMounted ? resolvedTheme : undefined,
-      systemTheme: isMounted ? systemTheme : undefined,
+      resolvedTheme,
+      systemTheme,
     }),
-    [theme, setTheme, resolvedTheme, systemTheme, isMounted]
+    [theme, setTheme, resolvedTheme, systemTheme]
   );
 
   return (
     <ThemeProviderContext.Provider {...props} value={value}>
       {children}
     </ThemeProviderContext.Provider>
+  );
+}
+
+export function ThemeScript({
+  defaultTheme = "system",
+  storageKey = "ui-theme",
+  attribute = "class",
+  enableSystem = true,
+}: ThemeScriptProps) {
+  const fallbackTheme = defaultTheme === "light" ? "light" : "dark";
+
+  const script = `
+;(() => {
+  try {
+    var attribute = ${JSON.stringify(attribute)};
+    var storageKey = ${JSON.stringify(storageKey)};
+    var enableSystem = ${enableSystem};
+    var defaultTheme = ${JSON.stringify(defaultTheme)};
+    var fallbackTheme = ${JSON.stringify(fallbackTheme)};
+
+    var stored = window.localStorage ? window.localStorage.getItem(storageKey) : null;
+    var resolved = stored || defaultTheme;
+
+    if (resolved === "system") {
+      var systemTheme = enableSystem && window.matchMedia
+        ? (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")
+        : fallbackTheme;
+      resolved = systemTheme || fallbackTheme;
+    }
+
+    if (resolved !== "dark" && resolved !== "light") {
+      resolved = fallbackTheme;
+    }
+
+    var root = document.documentElement;
+    if (attribute === "class") {
+      root.classList.remove("light", "dark");
+      root.classList.add(resolved);
+    } else {
+      root.setAttribute(attribute, resolved);
+    }
+  } catch (err) {}
+})();`;
+
+  return (
+    <script
+      data-theme-script="true"
+      suppressHydrationWarning
+      dangerouslySetInnerHTML={{ __html: script }}
+    />
   );
 }
 

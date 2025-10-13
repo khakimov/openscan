@@ -45,7 +45,7 @@ export function NavigationBar() {
   const handleGoogleSignIn = async () => {
     await authClient.signIn.social({
       provider: "google",
-      callbackURL: "/app",
+      callbackURL: "/onboarding",
     });
   };
 

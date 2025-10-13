@@ -5,18 +5,13 @@ import { initDatabase } from "@repo/data-ops/database/setup";
 import handler from "@tanstack/react-start/server-entry";
 import { env } from "cloudflare:workers";
 
-console.log("[server-entry]: using custom server entry in 'src/server.ts'");
-
 export default {
   fetch(request: Request) {
-    const db = initDatabase({
-      host: env.DATABASE_HOST,
-      username: env.DATABASE_USERNAME,
-      password: env.DATABASE_PASSWORD,
-    });
+    const db = initDatabase(env.DB);
 
     setAuth({
       secret: env.BETTER_AUTH_SECRET,
+      baseURL: "http://localhost:3000",
       socialProviders: {
         google: {
           clientId: env.GOOGLE_CLIENT_ID,
@@ -25,9 +20,10 @@ export default {
       },
       adapter: {
         drizzleDb: db,
-        provider: "mysql",
+        provider: "sqlite",
       },
     });
+
     return handler.fetch(request, {
       context: {
         fromFetch: true,

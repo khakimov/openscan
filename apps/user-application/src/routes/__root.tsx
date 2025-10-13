@@ -11,9 +11,17 @@ import * as React from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
 import { NotFound } from "@/components/not-found";
-import { ThemeProvider } from "@/components/theme";
+import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
 import appCss from "@/styles.css?url";
 import { seo } from "@/utils/seo";
+
+const themeConfig = {
+  attribute: "class" as const,
+  defaultTheme: "system" as const,
+  storageKey: "ui-theme",
+  enableSystem: true,
+  disableTransitionOnChange: false,
+};
 
 export const Route = createRootRouteWithContext<{
   queryClient: QueryClient;
@@ -58,34 +66,48 @@ export const Route = createRootRouteWithContext<{
   }),
   errorComponent: (props) => {
     return (
-      <RootDocument>
+      <ThemeShell>
         <DefaultCatchBoundary {...props} />
-      </RootDocument>
+      </ThemeShell>
     );
   },
-  notFoundComponent: () => <NotFound />,
+  notFoundComponent: () => (
+    <ThemeShell>
+      <NotFound />
+    </ThemeShell>
+  ),
   component: RootComponent,
 });
 
 function RootComponent() {
   return (
-    <RootDocument>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="system"
-        enableSystem
-        disableTransitionOnChange={false}
-      >
-        <Outlet />
-      </ThemeProvider>
-    </RootDocument>
+    <ThemeShell>
+      <Outlet />
+    </ThemeShell>
+  );
+}
+
+function ThemeShell({ children }: { children: React.ReactNode }) {
+  return (
+    <ThemeProvider {...themeConfig}>
+      <RootDocument>{children}</RootDocument>
+    </ThemeProvider>
   );
 }
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const { resolvedTheme } = useTheme();
+  const themeClass = resolvedTheme ?? "dark";
+
   return (
-    <html>
+    <html className={themeClass} data-theme={themeClass} suppressHydrationWarning>
       <head>
+        <ThemeScript
+          attribute={themeConfig.attribute}
+          defaultTheme={themeConfig.defaultTheme}
+          storageKey={themeConfig.storageKey}
+          enableSystem={themeConfig.enableSystem}
+        />
         <HeadContent />
       </head>
       <body>

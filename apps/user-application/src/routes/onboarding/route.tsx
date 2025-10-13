@@ -1,0 +1,9 @@
+import { createFileRoute, Outlet } from "@tanstack/react-router";
+
+export const Route = createFileRoute("/onboarding")({
+  component: OnboardingRouteLayout,
+});
+
+function OnboardingRouteLayout() {
+  return <Outlet />;
+}

@@ -6,5 +6,15 @@
   "main": "./src/server.ts",
   "vars": {
     "MY_VAR": "Hello from Cloudflare",
+    "CLIENT_ID_AND_SECRET_REQUIRED": "123",
+    "TEMPORAL_HTTP_API_URL": "http://localhost:8233",
   },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sec-db",
+      "database_id": "8f2775dc-c60a-46b1-b5e5-e544e7621658",
+      "migrations_dir": "../../packages/data-ops/migrations",
+    },
+  ],
 }

@@ -9,17 +9,31 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route'
 import { Route as StaticRouteRouteImport } from './routes/_static/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
+import { Route as OnboardingProjectRouteImport } from './routes/onboarding/project'
+import { Route as AuthScansRouteImport } from './routes/_auth/scans'
+import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
+import { Route as AuthAssetsRouteImport } from './routes/_auth/assets'
 import { Route as StaticDocsIndexRouteImport } from './routes/_static/docs/index'
 import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
+import { Route as OnboardingProjectIdVerifyRouteImport } from './routes/onboarding/$projectId/verify'
+import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding/$projectId/discovery'
+import { Route as OnboardingProjectIdConnectRouteImport } from './routes/onboarding/$projectId/connect'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as StaticDocsNameRouteImport } from './routes/_static/docs/$name'
 import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
 import { Route as AuthAppPolarPortalRouteImport } from './routes/_auth/app/polar/portal'
 import { Route as AuthAppPolarCheckoutSuccessRouteImport } from './routes/_auth/app/polar/checkout.success'
 
+const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const StaticRouteRoute = StaticRouteRouteImport.update({
   id: '/_static',
   getParentRoute: () => rootRouteImport,
@@ -33,6 +47,31 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const OnboardingProjectRoute = OnboardingProjectRouteImport.update({
+  id: '/project',
+  path: '/project',
+  getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const AuthScansRoute = AuthScansRouteImport.update({
+  id: '/scans',
+  path: '/scans',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthDashboardRoute = AuthDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AuthAssetsRoute = AuthAssetsRouteImport.update({
+  id: '/assets',
+  path: '/assets',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
 const StaticDocsIndexRoute = StaticDocsIndexRouteImport.update({
   id: '/docs/',
   path: '/docs/',
@@ -43,6 +82,24 @@ const AuthAppIndexRoute = AuthAppIndexRouteImport.update({
   path: '/app/',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const OnboardingProjectIdVerifyRoute =
+  OnboardingProjectIdVerifyRouteImport.update({
+    id: '/$projectId/verify',
+    path: '/$projectId/verify',
+    getParentRoute: () => OnboardingRouteRoute,
+  } as any)
+const OnboardingProjectIdDiscoveryRoute =
+  OnboardingProjectIdDiscoveryRouteImport.update({
+    id: '/$projectId/discovery',
+    path: '/$projectId/discovery',
+    getParentRoute: () => OnboardingRouteRoute,
+  } as any)
+const OnboardingProjectIdConnectRoute =
+  OnboardingProjectIdConnectRouteImport.update({
+    id: '/$projectId/connect',
+    path: '/$projectId/connect',
+    getParentRoute: () => OnboardingRouteRoute,
+  } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -73,8 +130,17 @@ const AuthAppPolarCheckoutSuccessRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/onboarding': typeof OnboardingRouteRouteWithChildren
+  '/assets': typeof AuthAssetsRoute
+  '/dashboard': typeof AuthDashboardRoute
+  '/scans': typeof AuthScansRoute
+  '/onboarding/project': typeof OnboardingProjectRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
+  '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
+  '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
   '/app': typeof AuthAppIndexRoute
   '/docs': typeof StaticDocsIndexRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
@@ -83,8 +149,16 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/assets': typeof AuthAssetsRoute
+  '/dashboard': typeof AuthDashboardRoute
+  '/scans': typeof AuthScansRoute
+  '/onboarding/project': typeof OnboardingProjectRoute
+  '/onboarding': typeof OnboardingIndexRoute
   '/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
+  '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
+  '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
   '/app': typeof AuthAppIndexRoute
   '/docs': typeof StaticDocsIndexRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
@@ -96,8 +170,17 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_static': typeof StaticRouteRouteWithChildren
+  '/onboarding': typeof OnboardingRouteRouteWithChildren
+  '/_auth/assets': typeof AuthAssetsRoute
+  '/_auth/dashboard': typeof AuthDashboardRoute
+  '/_auth/scans': typeof AuthScansRoute
+  '/onboarding/project': typeof OnboardingProjectRoute
+  '/onboarding/': typeof OnboardingIndexRoute
   '/_static/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
+  '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
+  '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_static/docs/': typeof StaticDocsIndexRoute
   '/_auth/app/polar/portal': typeof AuthAppPolarPortalRoute
@@ -108,8 +191,17 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/onboarding'
+    | '/assets'
+    | '/dashboard'
+    | '/scans'
+    | '/onboarding/project'
+    | '/onboarding/'
     | '/docs/$name'
     | '/api/auth/$'
+    | '/onboarding/$projectId/connect'
+    | '/onboarding/$projectId/discovery'
+    | '/onboarding/$projectId/verify'
     | '/app'
     | '/docs'
     | '/app/polar/portal'
@@ -118,8 +210,16 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/assets'
+    | '/dashboard'
+    | '/scans'
+    | '/onboarding/project'
+    | '/onboarding'
     | '/docs/$name'
     | '/api/auth/$'
+    | '/onboarding/$projectId/connect'
+    | '/onboarding/$projectId/discovery'
+    | '/onboarding/$projectId/verify'
     | '/app'
     | '/docs'
     | '/app/polar/portal'
@@ -130,8 +230,17 @@ export interface FileRouteTypes {
     | '/'
     | '/_auth'
     | '/_static'
+    | '/onboarding'
+    | '/_auth/assets'
+    | '/_auth/dashboard'
+    | '/_auth/scans'
+    | '/onboarding/project'
+    | '/onboarding/'
     | '/_static/docs/$name'
     | '/api/auth/$'
+    | '/onboarding/$projectId/connect'
+    | '/onboarding/$projectId/discovery'
+    | '/onboarding/$projectId/verify'
     | '/_auth/app/'
     | '/_static/docs/'
     | '/_auth/app/polar/portal'
@@ -143,11 +252,19 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
   StaticRouteRoute: typeof StaticRouteRouteWithChildren
+  OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_static': {
       id: '/_static'
       path: ''
@@ -169,6 +286,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/onboarding/': {
+      id: '/onboarding/'
+      path: '/'
+      fullPath: '/onboarding/'
+      preLoaderRoute: typeof OnboardingIndexRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/onboarding/project': {
+      id: '/onboarding/project'
+      path: '/project'
+      fullPath: '/onboarding/project'
+      preLoaderRoute: typeof OnboardingProjectRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/_auth/scans': {
+      id: '/_auth/scans'
+      path: '/scans'
+      fullPath: '/scans'
+      preLoaderRoute: typeof AuthScansRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/dashboard': {
+      id: '/_auth/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthDashboardRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_auth/assets': {
+      id: '/_auth/assets'
+      path: '/assets'
+      fullPath: '/assets'
+      preLoaderRoute: typeof AuthAssetsRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
     '/_static/docs/': {
       id: '/_static/docs/'
       path: '/docs'
@@ -182,6 +334,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/app'
       preLoaderRoute: typeof AuthAppIndexRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/onboarding/$projectId/verify': {
+      id: '/onboarding/$projectId/verify'
+      path: '/$projectId/verify'
+      fullPath: '/onboarding/$projectId/verify'
+      preLoaderRoute: typeof OnboardingProjectIdVerifyRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/onboarding/$projectId/discovery': {
+      id: '/onboarding/$projectId/discovery'
+      path: '/$projectId/discovery'
+      fullPath: '/onboarding/$projectId/discovery'
+      preLoaderRoute: typeof OnboardingProjectIdDiscoveryRouteImport
+      parentRoute: typeof OnboardingRouteRoute
+    }
+    '/onboarding/$projectId/connect': {
+      id: '/onboarding/$projectId/connect'
+      path: '/$projectId/connect'
+      fullPath: '/onboarding/$projectId/connect'
+      preLoaderRoute: typeof OnboardingProjectIdConnectRouteImport
+      parentRoute: typeof OnboardingRouteRoute
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -222,6 +395,9 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthRouteRouteChildren {
+  AuthAssetsRoute: typeof AuthAssetsRoute
+  AuthDashboardRoute: typeof AuthDashboardRoute
+  AuthScansRoute: typeof AuthScansRoute
   AuthAppIndexRoute: typeof AuthAppIndexRoute
   AuthAppPolarPortalRoute: typeof AuthAppPolarPortalRoute
   AuthAppPolarSubscriptionsRoute: typeof AuthAppPolarSubscriptionsRoute
@@ -229,6 +405,9 @@ interface AuthRouteRouteChildren {
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthAssetsRoute: AuthAssetsRoute,
+  AuthDashboardRoute: AuthDashboardRoute,
+  AuthScansRoute: AuthScansRoute,
   AuthAppIndexRoute: AuthAppIndexRoute,
   AuthAppPolarPortalRoute: AuthAppPolarPortalRoute,
   AuthAppPolarSubscriptionsRoute: AuthAppPolarSubscriptionsRoute,
@@ -253,10 +432,31 @@ const StaticRouteRouteWithChildren = StaticRouteRoute._addFileChildren(
   StaticRouteRouteChildren,
 )
 
+interface OnboardingRouteRouteChildren {
+  OnboardingProjectRoute: typeof OnboardingProjectRoute
+  OnboardingIndexRoute: typeof OnboardingIndexRoute
+  OnboardingProjectIdConnectRoute: typeof OnboardingProjectIdConnectRoute
+  OnboardingProjectIdDiscoveryRoute: typeof OnboardingProjectIdDiscoveryRoute
+  OnboardingProjectIdVerifyRoute: typeof OnboardingProjectIdVerifyRoute
+}
+
+const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
+  OnboardingProjectRoute: OnboardingProjectRoute,
+  OnboardingIndexRoute: OnboardingIndexRoute,
+  OnboardingProjectIdConnectRoute: OnboardingProjectIdConnectRoute,
+  OnboardingProjectIdDiscoveryRoute: OnboardingProjectIdDiscoveryRoute,
+  OnboardingProjectIdVerifyRoute: OnboardingProjectIdVerifyRoute,
+}
+
+const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
+  OnboardingRouteRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   StaticRouteRoute: StaticRouteRouteWithChildren,
+  OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport

@@ -5,6 +5,9 @@ import {
   auth_session,
   auth_verification,
   auth_user,
+  organization,
+  member,
+  invitation,
 } from "@/drizzle/auth-schema";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
@@ -26,10 +29,16 @@ export function setAuth(
         auth_account,
         auth_session,
         auth_verification,
+        organization,
+        member,
+        invitation,
       },
     }),
-    ...config,
+    secret: config.secret,
+    baseURL: config.baseURL,
+    socialProviders: config.socialProviders,
   });
+
   return betterAuth;
 }
 

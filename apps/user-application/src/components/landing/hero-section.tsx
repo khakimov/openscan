@@ -35,7 +35,7 @@ export function HeroSection() {
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link to="/docs">
+          <Link to="/onboarding">
             <Button size="lg" className="group">
               Get Started
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />

@@ -137,3 +137,12 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+.dev.vars
+
+# Wrangler local development
+.wrangler/
+
+# SQLite database files (local development)
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal

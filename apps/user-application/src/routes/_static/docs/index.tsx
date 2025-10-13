@@ -14,6 +14,7 @@ import {
   DatabaseIcon,
   CreditCardIcon,
   ShieldCheckIcon,
+  UsersIcon,
   Bot,
   Sparkles,
   CheckCircle,
@@ -69,6 +70,21 @@ const gettingStartedSteps = [
       "API Integration",
     ],
   },
+  {
+    name: "organization",
+    title: "Organization Management",
+    description:
+      "Manage organizations, members, invitations, and teams with Better Auth's organization plugin and fine-grained access control.",
+    icon: UsersIcon,
+    image: "/better-auth.png",
+    badgeVariant: "default" as const,
+    features: [
+      "Role-Based Access",
+      "Invitations & Teams",
+      "Dynamic Permissions",
+      "Session Awareness",
+    ],
+  },
 ];
 
 function RouteComponent() {
@@ -84,8 +100,8 @@ function RouteComponent() {
         </h1>
         <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-6">
           Comprehensive guides for your mono repo SaaS kit built with TanStack
-          Start, covering authentication, database setup, and payment
-          integration.
+          Start, covering authentication, database setup, organization
+          management, and payment integration.
         </p>
         <Badge variant="secondary" className="text-sm">
           Mono Repo Architecture

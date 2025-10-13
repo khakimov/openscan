@@ -1,0 +1,9 @@
+# Drizzle ORM Snapshot
+
+- Lightweight TypeScript ORM (~7.4kb gzipped), tree-shakeable, zero runtime deps; supports Postgres, MySQL, SQLite, SingleStore; serverless-friendly.
+- Schema defined in TypeScript (`pgTable`, column helpers) with enum support via `pgEnum`; pairs well with validation generators.
+- `drizzle-arktype` plugin creates Arktype schemas from Drizzle tables for select/insert/update validation; require Drizzle ≥0.36 & Arktype ≥2.0.
+  - `createSelectSchema(table)` validates query results; `createInsertSchema(table)` and `createUpdateSchema(table)` enforce request payloads.
+  - Supports views (`pgView`) and enums; refinement hook lets you extend or override field rules.
+- Column helpers cover numeric ranges (`double`, `real`, `bigint` with number/bigint modes), JSON/array types, geometry, vectors, etc., with compatible Zod/Arktype shapes.
+- Recommended workflow: define tables & enums → generate types/migrations (`drizzle-kit`) → derive Arktype/Zod schemas for API validation → use typed queries in app/serverless contexts.

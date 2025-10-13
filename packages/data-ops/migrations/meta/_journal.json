@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1760089398956,
+      "tag": "0000_careless_cerise",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1760234526190,
+      "tag": "0001_real_loners",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1760234587437,
+      "tag": "0002_mushy_gertrude_yorkes",
+      "breakpoints": true
+    }
+  ]
+}

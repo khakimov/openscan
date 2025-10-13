@@ -63,51 +63,7 @@ Create the Better Auth configuration for the CLI. This configuration is used by 
 
 Update your `packages/data-ops/config/auth.ts` file based on your database provider. This instance is used exclusively by the Better Auth CLI and should not be used in your application runtime.
 
-### PostgreSQL CLI Configuration
-
-```typescript
-// packages/data-ops/config/auth.ts
-import { createBetterAuth } from "../src/auth/setup";
-import { initDatabase } from "../src/database/setup";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-
-export const auth = createBetterAuth({
-  database: drizzleAdapter(
-    initDatabase({
-      password: process.env.DATABASE_PASSWORD!,
-      host: process.env.DATABASE_HOST!,
-      username: process.env.DATABASE_USERNAME!,
-    }),
-    {
-      provider: "pg",
-    },
-  ),
-});
-```
-
-### MySQL CLI Configuration
-
-```typescript
-// packages/data-ops/config/auth.ts
-import { createBetterAuth } from "../src/auth/setup";
-import { initDatabase } from "../src/database/setup";
-import { drizzleAdapter } from "better-auth/adapters/drizzle";
-
-export const auth = createBetterAuth({
-  database: drizzleAdapter(
-    initDatabase({
-      password: process.env.DATABASE_PASSWORD!,
-      host: process.env.DATABASE_HOST!,
-      username: process.env.DATABASE_USERNAME!,
-    }),
-    {
-      provider: "mysql",
-    },
-  ),
-});
-```
-
-### Cloudflare D1 CLI Configuration
+### Default: Cloudflare D1 CLI Configuration
 
 ```typescript
 // packages/data-ops/config/auth.ts
@@ -117,11 +73,17 @@ import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 // For CLI use - uses dummy SQLite database
 export const auth = createBetterAuth({
-  database: drizzleAdapter(new Database("./config/test.sqlite"), {
+  database: drizzleAdapter(new Database("./config/d1.sqlite"), {
     provider: "sqlite",
   }),
 });
 ```
+
+> The CLI runs in a Node environment without access to D1 bindings, so we point Drizzle at a local SQLite file. The generated SQL still targets D1.
+
+### Targeting PostgreSQL or MySQL instead?
+
+Swap the `better-sqlite3` instance for the connection that matches your database and update the `provider` value (`"pg"` or `"mysql"`). You can reuse the snippets from the Database guide for Postgres/MySQL connections.
 
 ## Step 3: Generate authentication schemas
 
@@ -141,7 +103,7 @@ This creates `packages/data-ops/src/drizzle/auth-schema.ts` with your authentica
 pnpm run drizzle:generate
 ```
 
-This creates SQL migration files in `packages/data-ops/src/drizzle`
+This creates SQL migration files in `packages/data-ops/migrations`
 
 ### 3. Run migrations (optional)
 
@@ -149,7 +111,7 @@ This creates SQL migration files in `packages/data-ops/src/drizzle`
 pnpm run drizzle:migrate
 ```
 
-This automatically applies migrations to create the auth tables
+This runs `drizzle-kit d1 push`, applying the migrations to your Cloudflare D1 database using the credentials from `drizzle.config.ts`.
 
 > **Table Filtering:** Auth tables are prefixed with `auth_` and filtered out in `drizzle.config.ts` to prevent conflicts when using `drizzle:pull` for application schemas.
 
@@ -159,87 +121,7 @@ Configure authentication for your serverless application runtime. The `setAuth` 
 
 This setup occurs in your server entry point, typically `src/server.ts`, where you initialize the database and configure authentication before handling requests.
 
-### PostgreSQL Runtime Setup
-
-```typescript
-// src/server.ts - TanStack Start Server Entry
-import { setAuth } from "@repo/data-ops/auth/server";
-import { initDatabase } from "@repo/data-ops/database/setup";
-import handler from "@tanstack/react-start/server-entry";
-import { env } from "cloudflare:workers";
-
-export default {
-  fetch(request: Request) {
-    const db = initDatabase({
-      host: env.DATABASE_HOST,
-      username: env.DATABASE_USERNAME,
-      password: env.DATABASE_PASSWORD,
-    });
-
-    setAuth({
-      secret: env.BETTER_AUTH_SECRET,
-      socialProviders: {
-        google: {
-          clientId: env.GOOGLE_CLIENT_ID,
-          clientSecret: env.GOOGLE_CLIENT_SECRET,
-        },
-      },
-      adapter: {
-        drizzleDb: db,
-        provider: "pg",
-      },
-    });
-
-    return handler.fetch(request, {
-      context: {
-        fromFetch: true,
-      },
-    });
-  },
-};
-```
-
-### MySQL Runtime Setup
-
-```typescript
-// src/server.ts - TanStack Start Server Entry
-import { setAuth } from "@repo/data-ops/auth/server";
-import { initDatabase } from "@repo/data-ops/database/setup";
-import handler from "@tanstack/react-start/server-entry";
-import { env } from "cloudflare:workers";
-
-export default {
-  fetch(request: Request) {
-    const db = initDatabase({
-      host: env.DATABASE_HOST,
-      username: env.DATABASE_USERNAME,
-      password: env.DATABASE_PASSWORD,
-    });
-
-    setAuth({
-      secret: env.BETTER_AUTH_SECRET,
-      socialProviders: {
-        google: {
-          clientId: env.GOOGLE_CLIENT_ID,
-          clientSecret: env.GOOGLE_CLIENT_SECRET,
-        },
-      },
-      adapter: {
-        drizzleDb: db,
-        provider: "mysql",
-      },
-    });
-
-    return handler.fetch(request, {
-      context: {
-        fromFetch: true,
-      },
-    });
-  },
-};
-```
-
-### Cloudflare D1 Runtime Setup
+### Default: Cloudflare D1 Runtime Setup
 
 ```typescript
 // src/server.ts - TanStack Start Server Entry
@@ -274,6 +156,10 @@ export default {
   },
 };
 ```
+
+### Using another database?
+
+Swap the `initDatabase` implementation and `provider` string so they match the driver you configured in `data-ops`. For example, PostgreSQL would use a Neon/Supabase HTTP client with `provider: "pg"`, while PlanetScale would use the serverless MySQL driver with `provider: "mysql"`.
 
 ## Step 5: API route integration
 

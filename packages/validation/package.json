@@ -1,0 +1,16 @@
+{
+  "name": "@repo/validation",
+  "version": "0.0.1",
+  "main": "index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@repo/constants": "workspace:*",
+    "zod": "^4.1.9"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.8",
+    "typescript": "^5.7.2"
+  }
+}

@@ -41,35 +41,30 @@ In the `data-ops` package within your monorepo, you'll configure your database c
 
 The configuration will be defined in the **data-ops package**, which serves as the central hub for all database-related operations, including migrations, schema management, and query definitions that can be shared across different parts of your application.
 
-### PostgreSQL Configuration
-
-```bash
-# packages/data-ops/.env
-# PostgreSQL Configuration (Supabase, Neon, etc.)
-DATABASE_HOST="hostname.com/database-name"
-DATABASE_USERNAME="username"
-DATABASE_PASSWORD="password"
-```
-
-### MySQL Configuration
-
-```bash
-# packages/data-ops/.env
-# MySQL Configuration (PlanetScale, etc.)
-DATABASE_HOST="hostname.com/database-name"
-DATABASE_USERNAME="username"
-DATABASE_PASSWORD="password"
-```
-
-### Cloudflare D1 Configuration
+### Default: Cloudflare D1 (SQLite)
 
 ```bash
 # packages/data-ops/.env
 # Cloudflare D1 Configuration
-CLOUDFLARE_DATABASE_ID="<From Cloudflare Dashboard>"
-CLOUDFLARE_ACCOUNT_ID="<From Cloudflare Dashboard>"
-CLOUDFLARE_D1_TOKEN="<Create in Cloudflare Dashboard>"
+CF_D1_DATABASE_ID="<From Cloudflare Dashboard>"
+CF_ACCOUNT_ID="<From Cloudflare Dashboard>"
+CF_API_TOKEN="<API token with D1 + Workers permissions>"
 ```
+
+> The API token should include **D1:Edit**, **Workers Scripts:Edit**, and **Workers KV Storage:Edit** permissions so Drizzle Kit can run migrations through the HTTP API.
+
+### Using Postgres or MySQL instead?
+
+You can still point the project at Neon, Supabase, or PlanetScale. Swap the default D1 configuration with the credentials required by your provider:
+
+```bash
+# PostgreSQL / MySQL example
+DATABASE_HOST="hostname.com/database-name"
+DATABASE_USERNAME="username"
+DATABASE_PASSWORD="password"
+```
+
+After adjusting the environment variables, update `packages/data-ops/drizzle.config.ts` and `packages/data-ops/src/database/setup.ts` to match your driver of choice.
 
 ## Step 3: Setup Drizzle Kit
 
@@ -77,61 +72,51 @@ Drizzle Kit helps you manage your database schema and generate TypeScript types 
 
 After configuring Drizzle Kit, you can run `pnpm run drizzle:pull` to pull in existing database schemas from your database to the project. The generated schemas will be available in `src/drizzle/schema.ts`, which you can then use to create type-safe queries throughout your application.
 
-### PostgreSQL Drizzle Configuration
+### Default: Cloudflare D1 Drizzle Configuration
 
 ```typescript
 // packages/data-ops/drizzle.config.ts
 import type { Config } from "drizzle-kit";
 const config: Config = {
-  out: "./src/drizzle",
-  schema: ["./src/drizzle/auth-schema.ts"],
-  dialect: "postgresql",
-  dbCredentials: {
-    url: `postgresql://${process.env.DATABASE_USERNAME}:${process.env.DATABASE_PASSWORD}@${process.env.DATABASE_HOST}`,
-  },
-  tablesFilter: ["!_cf_KV", "!auth_*"],
-};
-
-export default config satisfies Config;
-```
-
-### MySQL Drizzle Configuration
-
-```typescript
-// packages/data-ops/drizzle.config.ts
-import type { Config } from "drizzle-kit";
-const config: Config = {
-  out: "./src/drizzle",
-  schema: ["./src/drizzle/auth-schema.ts"],
-  dialect: "mysql",
-  dbCredentials: {
-    url: `mysql://${process.env.DATABASE_USERNAME}:${process.env.DATABASE_PASSWORD}@${process.env.DATABASE_HOST}`,
-  },
-  tablesFilter: ["!_cf_KV", "!auth_*"],
-};
-
-export default config satisfies Config;
-```
-
-### Cloudflare D1 Drizzle Configuration
-
-```typescript
-// packages/data-ops/drizzle.config.ts
-import type { Config } from "drizzle-kit";
-const config: Config = {
-  out: "./src/drizzle",
+  out: "./migrations",
   schema: ["./src/drizzle/auth-schema.ts"],
   dialect: "sqlite",
   driver: "d1-http",
   dbCredentials: {
-    accountId: process.env.CLOUDFLARE_ACCOUNT_ID!,
-    databaseId: process.env.CLOUDFLARE_DATABASE_ID!,
-    token: process.env.CLOUDFLARE_D1_TOKEN!,
+    accountId: process.env.CF_ACCOUNT_ID ?? "",
+    databaseId: process.env.CF_D1_DATABASE_ID ?? "",
+    token: process.env.CF_API_TOKEN ?? "",
   },
   tablesFilter: ["!_cf_KV", "!auth_*"],
 };
 
 export default config satisfies Config;
+```
+
+### Prefer PostgreSQL or MySQL?
+
+Swap the `dialect`, `driver`, and credentials block to the ones required by your provider. For example:
+
+```typescript
+// PostgreSQL
+const config: Config = {
+  // ...
+  dialect: "postgresql",
+  dbCredentials: {
+    url: `postgresql://${process.env.DATABASE_USERNAME}:${process.env.DATABASE_PASSWORD}@${process.env.DATABASE_HOST}`,
+  },
+};
+```
+
+```typescript
+// MySQL / PlanetScale
+const config: Config = {
+  // ...
+  dialect: "mysql",
+  dbCredentials: {
+    url: `mysql://${process.env.DATABASE_USERNAME}:${process.env.DATABASE_PASSWORD}@${process.env.DATABASE_HOST}`,
+  },
+};
 ```
 
 ## Step 4: Database Runtime Client
@@ -143,6 +128,8 @@ To streamline database interactions within your serverless application, it's my 
 ### TanStack Start Server Entry Integration
 
 In TanStack Start applications, database initialization occurs in the `src/server.ts` file, which serves as the custom server entry point. This file intercepts all requests before they reach your application routes, making it the ideal location for database setup.
+
+> The starter template is preconfigured for **Cloudflare D1** using `drizzle-orm/d1`. If you want to target a different provider, swap the snippets below accordingly.
 
 ### PostgreSQL (Neon) Runtime Setup
 
