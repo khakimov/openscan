@@ -24,7 +24,9 @@ async function run() {
 
   const connection = await NativeConnection.connect({
     address: config.serverAddress,
-    // For production with TLS:
+    // Enable TLS (use empty object for default TLS with system certs)
+    tls: {},
+    // For mTLS with client certificates:
     // tls: {
     //   clientCertPair: {
     //     crt: fs.readFileSync(clientCertPath),
