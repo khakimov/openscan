@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, Loader2, Search, XCircle } from "lucide-react";
+import { CheckCircle2, Search, XCircle } from "lucide-react";
 import type { DiscoveryStatus } from "../types/discovery-status";
 
 interface DiscoveryStatusCardProps {
@@ -43,10 +43,10 @@ export function DiscoveryStatusCard({
   onSkip,
   showSkipButton = false,
 }: DiscoveryStatusCardProps) {
-  const handleSelectAll = (checked: boolean) => {
-    if (checked && discoveryStatus.result) {
+  const handleSelectAll = (checked: boolean | "indeterminate") => {
+    if (checked === true && discoveryStatus.result) {
       const allSubdomains = discoveryStatus.result.uniqueSubdomains.map(
-        (s) => s.subdomain
+        (s) => s.subdomain,
       );
       onSubdomainSelectionChange(new Set(allSubdomains));
     } else {
@@ -66,7 +66,8 @@ export function DiscoveryStatusCard({
 
   const isAllSelected =
     discoveryStatus.result &&
-    selectedSubdomains.size === discoveryStatus.result.uniqueSubdomains.length &&
+    selectedSubdomains.size ===
+      discoveryStatus.result.uniqueSubdomains.length &&
     selectedSubdomains.size > 0;
 
   return (
@@ -84,7 +85,7 @@ export function DiscoveryStatusCard({
             <XCircle className="h-5 w-5 text-red-500 mt-0.5" />
           )}
 
-          <div className="flex-1 space-y-2">
+          <div className="flex-1 space-y-2 min-w-0 overflow-hidden">
             {/* Header */}
             <div className="flex items-center justify-between">
               <h3 className="font-semibold">Discovery Status</h3>
@@ -145,7 +146,9 @@ export function DiscoveryStatusCard({
                 {/* Subdomains Table */}
                 {discoveryStatus.result.uniqueSubdomains.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Discovered Subdomains:</p>
+                    <p className="text-sm font-medium">
+                      Discovered Subdomains:
+                    </p>
                     <div className="max-h-64 overflow-y-auto border rounded">
                       <table className="w-full text-sm">
                         <thead className="sticky top-0 z-10 bg-background border-b">
@@ -155,6 +158,7 @@ export function DiscoveryStatusCard({
                                 id="select-all"
                                 checked={isAllSelected}
                                 onCheckedChange={handleSelectAll}
+                                className="ring-offset-0 focus-visible:ring-0"
                               />
                             </th>
                             <th className="h-10 px-4 text-left font-semibold">
@@ -169,12 +173,12 @@ export function DiscoveryStatusCard({
                           {discoveryStatus.result.uniqueSubdomains.map(
                             (item, idx) => {
                               const isSelected = selectedSubdomains.has(
-                                item.subdomain
+                                item.subdomain,
                               );
                               return (
                                 <tr
                                   key={idx}
-                                  className="border-t hover:bg-muted/50"
+                                  className="border-t hover:bg-muted/50 h-12"
                                 >
                                   <td className="px-4 py-3">
                                     <Checkbox
@@ -183,9 +187,10 @@ export function DiscoveryStatusCard({
                                       onCheckedChange={(checked) =>
                                         handleToggleSubdomain(
                                           item.subdomain,
-                                          checked === true
+                                          checked === true,
                                         )
                                       }
+                                      className="ring-offset-0 focus-visible:ring-0"
                                     />
                                   </td>
                                   <td className="px-4 py-3">
@@ -200,17 +205,21 @@ export function DiscoveryStatusCard({
                                   </td>
                                 </tr>
                               );
-                            }
+                            },
                           )}
                         </tbody>
                       </table>
                     </div>
-                    {selectedSubdomains.size > 0 && (
-                      <div className="text-xs text-muted-foreground">
-                        {selectedSubdomains.size} subdomain
-                        {selectedSubdomains.size !== 1 ? "s" : ""} selected
-                      </div>
-                    )}
+                    <div className="text-xs text-muted-foreground h-5">
+                      {selectedSubdomains.size > 0 ? (
+                        <>
+                          {selectedSubdomains.size} subdomain
+                          {selectedSubdomains.size !== 1 ? "s" : ""} selected
+                        </>
+                      ) : (
+                        <span className="opacity-0">0 subdomains selected</span>
+                      )}
+                    </div>
                   </div>
                 )}
 

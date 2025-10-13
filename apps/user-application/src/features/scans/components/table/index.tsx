@@ -1,5 +1,5 @@
 import { TableSkeleton } from "@/components/ui/table";
-import { FullPageEmptyState } from "@/components/layouts/full-page-empty-state";
+import { FullPageEmptyState } from "@/components/shared/full-page-empty-state";
 import { GanttChartIcon, Loader2Icon } from "lucide-react";
 import { cn } from "@/utils/cn";
 import { useScansTableQuery } from "@/hooks/useScansTableQuery";
