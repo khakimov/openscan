@@ -10,8 +10,9 @@ export function HeroSection() {
           sec.🤘
         </h1>
 
-        <p className="mt-8 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto">
-          Monitor your attack surface. Fix vulnerabilities before breaches.
+        <p className="mt-8 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
+          Monitor your infrastructure exposure. Fix issues before attackers find
+          them.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -23,10 +24,7 @@ export function HeroSection() {
           </Link>
 
           <Button variant="outline" size="lg" asChild>
-            <a
-              href="mailto:contact@sec.rocks"
-              className="inline-flex items-center"
-            >
+            <a href="mailto:hey@sec.rocks" className="inline-flex items-center">
               <Mail className="mr-2 h-4 w-4" />
               Contact
             </a>

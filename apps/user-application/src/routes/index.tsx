@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { NavigationBar } from "@/components/navigation";
+// import { NavigationBar } from "@/components/navigation";
 import { HeroSection } from "@/components/landing/hero-section";
-import { Footer } from "@/components/landing/footer";
+// import { Footer } from "@/components/landing/footer";
 
 export const Route = createFileRoute("/")({
   component: LandingPage,
@@ -10,11 +10,11 @@ export const Route = createFileRoute("/")({
 function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <NavigationBar />
+      {/*<NavigationBar />*/}
       <main>
         <HeroSection />
       </main>
-      <Footer />
+      {/*<Footer />*/}
     </div>
   );
 }
