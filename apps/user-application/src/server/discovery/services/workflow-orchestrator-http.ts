@@ -5,8 +5,14 @@ import { getTemporalHttpClient } from '../../utils/temporal-http-client';
 const logger = createLogger({ name: 'discovery-workflow-orchestrator-http' });
 
 export class WorkflowOrchestratorHttp {
+  private apiKey?: string;
+
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey;
+  }
+
   async startDiscovery(request: DiscoveryRequest) {
-    const client = getTemporalHttpClient();
+    const client = getTemporalHttpClient(this.apiKey);
 
     const handle = await client.startDiscoveryWorkflow(request);
 
@@ -19,7 +25,7 @@ export class WorkflowOrchestratorHttp {
   }
 
   async describeWorkflow(workflowId: string, runId?: string) {
-    const client = getTemporalHttpClient();
+    const client = getTemporalHttpClient(this.apiKey);
     const description = await client.describeWorkflow(workflowId, runId);
 
     return {
@@ -30,9 +36,15 @@ export class WorkflowOrchestratorHttp {
   }
 
   async fetchDiscoveryResult(workflowId: string, runId?: string) {
-    const client = getTemporalHttpClient();
+    const client = getTemporalHttpClient(this.apiKey);
     return client.getWorkflowResult(workflowId, runId);
   }
 }
 
+// Helper function to create orchestrator with API key
+export function getWorkflowOrchestrator(apiKey?: string): WorkflowOrchestratorHttp {
+  return new WorkflowOrchestratorHttp(apiKey);
+}
+
+// Default export for backward compatibility (use getWorkflowOrchestrator in production)
 export const workflowOrchestratorHttp = new WorkflowOrchestratorHttp();

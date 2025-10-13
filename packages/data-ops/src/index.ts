@@ -22,6 +22,9 @@ export type {
   OrganizationMember,
 } from './types';
 
+// Export drizzle-orm operators for use in queries
+export { eq, and, or, desc, asc, inArray, sql, lt, gt, gte, lte, ne, isNull, isNotNull, type SQL } from 'drizzle-orm';
+
 // Export database client
 export * from './database/setup';
 

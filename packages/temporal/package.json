@@ -20,6 +20,10 @@
     "./types": {
       "import": "./src/types/index.ts",
       "types": "./src/types/index.ts"
+    },
+    "./contracts": {
+      "import": "./src/contracts/index.ts",
+      "types": "./src/contracts/index.ts"
     }
   },
   "dependencies": {

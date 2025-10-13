@@ -33,9 +33,10 @@ export class TemporalHttpClient {
   private baseUrl: string;
   private namespace: string;
   private taskQueue: string;
+  private apiKey: string | undefined;
   private csrfToken: string | null = null;
 
-  constructor() {
+  constructor(apiKey?: string) {
     const config = getTemporalConnectionConfig();
 
     // Use HTTP API URL if provided, otherwise construct from server address
@@ -48,12 +49,32 @@ export class TemporalHttpClient {
 
     this.namespace = config.namespace;
     this.taskQueue = config.taskQueue;
+    this.apiKey = apiKey;
 
     logger.info('Temporal HTTP client initialized', {
       baseUrl: this.baseUrl,
       namespace: this.namespace,
       taskQueue: this.taskQueue,
+      hasApiKey: !!this.apiKey,
     });
+  }
+
+  /**
+   * Get common headers for all requests
+   */
+  private getHeaders(): Record<string, string> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer temporal-http-client',
+    };
+
+    // Add API key from environment or constructor (for nginx authentication)
+    const apiKey = this.apiKey || process.env.TEMPORAL_API_KEY;
+    if (apiKey) {
+      headers['X-Temporal-Api-Key'] = apiKey;
+    }
+
+    return headers;
   }
 
   /**
@@ -120,18 +141,12 @@ export class TemporalHttpClient {
       payload: JSON.stringify(payload).substring(0, 200), // Log first 200 chars
     });
 
-    // Include Authorization header to bypass CSRF (Temporal UI server skips CSRF when Authorization header is present)
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer temporal-http-client', // Any value works to bypass CSRF
-    };
-
     // Correct endpoint: workflowId goes in the URL path, not in the body
     const response = await fetch(
       `${this.baseUrl}/api/v1/namespaces/${this.namespace}/workflows/${workflowId}`,
       {
         method: 'POST',
-        headers,
+        headers: this.getHeaders(),
         body: JSON.stringify(payload),
       }
     );
@@ -176,10 +191,7 @@ export class TemporalHttpClient {
 
     const response = await fetch(url, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer temporal-http-client',
-      },
+      headers: this.getHeaders(),
     });
 
     if (!response.ok) {
@@ -237,10 +249,7 @@ export class TemporalHttpClient {
 
     const response = await fetch(historyUrl, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer temporal-http-client',
-      },
+      headers: this.getHeaders(),
     });
 
     if (!response.ok) {
@@ -277,16 +286,17 @@ let httpClient: TemporalHttpClient | null = null;
 
 /**
  * Get or create the HTTP Temporal client
+ * @param apiKey - Optional API key for authentication (required for production)
  */
-export function getTemporalHttpClient(): TemporalHttpClient {
+export function getTemporalHttpClient(apiKey?: string): TemporalHttpClient {
   if (!httpClient) {
-    httpClient = new TemporalHttpClient();
+    httpClient = new TemporalHttpClient(apiKey);
   }
   return httpClient;
 }
 
 /**
- * Reset the HTTP client (useful for testing)
+ * Reset the HTTP client (useful for testing or when API key changes)
  */
 export function resetTemporalHttpClient(): void {
   httpClient = null;

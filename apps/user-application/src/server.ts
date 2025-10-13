@@ -9,9 +9,13 @@ export default {
   fetch(request: Request) {
     const db = initDatabase(env.DB);
 
+    // Get the base URL from the request (works for both localhost and production)
+    const url = new URL(request.url);
+    const baseURL = `${url.protocol}//${url.host}`;
+
     setAuth({
       secret: env.BETTER_AUTH_SECRET,
-      baseURL: "http://localhost:3000",
+      baseURL,
       socialProviders: {
         google: {
           clientId: env.GOOGLE_CLIENT_ID,

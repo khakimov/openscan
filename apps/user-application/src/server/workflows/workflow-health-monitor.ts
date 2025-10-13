@@ -18,7 +18,7 @@
 import { createLogger } from '@repo/logger';
 import { db } from '@repo/data-ops/client';
 import { scanWorkflows, scanRuns } from '@repo/data-ops/schema/orchestration';
-import { eq, and, lt, inArray, sql } from 'drizzle-orm';
+import { eq, and, lt, inArray, sql } from '@repo/data-ops';
 import { getTemporalClient } from '../utils/temporal-client';
 import { WorkflowNotFoundError } from '@temporalio/client';
 

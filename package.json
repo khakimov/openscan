@@ -1,14 +1,17 @@
 {
-  "name": "saas-kit",
+  "name": "openscan",
   "version": "1.0.0",
-  "description": "",
+  "description": "OpenScan - Open Source Security Scanner Platform",
   "scripts": {
     "setup": "pnpm i && pnpm run build:data-ops",
     "build:data-ops": "pnpm run --filter data-ops build",
     "dev:user-application": "pnpm run --filter user-application dev",
     "deploy:user-application": "pnpm run build:data-ops && pnpm run --filter user-application deploy",
     "dev:data-service": "pnpm run --filter data-service dev",
-    "deploy:data-service": "pnpm run build:data-ops && pnpm run --filter data-service deploy"
+    "deploy:data-service": "pnpm run build:data-ops && pnpm run --filter data-service deploy",
+    "dev:worker": "pnpm run --filter temporal-worker dev",
+    "build:worker": "pnpm run --filter temporal-worker build",
+    "start:worker": "pnpm run --filter temporal-worker start"
   },
   "keywords": [],
   "author": "",

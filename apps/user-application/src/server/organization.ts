@@ -3,7 +3,7 @@ import { createLogger } from "@repo/logger";
 import { getAuth } from "@repo/data-ops/auth/server";
 import { getRequest } from "@tanstack/react-start/server";
 import { getCurrentUser } from "./utils/auth";
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "@repo/data-ops";
 
 const logger = createLogger({ name: "organization-server" });
 

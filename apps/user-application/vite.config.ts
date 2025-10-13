@@ -24,10 +24,20 @@ const config = defineConfig({
       },
     }),
   ],
-  build: {
-    rollupOptions: {
-      external: ["drizzle-orm"],
-    },
+  ssr: {
+    noExternal: [
+      // Bundle all workspace packages for Cloudflare Workers
+      '@repo/data-ops',
+      '@repo/config',
+      '@repo/logger',
+      '@repo/temporal',
+      '@repo/validation',
+      '@repo/constants',
+      '@repo/contracts',
+      // Bundle external dependencies that need to be included
+      'drizzle-orm',
+      'better-auth',
+    ],
   },
 });
 

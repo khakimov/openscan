@@ -1,19 +1,17 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
+  "name": "sec-rocks",
   "compatibility_date": "2025-09-02",
   "compatibility_flags": ["nodejs_compat"],
   "main": "./src/server.ts",
   "vars": {
-    "MY_VAR": "Hello from Cloudflare",
-    "CLIENT_ID_AND_SECRET_REQUIRED": "123",
-    "TEMPORAL_HTTP_API_URL": "http://localhost:8233",
+    "TEMPORAL_HTTP_API_URL": "https://necto.sec.rocks",
   },
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "sec-db",
-      "database_id": "8f2775dc-c60a-46b1-b5e5-e544e7621658",
+      "database_id": "93d2bd33-3b3e-42f3-a982-39b790922949",
       "migrations_dir": "../../packages/data-ops/migrations",
     },
   ],
