@@ -42,6 +42,17 @@ The web app (`user-application`) is responsible for:
 
 ## Running the Worker
 
+### Setup Environment
+
+Create a `.env` file in the worker directory:
+
+```bash
+cd apps/temporal-worker
+cp .env.example .env
+```
+
+Edit `.env` with your settings (see `.env.example` for all options).
+
 ### Development Mode (with mock data)
 
 ```bash
@@ -53,8 +64,10 @@ cd apps/temporal-worker
 pnpm dev
 ```
 
-**Environment variables for dev mode:**
+**Key environment variables for dev mode:**
 ```bash
+# .env file in apps/temporal-worker/
+
 # Enable mock mode (returns fake data without running tools)
 SCANNER_DEV_MODE=true
 

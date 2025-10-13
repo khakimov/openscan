@@ -1,0 +1,13 @@
+# Environment variables
+.env
+.env.local
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Logs
+*.log
+
+# Node modules (handled by root .gitignore but added for completeness)
+node_modules/
