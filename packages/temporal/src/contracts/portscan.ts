@@ -6,7 +6,7 @@
  */
 
 import type { ScanScope } from './common';
-export type { ScanScope };
+
 export type AuthScanType = 'ANONYMOUS' | 'AUTHENTICATED';
 export type PortScanMode = 'DISCOVERY' | 'EXTEND' | 'UPTIME';
 export type ScanProfile = 'PS_L1' | 'PS_L2' | 'PS_L3' | 'PS_L4' | 'PS_L5' | 'PS_L6';

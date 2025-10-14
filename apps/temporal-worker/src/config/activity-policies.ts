@@ -65,7 +65,7 @@ function applyTimeoutMultiplier(
 
   return {
     ...policy,
-    startToCloseTimeout: `${newValue} ${unit}`,
+    startToCloseTimeout: `${newValue} ${unit}` as ActivityOptions['startToCloseTimeout'],
   };
 }
 
