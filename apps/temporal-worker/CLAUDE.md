@@ -83,6 +83,30 @@ Result: Zero regressions, safe refactoring
 
 We track work in Beads instead of Markdown. Run `bd quickstart` to see how.
 
+## Git Commit Guidelines
+
+**IMPORTANT: No AI attribution in commits**
+- ❌ NEVER add "Generated with Claude Code" or similar attribution
+- ❌ NEVER add "Co-Authored-By: Claude" lines
+- ✅ Write clean, professional commit messages without AI mentions
+- ✅ Focus on what changed and why, not who/what generated it
+
+**Example (WRONG):**
+```
+fix: export portscanWorkflow
+
+🤖 Generated with Claude Code
+Co-Authored-By: Claude <noreply@anthropic.com>
+```
+
+**Example (CORRECT):**
+```
+fix(worker): export portscanWorkflow in workflow bundle
+
+Critical fix for worker initialization - the portscanWorkflow function
+must be exported from workflows/index.ts to be discoverable by Temporal.
+```
+
 ## Commands
 
 ### Testing
