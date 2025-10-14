@@ -3,3 +3,4 @@
  */
 
 export * from './discovery';
+export * from './portscan/workflow';
