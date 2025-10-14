@@ -5,7 +5,7 @@ import { getCurrentTenant, getCurrentUser } from '../../../utils/auth';
 import { determineScanScope } from '../../utils/scan-scope';
 import { generateWorkflowId, extractErrorMessage } from '../../utils/workflow-helpers';
 import { PortScanSchema } from '../../schemas/port-scan-schemas';
-import { workflowOrchestrator } from '../../services/workflow-orchestrator';
+import { workflowOrchestratorHttp } from '../../services/workflow-orchestrator-http';
 import { scanRecorder } from '../../services/scan-recorder';
 import { deviceManager } from '../../services/device-manager';
 import { buildScannerInput } from '../../utils/port-scan';
@@ -67,7 +67,7 @@ export const startPortScanWorkflow = createServerFn({
         scanRunId: scanRun.id,
       });
 
-      const handle = await workflowOrchestrator.startPortScan(scannerInput, temporalWorkflowId);
+      const handle = await workflowOrchestratorHttp.startPortScan(scannerInput, temporalWorkflowId);
 
       if (input.deviceId) {
         await deviceManager.attachDeviceToScan({

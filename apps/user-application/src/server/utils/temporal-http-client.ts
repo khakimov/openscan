@@ -1,6 +1,7 @@
 import { createLogger } from '@repo/logger';
 import { getTemporalConnectionConfig } from '@repo/config';
 import type { DiscoveryRequest } from '@repo/temporal/types';
+import type { ScannerInput } from '@repo/contracts';
 
 const logger = createLogger({ name: 'temporal-http-client' });
 
@@ -112,36 +113,36 @@ export class TemporalHttpClient {
   }
 
   /**
-   * Start a discovery workflow via HTTP API
+   * Generic method to start any workflow via HTTP API
    */
-  async startDiscoveryWorkflow(request: DiscoveryRequest): Promise<{
+  async startWorkflow(
+    workflowType: string,
+    workflowId: string,
+    input: any,
+    timeout: string = '3600s'
+  ): Promise<{
     workflowId: string;
     runId: string;
+    firstExecutionRunId: string;
   }> {
-    const workflowId = `discovery-${request.target}-${Date.now()}`;
+    const encodedInput = encodeWorkflowInput(input);
 
-    // Encode the request using the proper payload format for HTTP API
-    const encodedInput = encodeWorkflowInput(request);
-
-    // NOTE: The workflowId must be in the URL path, not in the request body
     const payload = {
       workflowType: {
-        name: 'discoveryWorkflow',
+        name: workflowType,
       },
       taskQueue: {
         name: this.taskQueue,
       },
-      input: encodedInput, // Use base64-encoded payloads instead of args
-      workflowRunTimeout: '3600s',
+      input: encodedInput,
+      workflowRunTimeout: timeout,
     };
 
-    logger.info('Starting discovery workflow via HTTP', {
+    logger.info('Starting workflow via HTTP', {
+      workflowType,
       workflowId,
-      target: request.target,
-      payload: JSON.stringify(payload).substring(0, 200), // Log first 200 chars
     });
 
-    // Correct endpoint: workflowId goes in the URL path, not in the body
     const response = await fetch(
       `${this.baseUrl}/api/v1/namespaces/${this.namespace}/workflows/${workflowId}`,
       {
@@ -154,6 +155,7 @@ export class TemporalHttpClient {
     if (!response.ok) {
       const errorText = await response.text();
       logger.error('Failed to start workflow via HTTP', {
+        workflowType,
         status: response.status,
         error: errorText,
       });
@@ -163,15 +165,41 @@ export class TemporalHttpClient {
     const result = await response.json();
 
     logger.info('Workflow started successfully', {
+      workflowType,
       workflowId,
       runId: result.runId,
-      started: result.started,
     });
 
     return {
-      workflowId, // The ID we sent in the request
-      runId: result.runId || '', // The unique run ID returned by Temporal
+      workflowId,
+      runId: result.runId || '',
+      firstExecutionRunId: result.runId || '',
     };
+  }
+
+  /**
+   * Convenience method for discovery workflows
+   */
+  async startDiscoveryWorkflow(request: DiscoveryRequest): Promise<{
+    workflowId: string;
+    runId: string;
+  }> {
+    const workflowId = `discovery-${request.target}-${Date.now()}`;
+    return this.startWorkflow('discoveryWorkflow', workflowId, request);
+  }
+
+  /**
+   * Convenience method for port scan workflows
+   */
+  async startPortScanWorkflow(
+    input: ScannerInput,
+    workflowId: string
+  ): Promise<{
+    workflowId: string;
+    runId: string;
+    firstExecutionRunId: string;
+  }> {
+    return this.startWorkflow('portscanWorkflow', workflowId, input);
   }
 
   /**

@@ -1,4 +1,5 @@
 import type { DiscoveryRequest } from '@repo/temporal/types';
+import type { ScannerInput } from '@repo/contracts';
 import { createLogger } from '@repo/logger';
 import { getTemporalHttpClient } from '../../utils/temporal-http-client';
 
@@ -19,6 +20,19 @@ export class WorkflowOrchestratorHttp {
     logger.info('Discovery workflow started via HTTP', {
       target: request.target,
       workflowId: handle.workflowId,
+    });
+
+    return handle;
+  }
+
+  async startPortScan(input: ScannerInput, workflowId: string) {
+    const client = getTemporalHttpClient(this.apiKey);
+
+    const handle = await client.startPortScanWorkflow(input, workflowId);
+
+    logger.info('Port scan workflow started via HTTP', {
+      workflowId: handle.workflowId,
+      scanRunId: input.scanRunId,
     });
 
     return handle;
