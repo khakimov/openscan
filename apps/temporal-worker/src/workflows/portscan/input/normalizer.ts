@@ -1,4 +1,5 @@
-import type { PortScanInput, ScanProfile, PortScanMode, ScanScope, AuthScanType } from '@repo/temporal/contracts';
+import type { PortScanInput, ScanProfile, PortScanMode, AuthScanType } from '@repo/temporal/contracts';
+import type { ScanScope } from '@repo/temporal/contracts/common';
 import { sanitizePortList, sanitizeStringList } from '../../../utilities/port-utils';
 
 /**

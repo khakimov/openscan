@@ -13,7 +13,6 @@ import type {
   DiscoveredDevice,
   DiscoveryRequest,
   DiscoveryWorkflowState,
-  DiscoveryContext,
 } from '@repo/temporal/contracts';
 import { discoveryToolPolicies } from '../../config/activity-policies';
 
@@ -98,11 +97,12 @@ export async function discoveryWorkflow(
   // Set up state query handler
   setHandler(stateQuery, () => state);
 
-  const context: DiscoveryContext = {
-    workflowId,
-    scanId: normalizedInput.scanId,
-    tenantId: normalizedInput.tenantId,
-  };
+  // Context available for future use if activities need it
+  // const context: DiscoveryContext = {
+  //   workflowId,
+  //   scanId: normalizedInput.scanId,
+  //   tenantId: normalizedInput.tenantId,
+  // };
 
   log.info('Discovery workflow started', {
     workflowId,
@@ -150,7 +150,6 @@ export async function discoveryWorkflow(
     });
 
     const discoveredDevices = await performDiscovery(
-      context,
       validTargets,
       normalizedInput,
       state
@@ -248,7 +247,6 @@ export async function discoveryWorkflow(
  * Perform the actual discovery using various tools
  */
 async function performDiscovery(
-  context: DiscoveryContext,
   targets: ScanTarget[],
   normalizedInput: DiscoveryInput,
   state: DiscoveryWorkflowState

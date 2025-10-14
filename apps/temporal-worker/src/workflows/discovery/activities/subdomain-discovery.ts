@@ -5,8 +5,8 @@ import { createLogger } from '@repo/logger';
 import type {
   ScanTarget,
   DiscoveredDevice,
-  ScanScope,
 } from '@repo/temporal/contracts';
+import type { ScanScope } from '@repo/temporal/contracts/common';
 import { getMockDiscoveryResults } from '../mock-data/discovery';
 
 const execFileAsync = promisify(execFile);
