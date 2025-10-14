@@ -6,4 +6,5 @@
  */
 
 export * from './workflows/discovery/activities';
+export * from './workflows/portscan/activities';
 export * from './workflows/shared/activities';
