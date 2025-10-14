@@ -112,7 +112,7 @@ export type PortScanArtifact = z.infer<typeof PortScanArtifactSchema>;
  * Type guard: Ensures artifact is JSON-safe at compile time
  * Zod validates runtime, but this helps TypeScript understand the guarantee
  */
-export function assertJsonSafe(artifact: PortScanArtifact): asserts artifact is PortScanArtifact & { [K in keyof PortScanArtifact]: JsonValue } {
+export function assertJsonSafe(_artifact: PortScanArtifact): asserts _artifact is PortScanArtifact & { [K in keyof PortScanArtifact]: JsonValue } {
   // Zod already validated, this is just for TypeScript
 }
 

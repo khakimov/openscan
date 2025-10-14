@@ -12,6 +12,7 @@
 
 import { proxyActivities } from '@temporalio/workflow';
 import type { DiscoveredPort } from '@repo/temporal/contracts';
+import type { ScannerInput } from '@repo/contracts';
 import { normalizePortScanInput } from './input/normalizer';
 import { resolveMode, createMasscanConfig, createRustscanConfig } from './prescan/policy';
 import { combinePreScanPorts, mergePreScanDiscoveries } from './merge/port-merger';
@@ -29,7 +30,7 @@ const activities = proxyActivities<ScanActivities>({
 
 export interface PortScanInput {
   target: string;
-  scanProfile?: 'QUICK' | 'NORMAL' | 'STEALTH' | 'FULL';
+  scanProfile?: 'PS_L1' | 'PS_L2' | 'PS_L3' | 'PS_L4' | 'PS_L5' | 'PS_L6';
   mode?: 'DISCOVERY' | 'EXTEND' | 'UPTIME';
   aggressive?: boolean;
   requestedPorts?: number[];
@@ -56,17 +57,49 @@ export interface PortScanResult {
   };
 }
 
+/**
+ * Adapt ScannerInput (from web app) to PortScanInput (for scanning)
+ */
+function adaptScannerInput(input: ScannerInput | PortScanInput): PortScanInput {
+  // If it's already PortScanInput (has 'target' string), return as-is
+  if ('target' in input && typeof input.target === 'string') {
+    return input as PortScanInput;
+  }
+
+  // Adapt from ScannerInput format
+  const scannerInput = input as ScannerInput;
+  const firstTarget = scannerInput.targets?.[0];
+
+  if (!firstTarget?.value) {
+    throw new Error('No valid target found in ScannerInput');
+  }
+
+  return {
+    target: firstTarget.value,
+    scanProfile: scannerInput.scanOptions?.profile,
+    mode: scannerInput.scanOptions?.mode,
+    aggressive: scannerInput.scanOptions?.aggressive,
+    requestedPorts: scannerInput.scanOptions?.requestedPorts,
+    seedPorts: scannerInput.scanOptions?.seedPorts,
+    historicPorts: scannerInput.scanOptions?.historicPorts,
+    additionalPortRanges: scannerInput.scanOptions?.additionalPortRanges,
+  };
+}
+
 export async function portscanWorkflow(
-  input: PortScanInput
+  input: ScannerInput | PortScanInput
 ): Promise<PortScanResult> {
+  // Adapt input to PortScanInput format
+  const portScanInput = adaptScannerInput(input);
+
   // Validate input
-  if (!input.target || input.target.trim() === '') {
+  if (!portScanInput.target || portScanInput.target.trim() === '') {
     throw new Error('Target is required');
   }
 
   // Normalize input and determine mode
   const normalized = normalizePortScanInput({
-    ...input,
+    ...portScanInput,
     scanId: 'workflow', // Not needed for database-free workflow
   });
   const mode = resolveMode(normalized);
@@ -83,13 +116,13 @@ export async function portscanWorkflow(
 
   // Masscan: Fast TCP scan 1-65535 (~30 seconds if enabled)
   masscanPorts = await activities.runMasscanScan(
-    input.target,
+    portScanInput.target,
     createMasscanConfig(normalized)
   );
 
   // Rustscan: Fast scan that can use masscan hints (if enabled)
   rustscanPorts = await activities.runRustscan(
-    input.target,
+    portScanInput.target,
     createRustscanConfig(normalized, masscanPorts)
   );
 
@@ -99,9 +132,9 @@ export async function portscanWorkflow(
   // Step 4: Extract port numbers + include caller hints (requested/seed/historic)
   const prescanPortNumbers = prescanPorts.map(p => p.port);
   const callerHints = [
-    ...(input.requestedPorts || []),
-    ...(input.seedPorts || []),
-    ...(input.historicPorts || []),
+    ...(portScanInput.requestedPorts || []),
+    ...(portScanInput.seedPorts || []),
+    ...(portScanInput.historicPorts || []),
   ];
 
   // Combine and deduplicate
@@ -112,12 +145,12 @@ export async function portscanWorkflow(
 
   // Step 5: Run nmap on discovered ports + caller hints (fast because targeted)
   const nmapOptions = {
-    profile: input.scanProfile,
+    profile: portScanInput.scanProfile,
     mode,
     additionalPorts: validPorts.length > 0 ? validPorts : undefined,
   };
 
-  let scanResult = await activities.runNmapScan(input.target, nmapOptions);
+  let scanResult = await activities.runNmapScan(portScanInput.target, nmapOptions);
 
   // Step 6: Merge discoveries and add attribution
   if (prescanPorts.length > 0) {
@@ -137,7 +170,7 @@ export async function portscanWorkflow(
 
   // Return enriched results (database-free)
   return {
-    target: input.target,
+    target: portScanInput.target,
     ports: scanResult.ports,
     osInfo: scanResult.osInfo,
     timing: {
