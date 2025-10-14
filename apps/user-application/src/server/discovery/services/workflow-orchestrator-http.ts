@@ -40,13 +40,7 @@ export class WorkflowOrchestratorHttp {
 
   async describeWorkflow(workflowId: string, runId?: string) {
     const client = getTemporalHttpClient(this.apiKey);
-    const description = await client.describeWorkflow(workflowId, runId);
-
-    return {
-      status: {
-        name: description.status,
-      },
-    };
+    return client.describeWorkflow(workflowId, runId);
   }
 
   async fetchDiscoveryResult(workflowId: string, runId?: string) {

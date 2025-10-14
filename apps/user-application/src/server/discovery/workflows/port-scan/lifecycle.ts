@@ -7,6 +7,7 @@ import { WorkflowNotFoundError, WorkflowFailedError } from '@temporalio/client';
 import { getCurrentTenant } from '../../../utils/auth';
 import { CancelPortScanSchema } from '../../schemas/port-scan-schemas';
 import { workflowOrchestrator } from '../../services/workflow-orchestrator';
+import { workflowOrchestratorHttp } from '../../services/workflow-orchestrator-http';
 import { scanRecorder } from '../../services/scan-recorder';
 import { extractErrorMessage } from '../../utils/workflow-helpers';
 
@@ -95,17 +96,28 @@ export const getPortScanState = createServerFn({
     const { workflowId } = data;
 
     try {
-      const state = await workflowOrchestrator.queryPortScanState(workflowId);
+      // Use HTTP client to describe workflow (gRPC queries not supported in Workers)
+      const description = await workflowOrchestratorHttp.describeWorkflow(workflowId);
+
+      // Map Temporal status to simple state
+      const state = {
+        status: description.status,
+        workflowId: description.workflowId,
+        runId: description.runId,
+      };
+
       return {
         success: true,
         state,
       };
     } catch (error) {
-      // Distinguish between different Temporal failure modes
-      if (error instanceof WorkflowNotFoundError) {
+      const message = extractErrorMessage(error);
+
+      // Check if workflow not found
+      if (message.includes('not found') || message.includes('404')) {
         logger.warn('Workflow not found in Temporal', {
           workflowId,
-          error: extractErrorMessage(error),
+          error: message,
         });
         return {
           success: false,
@@ -115,10 +127,11 @@ export const getPortScanState = createServerFn({
         };
       }
 
-      if (error instanceof WorkflowFailedError) {
-        logger.warn('Workflow execution failed or terminated', {
+      // Check if workflow failed
+      if (message.includes('failed') || message.includes('FAILED')) {
+        logger.warn('Workflow execution failed', {
           workflowId,
-          error: extractErrorMessage(error),
+          error: message,
         });
         return {
           success: false,
@@ -128,8 +141,7 @@ export const getPortScanState = createServerFn({
         };
       }
 
-      // Generic Temporal query timeout or network issue
-      const message = extractErrorMessage(error);
+      // Generic error
       const isTimeout = message.toLowerCase().includes('timeout');
 
       logger.error('Failed to query workflow state', {
