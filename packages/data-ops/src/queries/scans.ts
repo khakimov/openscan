@@ -99,10 +99,10 @@ export async function updateScanWorkflowStatus(
 
   // Set timestamps based on status
   if (status === 'RUNNING') {
-    updates.startedAt = Date.now();
+    updates.startedAt = new Date();
   }
   if (['SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'].includes(status)) {
-    updates.finishedAt = Date.now();
+    updates.finishedAt = new Date();
   }
 
   // Update temporal run ID if provided
@@ -132,10 +132,10 @@ export async function updateScanRunStatus(
 
   // Set timestamps based on status
   if (status === 'RUNNING') {
-    updates.startedAt = Date.now();
+    updates.startedAt = new Date();
   }
   if (['SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT', 'PARTIAL'].includes(status)) {
-    updates.completedAt = Date.now();
+    updates.completedAt = new Date();
   }
 
   // Merge result summary if provided
