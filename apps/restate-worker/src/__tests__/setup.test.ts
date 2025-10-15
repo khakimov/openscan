@@ -48,13 +48,15 @@ describe('Restate Test Environment Setup', () => {
   it('should be able to call cancel handler (smoke test)', async () => {
     const client = restateIngress.serviceClient(portScanner);
 
-    // Just test that we can call the service - don't test actual scanning yet
+    // Just test that we can call the service - cancelling non-existent scan should fail gracefully
     const result = await client.cancel({
       scanId: 'test-scan-id',
       reason: 'Test cancellation',
     });
 
     expect(result).toBeDefined();
-    expect(result.success).toBe(true);
+    // Non-existent scan should return success: false
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('not found');
   });
 });
