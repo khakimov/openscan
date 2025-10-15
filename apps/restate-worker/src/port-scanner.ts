@@ -1,9 +1,9 @@
 import * as restate from '@restatedev/restate-sdk';
-import { exec } from 'child_process';
+import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
 
-const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 const logger = createLogger({ name: 'restate-port-scanner' });
 
 /**
@@ -32,11 +32,16 @@ export const portScanner = restate.service({
 
       // Step 1: Run nmap scan (durable - will retry on failure)
       await ctx.run('nmap-scan', async () => {
+        // Validate and sanitize target
+        const sanitizedTarget = validateAndSanitizeTarget(input.target);
         const nmapArgs = buildNmapArgs(input);
-        logger.info('Executing nmap', { scanId, args: nmapArgs });
+
+        logger.info('Executing nmap', { scanId, args: nmapArgs, target: sanitizedTarget });
 
         try {
-          const { stdout, stderr } = await execAsync(`nmap ${nmapArgs} ${input.target}`);
+          // Use execFile (not exec) to prevent shell injection
+          // Arguments are passed as array, not interpolated into shell command
+          const { stdout, stderr } = await execFileAsync('nmap', [...nmapArgs, sanitizedTarget]);
 
           if (stderr) {
             logger.warn('nmap stderr', { scanId, stderr });
@@ -137,17 +142,69 @@ export const portScanner = restate.service({
 });
 
 /**
+ * Validate and sanitize target input to prevent command injection
+ *
+ * Allows:
+ * - IP addresses (IPv4 and IPv6)
+ * - Domain names
+ * - CIDR ranges
+ *
+ * Blocks:
+ * - Shell metacharacters (; & | $ ` etc.)
+ * - Path traversal attempts
+ * - Any suspicious characters
+ */
+function validateAndSanitizeTarget(target: string): string {
+  // Reject empty or suspiciously long targets
+  if (!target || target.length > 253) {
+    throw new Error('Invalid target: empty or too long');
+  }
+
+  // Reject shell metacharacters and dangerous patterns
+  const dangerousChars = /[;&|$`<>(){}[\]\\!#*?'"]/;
+  if (dangerousChars.test(target)) {
+    throw new Error(`Invalid target: contains shell metacharacters: ${target}`);
+  }
+
+  // Allow only:
+  // - IP addresses: 192.168.1.1, 2001:db8::1
+  // - Domain names: example.com, sub.example.com
+  // - CIDR ranges: 192.168.1.0/24
+  // - Hostnames: localhost, my-server
+  const validTargetPattern = /^[a-zA-Z0-9.:/_-]+$/;
+  if (!validTargetPattern.test(target)) {
+    throw new Error(`Invalid target format: ${target}`);
+  }
+
+  // Additional validation for specific patterns
+  const parts = target.split(/[./]/);
+  for (const part of parts) {
+    // Each part should be reasonable length
+    if (part.length > 63) {
+      throw new Error('Invalid target: label too long');
+    }
+  }
+
+  return target;
+}
+
+/**
  * Build nmap command arguments based on input
+ * Returns array of arguments (for execFile, not shell string)
  */
 function buildNmapArgs(input: {
   ports?: string;
   protocol?: 'tcp' | 'udp';
   aggressive?: boolean;
   timeout?: number;
-}): string {
+}): string[] {
   const args: string[] = ['-oX', '-']; // Output as XML to stdout
 
   if (input.ports) {
+    // Validate port specification
+    if (!/^[0-9,\-]+$/.test(input.ports)) {
+      throw new Error('Invalid port specification');
+    }
     args.push('-p', input.ports);
   }
 
@@ -162,8 +219,12 @@ function buildNmapArgs(input: {
   }
 
   if (input.timeout) {
+    // Validate timeout is reasonable number
+    if (input.timeout < 0 || input.timeout > 3600000) {
+      throw new Error('Invalid timeout value');
+    }
     args.push('--host-timeout', `${input.timeout}ms`);
   }
 
-  return args.join(' ');
+  return args;
 }
