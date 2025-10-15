@@ -1,6 +1,7 @@
 packages:
   - packages/*
   - apps/*
+  - poc-restate
 
 ignoredBuiltDependencies:
   - '@swc/core'
