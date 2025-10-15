@@ -65,7 +65,8 @@ export class PortScanService {
     const client = getRestateHttpClient();
 
     // Build callback URL for postback
-    const baseUrl = process.env.APP_URL || 'http://localhost:3000';
+    // Use APP_URL if set, otherwise fall back to BETTER_AUTH_URL (which should be set for auth)
+    const baseUrl = process.env.APP_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000';
     const callbackUrl = `${baseUrl}/api/internal/scan-results`;
 
     const scanResult = await client.startPortScan({
