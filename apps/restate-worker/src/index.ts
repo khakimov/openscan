@@ -1,5 +1,6 @@
 import * as restate from '@restatedev/restate-sdk';
 import { portScanner } from './port-scanner';
+import { discoveryService } from './discovery-service';
 import { createLogger } from '@repo/logger';
 
 const logger = createLogger({ name: 'restate-worker' });
@@ -9,7 +10,7 @@ const logger = createLogger({ name: 'restate-worker' });
  *
  * This service handles:
  * - Port scanning (nmap/masscan/rustscan)
- * - Discovery workflows
+ * - Discovery workflows (subdomain/host discovery)
  * - Any long-running security scanning tasks
  *
  * Architecture:
@@ -27,16 +28,22 @@ const IDENTITY_KEYS = process.env.RESTATE_IDENTITY_KEYS
   ? process.env.RESTATE_IDENTITY_KEYS.split(',')
   : undefined;
 
-restate
+const endpoint = restate
   .endpoint()
   .bind(portScanner)
-  // TODO: Add discovery service
-  // .bind(discoveryService)
+  .bind(discoveryService);
+
+endpoint
   .listen(PORT)
   .then(() => {
+    // Get actual registered service names
+    const registeredServices = [];
+    if (portScanner) registeredServices.push('PortScanner');
+    if (discoveryService) registeredServices.push('Discovery');
+
     logger.info('Restate worker started', {
       port: PORT,
-      services: ['PortScanner'],
+      services: registeredServices,
       identityKeysConfigured: !!IDENTITY_KEYS,
     });
 
