@@ -2,6 +2,8 @@ import * as restate from '@restatedev/restate-sdk';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
+import { postbackScanResults } from './postback';
+import { parseNmapXml } from './xml-parser';
 
 const execFileAsync = promisify(execFile);
 const logger = createLogger({ name: 'restate-port-scanner' });
@@ -17,6 +19,7 @@ export const portScanner = restate.service({
   handlers: {
     /**
      * Main scan handler - runs nmap and returns parsed results
+     * Optional: callbackUrl for postback when scan completes
      */
     scan: async (ctx, input: {
       target: string;
@@ -24,6 +27,9 @@ export const portScanner = restate.service({
       protocol?: 'tcp' | 'udp';
       aggressive?: boolean;
       timeout?: number;
+      callbackUrl?: string;
+      deviceId?: string;
+      workflowId?: string;
     }) => {
       const scanId = ctx.rand.uuidv4();
       const startTime = Date.now();
@@ -31,7 +37,7 @@ export const portScanner = restate.service({
       logger.info('Starting port scan', { scanId, target: input.target });
 
       // Step 1: Run nmap scan (durable - will retry on failure)
-      await ctx.run('nmap-scan', async () => {
+      const nmapXml = await ctx.run('nmap-scan', async () => {
         // Validate and sanitize target
         const sanitizedTarget = validateAndSanitizeTarget(input.target);
         const nmapArgs = buildNmapArgs(input);
@@ -47,11 +53,7 @@ export const portScanner = restate.service({
             logger.warn('nmap stderr', { scanId, stderr });
           }
 
-          return {
-            xml: stdout,
-            exitCode: 0,
-            duration: Date.now() - startTime,
-          };
+          return stdout; // Return XML string
         } catch (error: any) {
           logger.error('nmap execution failed', { scanId, error });
           throw new Error(`nmap failed: ${error.message}`);
@@ -59,28 +61,26 @@ export const portScanner = restate.service({
       });
 
       // Step 2: Parse nmap XML output (durable)
-      const parsedPorts = await ctx.run('parse-xml', async () => {
+      const parsedResult = await ctx.run('parse-xml', async () => {
         logger.info('Parsing nmap XML', { scanId });
 
-        // TODO: Use your existing XML parser from apps/temporal-worker
-        // For now, simulate parsed results
-        return [
-          { port: 22, protocol: 'tcp', state: 'open', service: 'ssh' },
-          { port: 80, protocol: 'tcp', state: 'open', service: 'http' },
-          { port: 443, protocol: 'tcp', state: 'open', service: 'https' },
-        ];
+        // Use real XML parser from temporal-worker
+        const parsed = await parseNmapXml(nmapXml);
+
+        logger.info('XML parsing complete', {
+          scanId,
+          hostsScanned: Object.keys(parsed.hosts).length,
+        });
+
+        return parsed;
       });
 
-      // Step 3: Service detection (durable)
-      const portsWithServices = await ctx.run('detect-services', async () => {
-        logger.info('Detecting services', { scanId, portCount: parsedPorts.length });
-
-        // TODO: Add actual service detection logic
-        return parsedPorts.map(p => ({
-          ...p,
-          version: p.port === 22 ? 'OpenSSH 8.2' : undefined,
-        }));
-      });
+      // Extract ports from parsed result
+      // hosts is a Record<string, ParsedHostData>, get first host
+      const hostAddresses = Object.keys(parsedResult.hosts);
+      const portsWithServices = hostAddresses.length > 0
+        ? parsedResult.hosts[hostAddresses[0]].ports
+        : [];
 
       const scanDuration = Date.now() - startTime;
 
@@ -91,7 +91,7 @@ export const portScanner = restate.service({
         duration: scanDuration,
       });
 
-      return {
+      const results = {
         scanId,
         target: input.target,
         ports: portsWithServices,
@@ -99,6 +99,41 @@ export const portScanner = restate.service({
         scanDuration,
         completedAt: new Date().toISOString(),
       };
+
+      // Step 4: Postback results if callbackUrl provided (durable)
+      if (input.callbackUrl && input.deviceId && input.workflowId) {
+        await ctx.run('postback-results', async () => {
+          logger.info('Posting scan results back to server', {
+            scanId,
+            callbackUrl: input.callbackUrl,
+            deviceId: input.deviceId,
+          });
+
+          await postbackScanResults({
+            callbackUrl: input.callbackUrl!,
+            deviceId: input.deviceId!,
+            workflowId: input.workflowId!,
+            results: {
+              target: input.target,
+              ports: portsWithServices,
+              timing: {
+                start: startTime,
+                end: Date.now(),
+                elapsed: scanDuration,
+              },
+              scanMetadata: {
+                scanner: 'nmap',
+                duration: scanDuration,
+                resolvedTarget: input.target,
+              },
+            },
+          });
+
+          logger.info('Postback successful', { scanId, deviceId: input.deviceId });
+        });
+      }
+
+      return results;
     },
 
     /**

@@ -1,14 +1,8 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
-import { WorkflowNotFoundError, WorkflowFailedError } from '@temporalio/client';
-// WorkflowExecutionTerminatedError doesn't exist in @temporalio/client
-// Use WorkflowFailedError for all failure cases
 
-import { getCurrentTenant } from '../../../utils/auth';
 import { CancelPortScanSchema } from '../../schemas/port-scan-schemas';
-import { workflowOrchestrator } from '../../services/workflow-orchestrator';
-import { workflowOrchestratorHttp } from '../../services/workflow-orchestrator-http';
-import { scanRecorder } from '../../services/scan-recorder';
+import { portScanService } from '../../services/port-scan-service';
 import { extractErrorMessage } from '../../utils/workflow-helpers';
 
 const logger = createLogger({ name: 'discovery-port-scan-lifecycle' });
@@ -31,46 +25,23 @@ export const cancelPortScanWorkflowExecution = createServerFn({
         hasReason: Boolean(reason),
       });
 
-      await getCurrentTenant();
-
-      const { signalDelivered } = await workflowOrchestrator.cancelPortScan({
-        workflowId,
+      // Use port scan service for cancellation (handles Restate + database)
+      await portScanService.cancelScan({
+        scanId: workflowId,
+        scanRunId,
         reason,
       });
-
-      if (scanRunId) {
-        try {
-          await scanRecorder.markRunCanceled(scanRunId, reason);
-
-          const runWithWorkflow = await scanRecorder.fetchRunWithWorkflow(scanRunId);
-          if (runWithWorkflow) {
-            await scanRecorder.updateWorkflowStatus(runWithWorkflow.workflow.id, 'CANCELED');
-          }
-
-          logger.info('Marked scan run as canceled in orchestration store', {
-            workflowId,
-            scanRunId,
-          });
-        } catch (statusError) {
-          logger.warn('Failed to update scan status during cancellation', {
-            workflowId,
-            scanRunId,
-            error: extractErrorMessage(statusError),
-          });
-        }
-      }
 
       return {
         success: true,
         workflowId,
         scanRunId,
-        status: 'cancel-requested',
-        signalDelivered,
+        status: 'canceled',
       };
     } catch (error) {
       const message = extractErrorMessage(error);
 
-      logger.error('Failed to cancel port scan workflow', {
+      logger.error('Failed to cancel port scan', {
         workflowId,
         scanRunId,
         error: message,
@@ -96,65 +67,30 @@ export const getPortScanState = createServerFn({
     const { workflowId } = data;
 
     try {
-      // Use HTTP client to describe workflow (gRPC queries not supported in Workers)
-      const description = await workflowOrchestratorHttp.describeWorkflow(workflowId);
-
-      // Map Temporal status to simple state
-      const state = {
-        status: description.status,
-        workflowId: description.workflowId,
-        runId: description.runId,
-      };
+      // Use port scan service to get state from Restate
+      const state = await portScanService.getScanState(workflowId);
 
       return {
         success: true,
-        state,
+        state: {
+          scanId: state.scanId,
+          status: state.status,
+          message: state.message,
+        },
       };
     } catch (error) {
       const message = extractErrorMessage(error);
 
-      // Check if workflow not found
-      if (message.includes('not found') || message.includes('404')) {
-        logger.warn('Workflow not found in Temporal', {
-          workflowId,
-          error: message,
-        });
-        return {
-          success: false,
-          error: 'Workflow not found - likely expired or never started',
-          errorType: 'WORKFLOW_NOT_FOUND',
-          shouldStopPolling: true,
-        };
-      }
-
-      // Check if workflow failed
-      if (message.includes('failed') || message.includes('FAILED')) {
-        logger.warn('Workflow execution failed', {
-          workflowId,
-          error: message,
-        });
-        return {
-          success: false,
-          error: 'Workflow execution failed',
-          errorType: 'WORKFLOW_FAILED',
-          shouldStopPolling: true,
-        };
-      }
-
-      // Generic error
-      const isTimeout = message.toLowerCase().includes('timeout');
-
-      logger.error('Failed to query workflow state', {
+      logger.error('Failed to query port scan state', {
         workflowId,
         error: message,
-        isTimeout,
       });
 
       return {
         success: false,
         error: message,
-        errorType: isTimeout ? 'QUERY_TIMEOUT' : 'QUERY_ERROR',
-        shouldStopPolling: false, // Allow retry for transient errors
+        errorType: 'QUERY_ERROR',
+        shouldStopPolling: false,
       };
     }
   });

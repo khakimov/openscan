@@ -1,14 +1,10 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
-import { getCurrentTenant, getCurrentUser } from '../../../utils/auth';
-import { determineScanScope } from '../../utils/scan-scope';
-import { generateWorkflowId, extractErrorMessage } from '../../utils/workflow-helpers';
+import { extractErrorMessage } from '../../utils/workflow-helpers';
 import { PortScanSchema } from '../../schemas/port-scan-schemas';
-import { workflowOrchestratorHttp } from '../../services/workflow-orchestrator-http';
-import { scanRecorder } from '../../services/scan-recorder';
-import { deviceManager } from '../../services/device-manager';
-import { buildScannerInput } from '../../utils/port-scan';
+import { getCurrentTenant, getCurrentUser } from '../../../utils/auth';
+import { portScanService } from '../../services/port-scan-service';
 
 import type { PortScanInput } from '@repo/contracts';
 
@@ -21,7 +17,7 @@ export const startPortScanWorkflow = createServerFn({
     logger.info('Port scan input validation', { data });
     const result = PortScanSchema.safeParse(data);
     if (!result.success) {
-      const message = result.error?.errors?.map((err) => err.message).join(', ') || 'Validation failed';
+      const message = result.error?.issues?.map((err) => err.message).join(', ') || 'Validation failed';
       logger.error('Port scan input validation failed', { data, error: result.error });
       throw new Error(`Invalid input: ${message}`);
     }
@@ -34,66 +30,42 @@ export const startPortScanWorkflow = createServerFn({
       const tenantId = await getCurrentTenant();
       const user = await getCurrentUser();
 
-      logger.info('Starting port scan workflow with orchestration', {
-        tenantId,
-        userId: user.id,
-        input,
-      });
-
-      const temporalWorkflowId = generateWorkflowId('portscan', input.target);
-      const scanWorkflow = await scanRecorder.createWorkflow({
-        tenantId,
-        temporalWorkflowId,
-        kind: 'DISCOVERY',
-      });
-
-      const scope = determineScanScope(input.target);
-      const scanRun = await scanRecorder.createRun({
-        workflowId: scanWorkflow.id,
-        tenantId,
-        scanType: 'PORT',
-        scope,
-        requestedById: user.id,
+      logger.info('Starting port scan via Restate', {
         target: input.target,
-        targets: [input.target],
-      });
-
-      const scannerInput = buildScannerInput({
+        ports: input.ports,
         tenantId,
         userId: user.id,
-        input,
-        scope,
-        scanWorkflowId: scanWorkflow.id,
-        scanRunId: scanRun.id,
       });
 
-      const handle = await workflowOrchestratorHttp.startPortScan(scannerInput, temporalWorkflowId);
+      // Use service for full orchestration (Restate + database tracking)
+      const result = await portScanService.startScan({
+        input,
+        tenantId,
+        userId: user.id,
+      });
 
-      if (input.deviceId) {
-        await deviceManager.attachDeviceToScan({
-          tenantId,
-          scanRunId: scanRun.id,
-          deviceId: input.deviceId,
-          target: input.target,
-        });
-      }
-
-      await scanRecorder.markRunRunning(scanRun.id);
-      await scanRecorder.updateWorkflowStatus(scanWorkflow.id, 'RUNNING', handle.firstExecutionRunId);
+      logger.info('Port scan started', {
+        scanId: result.scanId,
+        target: result.target,
+        portsFound: result.totalPorts,
+      });
 
       return {
         success: true,
-        workflowId: handle.workflowId,
-        scanWorkflowId: scanWorkflow.id,
-        scanRunId: scanRun.id,
-        target: input.target,
+        workflowId: result.workflowId,
+        scanWorkflowId: result.scanWorkflowId,
+        scanRunId: result.scanRunId,
+        scanId: result.scanId,
+        target: result.target,
+        ports: result.ports,
+        totalPorts: result.totalPorts,
         message: `Port scan started for ${input.target}`,
       };
     } catch (error) {
       const errorMessage = extractErrorMessage(error);
 
-      logger.error('Failed to start port scan workflow', {
-        input,
+      logger.error('Failed to start port scan', {
+        target: input.target,
         error: errorMessage,
       });
 

@@ -13,15 +13,17 @@
     "test:ui": "vitest --ui"
   },
   "dependencies": {
-    "@restatedev/restate-sdk": "^1.9.0",
-    "@restatedev/restate-sdk-clients": "^1.9.0",
     "@repo/contracts": "workspace:*",
     "@repo/logger": "workspace:*",
+    "@restatedev/restate-sdk": "^1.9.0",
+    "@restatedev/restate-sdk-clients": "^1.9.0",
+    "xml2js": "^0.6.2",
     "zod": "^3.24.1"
   },
   "devDependencies": {
     "@restatedev/restate-sdk-testcontainers": "^1.9.0",
     "@types/node": "^22.10.5",
+    "@types/xml2js": "^0.4.14",
     "@vitest/ui": "^3.2.4",
     "tsx": "^4.19.2",
     "typescript": "^5.9.3",
