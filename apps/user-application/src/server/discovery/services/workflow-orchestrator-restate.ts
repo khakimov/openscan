@@ -151,17 +151,24 @@ export class WorkflowOrchestratorRestate {
       }
 
       // Convert Restate output to Temporal DiscoveryOutput format
+      // Extract subdomains (hostnames) from devices for backward compatibility
+      const devices = state.devices || [];
+      const subdomains = devices
+        .filter((d: any) => d.hostname && d.hostname.length > 0)
+        .map((d: any) => d.hostname);
+
       return {
         scanId: workflowId,
         startedAt: new Date(state.startedAt),
         completedAt: state.completedAt ? new Date(state.completedAt) : new Date(),
-        // Map devices to subdomains (for backward compatibility)
-        subdomains: state.devicesFound > 0 ? [] : [], // Will be populated from actual result
-        devices: [], // Placeholder - will be fetched separately
+        subdomains,
+        devices,
         totalTargetsProcessed: state.processedTargets,
         errors: state.errors,
         performance: {
-          executionTimeMs: 0, // Calculate from timestamps
+          executionTimeMs: state.completedAt
+            ? new Date(state.completedAt).getTime() - new Date(state.startedAt).getTime()
+            : 0,
           devicesPerSecond: 0,
         },
       };

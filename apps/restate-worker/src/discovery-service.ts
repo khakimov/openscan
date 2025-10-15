@@ -53,6 +53,7 @@ interface DiscoveryState {
   totalTargets: number;
   processedTargets: number;
   devicesFound: number;
+  devices?: any[]; // Store devices after completion
   errors: string[];
   startedAt: string;
   completedAt?: string;
@@ -189,11 +190,6 @@ export const discoveryService = restate.service({
       const completedAt = new Date();
       const executionTimeMs = Date.now() - startTime;
 
-      state.phase = 'COMPLETED';
-      state.devicesFound = uniqueDevices.length;
-      state.completedAt = completedAt.toISOString();
-      stateStore.set(scanId, state);
-
       // Convert devices to serializable format (Dates -> ISO strings)
       const serializedDevices = uniqueDevices.map((device) => ({
         ...device,
@@ -202,6 +198,12 @@ export const discoveryService = restate.service({
             ? device.discoveredAt.toISOString()
             : device.discoveredAt, // Already a string from Restate serialization
       })) as any; // Type assertion needed for Date -> string conversion
+
+      state.phase = 'COMPLETED';
+      state.devicesFound = uniqueDevices.length;
+      state.devices = serializedDevices; // Store devices in state for later retrieval
+      state.completedAt = completedAt.toISOString();
+      stateStore.set(scanId, state);
 
       return {
         scanId,

@@ -49,6 +49,18 @@ export interface RestateDiscoveryState {
   totalTargets: number;
   processedTargets: number;
   devicesFound: number;
+  devices?: Array<{
+    scope: 'EXTERNAL' | 'INTERNAL';
+    hostname: string;
+    ipAddress?: string;
+    discoveredAt: string;
+    discoveryMethod: 'subfinder' | 'amass' | 'assetfinder' | 'direct';
+    confidence: number;
+    metadata: {
+      originalDomain: string;
+      source?: string;
+    };
+  }>;
   errors: string[];
   startedAt: string;
   completedAt?: string;
@@ -73,7 +85,11 @@ export class RestateHttpClient {
     };
 
     if (this.apiKey) {
+      // Try multiple header formats that Restate Cloud might use
+      // Standard OAuth Bearer token
       headers['Authorization'] = `Bearer ${this.apiKey}`;
+      // Alternative: x-restate-server-key (some Restate setups use this)
+      headers['x-restate-server-key'] = this.apiKey;
     }
 
     return headers;
