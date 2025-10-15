@@ -10,21 +10,21 @@
  * - Arguments passed as array (no shell interpolation)
  */
 
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { execFile } from "child_process";
+import { promisify } from "util";
 
 const execFileAsync = promisify(execFile);
 
 // Types
-export type ScanScope = 'EXTERNAL' | 'INTERNAL';
-export type DiscoveryTool = 'subfinder' | 'amass' | 'assetfinder';
+export type ScanScope = "EXTERNAL" | "INTERNAL";
+export type DiscoveryTool = "subfinder" | "amass" | "assetfinder";
 
 export interface DiscoveredDevice {
   scope: ScanScope;
   hostname: string;
   ipAddress?: string;
   discoveredAt: Date;
-  discoveryMethod: DiscoveryTool | 'direct';
+  discoveryMethod: DiscoveryTool | "direct";
   confidence: number; // 0.0-1.0
   metadata: {
     originalDomain: string;
@@ -36,7 +36,7 @@ export interface DiscoveredDevice {
  * Helper to find tool in PATH or common Go locations
  */
 function findTool(toolName: string): string {
-  const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+  const homeDir = process.env.HOME || process.env.USERPROFILE || "";
   const paths = [
     toolName, // Try PATH first
     `${homeDir}/go/bin/${toolName}`,
@@ -54,7 +54,7 @@ function findTool(toolName: string): string {
 export async function runDiscoveryTool(
   tool: DiscoveryTool,
   domain: string,
-  scope: ScanScope = 'EXTERNAL'
+  scope: ScanScope = "EXTERNAL",
 ): Promise<DiscoveredDevice[]> {
   // Validate domain input (CRITICAL SECURITY)
   const domainRegex =
@@ -67,29 +67,29 @@ export async function runDiscoveryTool(
 
   try {
     switch (tool) {
-      case 'subfinder':
+      case "subfinder":
         ({ stdout } = await execFileAsync(
-          findTool('subfinder'),
-          ['-d', domain, '-active', '-ip', '-oJ'],
-          { maxBuffer: 10 * 1024 * 1024, timeout: 300000 } // 5 minute timeout
+          findTool("subfinder"),
+          ["-d", domain, "-active", "-ip", "-oJ"],
+          { maxBuffer: 10 * 1024 * 1024, timeout: 300000 }, // 5 minute timeout
         ));
         return parseSubfinderOutput(stdout, domain, scope);
 
-      case 'amass':
-        ({ stdout } = await execFileAsync(
-          findTool('amass'),
-          ['enum', '-passive', '-d', domain],
-          { maxBuffer: 10 * 1024 * 1024, timeout: 600000 } // 10 minute timeout for amass
-        ));
-        return parseAmassOutput(stdout, domain, scope);
+      // case 'amass':
+      //   ({ stdout } = await execFileAsync(
+      //     findTool('amass'),
+      //     ['enum', '-passive', '-d', domain],
+      //     { maxBuffer: 10 * 1024 * 1024, timeout: 600000 } // 10 minute timeout for amass
+      //   ));
+      //   return parseAmassOutput(stdout, domain, scope);
 
-      case 'assetfinder':
-        ({ stdout } = await execFileAsync(
-          findTool('assetfinder'),
-          [domain],
-          { maxBuffer: 10 * 1024 * 1024, timeout: 300000 } // 5 minute timeout
-        ));
-        return parseAssetfinderOutput(stdout, domain, scope);
+      // case 'assetfinder':
+      //   ({ stdout } = await execFileAsync(
+      //     findTool('assetfinder'),
+      //     [domain],
+      //     { maxBuffer: 10 * 1024 * 1024, timeout: 300000 } // 5 minute timeout
+      //   ));
+      //   return parseAssetfinderOutput(stdout, domain, scope);
 
       default:
         throw new Error(`Unknown discovery tool: ${tool}`);
@@ -112,10 +112,10 @@ export async function runDiscoveryTool(
 export function parseSubfinderOutput(
   output: string,
   originalDomain: string,
-  scope: ScanScope
+  scope: ScanScope,
 ): DiscoveredDevice[] {
   const devices: DiscoveredDevice[] = [];
-  const lines = output.split('\n').filter((line) => line.trim().length > 0);
+  const lines = output.split("\n").filter((line) => line.trim().length > 0);
 
   for (const line of lines) {
     try {
@@ -126,7 +126,7 @@ export function parseSubfinderOutput(
           hostname: parsed.host,
           ipAddress: parsed.ip || undefined,
           discoveredAt: new Date(),
-          discoveryMethod: 'subfinder',
+          discoveryMethod: "subfinder",
           confidence: parsed.ip ? 1.0 : 0.8, // Higher confidence if IP is resolved
           metadata: {
             originalDomain,
@@ -136,12 +136,12 @@ export function parseSubfinderOutput(
       }
     } catch {
       // If not JSON, treat as plain text (fallback)
-      if (line.includes('.') && line.includes(originalDomain)) {
+      if (line.includes(".") && line.includes(originalDomain)) {
         devices.push({
           scope,
           hostname: line.trim(),
           discoveredAt: new Date(),
-          discoveryMethod: 'subfinder',
+          discoveryMethod: "subfinder",
           confidence: 0.7, // Lower confidence for plain text parsing
           metadata: { originalDomain },
         });
@@ -163,22 +163,22 @@ export function parseSubfinderOutput(
 export function parseAmassOutput(
   output: string,
   originalDomain: string,
-  scope: ScanScope
+  scope: ScanScope,
 ): DiscoveredDevice[] {
   const devices: DiscoveredDevice[] = [];
   const lines = output
-    .split('\n')
+    .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
   for (const line of lines) {
     // Amass output is typically just hostnames, one per line
-    if (line.includes('.') && line.includes(originalDomain)) {
+    if (line.includes(".") && line.includes(originalDomain)) {
       devices.push({
         scope,
         hostname: line,
         discoveredAt: new Date(),
-        discoveryMethod: 'amass',
+        discoveryMethod: "amass",
         confidence: 0.9, // High confidence for amass results
         metadata: { originalDomain },
       });
@@ -199,22 +199,22 @@ export function parseAmassOutput(
 export function parseAssetfinderOutput(
   output: string,
   originalDomain: string,
-  scope: ScanScope
+  scope: ScanScope,
 ): DiscoveredDevice[] {
   const devices: DiscoveredDevice[] = [];
   const lines = output
-    .split('\n')
+    .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0);
 
   for (const line of lines) {
     // Assetfinder output is typically just hostnames, one per line
-    if (line.includes('.') && line.includes(originalDomain)) {
+    if (line.includes(".") && line.includes(originalDomain)) {
       devices.push({
         scope,
         hostname: line,
         discoveredAt: new Date(),
-        discoveryMethod: 'assetfinder',
+        discoveryMethod: "assetfinder",
         confidence: 0.8, // Good confidence for assetfinder results
         metadata: { originalDomain },
       });
@@ -231,13 +231,13 @@ export function parseAssetfinderOutput(
  * Logic: If same key exists, keep the one with higher confidence
  */
 export function deduplicateByHostname(
-  devices: DiscoveredDevice[]
+  devices: DiscoveredDevice[],
 ): DiscoveredDevice[] {
   const deviceMap = new Map<string, DiscoveredDevice>();
 
   for (const device of devices) {
     // Create unique key combining hostname and IP address
-    const key = `${device.hostname}:${device.ipAddress || 'no-ip'}`;
+    const key = `${device.hostname}:${device.ipAddress || "no-ip"}`;
     const existing = deviceMap.get(key);
 
     if (!existing || device.confidence > existing.confidence) {
