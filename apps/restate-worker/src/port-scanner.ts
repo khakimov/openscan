@@ -8,6 +8,21 @@ import { parseNmapXml } from './xml-parser';
 const execFileAsync = promisify(execFile);
 const logger = createLogger({ name: 'restate-port-scanner' });
 
+// State management for scan tracking
+interface PortScanState {
+  scanId: string;
+  target: string;
+  status: 'VALIDATING' | 'SCANNING' | 'PARSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  portsFound?: number;
+  error?: string;
+  startedAt: string;
+  completedAt?: string;
+  cancelRequested?: boolean;
+  cancelReason?: string;
+}
+
+const stateStore = new Map<string, PortScanState>();
+
 /**
  * Port Scanner Service - Restate Implementation
  *
@@ -34,13 +49,34 @@ export const portScanner = restate.service({
       const scanId = ctx.rand.uuidv4();
       const startTime = Date.now();
 
+      // Initialize state
+      const state: PortScanState = {
+        scanId,
+        target: input.target,
+        status: 'VALIDATING',
+        startedAt: new Date().toISOString(),
+      };
+      stateStore.set(scanId, state);
+
       logger.info('Starting port scan', { scanId, target: input.target });
 
       // Step 1: Run nmap scan (durable - will retry on failure)
       const nmapXml = await ctx.run('nmap-scan', async () => {
+        // Check for cancellation before starting scan
+        const currentState = stateStore.get(scanId);
+        if (currentState?.cancelRequested) {
+          state.status = 'CANCELLED';
+          state.completedAt = new Date().toISOString();
+          stateStore.set(scanId, state);
+          throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
+        }
+
         // Validate and sanitize target
         const sanitizedTarget = validateAndSanitizeTarget(input.target);
         const nmapArgs = buildNmapArgs(input);
+
+        state.status = 'SCANNING';
+        stateStore.set(scanId, state);
 
         logger.info('Executing nmap', { scanId, args: nmapArgs, target: sanitizedTarget });
 
@@ -55,6 +91,11 @@ export const portScanner = restate.service({
 
           return stdout; // Return XML string
         } catch (error: any) {
+          state.status = 'FAILED';
+          state.error = error.message;
+          state.completedAt = new Date().toISOString();
+          stateStore.set(scanId, state);
+
           logger.error('nmap execution failed', { scanId, error });
           throw new Error(`nmap failed: ${error.message}`);
         }
@@ -62,17 +103,30 @@ export const portScanner = restate.service({
 
       // Step 2: Parse nmap XML output (durable)
       const parsedResult = await ctx.run('parse-xml', async () => {
+        state.status = 'PARSING';
+        stateStore.set(scanId, state);
+
         logger.info('Parsing nmap XML', { scanId });
 
-        // Use real XML parser from temporal-worker
-        const parsed = await parseNmapXml(nmapXml);
+        try {
+          // Use real XML parser from temporal-worker
+          const parsed = await parseNmapXml(nmapXml);
 
-        logger.info('XML parsing complete', {
-          scanId,
-          hostsScanned: Object.keys(parsed.hosts).length,
-        });
+          logger.info('XML parsing complete', {
+            scanId,
+            hostsScanned: Object.keys(parsed.hosts).length,
+          });
 
-        return parsed;
+          return parsed;
+        } catch (error: any) {
+          state.status = 'FAILED';
+          state.error = `XML parsing failed: ${error.message}`;
+          state.completedAt = new Date().toISOString();
+          stateStore.set(scanId, state);
+
+          logger.error('XML parsing failed', { scanId, error });
+          throw error;
+        }
       });
 
       // Extract ports from parsed result
@@ -83,6 +137,12 @@ export const portScanner = restate.service({
         : [];
 
       const scanDuration = Date.now() - startTime;
+
+      // Update state with completion
+      state.status = 'COMPLETED';
+      state.portsFound = portsWithServices.length;
+      state.completedAt = new Date().toISOString();
+      stateStore.set(scanId, state);
 
       logger.info('Port scan completed', {
         scanId,
@@ -139,38 +199,75 @@ export const portScanner = restate.service({
     /**
      * Cancel a running scan
      *
-     * TODO: Implement proper cancellation
-     * Options:
-     * 1. Use Restate Workflows for cancellation support
-     * 2. Use Virtual Objects to track scan state
-     * 3. Use external state store (your existing DB)
+     * Sets cancellation flag in state, which will be checked at next checkpoint
+     * (before nmap execution). Restate's durability ensures cancellation is persisted.
      */
     cancel: async (_ctx, input: { scanId: string; reason?: string }) => {
       logger.info('Cancel requested', input);
 
-      // For now, just acknowledge
-      // TODO: Integrate with your scan-recorder DB to mark as cancelled
+      const state = stateStore.get(input.scanId);
+
+      if (!state) {
+        return {
+          success: false,
+          scanId: input.scanId,
+          message: 'Scan not found - may have already completed',
+        };
+      }
+
+      if (state.status === 'COMPLETED' || state.status === 'FAILED' || state.status === 'CANCELLED') {
+        return {
+          success: false,
+          scanId: input.scanId,
+          message: `Scan already ${state.status.toLowerCase()}, cannot cancel`,
+        };
+      }
+
+      // Set cancellation flag
+      state.cancelRequested = true;
+      state.cancelReason = input.reason || 'User requested cancellation';
+      stateStore.set(input.scanId, state);
+
+      logger.info('Cancellation flag set', {
+        scanId: input.scanId,
+        reason: state.cancelReason,
+      });
+
       return {
         success: true,
         scanId: input.scanId,
-        message: 'Cancellation recorded - workflow will stop at next checkpoint',
+        message: 'Cancellation recorded - scan will stop at next checkpoint',
       };
     },
 
     /**
      * Get scan progress/state
      *
-     * TODO: Query from your existing scan-recorder DB
-     * Or use Restate Virtual Objects for in-workflow state
+     * Returns current state from in-memory store
      */
     getState: async (_ctx, input: { scanId: string }) => {
       logger.info('State query', input);
 
-      // TODO: Query from scan-recorder DB
+      const state = stateStore.get(input.scanId);
+
+      if (!state) {
+        return {
+          scanId: input.scanId,
+          status: 'NOT_FOUND',
+          message: 'Scan not found - may have been cleaned up or never started',
+        };
+      }
+
       return {
-        scanId: input.scanId,
-        status: 'running',
-        message: 'TODO: Integrate with scan-recorder for real state',
+        scanId: state.scanId,
+        target: state.target,
+        status: state.status,
+        portsFound: state.portsFound,
+        error: state.error,
+        startedAt: state.startedAt,
+        completedAt: state.completedAt,
+        cancelRequested: state.cancelRequested,
+        cancelReason: state.cancelReason,
       };
     },
   },
