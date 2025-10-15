@@ -56,10 +56,27 @@ export interface RestateDiscoveryState {
 
 export class RestateHttpClient {
   private baseUrl: string;
+  private apiKey?: string;
 
   constructor(baseUrl?: string) {
     // Default to Restate Cloud URL or localhost
     this.baseUrl = baseUrl || process.env.RESTATE_INGRESS_URL || 'http://localhost:8080';
+    this.apiKey = process.env.RESTATE_API_KEY;
+  }
+
+  /**
+   * Get headers with optional API key for Restate Cloud
+   */
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
+    }
+
+    return headers;
   }
 
   /**
@@ -76,9 +93,7 @@ export class RestateHttpClient {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
         body: JSON.stringify(input),
       });
 
@@ -114,9 +129,7 @@ export class RestateHttpClient {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
         body: JSON.stringify({ scanId }),
       });
 
@@ -165,9 +178,7 @@ export class RestateHttpClient {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: this.getHeaders(),
         body: JSON.stringify(input),
       });
 
@@ -209,7 +220,7 @@ export class RestateHttpClient {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({ scanId, reason }),
       });
 
@@ -237,7 +248,7 @@ export class RestateHttpClient {
     try {
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({ scanId }),
       });
 
