@@ -78,7 +78,7 @@ export const discoveryService = restate.service({
     discover: async (ctx, input: DiscoveryInput): Promise<DiscoveryOutput> => {
       const scanId = input.scanId || ctx.rand.uuidv4();
       const startTime = Date.now();
-      const tools = input.tools || ['subfinder', 'assetfinder'];
+      const tools = input.tools || ['subfinder']; // Only subfinder enabled for now
 
       // Initialize state
       const state: DiscoveryState = {
