@@ -2,6 +2,7 @@ import * as restate from '@restatedev/restate-sdk';
 import { portScanner } from './port-scanner';
 import { discoveryService } from './discovery-service';
 import { createLogger } from '@repo/logger';
+import { checkDeploymentStatus, logDeploymentGuidance } from './deployment-checker';
 
 const logger = createLogger({ name: 'restate-worker' });
 
@@ -35,26 +36,31 @@ const endpoint = restate
 
 endpoint
   .listen(PORT)
-  .then(() => {
-    // Get actual registered service names
-    const registeredServices = [];
-    if (portScanner) registeredServices.push('PortScanner');
-    if (discoveryService) registeredServices.push('Discovery');
+  .then(async () => {
+    // Get actual registered service names and handlers
+    const services = [
+      {
+        name: 'PortScanner',
+        handlers: ['scan', 'cancel', 'getState'],
+      },
+      {
+        name: 'Discovery',
+        handlers: ['discover', 'getState'],
+      },
+    ];
 
     logger.info('Restate worker started', {
       port: PORT,
-      services: registeredServices,
+      services: services.map((s) => s.name),
       identityKeysConfigured: !!IDENTITY_KEYS,
     });
 
-    logger.info('Next steps:');
-    logger.info('1. Sign up for Restate Cloud: https://cloud.restate.dev');
-    logger.info('2. Register this worker:');
-    logger.info(`   npx @restatedev/restate deployments register http://localhost:${PORT}`);
-    logger.info('3. Test scan:');
-    logger.info('   curl -X POST <RESTATE_INGRESS_URL>/PortScanner/scan \\');
-    logger.info('     -H "Content-Type: application/json" \\');
-    logger.info('     -d \'{"target": "scanme.nmap.org"}\'');
+    // Check deployment status
+    const restateIngressUrl = process.env.RESTATE_INGRESS_URL;
+    const status = await checkDeploymentStatus(PORT, services, restateIngressUrl);
+
+    // Log guidance based on status
+    logDeploymentGuidance(status, PORT, restateIngressUrl);
   })
   .catch((err) => {
     logger.error('Failed to start Restate worker', { error: err });
