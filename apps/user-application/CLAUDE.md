@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `pnpm dev` - Start development server on port 3000
 - `pnpm build` - Build for production
 - `pnpm serve` - Preview production build
-- `pnpm test` - Run tests with Vitest
+- `pnpm test` - Run tests with Vitest (watch mode)
+- `pnpm test:run` - Run tests once and exit
 
 ### Shadcn Components
 - `pnpx shadcn@latest add <component>` - Add new Shadcn components (use latest version)
@@ -44,6 +45,41 @@ This is a TanStack Start application - a type-safe, client-first, full-stack Rea
 **Styling**: Uses Tailwind CSS v4 with the Vite plugin. Shadcn components are configured with "new-york" style, Zinc base color, and CSS variables enabled.
 
 **TypeScript**: Strict mode with additional linting rules (`noUnusedLocals`, `noUnusedParameters`, etc.). Uses modern ESNext module resolution.
+
+## Testing
+
+### Integration Tests with Miniflare + D1
+
+For testing data-ops queries against the real local D1 database:
+
+```typescript
+import { Miniflare } from 'miniflare';
+import { initDatabase, resetDatabase, getDb } from '@repo/data-ops/database/setup';
+import path from 'node:path';
+
+// Setup Miniflare connection to existing D1 database
+const mf = new Miniflare({
+  modules: true,
+  script: '',
+  d1Databases: {
+    DB: '93d2bd33-3b3e-42f3-a982-39b790922949', // database_id from wrangler.jsonc
+  },
+  d1Persist: path.join(process.cwd(), '.wrangler/state/v3/d1'),
+});
+
+const d1db = await mf.getD1Database('DB');
+initDatabase(d1db);
+```
+
+**Key Points:**
+- Use `database_id` from wrangler.jsonc (NOT database_name)
+- Use object syntax for d1Databases: `{ DB: 'id' }`
+- Call `mf.getD1Database('DB')` to get proper D1Database binding
+- Local D1 database is safe to modify for test data
+- Insert test data in `beforeAll`, clean up in `afterAll`
+- Use real IDs from database for foreign key constraints
+
+**Example:** See `src/server/__tests__/devices-scan-stats.integration.test.ts`
 
 ### Development Notes
 - Demo files (prefixed with `demo`) can be safely deleted

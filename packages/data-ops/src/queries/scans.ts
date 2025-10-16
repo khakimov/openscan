@@ -24,7 +24,7 @@ export async function getScanRunsWithArtifacts(
 
   // Return with empty artifacts array for now
   // TODO: Add artifacts when findings schema is migrated
-  return runs.map(run => ({
+  return runs.map((run: any) => ({
     ...run,
     artifacts: [],
   }));
@@ -237,7 +237,7 @@ export async function getActiveScansForDevice(
       eq(scanWorkflows.status, 'RUNNING')
     ));
 
-  return results.map(result => ({
+  return results.map((result: any) => ({
     scanRun: result.scan_runs,
     workflow: result.scan_workflows,
   }));
