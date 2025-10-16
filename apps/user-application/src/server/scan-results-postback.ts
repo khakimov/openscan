@@ -136,6 +136,11 @@ async function storeScanResults(params: {
   });
 
   // Step 4: Update workflow status
+  logger.info('Updating workflow status to SUCCEEDED', {
+    workflowDatabaseId: workflow.id,
+    workflowId: workflow.workflowId,
+    organizationId,
+  });
   await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
 
   // Step 5: Update device with scan metadata
