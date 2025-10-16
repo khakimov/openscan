@@ -66,8 +66,9 @@ export async function checkDeploymentStatus(
     const deployments = (await response.json()) as any;
 
     // Check if our worker is registered
+    // For cloud deployments, the URI contains the tunnel URL, so check if it ends with the port
     const ourDeployment = deployments.deployments?.find(
-      (d: any) => d.endpoint === workerUrl
+      (d: any) => d.uri === workerUrl || d.uri?.includes(`/localhost/${workerPort}`)
     );
 
     if (!ourDeployment) {
