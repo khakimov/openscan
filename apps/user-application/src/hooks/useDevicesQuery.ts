@@ -1,10 +1,18 @@
 import { useQuery } from '@tanstack/react-query';
 import { getDevicesData } from '@/server/devices';
 import { QUERY_CONFIG } from '@repo/constants';
-import type { DevicesResponse } from '@repo/data-ops';
+import type { TransformedDevice } from '@/server/devices';
 
 interface UseDevicesQueryParams {
   verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | ('CANDIDATE' | 'VERIFIED' | 'EXCLUDED')[];
+}
+
+// Response type matching what getDevicesData returns
+type DevicesResponse = {
+  items: TransformedDevice[];
+  totalCount: number;
+  page: number;
+  totalPages: number;
 }
 
 export const useDevicesQuery = (params?: UseDevicesQueryParams) => {
@@ -23,7 +31,7 @@ export const useDevicesQuery = (params?: UseDevicesQueryParams) => {
         deviceCount: result.items?.length || 0,
         totalCount: result.totalCount,
         verificationStatus: params?.verificationStatus,
-        firstFewDevices: result.items?.slice(0, 3).map(d => ({
+        firstFewDevices: result.items?.slice(0, 3).map((d: TransformedDevice) => ({
           id: d.id,
           name: d.name,
           tags: d.tags,

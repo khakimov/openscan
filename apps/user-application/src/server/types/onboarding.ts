@@ -6,7 +6,7 @@ export type OnboardingUserSummary = {
   organizationId: string | undefined;
 };
 
-export type OnboardingOrganizationMetadata = Record<string, unknown>;
+export type OnboardingOrganizationMetadata = Record<string, {}>;
 
 export type OnboardingOrganizationSummary = {
   id: string;

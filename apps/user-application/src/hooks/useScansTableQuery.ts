@@ -28,7 +28,7 @@ export function useScansTableQuery() {
       return hasActiveScans ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_30 : false;
     },
     refetchIntervalInBackground: false, // Only poll when tab is active
-    keepPreviousData: true, // Prevent jank by keeping old data during refetch
+    placeholderData: (previousData) => previousData, // Prevent jank by keeping old data during refetch
     ...QUERY_CONFIG.DEFAULTS.DYNAMIC_DATA,
   });
 }

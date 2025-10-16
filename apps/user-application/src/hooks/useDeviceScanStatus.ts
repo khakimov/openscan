@@ -86,8 +86,8 @@ export function useDeviceScanStatus(
     isCompleted: data?.status === 'completed',
     isFailed: data?.status === 'failed' || shouldStopPolling,
     isCanceled: data?.status === 'canceled',
-    progress: data?.progress || 0,
-    progressMessage: data?.progressMessage,
+    progress: (data as any)?.progress || 0,
+    progressMessage: (data as any)?.progressMessage,
   };
 }
 

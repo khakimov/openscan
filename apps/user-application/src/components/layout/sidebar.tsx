@@ -78,7 +78,7 @@ export function Sidebar({ className }: SidebarProps) {
     : user?.email?.charAt(0).toUpperCase() || "U";
 
   const organizations = useMemo<OrganizationOption[]>(() => {
-    const normalized = (organizationList ?? []).map((organization) => ({
+    const normalized: OrganizationOption[] = (organizationList ?? []).map((organization) => ({
       id: organization.id,
       name: organization.name ?? "Unnamed organization",
       slug: organization.slug ?? null,

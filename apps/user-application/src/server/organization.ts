@@ -126,7 +126,30 @@ export const getUserOrganizations = createServerFn({
       headers: request.headers,
     });
 
-    const organizations: UserOrganizationsResult["organizations"] = result ?? [];
+    // Transform Organization[] from better-auth to match expected type
+    // better-auth metadata is string | null | undefined, we need Record<string, {}> | null
+    const organizations: UserOrganizationsResult["organizations"] = (result ?? []).map((org) => {
+      let parsedMetadata: Record<string, {}> | null = null;
+      if (org.metadata && typeof org.metadata === 'string') {
+        try {
+          parsedMetadata = JSON.parse(org.metadata);
+        } catch (err) {
+          logger.warn("Failed to parse organization metadata", {
+            organizationId: org.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      } else if (org.metadata && typeof org.metadata === 'object') {
+        // If metadata is already an object, use it directly
+        parsedMetadata = org.metadata as Record<string, {}>;
+      }
+
+      return {
+        id: org.id,
+        name: org.name ?? null,
+        metadata: parsedMetadata,
+      };
+    });
 
     logger.info("Organizations fetched", {
       userId: user.id,
@@ -353,7 +376,7 @@ export const getOnboardingStatus = createServerFn({
     organizations = organizationsResult.organizations.map((org) => ({
       id: org.id,
       name: org.name ?? null,
-      metadata: (org.metadata ?? null) as Record<string, unknown> | null,
+      metadata: org.metadata ?? null,
     }));
 
     if (!organizationsResult.success && organizationsResult.error) {
@@ -389,7 +412,7 @@ export const getOnboardingStatus = createServerFn({
       .where(eq(organization.id, primaryOrganizationId))
       .limit(1);
 
-    let organizationMetadata: Record<string, unknown> | null = null;
+    let organizationMetadata: Record<string, {}> | null = null;
     if (organizationRecord?.metadata) {
       try {
         organizationMetadata = JSON.parse(organizationRecord.metadata);
