@@ -32,7 +32,7 @@ export function useDeviceDetailQuery(deviceId: string | null) {
           tags: result.tags
         }
       });
-      return result;
+      return result as TransformedDevice;
     },
     enabled: !!deviceId,
     ...QUERY_CONFIG.DEFAULTS.STABLE_DATA, // 5 minutes
@@ -71,8 +71,8 @@ export function useDeviceVulnerabilitiesQuery(
       // Sort by CVSS if requested
       if (sortByCvss && vulns.items) {
         const sortedItems = [...vulns.items].sort((a, b) => {
-          const scoreA = typeof a.cvssScore === "number" ? a.cvssScore : 0;
-          const scoreB = typeof b.cvssScore === "number" ? b.cvssScore : 0;
+          const scoreA = typeof a.cvss_score === "number" ? a.cvss_score : 0;
+          const scoreB = typeof b.cvss_score === "number" ? b.cvss_score : 0;
           return scoreB - scoreA;
         });
 
@@ -114,8 +114,8 @@ export function useAllDeviceVulnerabilitiesQuery(
         // Sort by CVSS if requested
         if (sortByCvss && firstPage.items) {
           const sortedItems = [...firstPage.items].sort((a, b) => {
-            const scoreA = typeof a.cvssScore === "number" ? a.cvssScore : 0;
-            const scoreB = typeof b.cvssScore === "number" ? b.cvssScore : 0;
+            const scoreA = typeof a.cvss_score === "number" ? a.cvss_score : 0;
+            const scoreB = typeof b.cvss_score === "number" ? b.cvss_score : 0;
             return scoreB - scoreA;
           });
 
@@ -153,8 +153,8 @@ export function useAllDeviceVulnerabilitiesQuery(
       // Sort by CVSS if requested
       const finalItems = sortByCvss
         ? allItems.sort((a, b) => {
-            const scoreA = typeof a.cvssScore === "number" ? a.cvssScore : 0;
-            const scoreB = typeof b.cvssScore === "number" ? b.cvssScore : 0;
+            const scoreA = typeof a.cvss_score === "number" ? a.cvss_score : 0;
+            const scoreB = typeof b.cvss_score === "number" ? b.cvss_score : 0;
             return scoreB - scoreA;
           })
         : allItems;

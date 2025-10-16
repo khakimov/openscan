@@ -7,16 +7,12 @@ import { Button } from '@/components/ui/button'
 import { InputWithLabel } from '@/components/shared/forms/input-with-label'
 import { Widget, WidgetBody, WidgetHead } from '@/components/ui/widget'
 
-interface OrganizationSettingsProps {
-  user: any
-}
-
 interface OrganizationForm {
   name: string
   timezone: string
 }
 
-export function OrganizationSettings({ user }: OrganizationSettingsProps) {
+export function OrganizationSettings() {
   const [isLoading, setIsLoading] = useState(false)
 
   const { register, handleSubmit, formState, reset } = useForm<OrganizationForm>({

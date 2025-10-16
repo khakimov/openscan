@@ -15,7 +15,6 @@ import {
   CreditCardIcon,
   ShieldCheckIcon,
   UsersIcon,
-  Bot,
   Sparkles,
   CheckCircle,
 } from "lucide-react";

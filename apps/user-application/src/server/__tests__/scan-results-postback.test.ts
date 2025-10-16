@@ -15,15 +15,6 @@ vi.mock('@repo/data-ops', async () => {
     ...actual,
     getDeviceByIdGlobal: vi.fn(),
     updateDevice: vi.fn(),
-    getScanWorkflowByWorkflowId: vi.fn(),
-    updateScanRunStatus: vi.fn(),
-    updateScanWorkflowStatus: vi.fn(),
-    getDb: vi.fn(() => ({
-      select: vi.fn().mockReturnThis(),
-      from: vi.fn().mockReturnThis(),
-      where: vi.fn().mockReturnThis(),
-      limit: vi.fn().mockResolvedValue([]),
-    })),
     scanRuns: {},
     eq: vi.fn(),
   };
@@ -33,10 +24,6 @@ vi.mock('@repo/data-ops', async () => {
 import {
   getDeviceByIdGlobal,
   updateDevice,
-  getScanWorkflowByWorkflowId,
-  updateScanRunStatus,
-  updateScanWorkflowStatus,
-  getDb,
 } from '@repo/data-ops';
 
 describe('handleScanResultsPostback', () => {

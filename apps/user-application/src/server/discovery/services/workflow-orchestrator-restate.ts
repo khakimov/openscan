@@ -32,11 +32,10 @@ export class WorkflowOrchestratorRestate {
         {
           type: 'DOMAIN', // Assuming most discoveries are domains
           value: request.target,
-          scope: request.scope || 'EXTERNAL',
+          scope: 'EXTERNAL', // DiscoveryRequest doesn't include scope, defaulting to EXTERNAL
         },
       ],
-      tools: ['subfinder'], // Only subfinder enabled for now
-      scanId: request.workflowId, // Use workflowId as scanId for compatibility
+      tools: request.tools || ['subfinder'], // Use requested tools or default to subfinder
     };
 
     const result = await client.startDiscovery(restateInput);
@@ -57,20 +56,26 @@ export class WorkflowOrchestratorRestate {
   /**
    * Start port scan workflow
    */
-  async startPortScan(input: ScannerInput, workflowId: string) {
+  async startPortScan(input: ScannerInput) {
     const client = getRestateHttpClient(this.restateUrl);
 
+    // Get first target from targets array
+    const target = input.targets[0];
+    if (!target) {
+      throw new Error('No targets provided for port scan');
+    }
+
     const result = await client.startPortScan({
-      target: input.target,
-      ports: input.ports?.join(','),
-      protocol: input.protocol as 'tcp' | 'udp',
-      aggressive: input.serviceDetection,
-      timeout: input.timeout,
+      target: target.value,
+      ports: input.scanOptions?.requestedPorts?.join(','),
+      protocol: 'tcp', // Default to tcp, can be made configurable
+      aggressive: input.scanOptions?.aggressive,
+      timeout: 120, // Default timeout, can be made configurable
     });
 
     logger.info('Port scan workflow started via Restate', {
       workflowId: result.scanId,
-      target: input.target,
+      target: target.value,
     });
 
     return {
@@ -139,7 +144,7 @@ export class WorkflowOrchestratorRestate {
    * Fetch discovery result
    * For Restate, the result is available immediately after discovery completes
    */
-  async fetchDiscoveryResult(workflowId: string, runId?: string) {
+  async fetchDiscoveryResult(workflowId: string, _runId?: string) {
     const client = getRestateHttpClient(this.restateUrl);
 
     try {

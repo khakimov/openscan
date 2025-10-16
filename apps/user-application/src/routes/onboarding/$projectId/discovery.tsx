@@ -13,7 +13,7 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
       domain: typeof search.domain === "string" ? search.domain : undefined,
     };
   },
-  loader: async ({ params }) => {
+  loader: async () => {
     console.log("[OnboardingDiscovery] Loader executing");
     const status = await getOnboardingStatus();
     console.log("[OnboardingDiscovery] Status fetched:", status);

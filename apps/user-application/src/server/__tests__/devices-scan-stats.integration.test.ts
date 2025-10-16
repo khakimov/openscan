@@ -237,17 +237,17 @@ describe('Device Scan Statistics (Integration)', () => {
 
     // Delete scan runs first
     for (const id of testDataIds.scanRuns) {
-      await db.delete(scanRuns).where(eq(scanRuns.id, id));
+      await db.delete(scanRuns).where(eq(scanRuns.id as any, id));
     }
 
     // Delete workflows
     for (const id of testDataIds.workflows) {
-      await db.delete(scanWorkflows).where(eq(scanWorkflows.id, id));
+      await db.delete(scanWorkflows).where(eq(scanWorkflows.id as any, id));
     }
 
     // Delete devices last
     for (const id of testDataIds.devices) {
-      await db.delete(devices).where(eq(devices.id, id));
+      await db.delete(devices).where(eq(devices.id as any, id));
     }
 
     console.log('🧹 Cleaned up test data');
@@ -271,7 +271,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
   it('should return latest scan stats when device has multiple scans', async () => {
     const result = await getDevicesForTenant(testOrgId);
-    const device = result.items.find(d => d.name === 'test-device-multiple-scans');
+    const device = result.items.find((d: any) => d.name === 'test-device-multiple-scans');
 
     // Assert: Device exists with scan stats
     expect(device).toBeDefined();
@@ -297,7 +297,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
   it('should handle device with no open ports', async () => {
     const result = await getDevicesForTenant(testOrgId);
-    const device = result.items.find(d => d.name === 'test-device-no-ports');
+    const device = result.items.find((d: any) => d.name === 'test-device-no-ports');
 
     expect(device).toBeDefined();
     expect(device?.scanStats).toBeDefined();
@@ -317,7 +317,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
   it('should handle device with single port', async () => {
     const result = await getDevicesForTenant(testOrgId);
-    const device = result.items.find(d => d.name === 'test-device-single-port');
+    const device = result.items.find((d: any) => d.name === 'test-device-single-port');
 
     expect(device).toBeDefined();
     expect(device?.scanStats).toBeDefined();
@@ -336,7 +336,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
   it('should return undefined scanStats for device with no scans', async () => {
     const result = await getDevicesForTenant(testOrgId);
-    const device = result.items.find(d => d.name === 'test-device-no-scans');
+    const device = result.items.find((d: any) => d.name === 'test-device-no-scans');
 
     expect(device).toBeDefined();
     expect(device?.scanStats).toBeUndefined();
@@ -346,7 +346,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
   it('should verify port details structure', async () => {
     const result = await getDevicesForTenant(testOrgId);
-    const device = result.items.find(d => d.name === 'test-device-multiple-scans');
+    const device = result.items.find((d: any) => d.name === 'test-device-multiple-scans');
 
     const ports = device!.scanStats!.ports;
 
@@ -365,7 +365,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
   it('should calculate total scan count correctly', async () => {
     const result = await getDevicesForTenant(testOrgId);
-    const device = result.items.find(d => d.name === 'test-device-multiple-scans');
+    const device = result.items.find((d: any) => d.name === 'test-device-multiple-scans');
 
     // Device has 2 scans (first + latest)
     expect(device!.scanStats!.scanCount).toBe(2);

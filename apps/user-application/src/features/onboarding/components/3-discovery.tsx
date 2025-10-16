@@ -169,7 +169,7 @@ export function OnboardingDiscovery({
       // Extract hostname and IP data from typed discovery results
       const targetsData = selectedTargets.map((host) => {
         const subdomain = results?.uniqueSubdomains?.find(
-          (s) => s.subdomain === host,
+          (s: { subdomain: string; ip: string }) => s.subdomain === host,
         );
         return {
           host,

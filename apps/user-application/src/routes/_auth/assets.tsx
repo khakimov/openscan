@@ -31,7 +31,6 @@ function Assets() {
     data: devicesResponse,
     isLoading,
     error,
-    isFetching,
     isRefetching,
   } = useDevicesQuery({ verificationStatus });
 

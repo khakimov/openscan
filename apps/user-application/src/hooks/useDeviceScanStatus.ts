@@ -94,7 +94,7 @@ export function useDeviceScanStatus(
 /**
  * Custom hook for starting scan with optimistic updates
  */
-export function useStartScanMutation(deviceId: string) {
+export function useStartScanMutation(_deviceId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -119,7 +119,7 @@ export function useStartScanMutation(deviceId: string) {
       return { previousDevices };
     },
 
-    onError: (err, variables, context) => {
+    onError: (_err, _variables, context) => {
       // Revert on error
       if (context?.previousDevices) {
         queryClient.setQueryData(['devices'], context.previousDevices);

@@ -12,7 +12,7 @@
  * - Tests error cases
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
 import { initDatabase, resetDatabase, getDb } from '@repo/data-ops/database/setup';
 import { Miniflare } from 'miniflare';
 import path from 'node:path';
@@ -101,9 +101,9 @@ describe('Scan Results Postback (Integration)', () => {
     // Clean up test data
     const db = getDb();
 
-    await db.delete(scanRuns).where(eq(scanRuns.id, testScanRunId));
-    await db.delete(scanWorkflows).where(eq(scanWorkflows.id, testWorkflowDbId));
-    await db.delete(devices).where(eq(devices.id, testDeviceId));
+    await db.delete(scanRuns).where(eq(scanRuns.id as any, testScanRunId));
+    await db.delete(scanWorkflows).where(eq(scanWorkflows.id as any, testWorkflowDbId));
+    await db.delete(devices).where(eq(devices.id as any, testDeviceId));
 
     console.log('🧹 Cleaned up test data');
   });
@@ -130,7 +130,7 @@ describe('Scan Results Postback (Integration)', () => {
     const response = await handleScanResultsPostback(request);
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body = await response.json() as { error?: string };
     expect(body).toHaveProperty('error', 'Unauthorized');
 
     // Restore env
@@ -159,7 +159,7 @@ describe('Scan Results Postback (Integration)', () => {
     const response = await handleScanResultsPostback(request);
 
     expect(response.status).toBe(401);
-    const body = await response.json();
+    const body = await response.json() as { error?: string };
     expect(body).toHaveProperty('error', 'Unauthorized');
   });
 
@@ -184,7 +184,7 @@ describe('Scan Results Postback (Integration)', () => {
     const response = await handleScanResultsPostback(request);
 
     expect(response.status).toBe(400);
-    const body = await response.json();
+    const body = await response.json() as { success?: boolean; error?: string };
     expect(body.error).toContain('deviceId');
   });
 
@@ -210,7 +210,7 @@ describe('Scan Results Postback (Integration)', () => {
     const response = await handleScanResultsPostback(request);
 
     expect(response.status).toBe(400);
-    const body = await response.json();
+    const body = await response.json() as { error?: string };
     expect(body.error).toContain('ports');
   });
 
@@ -259,7 +259,7 @@ describe('Scan Results Postback (Integration)', () => {
     const response = await handleScanResultsPostback(request);
 
     expect(response.status).toBe(200);
-    const body = await response.json();
+    const body = await response.json() as { error?: string };
     expect(body).toEqual({ success: true });
 
     // Verify data was stored in database
@@ -269,7 +269,7 @@ describe('Scan Results Postback (Integration)', () => {
     const [scanRun] = await db
       .select()
       .from(scanRuns)
-      .where(eq(scanRuns.id, testScanRunId));
+      .where(eq(scanRuns.id as any, testScanRunId));
 
     expect(scanRun.status).toBe('SUCCEEDED');
     expect(scanRun.resultSummary).toBeDefined();
@@ -281,7 +281,7 @@ describe('Scan Results Postback (Integration)', () => {
     const [workflow] = await db
       .select()
       .from(scanWorkflows)
-      .where(eq(scanWorkflows.id, testWorkflowDbId));
+      .where(eq(scanWorkflows.id as any, testWorkflowDbId));
 
     expect(workflow.status).toBe('SUCCEEDED');
 
@@ -325,7 +325,7 @@ describe('Scan Results Postback (Integration)', () => {
     const [scanRun] = await db
       .select()
       .from(scanRuns)
-      .where(eq(scanRuns.id, testScanRunId));
+      .where(eq(scanRuns.id as any, testScanRunId));
 
     expect(scanRun.status).toBe('SUCCEEDED');
     expect((scanRun.resultSummary as any).openPortCount).toBe(0);
@@ -353,7 +353,7 @@ describe('Scan Results Postback (Integration)', () => {
     const response = await handleScanResultsPostback(request);
 
     expect(response.status).toBe(404);
-    const body = await response.json();
+    const body = await response.json() as { error?: string };
     expect(body.error).toContain('Device not found');
   });
 

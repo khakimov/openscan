@@ -11,11 +11,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { Badge } from "@/components/ui/badge";
-import {
-  ChevronRight,
-  Copy,
-  Terminal,
-} from "lucide-react";
+import { ChevronRight, Copy, Terminal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/utils/cn";
 import { toast } from "sonner";
@@ -182,15 +178,17 @@ export function DeviceOpenPorts({
   const fallbackDetails = Array.isArray(deviceDetail?.ports?.details)
     ? (deviceDetail?.ports?.details as PortDetail[])
     : Array.isArray(deviceDetail?.ports?.tcp)
-      ? (deviceDetail?.ports?.tcp as number[]).map((port): PortDetail => ({
-          port,
-          protocol: "tcp",
-          state: "open",
-          service: undefined,
-          discoveredBy: undefined,
-          firstSeen: null,
-          lastSeen: null,
-        }))
+      ? (deviceDetail?.ports?.tcp as number[]).map(
+          (port): PortDetail => ({
+            port,
+            protocol: "tcp",
+            state: "open",
+            service: undefined,
+            discoveredBy: undefined,
+            firstSeen: null,
+            lastSeen: null,
+          }),
+        )
       : [];
 
   const openPorts =
@@ -211,8 +209,8 @@ export function DeviceOpenPorts({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="space-y-4 gap-3">
+      <div className="flex flex-wrap items-center justify-between ">
         <h3 className="font-medium">Open Ports</h3>
         <div className="text-sm ">
           {openPortCount === 1 ? "1 port" : `${openPortCount} ports`}

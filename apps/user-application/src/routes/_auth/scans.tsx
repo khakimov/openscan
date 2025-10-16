@@ -1,10 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense } from "react";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
-import { Button } from "@/components/ui/button";
-import { PlusIcon, SearchIcon, FilterIcon } from "lucide-react";
-import { pushModal } from "@/modals";
 import { TableButtons } from "@/components/shared/data-table";
 import { ScansTable } from "@/features/scans";
 
@@ -19,10 +15,6 @@ export const Route = createFileRoute("/_auth/scans")({
 
 function Scans() {
   const { tab } = Route.useSearch();
-
-  const handleStartDiscovery = () => {
-    pushModal("AddDiscovery");
-  };
 
   return (
     <Padding>

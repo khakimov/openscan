@@ -22,10 +22,10 @@ import {
   getDeviceTagSuggestionsData,
 } from "@/server/devices";
 import { DEVICE_DETAIL_QUERY_KEY } from "@/hooks/useDeviceDetailQuery";
-import { Loader2, X, Plus, Save, AlertTriangle } from "lucide-react";
+import { Loader2, X, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
-import { getRiskLevelBadgeClass, QUERY_CONFIG } from "@repo/constants";
+import { QUERY_CONFIG } from "@repo/constants";
 
 // IP address validation regex
 const IP_REGEX =

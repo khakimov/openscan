@@ -9,7 +9,6 @@ import {
   getDeviceScanHistory,
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
-  createScanSchedule as createScanScheduleDB,
   getScanScheduleByDeviceId,
   type DeviceQueryParams,
   type DeviceUpdateData
