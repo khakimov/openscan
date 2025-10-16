@@ -35,7 +35,8 @@ export function DeviceScanChart({
     const sortedHistory = [...scanHistory].reverse();
 
     return sortedHistory.map((scan, index) => {
-      const openPorts = scan.ports
+      // Handle cases where ports might be undefined or not an array
+      const openPorts = (scan.ports || [])
         .filter(p => p.state === 'open')
         .map(p => p.port)
         .sort((a, b) => a - b);
