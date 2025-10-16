@@ -119,8 +119,9 @@ export default function AddDiscovery({
     queryKey: ["workflow-status", workflowId, runId],
     queryFn: () => getWorkflowStatus({ data: { workflowId: workflowId!, runId: runId || undefined } }),
     enabled: !!workflowId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Stop polling when workflow is complete or failed
+      const data = query.state.data;
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
@@ -281,8 +282,8 @@ export default function AddDiscovery({
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 const allHosts =
-                                  results.results?.[0]?.results?.map((r) => r.host) ||
-                                  results.uniqueSubdomains.map((s) => s.subdomain);
+                                  results.results?.[0]?.results?.map((r: { host: string; ip: string }) => r.host) ||
+                                  results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => s.subdomain);
                                 setSelectedResults(new Set(allHosts));
                               } else {
                                 setSelectedResults(new Set());
@@ -297,7 +298,7 @@ export default function AddDiscovery({
                     <tbody>
                       {(
                         results.results?.[0]?.results ||
-                        results.uniqueSubdomains.map((s) => ({ host: s.subdomain, ip: s.ip || '' }))
+                        results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => ({ host: s.subdomain, ip: s.ip || '' }))
                       ).map((item: any, index: number) => {
                         const host = typeof item === "string" ? item : (item.host || item.subdomain);
                         const ip = typeof item === "object" ? (item.ip || '') : '';

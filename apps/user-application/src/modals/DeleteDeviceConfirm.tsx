@@ -57,19 +57,21 @@ export default function DeleteDeviceConfirm({
 
   return (
     <ModalContent className="max-w-md" hideCloseButton>
-      <ModalHeader>
-        <div className="flex items-center gap-3">
-          <div className="p-2 rounded-full bg-red-500/10">
-            <AlertTriangle className="h-5 w-5 text-red-500" />
+      <ModalHeader
+        title={
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-red-500/10">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">Delete Device</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                This action cannot be undone
+              </p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-lg font-semibold">Delete Device</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              This action cannot be undone
-            </p>
-          </div>
-        </div>
-      </ModalHeader>
+        }
+      />
 
       <div className="py-4">
         <p className="text-sm">
