@@ -143,6 +143,14 @@ export async function updateScanRunStatus(
       ...(currentRun?.resultSummary || {}),
       ...resultSummary,
     };
+
+    console.log('[updateScanRunStatus] Merging result summary:', {
+      scanRunId,
+      currentResultSummary: currentRun?.resultSummary,
+      newResultSummary: resultSummary,
+      mergedResultSummary: updates.resultSummary,
+      mergedKeys: Object.keys(updates.resultSummary || {}),
+    });
   }
 
   await db

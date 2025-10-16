@@ -125,7 +125,7 @@ async function storeScanResults(params: {
   const timestamp = new Date().toISOString();
 
   // Step 3: Store results in scan run with port details
-  await updateScanRunStatus(scanRun.id, 'SUCCEEDED', {
+  const resultSummary = {
     target: results.target,
     openPortCount: portCount,
     ports: results.ports,
@@ -133,7 +133,16 @@ async function storeScanResults(params: {
     scanMetadata: results.scanMetadata,
     osInfo: results.osInfo,
     completedAt: timestamp,
+  };
+
+  logger.info('Storing result summary', {
+    scanRunId: scanRun.id,
+    resultSummaryKeys: Object.keys(resultSummary),
+    portCount,
+    portsLength: results.ports?.length,
   });
+
+  await updateScanRunStatus(scanRun.id, 'SUCCEEDED', resultSummary);
 
   // Step 4: Update workflow status
   logger.info('Updating workflow status to SUCCEEDED', {
