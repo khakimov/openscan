@@ -23,6 +23,15 @@ export interface DiscoveredPort {
   port: number;
   protocol: 'tcp' | 'udp';
   state: 'open' | 'closed' | 'filtered';
+  service?: {
+    name?: string;
+    product?: string;
+    version?: string;
+    extraInfo?: string;
+    method?: string;
+    confidence?: number;
+    cpe?: string[];
+  };
   discoveredBy: string[];
   firstSeen: number;
   lastSeen: number;

@@ -4,6 +4,9 @@ import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
 import { postbackScanResults } from './postback';
 import { parseNmapXml } from './xml-parser';
+import { runMasscan } from './scanners/masscan';
+import { runRustscan } from './scanners/rustscan';
+import { combinePortDiscoveries, extractPortNumbers, formatPortSpec } from './port-merger';
 
 const execFileAsync = promisify(execFile);
 const logger = createLogger({ name: 'restate-port-scanner' });
@@ -12,8 +15,9 @@ const logger = createLogger({ name: 'restate-port-scanner' });
 interface PortScanState {
   scanId: string;
   target: string;
-  status: 'VALIDATING' | 'SCANNING' | 'PARSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
+  status: 'VALIDATING' | 'PRESCANNING' | 'SCANNING' | 'PARSING' | 'COMPLETED' | 'FAILED' | 'CANCELLED';
   portsFound?: number;
+  prescanPortsFound?: number;
   error?: string;
   startedAt: string;
   completedAt?: string;
@@ -60,7 +64,74 @@ export const portScanner = restate.service({
 
       logger.info('Starting port scan', { scanId, target: input.target });
 
-      // Step 1: Run nmap scan (durable - will retry on failure)
+      // Validate and sanitize target once upfront
+      const sanitizedTarget = validateAndSanitizeTarget(input.target);
+
+      // Step 1 (Optional): Run prescans for fast port discovery
+      // These return [] gracefully if disabled via feature flags
+      let prescanPorts: any[] = [];
+      let targetPorts: string | undefined = input.ports; // User-specified ports
+
+      const prescanResult = await ctx.run('prescan-discovery', async () => {
+        // Check for cancellation
+        const currentState = stateStore.get(scanId);
+        if (currentState?.cancelRequested) {
+          state.status = 'CANCELLED';
+          state.completedAt = new Date().toISOString();
+          stateStore.set(scanId, state);
+          throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
+        }
+
+        state.status = 'PRESCANNING';
+        stateStore.set(scanId, state);
+
+        logger.info('Running prescans (masscan, rustscan)', { scanId, target: sanitizedTarget });
+
+        // Run masscan (fast TCP scan 1-65535 if enabled)
+        const masscanPorts = await runMasscan(sanitizedTarget, {
+          protocol: input.protocol,
+          aggressive: input.aggressive,
+          timeout: input.timeout,
+        });
+
+        // Run rustscan (fast scan, can validate masscan findings if enabled)
+        const rustscanPorts = await runRustscan(sanitizedTarget, {
+          protocol: input.protocol,
+          aggressive: input.aggressive,
+          timeout: input.timeout,
+        });
+
+        // Combine and deduplicate prescan discoveries
+        const combined = combinePortDiscoveries(masscanPorts, rustscanPorts);
+
+        logger.info('Prescan complete', {
+          scanId,
+          masscanFound: masscanPorts.length,
+          rustscanFound: rustscanPorts.length,
+          combinedUnique: combined.length,
+        });
+
+        return combined;
+      });
+
+      prescanPorts = prescanResult;
+      state.prescanPortsFound = prescanPorts.length;
+      stateStore.set(scanId, state);
+
+      // If prescans found ports, scan ONLY those ports with nmap for detailed service detection
+      // Otherwise use user-specified ports or nmap defaults
+      if (prescanPorts.length > 0) {
+        const discoveredPortNumbers = extractPortNumbers(prescanPorts);
+        targetPorts = formatPortSpec(discoveredPortNumbers);
+
+        logger.info('Targeting nmap at prescan discoveries', {
+          scanId,
+          portCount: discoveredPortNumbers.length,
+          portSpec: targetPorts.length > 100 ? `${targetPorts.substring(0, 100)}...` : targetPorts,
+        });
+      }
+
+      // Step 2: Run nmap scan (durable - will retry on failure)
       const nmapXml = await ctx.run('nmap-scan', async () => {
         // Check for cancellation before starting scan
         const currentState = stateStore.get(scanId);
@@ -71,9 +142,10 @@ export const portScanner = restate.service({
           throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
         }
 
-        // Validate and sanitize target
-        const sanitizedTarget = validateAndSanitizeTarget(input.target);
-        const nmapArgs = buildNmapArgs(input);
+        const nmapArgs = buildNmapArgs({
+          ...input,
+          ports: targetPorts, // Use prescan-discovered ports if available
+        });
 
         state.status = 'SCANNING';
         stateStore.set(scanId, state);
@@ -101,7 +173,7 @@ export const portScanner = restate.service({
         }
       });
 
-      // Step 2: Parse nmap XML output (durable)
+      // Step 3: Parse nmap XML output (durable)
       const parsedResult = await ctx.run('parse-xml', async () => {
         state.status = 'PARSING';
         stateStore.set(scanId, state);
@@ -132,9 +204,55 @@ export const portScanner = restate.service({
       // Extract ports from parsed result
       // hosts is a Record<string, ParsedHostData>, get first host
       const hostAddresses = Object.keys(parsedResult.hosts);
-      const portsWithServices = hostAddresses.length > 0
+      let portsWithServices = hostAddresses.length > 0
         ? parsedResult.hosts[hostAddresses[0]].ports
         : [];
+
+      // Step 4: Merge prescan discoveries with nmap results
+      // This adds attribution (discoveredBy: ['masscan', 'rustscan', 'nmap'])
+      // and includes ports found by prescans but missed by nmap
+      if (prescanPorts.length > 0) {
+        const timestamp = Math.floor(Date.now() / 1000);
+
+        // Convert nmap ports to DiscoveredPort format
+        const nmapDiscoveredPorts = portsWithServices.map((port: any) => ({
+          port: port.port,
+          protocol: port.transportProtocol || 'tcp',
+          state: port.state || 'open',
+          service: port.service,
+          discoveredBy: ['nmap'],
+          firstSeen: timestamp,
+          lastSeen: timestamp,
+        }));
+
+        // Combine nmap + prescan discoveries
+        const mergedPorts = combinePortDiscoveries(prescanPorts, nmapDiscoveredPorts);
+
+        logger.info('Merged prescan and nmap discoveries', {
+          scanId,
+          prescanPorts: prescanPorts.length,
+          nmapPorts: nmapDiscoveredPorts.length,
+          mergedTotal: mergedPorts.length,
+        });
+
+        // Convert back to ParsedPort format for response
+        portsWithServices = mergedPorts.map((port: any) => ({
+          port: port.port,
+          protocol: port.protocol, // Required by ParsedPort
+          transportProtocol: port.protocol, // Backward compatibility
+          state: port.state,
+          service: port.service,
+          discoveredBy: port.discoveredBy,
+          firstSeen: port.firstSeen,
+          lastSeen: port.lastSeen,
+        }));
+      } else {
+        // No prescans - add nmap attribution
+        portsWithServices = portsWithServices.map((port: any) => ({
+          ...port,
+          discoveredBy: ['nmap'],
+        }));
+      }
 
       const scanDuration = Date.now() - startTime;
 
@@ -160,7 +278,7 @@ export const portScanner = restate.service({
         completedAt: new Date().toISOString(),
       };
 
-      // Step 4: Postback results if callbackUrl provided (durable)
+      // Step 5: Postback results if callbackUrl provided (durable)
       if (input.callbackUrl && input.deviceId && input.workflowId) {
         await ctx.run('postback-results', async () => {
           logger.info('Posting scan results back to server', {
