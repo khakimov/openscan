@@ -10,7 +10,16 @@
 
 import { createLogger } from '@repo/logger';
 import { z } from 'zod';
-import { getDeviceByIdGlobal, updateDevice } from '@repo/data-ops';
+import {
+  getDeviceByIdGlobal,
+  updateDevice,
+  getScanWorkflowByTemporalId,
+  updateScanRunStatus,
+  updateScanWorkflowStatus,
+  getDb,
+  scanRuns,
+  eq,
+} from '@repo/data-ops';
 
 const logger = createLogger({ name: 'scan-results-postback' });
 
@@ -67,7 +76,7 @@ function authenticateRequest(request: Request): boolean {
 
 /**
  * Store scan results for a device
- * Updates device record with scan metadata
+ * Updates device record with scan metadata and stores results in scan run
  */
 async function storeScanResults(params: {
   deviceId: string;
@@ -84,23 +93,66 @@ async function storeScanResults(params: {
     portCount: results.ports?.length || 0,
   });
 
-  // Update device with scan metadata
+  // Step 1: Find the scan workflow and run by temporal workflow ID
+  const workflow = await getScanWorkflowByTemporalId(organizationId, workflowId);
+
+  if (!workflow) {
+    logger.warn('Scan workflow not found for postback', {
+      workflowId,
+      organizationId,
+    });
+    throw new Error(`Scan workflow not found: ${workflowId}`);
+  }
+
+  // Step 2: Get the scan run for this workflow
+  // For port scans, there should be exactly one run per workflow
+  const db = getDb();
+
+  const [scanRun] = await db
+    .select()
+    .from(scanRuns)
+    .where(eq(scanRuns.workflowId, workflow.id))
+    .limit(1);
+
+  if (!scanRun) {
+    logger.warn('No scan run found for workflow', {
+      workflowId: workflow.id,
+    });
+    throw new Error(`No scan run found for workflow: ${workflow.id}`);
+  }
+
+  const portCount = results.ports?.length || 0;
+  const timestamp = new Date().toISOString();
+
+  // Step 3: Store results in scan run with port details
+  await updateScanRunStatus(scanRun.id, 'SUCCEEDED', {
+    target: results.target,
+    openPortCount: portCount,
+    ports: results.ports,
+    timing: results.timing,
+    scanMetadata: results.scanMetadata,
+    osInfo: results.osInfo,
+    completedAt: timestamp,
+  });
+
+  // Step 4: Update workflow status
+  await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
+
+  // Step 5: Update device with scan metadata
   await updateDevice(
     deviceId,
     {
       isScanned: true,
+      lastSeenAt: new Date(),
     },
     organizationId
   );
 
-  // TODO (future): Store detailed scan results in scan_artifacts table
-  // For now, device.isScanned and device.lastSeenAt track scan status
-  // Full results can be retrieved via Temporal workflow result if needed
-
   logger.info('Scan results stored successfully', {
     deviceId,
     workflowId,
-    portCount: results.ports?.length || 0,
+    scanRunId: scanRun.id,
+    portCount,
   });
 }
 
