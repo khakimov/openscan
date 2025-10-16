@@ -302,16 +302,16 @@ export const updateOrganizationOnboarding = createServerFn({
 export const getOnboardingStatus = createServerFn({
   method: "GET",
 }).handler(async () => {
-  try {
-    let currentUser:
-      | {
-          id: string;
-          email: string | null;
-          name: string | null;
-          emailVerified: unknown;
-        }
-      | null = null;
+  let currentUser:
+    | {
+        id: string;
+        email: string | null;
+        name: string | null;
+        emailVerified: unknown;
+      }
+    | null = null;
 
+  try {
     try {
       currentUser = await getCurrentUser();
     } catch (error) {
