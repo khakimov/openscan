@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { type TransformedDevice } from "@/server/devices";
 import {
   Table,
   TableBody,
@@ -24,7 +25,7 @@ import { cn } from "@/utils/cn";
 import { toast } from "sonner";
 
 interface DeviceOpenPortsProps {
-  deviceDetail: DeviceDetail | undefined;
+  deviceDetail: TransformedDevice | undefined;
   isLoading: boolean;
 }
 

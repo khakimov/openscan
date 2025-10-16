@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { type TransformedDevice } from "@/server/devices";
 import {
   Sheet,
   SheetContent,
@@ -16,7 +17,7 @@ import { Pencil, Trash2, Scan, Download, Activity, Copy } from "lucide-react";
 import { toast } from "sonner";
 
 interface DeviceDetailSheetProps {
-  devices: Device[];
+  devices: TransformedDevice[];
 }
 
 export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
@@ -29,7 +30,7 @@ export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
   );
 }
 
-function DeviceDetailSheetItem({ device }: { device: Device }) {
+function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
   // Each device has its own Sheet with its own data loading
   const { data: deviceDetail, isLoading: isLoadingDetail } =
     useDeviceDetailQuery(device.id);

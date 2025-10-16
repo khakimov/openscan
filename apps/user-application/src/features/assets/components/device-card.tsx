@@ -1,4 +1,4 @@
-import { type Device } from "@repo/data-ops";
+import { type TransformedDevice } from "@/server/devices";
 import type { PortScanInput } from "@repo/contracts";
 import { format } from "date-fns";
 import {
@@ -18,7 +18,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface DeviceCardProps {
-  device: Device;
+  device: TransformedDevice;
 }
 
 function StatusBadge({ status }: { status: string }) {
@@ -110,10 +110,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
     const tcpPorts = Array.isArray(device.ports.tcp)
       ? device.ports.tcp.length
       : 0;
-    const udpPorts = Array.isArray(device.ports.udp)
-      ? device.ports.udp.length
-      : 0;
-    return tcpPorts + udpPorts;
+    // Only TCP ports are supported in the current schema
+    return tcpPorts;
   })();
   const totalOpenPorts =
     scanStats?.openPortCount ?? device.totalOpenPorts ?? legacyPortCount;
@@ -273,10 +271,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }
   };
 
-  // Get status from isOnline field
+  // Get status from status field (already transformed to "active" or "offline")
   const getStatus = () => {
-    if (device.isOnline === true) return "online";
-    if (device.isOnline === false) return "offline";
     return device.status || "unknown";
   };
 

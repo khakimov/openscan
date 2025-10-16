@@ -24,6 +24,92 @@ const logger = createLogger({ name: 'devices-server' })
 // IP address validation regex
 const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
 
+/**
+ * Transformed device type with UI-friendly properties
+ * Returned by transformDeviceForUI and used in UI components
+ */
+export type TransformedDevice = {
+  id: string;
+  name: string;
+  ip: string;
+  riskLevel: string;
+  status: 'active' | 'offline';
+  discoveredOn: string;
+  lastScanned?: string;
+  source: 'agentless' | 'agentbased';
+  isScanned: boolean;
+  scanType: 'scanned' | 'discovered';
+  scope: 'internal' | 'external' | 'hybrid';
+  tags: string[];
+  respondsToICMPPing: boolean;
+  notes: string;
+  scanCount: number;
+  totalOpenPorts: number;
+  ports?: {
+    tcp: number[];
+    details: Array<{
+      port: number;
+      protocol: string;
+      state: string;
+      service?: {
+        name?: string | null;
+        product?: string | null;
+        version?: string | null;
+        extraInfo?: string | null;
+        tunnel?: string | null;
+        method?: string | null;
+        confidence?: number | null;
+        cpe?: string | null;
+        fingerprint?: string | null;
+        fingerprintMatches?: Array<{
+          probe: string;
+          length?: number;
+          response: string;
+        }>;
+      };
+      discoveredBy?: string[];
+      firstSeen?: number | null;
+      lastSeen?: number | null;
+    }>;
+  };
+  scanStats?: {
+    scanCount: number;
+    totalScans?: number;
+    lastScanAt: string | null;
+    openPortCount?: number;
+    totalPortCount?: number;
+    ports?: Array<{
+      port: number;
+      protocol: string;
+      state: string;
+      service?: {
+        name?: string | null;
+        product?: string | null;
+        version?: string | null;
+        extraInfo?: string | null;
+        tunnel?: string | null;
+        method?: string | null;
+        confidence?: number | null;
+        cpe?: string | null;
+        fingerprint?: string | null;
+        fingerprintMatches?: Array<{
+          probe: string;
+          length?: number;
+          response: string;
+        }>;
+      };
+      discoveredBy?: string[];
+      firstSeen?: number | null;
+      lastSeen?: number | null;
+    }>;
+  };
+  verificationStatus: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  verificationNote: string | null;
+  isVerified: boolean;
+};
+
 // Validation schemas
 const UpdateDeviceSchema = z.object({
   deviceId: z.string().min(1, 'Device ID is required'),

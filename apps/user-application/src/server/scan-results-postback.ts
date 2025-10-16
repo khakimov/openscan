@@ -153,11 +153,12 @@ async function storeScanResults(params: {
   await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
 
   // Step 5: Update device with scan metadata
+  // Note: lastSeenAt is not in DeviceUpdateData, so we skip it for now
+  // The device was already discovered, we just mark it as scanned
   await updateDevice(
     deviceId,
     {
       isScanned: true,
-      lastSeenAt: new Date(),
     },
     organizationId
   );
