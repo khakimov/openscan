@@ -25,7 +25,7 @@ function Assets() {
   // Map tab to verification status for server-side filtering
   // Discovery tab shows both CANDIDATE and EXCLUDED (all unverified devices)
   // Verified tab shows only VERIFIED devices
-  const verificationStatus = tab === "verified" ? "VERIFIED" : ["CANDIDATE", "EXCLUDED"] as const;
+  const verificationStatus = tab === "verified" ? "VERIFIED" : (["CANDIDATE", "EXCLUDED"] as ('CANDIDATE' | 'VERIFIED' | 'EXCLUDED')[]);
 
   const {
     data: devicesResponse,
@@ -53,11 +53,11 @@ function Assets() {
             </PageTabsLink>
           </PageTabs>
           <Button
-            icon={PlusIcon}
             onClick={() => {
               pushModal("AddDiscovery", { onConfirm: handleDiscoveryCreated });
             }}
           >
+            <PlusIcon />
             <span className="max-sm:hidden">Start Discovery</span>
           </Button>
         </div>
@@ -89,19 +89,19 @@ function Assets() {
         </PageTabs>
         <div className="flex gap-2">
           <Button
-            icon={PlusIcon}
             onClick={() => {
               pushModal("AddDevice", {});
             }}
           >
+            <PlusIcon />
             <span className="max-sm:hidden">Add Device</span>
           </Button>
           <Button
-            icon={PlusIcon}
             onClick={() => {
               pushModal("AddDiscovery", { onConfirm: handleDiscoveryCreated });
             }}
           >
+            <PlusIcon />
             <span className="max-sm:hidden">Start Discovery</span>
           </Button>
         </div>

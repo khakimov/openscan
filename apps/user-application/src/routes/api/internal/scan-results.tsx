@@ -13,7 +13,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { handleScanResultsPostback } from '../../../server/scan-results-postback';
 
-// @ts-expect-error - Route path not yet in generated types
 export const Route = createFileRoute('/api/internal/scan-results')({
   server: {
     handlers: {

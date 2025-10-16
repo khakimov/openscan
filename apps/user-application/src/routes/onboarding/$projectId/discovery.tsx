@@ -46,7 +46,8 @@ function OnboardingDiscoveryPage() {
   const { onboarding, savedDomain, savedDevices } = Route.useLoaderData();
 
   // Use search param domain if provided, otherwise use saved domain
-  const domain = searchDomain || savedDomain;
+  // Both can be undefined, which is fine - component will show empty input
+  const domain = searchDomain || savedDomain || undefined;
 
   console.log("[OnboardingDiscoveryPage] Rendering with:", {
     projectId,

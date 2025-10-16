@@ -3,10 +3,36 @@ import { createLogger } from "@repo/logger";
 import { getAuth } from "@repo/data-ops/auth/server";
 import { getOrganizationAPI } from "@repo/data-ops/auth/organization-api";
 import { getRequest } from "@tanstack/react-start/server";
-import { getCurrentUser } from "./utils/auth";
 import { and, desc, eq } from "@repo/data-ops";
+import { getCurrentUser } from "./utils/auth";
+import type {
+  OnboardingOrganizationSummary,
+  OnboardingProjectSummary,
+  OnboardingStatus,
+  OnboardingUserSummary,
+} from "./types/onboarding";
 
 const logger = createLogger({ name: "organization-server" });
+
+type UserOrganizationsResult =
+  | {
+      success: true;
+      organizations: {
+        id: string;
+        name: string | null;
+        metadata: Record<string, {}> | null;
+      }[];
+      error?: undefined;
+    }
+  | {
+      success: false;
+      organizations: {
+        id: string;
+        name: string | null;
+        metadata: Record<string, {}> | null;
+      }[];
+      error: string;
+    };
 
 /**
  * Create organization for the current user during onboarding
@@ -87,7 +113,7 @@ export const createOrganizationOnboarding = createServerFn({
  */
 export const getUserOrganizations = createServerFn({
   method: "GET",
-}).handler(async () => {
+}).handler(async (): Promise<UserOrganizationsResult> => {
   try {
     const request = getRequest();
     const auth = getAuth();
@@ -100,14 +126,16 @@ export const getUserOrganizations = createServerFn({
       headers: request.headers,
     });
 
+    const organizations: UserOrganizationsResult["organizations"] = result ?? [];
+
     logger.info("Organizations fetched", {
       userId: user.id,
-      count: result?.length || 0,
+      count: organizations.length,
     });
 
     return {
       success: true,
-      organizations: result || [],
+      organizations,
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -116,7 +144,7 @@ export const getUserOrganizations = createServerFn({
     return {
       success: false,
       error: errorMessage,
-      organizations: [],
+      organizations: [] as UserOrganizationsResult["organizations"],
     };
   }
 });
@@ -301,12 +329,20 @@ export const updateOrganizationOnboarding = createServerFn({
  */
 export const getOnboardingStatus = createServerFn({
   method: "GET",
-}).handler(async () => {
-  let currentUser: Awaited<ReturnType<typeof getCurrentUser>> | null = null;
+}).handler(async (): Promise<OnboardingStatus> => {
+  let currentUser: OnboardingUserSummary | null = null;
+  let organizations: OnboardingOrganizationSummary[] = [];
 
   try {
     try {
-      currentUser = await getCurrentUser();
+      const rawUser = await getCurrentUser();
+      currentUser = {
+        id: rawUser.id,
+        email: rawUser.email ?? null,
+        name: rawUser.name ?? null,
+        emailVerified: Boolean(rawUser.emailVerified),
+        organizationId: rawUser.organizationId,
+      };
     } catch (error) {
       logger.debug("No authenticated user while fetching onboarding status", {
         error: error instanceof Error ? error.message : String(error),
@@ -314,7 +350,18 @@ export const getOnboardingStatus = createServerFn({
     }
 
     const organizationsResult = await getUserOrganizations();
-    const organizations = organizationsResult.organizations ?? [];
+    organizations = organizationsResult.organizations.map((org) => ({
+      id: org.id,
+      name: org.name ?? null,
+      metadata: (org.metadata ?? null) as Record<string, unknown> | null,
+    }));
+
+    if (!organizationsResult.success && organizationsResult.error) {
+      logger.warn("Proceeding without organizations due to fetch error", {
+        error: organizationsResult.error,
+      });
+    }
+
     const primaryOrganizationId = organizations[0]?.id ?? null;
 
     if (!primaryOrganizationId) {
@@ -325,7 +372,7 @@ export const getOnboardingStatus = createServerFn({
         projectId: null,
         user: currentUser,
         organizations,
-      };
+      } satisfies OnboardingStatus;
     }
 
     const { getDb } = await import("@repo/data-ops/database/setup");
@@ -370,7 +417,7 @@ export const getOnboardingStatus = createServerFn({
     const hasOnboardingDevice = Boolean(latestOnboardingDevice);
 
     // Extract domain from notes field (format: "Domain: example.com")
-    let domain: string | undefined;
+    let domain: string | null = null;
     if (latestOnboardingDevice?.notes) {
       const domainMatch = latestOnboardingDevice.notes.match(/^Domain:\s*(.+)$/);
       if (domainMatch) {
@@ -378,28 +425,32 @@ export const getOnboardingStatus = createServerFn({
       }
     }
 
+    const organizationSummary: OnboardingOrganizationSummary | null = organizationRecord
+      ? {
+          id: organizationRecord.id,
+          name: organizationRecord.name ?? null,
+          metadata: organizationMetadata,
+        }
+      : null;
+
+    const projectSummary: OnboardingProjectSummary | null = latestOnboardingDevice
+      ? {
+          id: latestOnboardingDevice.id,
+          name: latestOnboardingDevice.name ?? null,
+          domain,
+        }
+      : null;
+
     return {
       success: true,
       step: hasOnboardingDevice ? 3 : 2,
       organizationId: primaryOrganizationId,
       projectId: latestOnboardingDevice?.id ?? null,
       user: currentUser,
-      organization: organizationRecord
-        ? {
-            id: organizationRecord.id,
-            name: organizationRecord.name,
-            metadata: organizationMetadata,
-          }
-        : null,
-      project: latestOnboardingDevice
-        ? {
-            id: latestOnboardingDevice.id,
-            name: latestOnboardingDevice.name,
-            domain
-          }
-        : null,
+      organization: organizationSummary,
+      project: projectSummary,
       organizations,
-    };
+    } satisfies OnboardingStatus;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     logger.error("Failed to compute onboarding status", { error: errorMessage });
@@ -412,6 +463,6 @@ export const getOnboardingStatus = createServerFn({
       user: currentUser,
       organizations: [],
       error: errorMessage,
-    };
+    } satisfies OnboardingStatus;
   }
 });
