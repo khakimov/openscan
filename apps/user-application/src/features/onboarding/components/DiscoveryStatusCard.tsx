@@ -145,7 +145,7 @@ export function DiscoveryStatusCard({
                           Discovery completed with {discoveryStatus.result.errors.length} warning{discoveryStatus.result.errors.length !== 1 ? 's' : ''}
                         </p>
                         <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
-                          {discoveryStatus.result.errors.map((error, idx) => (
+                          {discoveryStatus.result.errors.map((error: string, idx: number) => (
                             <li key={idx} className="break-words">{error}</li>
                           ))}
                         </ul>
