@@ -3,7 +3,7 @@
  * Tests XML parsing, validation logic, and service behavior
  */
 
-import { describe, it, expect, beforeAll, afterAll, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { RestateTestEnvironment } from '@restatedev/restate-sdk-testcontainers';
 import * as clients from '@restatedev/restate-sdk-clients';
 import { parseNmapXml } from '../xml-parser';
@@ -366,7 +366,7 @@ describe('Port Scanner - Error Handling', () => {
     const emptyTarget = '';
 
     expect(() => {
-      if (!emptyTarget || emptyTarget.length > 253) {
+      if (emptyTarget.length === 0 || emptyTarget.length > 253) {
         throw new Error('Invalid target: empty or too long');
       }
     }).toThrow(/empty or too long/);
