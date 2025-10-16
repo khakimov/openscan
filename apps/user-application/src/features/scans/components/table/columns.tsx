@@ -43,7 +43,7 @@ function getStatusDisplay(scan: Scan) {
         : 0;
       return {
         label: "Running",
-        variant: "blue" as const,
+        variant: "default" as const,
         icon: <LoaderIcon className="w-3 h-3 animate-spin" />,
         description: elapsed > 0 ? `${elapsed}s elapsed` : "Starting...",
       };
@@ -59,7 +59,7 @@ function getStatusDisplay(scan: Scan) {
           : null;
       return {
         label: "Complete",
-        variant: "green" as const,
+        variant: "secondary" as const,
         icon: <CheckIcon className="w-3 h-3" />,
         description: duration ? `${duration}s` : "Completed",
       };
@@ -84,7 +84,7 @@ function getStatusDisplay(scan: Scan) {
     case "TIMEOUT":
       return {
         label: "Timeout",
-        variant: "red" as const,
+        variant: "destructive" as const,
         icon: <ClockIcon className="w-3 h-3" />,
         description: "Scan timed out",
       };
