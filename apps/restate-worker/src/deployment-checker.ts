@@ -87,6 +87,7 @@ export async function checkDeploymentStatus(
     }
 
     // Check if registered services match current services
+    // Note: Restate admin API only exposes service names and revisions, not handlers
     const registeredServices = ourDeployment.services || [];
     const currentServiceNames = currentServices.map((s) => s.name).sort();
     const registeredServiceNames = registeredServices.map((s: any) => s.name).sort();
@@ -100,31 +101,8 @@ export async function checkDeploymentStatus(
       };
     }
 
-    // Check handlers for each service
-    for (const currentService of currentServices) {
-      const registeredService = registeredServices.find(
-        (s: any) => s.name === currentService.name
-      );
-
-      if (!registeredService) {
-        return {
-          registered: true,
-          needsUpdate: true,
-          reason: `New service detected: ${currentService.name}`,
-        };
-      }
-
-      const currentHandlers = currentService.handlers.sort();
-      const registeredHandlers = (registeredService.handlers || []).sort();
-
-      if (JSON.stringify(currentHandlers) !== JSON.stringify(registeredHandlers)) {
-        return {
-          registered: true,
-          needsUpdate: true,
-          reason: `Handler mismatch in ${currentService.name}: registered [${registeredHandlers.join(', ')}], current [${currentHandlers.join(', ')}]`,
-        };
-      }
-    }
+    // All services are registered - we can't check handlers since the API doesn't expose them
+    // The deployment is considered up-to-date if service names match
 
     // All good!
     return {
