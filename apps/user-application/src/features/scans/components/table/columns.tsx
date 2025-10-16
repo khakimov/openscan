@@ -21,25 +21,6 @@ function formatDate(value?: Date | string | null) {
   return format(date, "MMM d, yyyy HH:mm");
 }
 
-function formatDuration(elapsed?: number) {
-  if (!elapsed) return "—";
-
-  if (elapsed < 60) {
-    return `${elapsed.toFixed(1)}s`;
-  }
-
-  const minutes = Math.floor(elapsed / 60);
-  const seconds = elapsed % 60;
-
-  if (minutes < 60) {
-    return `${minutes}m ${seconds.toFixed(0)}s`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-}
-
 function getPortScanArtifact(scan: Scan) {
   return scan.artifacts?.find(
     (artifact) => artifact.artifactType === "port_scan",

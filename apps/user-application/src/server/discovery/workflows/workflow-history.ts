@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
-import { workflowOrchestrator } from '../services/workflow-orchestrator';
+import { workflowOrchestratorRestate as workflowOrchestrator } from '../services/workflow-orchestrator-restate';
 import { extractErrorMessage } from '../utils/workflow-helpers';
 
 const logger = createLogger({ name: 'discovery-workflow-history' });

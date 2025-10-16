@@ -15,6 +15,7 @@ declare namespace Cloudflare {
 		GOOGLE_CLIENT_ID: string;
 		GOOGLE_CLIENT_SECRET: string;
 		GOOGLE_REDIRECT_URI: string;
+		POLAR_SECRET: string;
 		DB: D1Database;
 	}
 }
@@ -23,7 +24,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "TEMPORAL_HTTP_API_URL" | "RESTATE_INGRESS_URL" | "APP_URL" | "BETTER_AUTH_URL" | "BETTER_AUTH_SECRET" | "SESSION_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "GOOGLE_REDIRECT_URI">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "TEMPORAL_HTTP_API_URL" | "RESTATE_INGRESS_URL" | "APP_URL" | "BETTER_AUTH_URL" | "BETTER_AUTH_SECRET" | "SESSION_SECRET" | "GOOGLE_CLIENT_ID" | "GOOGLE_CLIENT_SECRET" | "GOOGLE_REDIRECT_URI" | "POLAR_SECRET">> {}
 }
 
 // Begin runtime types

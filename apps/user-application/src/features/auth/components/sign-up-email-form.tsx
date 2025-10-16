@@ -36,7 +36,7 @@ export function SignUpEmailForm() {
     setIsLoading(true);
 
     try {
-      const { data, error } = await authClient.signUp.email({
+      const { error } = await authClient.signUp.email({
         email: values.email,
         password: values.password,
         name: `${values.firstName} ${values.lastName}`,
