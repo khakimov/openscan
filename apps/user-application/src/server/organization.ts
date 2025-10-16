@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
 import { getAuth } from "@repo/data-ops/auth/server";
+import { getOrganizationAPI } from "@repo/data-ops/auth/organization-api";
 import { getRequest } from "@tanstack/react-start/server";
 import { getCurrentUser } from "./utils/auth";
 import { and, desc, eq } from "@repo/data-ops";
@@ -33,7 +34,8 @@ export const createOrganizationOnboarding = createServerFn({
       });
 
       // Use better-auth organization plugin to create organization
-      const result = await auth.api.createOrganization({
+      const orgAPI = getOrganizationAPI(auth);
+      const result = await orgAPI.createOrganization({
         body: {
           name: data.name,
           slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
@@ -46,6 +48,21 @@ export const createOrganizationOnboarding = createServerFn({
         organizationId: result?.id,
         userId: user.id,
       });
+
+      // Set the newly created organization as the active organization in the session
+      if (result?.id) {
+        await orgAPI.setActiveOrganization({
+          body: {
+            organizationId: result.id,
+          },
+          headers: request.headers,
+        });
+
+        logger.info("Set active organization in session", {
+          organizationId: result.id,
+          userId: user.id,
+        });
+      }
 
       return {
         success: true,
@@ -78,7 +95,8 @@ export const getUserOrganizations = createServerFn({
 
     logger.info("Fetching organizations for user", { userId: user.id });
 
-    const result = await auth.api.listOrganizations({
+    const orgAPI = getOrganizationAPI(auth);
+    const result = await orgAPI.listOrganizations({
       headers: request.headers,
     });
 

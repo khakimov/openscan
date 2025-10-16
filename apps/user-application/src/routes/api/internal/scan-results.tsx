@@ -1,10 +1,10 @@
 /**
  * Internal API Route: Scan Results Postback
  *
- * Receives scan results from temporal-worker via HTTP postback.
+ * Receives scan results from restate-worker via HTTP postback.
  * This endpoint is called by the worker (not by end users).
  *
- * Architecture: apps/temporal-worker/docs/database-free-portscan-architecture.md
+ * Architecture: apps/restate-worker/CLAUDE.md
  * Data Model: docs/data-model.md
  *
  * Authentication: WORKER_API_KEY (not user session)

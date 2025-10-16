@@ -19,6 +19,7 @@ import type { DiscoveryStatus } from "../types/discovery-status";
 import { validateDomain } from "../utils/validators";
 import { DiscoveryStatusCard } from "./DiscoveryStatusCard";
 import { toast } from "sonner";
+import { QUERY_CONFIG } from "@repo/constants";
 
 interface OnboardingDiscoveryProps {
   projectId: string;
@@ -43,7 +44,7 @@ export function OnboardingDiscovery({
     new Set(),
   );
 
-  // Smart polling for workflow status using TanStack Query
+  // Smart polling for workflow status (reduced frequency with postback architecture)
   const { data: workflowStatus } = useQuery({
     queryKey: ["workflow-status", workflowId, runId],
     queryFn: () =>
@@ -57,7 +58,8 @@ export function OnboardingDiscovery({
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
-      return 1000; // Poll every 1 second while running
+      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
     },
   });
 
@@ -164,14 +166,14 @@ export function OnboardingDiscovery({
         throw new Error("Please select at least one subdomain");
       }
 
-      // Extract hostname and IP data from discovery results
+      // Extract hostname and IP data from typed discovery results
       const targetsData = selectedTargets.map((host) => {
-        const result = results?.results?.[0]?.results?.find(
-          (r: any) => r.host === host,
+        const subdomain = results?.uniqueSubdomains?.find(
+          (s) => s.subdomain === host,
         );
         return {
           host,
-          ip: result?.ip, // Include IP if resolved during discovery
+          ip: subdomain?.ip, // Include IP if resolved during discovery
         };
       });
 

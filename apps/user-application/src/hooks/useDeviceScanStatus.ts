@@ -63,8 +63,8 @@ export function useDeviceScanStatus(
         return false;
       }
 
-      // Poll every 3 seconds while scanning
-      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3;
+      // Poll every 30 seconds (postback notifies server immediately, this is just UI sync)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_30;
     },
     refetchIntervalInBackground: false,
     staleTime: QUERY_CONFIG.STALE_TIME.SECONDS_30,

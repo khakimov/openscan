@@ -177,6 +177,46 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
 }
 
 /**
+ * Get a single device by ID globally (no tenant filter)
+ * Used by internal services that need to resolve device → organization
+ * SECURITY: Only use this in authenticated internal endpoints
+ */
+export async function getDeviceByIdGlobal(deviceId: string) {
+  const db = getDb();
+
+  const [device] = await db
+    .select()
+    .from(devices)
+    .where(eq(devices.id, deviceId))
+    .limit(1);
+
+  if (!device) return null;
+
+  // Get primary IP
+  const [primaryIp] = await db
+    .select()
+    .from(deviceIps)
+    .where(and(
+      eq(deviceIps.deviceId, deviceId),
+      eq(deviceIps.primary, sql`1`)
+    ))
+    .limit(1);
+
+  // Get tags
+  const deviceTagsData = await db
+    .select({ tag: tags })
+    .from(deviceTags)
+    .innerJoin(tags, eq(deviceTags.tagId, tags.id))
+    .where(eq(deviceTags.deviceId, deviceId));
+
+  return {
+    ...device,
+    ip: primaryIp?.ip || null,
+    tags: deviceTagsData.map(({ tag }) => tag.name),
+  };
+}
+
+/**
  * Delete a device
  */
 export async function deleteDevice(deviceId: string, organizationId: string) {

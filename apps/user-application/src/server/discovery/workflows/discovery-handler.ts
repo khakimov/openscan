@@ -2,10 +2,18 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
-import { workflowOrchestratorHttp } from '../services/workflow-orchestrator-http';
+import { workflowOrchestratorRestate } from '../services/workflow-orchestrator-restate';
 import { buildDiscoveryRequest, buildDiscoveryResult, extractErrorMessage } from '../utils/workflow-helpers';
 
 const logger = createLogger({ name: 'discovery-handler' });
+
+// Using Restate for discovery workflows
+const orchestrator = workflowOrchestratorRestate;
+
+logger.info('Discovery handler initialized', {
+  engine: 'Restate',
+  restateUrl: process.env.RESTATE_INGRESS_URL || 'http://localhost:8080',
+});
 
 export const startDiscoveryWorkflow = createServerFn({
   method: 'POST',
@@ -14,7 +22,7 @@ export const startDiscoveryWorkflow = createServerFn({
     logger.info('Discovery input validation', { data });
     const result = StartDiscoverySchema.safeParse(data);
     if (!result.success) {
-      const message = result.error?.errors?.map((err) => err.message).join(', ') || 'Validation failed';
+      const message = result.error?.issues?.map((err) => err.message).join(', ') || 'Validation failed';
       logger.error('Discovery input validation failed', { data, error: result.error });
       throw new Error(`Invalid input: ${message}`);
     }
@@ -24,10 +32,13 @@ export const startDiscoveryWorkflow = createServerFn({
     const { target } = data;
 
     try {
-      logger.info('Starting discovery workflow via HTTP', { target });
+      logger.info('Starting discovery workflow', {
+        target,
+        engine: 'Restate',
+      });
 
       const discoveryRequest = buildDiscoveryRequest(target);
-      const handle = await workflowOrchestratorHttp.startDiscovery(discoveryRequest);
+      const handle = await orchestrator.startDiscovery(discoveryRequest);
 
       return {
         success: true,
@@ -81,14 +92,19 @@ export const getWorkflowStatus = createServerFn({
     const { workflowId, runId } = data;
 
     try {
-      const description = await workflowOrchestratorHttp.describeWorkflow(workflowId, runId);
+      const description = await orchestrator.describeWorkflow(workflowId, runId);
+
+      // Handle both string and object status types
+      const statusName = typeof description.status === 'string'
+        ? description.status
+        : description.status.name;
 
       return {
         workflowId,
-        status: description.status.name,
-        isRunning: description.status.name === 'RUNNING',
-        isCompleted: description.status.name === 'COMPLETED',
-        isFailed: description.status.name === 'FAILED',
+        status: statusName,
+        isRunning: statusName === 'RUNNING',
+        isCompleted: statusName === 'COMPLETED',
+        isFailed: statusName === 'FAILED',
       };
     } catch (error) {
       logger.error('Failed to get workflow status', { workflowId, error });
@@ -113,7 +129,7 @@ export const getWorkflowResult = createServerFn({
     const { workflowId, runId } = data;
 
     try {
-      const discoveryOutput = await workflowOrchestratorHttp.fetchDiscoveryResult(workflowId, runId);
+      const discoveryOutput = await orchestrator.fetchDiscoveryResult(workflowId, runId);
       const result = buildDiscoveryResult(discoveryOutput);
 
       logger.info('Retrieved discovery workflow result', {

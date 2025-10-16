@@ -24,11 +24,6 @@ export interface UseOrganizationLifecycleOptions {
   persistedOrganizationId: string | null;
 
   /**
-   * List of existing organizations
-   */
-  organizations: any[];
-
-  /**
    * Persisted device ID from previous steps
    */
   deviceId: string | null;
@@ -48,10 +43,8 @@ export interface OrganizationSetupResult {
 export function useOrganizationLifecycle({
   hasOrganization,
   persistedOrganizationId,
-  organizations,
   deviceId,
 }: UseOrganizationLifecycleOptions) {
-  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -61,12 +54,17 @@ export function useOrganizationLifecycle({
   const setupOrganizationAndProject = async (
     formData: OrganizationFormData
   ): Promise<OrganizationSetupResult> => {
-    setIsProcessing(true);
     setError(null);
 
     try {
-      let organizationId =
-        persistedOrganizationId ?? organizations[0]?.id ?? null;
+      // Require explicit organization ID when updating existing org
+      if (hasOrganization && !persistedOrganizationId) {
+        throw new Error(
+          "Organization ID is required when updating an existing organization"
+        );
+      }
+
+      let organizationId = persistedOrganizationId;
 
       // Step 1: Create or update organization
       if (!hasOrganization || !organizationId) {
@@ -142,7 +140,6 @@ export function useOrganizationLifecycle({
         deviceResult.device
       );
 
-      setIsProcessing(false);
       return {
         success: true,
         organizationId,
@@ -153,7 +150,6 @@ export function useOrganizationLifecycle({
         err instanceof Error ? err.message : "Something went wrong";
       console.error("[useOrganizationLifecycle] Error:", err);
       setError(errorMessage);
-      setIsProcessing(false);
       return {
         success: false,
         error: errorMessage,
@@ -163,7 +159,6 @@ export function useOrganizationLifecycle({
 
   return {
     setupOrganizationAndProject,
-    isProcessing,
     error,
     setError,
   };

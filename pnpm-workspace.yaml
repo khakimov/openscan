@@ -8,7 +8,6 @@ ignoredBuiltDependencies:
 
 onlyBuiltDependencies:
   - '@tailwindcss/oxide'
-  - '@temporalio/core-bridge'
   - better-sqlite3
   - esbuild
   - sharp

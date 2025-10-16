@@ -24,7 +24,8 @@ export function useScansTableQuery() {
         (scan: Scan) => scan.status === "PENDING" || scan.status === "RUNNING"
       );
 
-      return hasActiveScans ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3 : false; // Poll every 3 seconds only if needed
+      // Poll every 30 seconds (postback notifies server immediately, this is just UI sync)
+      return hasActiveScans ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_30 : false;
     },
     refetchIntervalInBackground: false, // Only poll when tab is active
     keepPreviousData: true, // Prevent jank by keeping old data during refetch

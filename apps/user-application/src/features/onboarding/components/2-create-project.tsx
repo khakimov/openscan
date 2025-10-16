@@ -21,7 +21,6 @@ import { useOrganizationLifecycle } from "../hooks/use-organization-lifecycle";
 
 interface OnboardingCreateProjectProps {
   hasOrganization: boolean;
-  organizations: any[];
   organizationId: string | null;
   deviceId: string | null;
   initialValues: {
@@ -34,7 +33,6 @@ interface OnboardingCreateProjectProps {
 
 export function OnboardingCreateProject({
   hasOrganization,
-  organizations,
   organizationId: persistedOrganizationId,
   deviceId,
   initialValues,
@@ -49,7 +47,6 @@ export function OnboardingCreateProject({
   } = useOrganizationLifecycle({
     hasOrganization,
     persistedOrganizationId,
-    organizations,
     deviceId,
   });
 

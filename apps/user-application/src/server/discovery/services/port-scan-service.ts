@@ -39,7 +39,7 @@ export class PortScanService {
     // Step 1: Create database records for tracking
     const scanWorkflow = await scanRecorder.createWorkflow({
       tenantId,
-      temporalWorkflowId: workflowId,
+      workflowId: workflowId,
       kind: 'DISCOVERY',
     });
 
@@ -98,7 +98,7 @@ export class PortScanService {
 
     // Step 4: Update scan status to running
     await scanRecorder.markRunRunning(scanRun.id);
-    await scanRecorder.updateWorkflowStatus(scanWorkflow.id, 'RUNNING', scanResult.scanId);
+    await scanRecorder.updateWorkflowStatus(scanWorkflow.id, 'RUNNING');
 
     return {
       workflowId,

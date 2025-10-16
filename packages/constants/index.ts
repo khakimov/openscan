@@ -371,7 +371,8 @@ export const QUERY_CONFIG = {
     SECONDS_3: 3 * 1000,
     SECONDS_5: 5 * 1000,
     SECONDS_10: 10 * 1000,
-    SECONDS_30: 30 * 1000,
+    SECONDS_15: 15 * 1000, // For workflow status polling with postback architecture
+    SECONDS_30: 30 * 1000, // For scan status polling with postback architecture
     MINUTES_1: 60 * 1000,
   },
 

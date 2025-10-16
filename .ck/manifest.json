@@ -1,0 +1,2212 @@
+{
+  "version": "0.1.0",
+  "created": 1760526762,
+  "updated": 1760528598,
+  "files": {
+    "./packages/contracts/artifacts/migrations.ts": {
+      "path": "./packages/contracts/artifacts/migrations.ts",
+      "hash": "025e5f478a8312bc4463155b53add5525ded83ff1cf95b09ba209b9e1c5cb964",
+      "last_modified": 1760440791,
+      "size": 477
+    },
+    "./apps/user-application/src/hooks/useDevicesQuery.ts": {
+      "path": "./apps/user-application/src/hooks/useDevicesQuery.ts",
+      "hash": "6f62c16c3c440ed5ad686baaf600b03ac4f50477fbd3aab0ff300295bd3c4325",
+      "last_modified": 1760229497,
+      "size": 1308
+    },
+    "./apps/temporal-worker/src/workflows/discovery/workflow.ts": {
+      "path": "./apps/temporal-worker/src/workflows/discovery/workflow.ts",
+      "hash": "2cea9863e6937042bd60f31028401c13b4a208c1077de6a185e871311745f80d",
+      "last_modified": 1760438092,
+      "size": 10038
+    },
+    "./apps/user-application/src/utils/should-ignore-keypress.ts": {
+      "path": "./apps/user-application/src/utils/should-ignore-keypress.ts",
+      "hash": "9b95ae68e430141908186680830f37a61f2e2db654b05c3c78094d2e748bdceb",
+      "last_modified": 1760229497,
+      "size": 355
+    },
+    "./apps/user-application/src/server/config/oauth.ts": {
+      "path": "./apps/user-application/src/server/config/oauth.ts",
+      "hash": "b43340b331d738ac486a8c9c5b2c63a135ce10ac457602fe99ecda2d6fc9a365",
+      "last_modified": 1760457488,
+      "size": 1133
+    },
+    "./packages/contracts/scanners/constants.ts": {
+      "path": "./packages/contracts/scanners/constants.ts",
+      "hash": "babea3682994104c0aec766d5cea89fdc25ff73be20d04bad80822be178844c4",
+      "last_modified": 1760187831,
+      "size": 251
+    },
+    "./apps/temporal-worker/src/utilities/port-schemes.ts": {
+      "path": "./apps/temporal-worker/src/utilities/port-schemes.ts",
+      "hash": "a274fc8bc8edf22bd6ab4913c7d1d06907a939e66ae44b79db5a14a74e655090",
+      "last_modified": 1760409077,
+      "size": 4979
+    },
+    "./apps/user-application/src/routes/api/internal/scan-results.tsx": {
+      "path": "./apps/user-application/src/routes/api/internal/scan-results.tsx",
+      "hash": "9d196bd4b8f324a6426a6ffa53b83980a880efa728f215b9ddc987feabcfbe5f",
+      "last_modified": 1760451682,
+      "size": 770
+    },
+    "./apps/user-application/src/routes/_static/docs/$name.tsx": {
+      "path": "./apps/user-application/src/routes/_static/docs/$name.tsx",
+      "hash": "0ac9645b84437c9b5123574a071fb0b55a2c43b01dc30349507165fe192001d7",
+      "last_modified": 1760229497,
+      "size": 5536
+    },
+    "./apps/user-application/src/server/discovery/index.ts": {
+      "path": "./apps/user-application/src/server/discovery/index.ts",
+      "hash": "a9df51829ccea6b0e0db5bade3383d47114e6006855dc421680c060d3afa7d3f",
+      "last_modified": 1760229497,
+      "size": 312
+    },
+    "./apps/restate-worker/.env.example": {
+      "path": "./apps/restate-worker/.env.example",
+      "hash": "c2e0f8b3f371c1228522a409eafce3dc8ec58c498713b312d3fb571c76234c5a",
+      "last_modified": 1760498105,
+      "size": 333
+    },
+    "./apps/temporal-worker/tsconfig.json": {
+      "path": "./apps/temporal-worker/tsconfig.json",
+      "hash": "5c6a4e7fd7f8f4d4e1e795d216d9a846bba7a9320a52fb226d37963b719721c1",
+      "last_modified": 1760438058,
+      "size": 644
+    },
+    "./apps/user-application/src/features/scans/components/table/columns.tsx": {
+      "path": "./apps/user-application/src/features/scans/components/table/columns.tsx",
+      "hash": "3b06d150902ba544996013eb8d7ff82b0c05b5aee038ddf66f4cc8d541c2497a",
+      "last_modified": 1760229497,
+      "size": 10110
+    },
+    "./pnpm-workspace.yaml": {
+      "path": "./pnpm-workspace.yaml",
+      "hash": "80f29987093d52b82b58bbd9de62f2d83307de207d20a88cccaa8fbaa44a3982",
+      "last_modified": 1760497519,
+      "size": 227
+    },
+    "./poc-restate/wrangler.toml": {
+      "path": "./poc-restate/wrangler.toml",
+      "hash": "ad3e71c5c2118c41d3f58e2352a54fec4b74dbd52e2bd628deb238f28a246923",
+      "last_modified": 1760487314,
+      "size": 322
+    },
+    "./packages/data-ops/migrations/0000_careless_cerise.sql": {
+      "path": "./packages/data-ops/migrations/0000_careless_cerise.sql",
+      "hash": "95e7d28201992c2cb0264db427faaae22f32e30955168545e56810364aca617b",
+      "last_modified": 1760089398,
+      "size": 1890
+    },
+    "./packages/temporal/src/contracts/index.ts": {
+      "path": "./packages/temporal/src/contracts/index.ts",
+      "hash": "3e811274bc98950e18eaf3f161a5189b891e324968120657730bb09cf81fec01",
+      "last_modified": 1760430141,
+      "size": 391
+    },
+    "./apps/user-application/vite.config.ts": {
+      "path": "./apps/user-application/vite.config.ts",
+      "hash": "62ed517bfc54caaefdf8e061e806d8c8826dcea9b90c6a0e578bba9c59581921",
+      "last_modified": 1760442181,
+      "size": 1124
+    },
+    "./packages/contracts/scanners/package.json": {
+      "path": "./packages/contracts/scanners/package.json",
+      "hash": "7b4949fc24fc5541ff9419516602b02af2435730fa370f2ac49c301d21a5bc19",
+      "last_modified": 1760187989,
+      "size": 405
+    },
+    "./apps/temporal-worker/src/workflows/portscan/merge/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/merge/index.ts",
+      "hash": "57c8515a93b975890c1c9a2be49428342dda3dfbe7719eed9530818917ec50e7",
+      "last_modified": 1760409347,
+      "size": 394
+    },
+    "./package.json": {
+      "path": "./package.json",
+      "hash": "d266b32a97b9009367b359117dd27d304c913586668d317d5deace1a0b2b28c8",
+      "last_modified": 1760348532,
+      "size": 934
+    },
+    "./apps/user-application/src/components/landing/hero-section.tsx": {
+      "path": "./apps/user-application/src/components/landing/hero-section.tsx",
+      "hash": "449376bc4c046f5dff030dfa2f31e6dfddb0fdcae4602aef6c9d9070d438431d",
+      "last_modified": 1760362369,
+      "size": 1962
+    },
+    "./docs/best-practices/drizzle-orm/drizzle-llm-summary.txt": {
+      "path": "./docs/best-practices/drizzle-orm/drizzle-llm-summary.txt",
+      "hash": "1babf9fe70e153e88b9160fece87f0558c128fe9a21fe54689e1980937c8d8bf",
+      "last_modified": 1760243758,
+      "size": 1059
+    },
+    "./apps/user-application/src/core/middleware/polar.ts": {
+      "path": "./apps/user-application/src/core/middleware/polar.ts",
+      "hash": "81f6be427c3b5e532c0ec53f471478da8a307e565a048ef04f4c3da06fc5b653",
+      "last_modified": 1760229497,
+      "size": 395
+    },
+    "./packages/data-ops/src/schema/identity.ts": {
+      "path": "./packages/data-ops/src/schema/identity.ts",
+      "hash": "99250c152a9e6f1b807c70a3a90ae89296cbf80899a6546bd525f99c4d9ac8c6",
+      "last_modified": 1760229241,
+      "size": 606
+    },
+    "./apps/user-application/src/components/theme/index.ts": {
+      "path": "./apps/user-application/src/components/theme/index.ts",
+      "hash": "39e867d982243fabfbae7d73f44d65df9fc1abe0ae0b536b35fb0bf65bf2a15c",
+      "last_modified": 1760229497,
+      "size": 138
+    },
+    "./packages/data-ops/migrations/meta/0002_snapshot.json": {
+      "path": "./packages/data-ops/migrations/meta/0002_snapshot.json",
+      "hash": "fb9f32ec1e205de32594ff6450a4271cea90ba2382ca301440722bced1a7bca9",
+      "last_modified": 1760234587,
+      "size": 46346
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/xml-parser.test.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/xml-parser.test.ts",
+      "hash": "543d19395912577e678a69de797a1a4229244daac30f6f5ba4f52d64e0eff398",
+      "last_modified": 1760413003,
+      "size": 15690
+    },
+    "./apps/user-application/src/features/scans/components/table/index.tsx": {
+      "path": "./apps/user-application/src/features/scans/components/table/index.tsx",
+      "hash": "4d6198e4cbfcc1344a548ff7e130e56b1d5c7a0e6f8890ca7d6c9a2ec9ea6d05",
+      "last_modified": 1760355148,
+      "size": 4601
+    },
+    "./apps/user-application/src/server/discovery/utils/scan-scope.ts": {
+      "path": "./apps/user-application/src/server/discovery/utils/scan-scope.ts",
+      "hash": "230bcec8e081b91e529a092ca4d7c92d5380476e1de5281b038a58e020597567",
+      "last_modified": 1760229497,
+      "size": 425
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/utils.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/utils.ts",
+      "hash": "bee2cc72af426d2b6aeae4d13052587a0cca69d07411ebec69dace6811822465",
+      "last_modified": 1760413762,
+      "size": 3796
+    },
+    "./poc-restate/src/schemas.ts": {
+      "path": "./poc-restate/src/schemas.ts",
+      "hash": "0dd1e1dabed0030737792ad912c9faefe8b004afc8a642fde82efd2996d1354c",
+      "last_modified": 1760487336,
+      "size": 1215
+    },
+    "./apps/data-service/README.md": {
+      "path": "./apps/data-service/README.md",
+      "hash": "ed39c1b4f3174ff11a41e69fd32e6505494d86666c3ae719fbaa051f010d8dba",
+      "last_modified": 1760012856,
+      "size": 1100
+    },
+    "./apps/temporal-worker/src/workflows/portscan/prescan/policy.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/prescan/policy.ts",
+      "hash": "c61df922a13d07a614748fe16e9633b080753e9d479ea6d180235e1bdbf85887",
+      "last_modified": 1760432015,
+      "size": 4510
+    },
+    "./packages/data-ops/src/schema/inventory.ts": {
+      "path": "./packages/data-ops/src/schema/inventory.ts",
+      "hash": "0768793c6316f14396b90cbab79d9d4085d2d03be8821fdcbe5fa67550d8464a",
+      "last_modified": 1760233563,
+      "size": 5615
+    },
+    "./apps/data-service/src/hono/app.ts": {
+      "path": "./apps/data-service/src/hono/app.ts",
+      "hash": "dd0e9afd4a054397d2462a0e18739e9a390a777c1187b100deb764fa16a88a91",
+      "last_modified": 1760012856,
+      "size": 139
+    },
+    "./apps/restate-worker/package.json": {
+      "path": "./apps/restate-worker/package.json",
+      "hash": "fca260a01d05df50e8db8ce36a825812480c73891c32511cde429ac16d7110bb",
+      "last_modified": 1760520940,
+      "size": 747
+    },
+    "./apps/temporal-worker/src/index.ts": {
+      "path": "./apps/temporal-worker/src/index.ts",
+      "hash": "3e6f4f2209700f097483c467eeabc6a02ff024d5a684fd4cf470bb9ecda0d913",
+      "last_modified": 1760353139,
+      "size": 2642
+    },
+    "./apps/user-application/src/server/discovery/workflows/workflow-history.ts": {
+      "path": "./apps/user-application/src/server/discovery/workflows/workflow-history.ts",
+      "hash": "751a025284e183bbc34d4dad86113631f99bc0081017c7bfc30b6a87b9640220",
+      "last_modified": 1760229497,
+      "size": 1312
+    },
+    "./apps/user-application/src/server/utils/errors.ts": {
+      "path": "./apps/user-application/src/server/utils/errors.ts",
+      "hash": "b7d6ed9211ba574dde2f2efe527eb47ce7ca057fc89df31b2a156dcf264dfa1b",
+      "last_modified": 1760229497,
+      "size": 1669
+    },
+    "./apps/user-application/src/server/organization.ts": {
+      "path": "./apps/user-application/src/server/organization.ts",
+      "hash": "e2bbf74388debcd357e85d331482acb28cc2f116fe0cc39e555c0bda0b1c7a6b",
+      "last_modified": 1760457066,
+      "size": 12086
+    },
+    "./apps/user-application/src/styles.css": {
+      "path": "./apps/user-application/src/styles.css",
+      "hash": "923c42208f8aff1ed87cc9c8b31422ee8ad5ede876d3519da20e4822e55f0eea",
+      "last_modified": 1760363483,
+      "size": 5062
+    },
+    "./apps/user-application/src/server/discovery/schemas/discovery-schemas.ts": {
+      "path": "./apps/user-application/src/server/discovery/schemas/discovery-schemas.ts",
+      "hash": "b29cf6d1ea960765920479532079fc54566e82165f0f38f7937bc573a4fe6f55",
+      "last_modified": 1760229497,
+      "size": 1006
+    },
+    "./apps/user-application/src/server/utils/restate-http-client.ts": {
+      "path": "./apps/user-application/src/server/utils/restate-http-client.ts",
+      "hash": "265c5182fd94472c81f4d52a03f3f81f8664879faef3ec4c85891eaecde12cae",
+      "last_modified": 1760527937,
+      "size": 6801
+    },
+    "./apps/user-application/src/routes/_auth/app/polar/checkout.success.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/app/polar/checkout.success.tsx",
+      "hash": "f0a1e0f17e5bcce777cd9bd6d5296a97804466903d7dc3e7ac4f0b37203aa86c",
+      "last_modified": 1760229497,
+      "size": 4987
+    },
+    "./apps/user-application/src/server/utils/auth.ts": {
+      "path": "./apps/user-application/src/server/utils/auth.ts",
+      "hash": "d9ab108deb3b2c360a459ae0928305520a59ee78abd02f12f7f6a197004217d7",
+      "last_modified": 1760457033,
+      "size": 2838
+    },
+    "./apps/user-application/src/features/auth/components/or.tsx": {
+      "path": "./apps/user-application/src/features/auth/components/or.tsx",
+      "hash": "3d0d2d810910ce0dab276b8eb934bacaccffeaf0d57676f903de168a46d619e3",
+      "last_modified": 1760229497,
+      "size": 337
+    },
+    "./apps/user-application/src/features/scans/index.ts": {
+      "path": "./apps/user-application/src/features/scans/index.ts",
+      "hash": "41be356a28daef766afaa49b37bde0ea2220ff60c0063fccd1d1be490d89b0af",
+      "last_modified": 1760229497,
+      "size": 49
+    },
+    "./apps/user-application/src/components/ui/label.tsx": {
+      "path": "./apps/user-application/src/components/ui/label.tsx",
+      "hash": "c4ec704e7ea668430fa6bf4b9ff6e500da5215f9a9aad09a87a66eaa3daf907b",
+      "last_modified": 1760229497,
+      "size": 765
+    },
+    "./apps/user-application/src/components/layout/sidebar.tsx": {
+      "path": "./apps/user-application/src/components/layout/sidebar.tsx",
+      "hash": "982a1a4d02a61e30df4cbcd35089a2f6ade390ea5e5f22cdee2113b7d148be27",
+      "last_modified": 1760453734,
+      "size": 11471
+    },
+    "./apps/restate-worker/src/postback.ts": {
+      "path": "./apps/restate-worker/src/postback.ts",
+      "hash": "ec4ff5fe3b20789e05d330885ab304f679e844df226f74fb1b50d4aba729a306",
+      "last_modified": 1760527859,
+      "size": 2448
+    },
+    "./packages/contracts/artifacts/json-types.ts": {
+      "path": "./packages/contracts/artifacts/json-types.ts",
+      "hash": "8bc1040734aceafc3bd6b5450f732e508de0b80d065d892adfde0593252c36a1",
+      "last_modified": 1760187830,
+      "size": 2502
+    },
+    "./apps/restate-worker/src/__tests__/validation.test.ts": {
+      "path": "./apps/restate-worker/src/__tests__/validation.test.ts",
+      "hash": "b0f1a74a1c9d7c93d0b9b080fc4644cd9be8ec5cdeef5a42a1be14c6768206c9",
+      "last_modified": 1760522625,
+      "size": 13140
+    },
+    "./apps/user-application/src/components/layout/header.tsx": {
+      "path": "./apps/user-application/src/components/layout/header.tsx",
+      "hash": "63875a14bc7fb7d18236de75449e1c8d3b4328ab8ac68cc90ea11e0c03d2ad9e",
+      "last_modified": 1760452065,
+      "size": 788
+    },
+    "./packages/data-ops/src/queries/devices.ts": {
+      "path": "./packages/data-ops/src/queries/devices.ts",
+      "hash": "3c76d4f51700b26e0677fc339a49582761d381374ba753a7c81bcba912ddd7c4",
+      "last_modified": 1760451590,
+      "size": 13562
+    },
+    "./packages/data-ops/migrations/meta/_journal.json": {
+      "path": "./packages/data-ops/migrations/meta/_journal.json",
+      "hash": "17a5dc6a3289ff7f5f85142b0e9e9e9ba3b7b4e907231dd17fb3a506e8a8d04c",
+      "last_modified": 1760234587,
+      "size": 493
+    },
+    "./apps/user-application/src/server/auth.ts": {
+      "path": "./apps/user-application/src/server/auth.ts",
+      "hash": "a1d4b5c0d386adb4ea20d29b7c422a9949933e505d27db65e62ec12b1a810e92",
+      "last_modified": 1760229497,
+      "size": 3298
+    },
+    "./apps/restate-worker/src/discovery-tools.ts": {
+      "path": "./apps/restate-worker/src/discovery-tools.ts",
+      "hash": "8bab0435532b505f7c6d2ec42e3e77fd25c6153e0ac4de741bc991a9463b0436",
+      "last_modified": 1760522990,
+      "size": 6746
+    },
+    "./apps/restate-worker/src/discovery-service.ts": {
+      "path": "./apps/restate-worker/src/discovery-service.ts",
+      "hash": "56f819692b310bbd3cd06bafcf138a5c7d2b64004f254cf3f1dda1ea734c3152",
+      "last_modified": 1760524973,
+      "size": 7604
+    },
+    "./apps/user-application/src/components/ui/table.tsx": {
+      "path": "./apps/user-application/src/components/ui/table.tsx",
+      "hash": "c339d94ddf692aa61f7742548f0705a7cf69af138116353bb80f30308b64d10f",
+      "last_modified": 1760229497,
+      "size": 3900
+    },
+    "./apps/user-application/src/components/landing/footer.tsx": {
+      "path": "./apps/user-application/src/components/landing/footer.tsx",
+      "hash": "e95fad4f65901b08863f736beced4b9568996bdff7643a4c4335e183f57a473e",
+      "last_modified": 1760229497,
+      "size": 3915
+    },
+    "./apps/user-application/src/components/layout/layout-project-selector.tsx": {
+      "path": "./apps/user-application/src/components/layout/layout-project-selector.tsx",
+      "hash": "f85ff65b432d168b62b166e68ad0b41f9a04357d22774b5c1fad0421a01cbd26",
+      "last_modified": 1760452077,
+      "size": 5571
+    },
+    "./apps/restate-worker/src/__tests__/setup.test.ts": {
+      "path": "./apps/restate-worker/src/__tests__/setup.test.ts",
+      "hash": "f4e915c76924d6a9fe8ff8ccfc57a952d116c0ea81d0a38eef5da818ba9d3233",
+      "last_modified": 1760520805,
+      "size": 1945
+    },
+    "./packages/config/tsconfig.json": {
+      "path": "./packages/config/tsconfig.json",
+      "hash": "62fe1aa02480fff789848bb2ddaf7ccc947bd11662ec5b927fca1aa089ccafbd",
+      "last_modified": 1760242022,
+      "size": 376
+    },
+    "./apps/user-application/src/components/ui/dropdown-menu.tsx": {
+      "path": "./apps/user-application/src/components/ui/dropdown-menu.tsx",
+      "hash": "2a5663b04d127fb6b4c0b81cd490e38e26c621d4bd5885a7dbbbba8566685071",
+      "last_modified": 1760229497,
+      "size": 8270
+    },
+    "./packages/validation/index.ts": {
+      "path": "./packages/validation/index.ts",
+      "hash": "991152a2f372f7e41140844df85aaf4d99a468a5e70ef0f1bad6e946ae497adf",
+      "last_modified": 1760187805,
+      "size": 69
+    },
+    "./apps/temporal-worker/CLAUDE.md": {
+      "path": "./apps/temporal-worker/CLAUDE.md",
+      "hash": "4a4798c2db2b97b756b72ed3d7aa198f5338654c4a82fceff0242a352ff452b3",
+      "last_modified": 1760443551,
+      "size": 6220
+    },
+    "./apps/user-application/public/docs/organization.md": {
+      "path": "./apps/user-application/public/docs/organization.md",
+      "hash": "28464c23bc9c1e54edd6f3fdc7566ab62b2e235ddc1c6966cf3099b1d608a690",
+      "last_modified": 1760085523,
+      "size": 40126
+    },
+    "./apps/restate-worker/src/__tests__/discovery-tools.test.ts": {
+      "path": "./apps/restate-worker/src/__tests__/discovery-tools.test.ts",
+      "hash": "8483bbcf21bf42f9431895ea3399bc4705a5b4430bf4bf3dacb54aacd69efccf",
+      "last_modified": 1760522982,
+      "size": 17899
+    },
+    "./apps/user-application/.env.example": {
+      "path": "./apps/user-application/.env.example",
+      "hash": "1e95d0d0224d08ec45116ae7d4efe3f9f8ea1a22d92537efdc46e344f0a9ea47",
+      "last_modified": 1760452548,
+      "size": 727
+    },
+    "./apps/user-application/src/components/shared/card.tsx": {
+      "path": "./apps/user-application/src/components/shared/card.tsx",
+      "hash": "54d77e8c79fc35008298daff8e6d9f199d07826bd6cc4de3930b860b224bcce0",
+      "last_modified": 1760452187,
+      "size": 1414
+    },
+    "./apps/data-service/worker-configuration.d.ts": {
+      "path": "./apps/data-service/worker-configuration.d.ts",
+      "hash": "9b626f5f2bfa4cc1519fa511ff4ad05095fa2f39dca95f6284a5a1008608e3ef",
+      "last_modified": 1760012856,
+      "size": 292091
+    },
+    "./apps/user-application/src/components/shared/full-page-empty-state.tsx": {
+      "path": "./apps/user-application/src/components/shared/full-page-empty-state.tsx",
+      "hash": "c6f96462424290d0807e728473475da4766394ce9d37e9350e20b0607e480be2",
+      "last_modified": 1760229497,
+      "size": 888
+    },
+    "./apps/temporal-worker/src/workflows/shared/activities/postback.ts": {
+      "path": "./apps/temporal-worker/src/workflows/shared/activities/postback.ts",
+      "hash": "8ee644c4a19269c546dbc887c1feaf8bfaff962aa4d7d794e3d8a905857e281d",
+      "last_modified": 1760451102,
+      "size": 2565
+    },
+    "./apps/user-application/public/docs/polar.md": {
+      "path": "./apps/user-application/public/docs/polar.md",
+      "hash": "7cc6df612568d31d9cfcb7e7d6b86e53fdc5544746a98fed1f6e195b1de17f21",
+      "last_modified": 1760012856,
+      "size": 11670
+    },
+    "./apps/restate-worker/tsconfig.json": {
+      "path": "./apps/restate-worker/tsconfig.json",
+      "hash": "ea23ffd7fb35a87b4015847c0e5b0793b9ceae1c465cb7ea549bb77530732f08",
+      "last_modified": 1760497976,
+      "size": 443
+    },
+    "./apps/user-application/src/server/discovery/workflows/port-scan/lifecycle.ts": {
+      "path": "./apps/user-application/src/server/discovery/workflows/port-scan/lifecycle.ts",
+      "hash": "d08bb53ff7a732cdacac73ce1b02a5ca9adbba5d4bb9f439ed96d6a41f3dd090",
+      "last_modified": 1760527387,
+      "size": 2397
+    },
+    "./apps/user-application/public/docs/authentication.md": {
+      "path": "./apps/user-application/public/docs/authentication.md",
+      "hash": "ee31e1eeddee3af1feba39b77444ffa426cfbec2bb6b8e4181a2a966722c00e6",
+      "last_modified": 1760087280,
+      "size": 18004
+    },
+    "./tsconfig.base.json": {
+      "path": "./tsconfig.base.json",
+      "hash": "f7951f0e768c9c2099fdce97cbaae587028b097a3134f67e82b5417362880d78",
+      "last_modified": 1760348029,
+      "size": 535
+    },
+    "./apps/user-application/src/features/overview/index.ts": {
+      "path": "./apps/user-application/src/features/overview/index.ts",
+      "hash": "b6d1450367b5ead420c62e9762ddb3261cf27d7bcf8dbb941fd4fe8b6160684d",
+      "last_modified": 1760229497,
+      "size": 146
+    },
+    "./apps/user-application/src/routes/_auth/scans.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/scans.tsx",
+      "hash": "c659ea02f7f81d7e074d2ef255faf8a78f22d8ccad5d71eae477be3b312e802a",
+      "last_modified": 1760229497,
+      "size": 1241
+    },
+    "./apps/user-application/src/server/discovery/services/workflow-orchestrator-restate.ts": {
+      "path": "./apps/user-application/src/server/discovery/services/workflow-orchestrator-restate.ts",
+      "hash": "a46dde71a27b7a97ebf26f7b51b9dad825e1abee38d96927b122ee581ebbef6e",
+      "last_modified": 1760525141,
+      "size": 5388
+    },
+    "./apps/user-application/src/features/onboarding/hooks/use-organization-lifecycle.ts": {
+      "path": "./apps/user-application/src/features/onboarding/hooks/use-organization-lifecycle.ts",
+      "hash": "c892d493c688a87d1da082fdb125a543a05df65498ff0938db5ac053ca8d4fc4",
+      "last_modified": 1760410577,
+      "size": 4200
+    },
+    "./apps/temporal-worker/src/activities.ts": {
+      "path": "./apps/temporal-worker/src/activities.ts",
+      "hash": "798b448ea56d9028bd66a9733577b5efcb599bf409002a40bc291aa14ce67023",
+      "last_modified": 1760439820,
+      "size": 339
+    },
+    "./apps/user-application/src/components/ui/widget.tsx": {
+      "path": "./apps/user-application/src/components/ui/widget.tsx",
+      "hash": "5cb7947ca10071da35418a5da7e080cfbf3d71150da0f5ce547c346fbfb98b19",
+      "last_modified": 1760229497,
+      "size": 900
+    },
+    "./apps/user-application/src/components/theme/theme-provider.tsx": {
+      "path": "./apps/user-application/src/components/theme/theme-provider.tsx",
+      "hash": "7f67f83397d65d991972cb57d8f73058cc9e5ecde988ced495a28b087a32c33e",
+      "last_modified": 1760229497,
+      "size": 5791
+    },
+    "./apps/user-application/src/components/shared/data-table.tsx": {
+      "path": "./apps/user-application/src/components/shared/data-table.tsx",
+      "hash": "16df500c7a889d75f9252efbaf12e88aada4589edb7de7520fad9bb19a9475b0",
+      "last_modified": 1760229497,
+      "size": 3200
+    },
+    "./apps/user-application/src/logo.svg": {
+      "path": "./apps/user-application/src/logo.svg",
+      "hash": "0b2c334926f1b08090aae8097e669ccd95b35a406a5e6aff65ca8b79e4c0811f",
+      "last_modified": 1760012856,
+      "size": 19290
+    },
+    "./apps/user-application/pnpm-lock.yaml": {
+      "path": "./apps/user-application/pnpm-lock.yaml",
+      "hash": "55b62699b1036daa49a0ccc82b708a0a7106533c038924807b0325b16218f6f3",
+      "last_modified": 1760012856,
+      "size": 184183
+    },
+    "./apps/user-application/src/routes/_auth/route.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/route.tsx",
+      "hash": "782bc437373673c22516375464d92c5e494d80c3969e70c44ee604b2ba4765b3",
+      "last_modified": 1760449751,
+      "size": 1275
+    },
+    "./apps/temporal-worker/src/workflows/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/index.ts",
+      "hash": "c9c819d84c0df12cd11ef0bc307f88109ba52041168f1626a2c55e76f564e2cc",
+      "last_modified": 1760443165,
+      "size": 123
+    },
+    "./apps/user-application/src/hooks/useDeviceDetailQuery.ts": {
+      "path": "./apps/user-application/src/hooks/useDeviceDetailQuery.ts",
+      "hash": "1a70e99df7726a9d6b39a60f1343ff41e77b68fb950c8938f42631ea4d0b1dd4",
+      "last_modified": 1760229497,
+      "size": 5103
+    },
+    "./apps/user-application/src/routes/_static/docs/index.tsx": {
+      "path": "./apps/user-application/src/routes/_static/docs/index.tsx",
+      "hash": "9d89dc21265694ebeb539f39f4b627585a392c11a16379389c99aeafafdc570d",
+      "last_modified": 1760229497,
+      "size": 14755
+    },
+    "./apps/user-application/src/components/payments/polar/types.ts": {
+      "path": "./apps/user-application/src/components/payments/polar/types.ts",
+      "hash": "bdce4f952083f2280366a6f41f91d42b5ffc548f24cbdf867de236113b79d597",
+      "last_modified": 1760229497,
+      "size": 306
+    },
+    "./apps/restate-worker/src/__tests__/discovery-local.test.ts": {
+      "path": "./apps/restate-worker/src/__tests__/discovery-local.test.ts",
+      "hash": "43cb4855b683a6444d97779e87084033a5be20d0a757670c32cc21e8f1d89fdb",
+      "last_modified": 1760524982,
+      "size": 8169
+    },
+    "./packages/constants/tsconfig.json": {
+      "path": "./packages/constants/tsconfig.json",
+      "hash": "62fe1aa02480fff789848bb2ddaf7ccc947bd11662ec5b927fca1aa089ccafbd",
+      "last_modified": 1760178133,
+      "size": 376
+    },
+    "./apps/user-application/src/routes/onboarding/$projectId/connect.tsx": {
+      "path": "./apps/user-application/src/routes/onboarding/$projectId/connect.tsx",
+      "hash": "d33ced053f0859abd1c218ad92898d3a1344f1eb1f02e49f3798355ac792f8a6",
+      "last_modified": 1760333497,
+      "size": 1187
+    },
+    "./apps/user-application/src/features/onboarding/components/layout.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/layout.tsx",
+      "hash": "345d34bbf71838cef86d4c2fa9a8c2b80a68d71b8d29248ba67e91ebac9cf397",
+      "last_modified": 1760249274,
+      "size": 1543
+    },
+    "./packages/contracts/artifacts/base.ts": {
+      "path": "./packages/contracts/artifacts/base.ts",
+      "hash": "95a003255a599f684fe587dff5a22cb8c4f28b717ab87e247f738057f22e280c",
+      "last_modified": 1760187830,
+      "size": 2785
+    },
+    "./apps/user-application/src/features/onboarding/utils/validators.ts": {
+      "path": "./apps/user-application/src/features/onboarding/utils/validators.ts",
+      "hash": "9e56626e50ff4ed8c1688cccc960c71879a713d0b1753329db427c32e5b34d7e",
+      "last_modified": 1760332112,
+      "size": 2521
+    },
+    "./apps/user-application/src/features/auth/index.ts": {
+      "path": "./apps/user-application/src/features/auth/index.ts",
+      "hash": "3c1ba92989cdd91d6264a6bf2668233ea3240a5e8e636738fd49af7e37409274",
+      "last_modified": 1760229497,
+      "size": 304
+    },
+    "./apps/user-application/src/features/onboarding/types/discovery-status.ts": {
+      "path": "./apps/user-application/src/features/onboarding/types/discovery-status.ts",
+      "hash": "ddfafb26cd678bc6ce606e83e141c021b14cc7185c0be84701f9bfafd13910ce",
+      "last_modified": 1760331905,
+      "size": 510
+    },
+    "./apps/user-application/src/routes/onboarding/route.tsx": {
+      "path": "./apps/user-application/src/routes/onboarding/route.tsx",
+      "hash": "ccb38d44d6305611ac87adcbf4916de8db24f8013acc928d36ac0b4351b48753",
+      "last_modified": 1760249452,
+      "size": 220
+    },
+    "./docs/best-practices/tanstack-start/avoid-useEffect.md": {
+      "path": "./docs/best-practices/tanstack-start/avoid-useEffect.md",
+      "hash": "d99e602e0a10bd9551af9b41baf93389f26807618d11b1208d8304aa7549470d",
+      "last_modified": 1760243758,
+      "size": 19311
+    },
+    "./apps/user-application/src/components/shared/grid-table.tsx": {
+      "path": "./apps/user-application/src/components/shared/grid-table.tsx",
+      "hash": "ff6041f0c9af31422ec1cf2775369e3f42590b8a96c3ca80abf41eab91fa2a3b",
+      "last_modified": 1760229497,
+      "size": 1929
+    },
+    "./apps/temporal-worker/src/workflows/shared/activities/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/shared/activities/index.ts",
+      "hash": "92fe793b9a4ab5636f00d667deb8c667602c873cfcab1a24581391b5a27b0f72",
+      "last_modified": 1760448689,
+      "size": 186
+    },
+    "./apps/user-application/src/components/ui/badge.tsx": {
+      "path": "./apps/user-application/src/components/ui/badge.tsx",
+      "hash": "dd0a5176bb45b0dd3ee658d29ebbbfea1d17d16469e31003cd23d2ea05f01976",
+      "last_modified": 1760229497,
+      "size": 1631
+    },
+    "./apps/user-application/src/modals/DateRangerPicker.tsx": {
+      "path": "./apps/user-application/src/modals/DateRangerPicker.tsx",
+      "hash": "2a3194d883e81df45ee710c0d6fb539f14d00513fbf8a1ecdeafa9dd3beb2cd6",
+      "last_modified": 1760229497,
+      "size": 1771
+    },
+    "./packages/contracts/artifacts/port-scan.ts": {
+      "path": "./packages/contracts/artifacts/port-scan.ts",
+      "hash": "eeb8dd249e18e0e564b4dfd08a963582579ee96e38b2d4abd27fd89c7b0c13dc",
+      "last_modified": 1760440552,
+      "size": 5832
+    },
+    "./apps/user-application/src/utils/cn.ts": {
+      "path": "./apps/user-application/src/utils/cn.ts",
+      "hash": "9c04486191ea6a74e27a3aaf3d5325cca84fd5b02c494439fdd7e7bfe5b6e0a9",
+      "last_modified": 1760229497,
+      "size": 191
+    },
+    "./apps/user-application/src/hooks/useScansQuery.ts": {
+      "path": "./apps/user-application/src/hooks/useScansQuery.ts",
+      "hash": "cc1dc28180ef1f43212f04f34ef176d94429c66fa1fcf72fc6f4984d22dbef69",
+      "last_modified": 1760229497,
+      "size": 1068
+    },
+    "./apps/temporal-worker/src/workflows/discovery/activities/ping-sweep.ts": {
+      "path": "./apps/temporal-worker/src/workflows/discovery/activities/ping-sweep.ts",
+      "hash": "c7852f9ebd58adffaf3248257ba8042d9645c7a7328f041ed55c24a6648f597c",
+      "last_modified": 1760347787,
+      "size": 5591
+    },
+    "./poc-restate/package.json": {
+      "path": "./poc-restate/package.json",
+      "hash": "749d57c68ba99733a8e246adb0c2862f713fa47b68ddb83ab474682e5e1e4082",
+      "last_modified": 1760487424,
+      "size": 613
+    },
+    "./docs/discovery-workflow-integration.md": {
+      "path": "./docs/discovery-workflow-integration.md",
+      "hash": "2b429d7e676c48fb8e59c36c6560ae7ce5d94052b38adb6266e3cb188a672cf6",
+      "last_modified": 1760410696,
+      "size": 14915
+    },
+    "./packages/data-ops/src/types.ts": {
+      "path": "./packages/data-ops/src/types.ts",
+      "hash": "a067e7b73c6b7eeb8e1381ff4f3d82af807553c699ada26be68d0a02c223a6f4",
+      "last_modified": 1760229467,
+      "size": 1511
+    },
+    "./apps/temporal-worker/README.md": {
+      "path": "./apps/temporal-worker/README.md",
+      "hash": "1b2b834f945a9a63a6a53f0a9af51b6f69956ac0e8349e2066078682e9204ec6",
+      "last_modified": 1760348937,
+      "size": 8015
+    },
+    "./apps/user-application/src/components/ui/progress.tsx": {
+      "path": "./apps/user-application/src/components/ui/progress.tsx",
+      "hash": "7329ebc5cd845ae27e7b16fe77ef390e1d58d7855a9aa4178a803946e79b1e5d",
+      "last_modified": 1760229497,
+      "size": 648
+    },
+    "./apps/user-application/src/features/auth/components/login-form.tsx": {
+      "path": "./apps/user-application/src/features/auth/components/login-form.tsx",
+      "hash": "ae17b78e692384b521a69c66578da3d7a2d982af61c1278ae92b34f70d439320",
+      "last_modified": 1760229497,
+      "size": 5790
+    },
+    "./packages/temporal/src/activities/index.ts": {
+      "path": "./packages/temporal/src/activities/index.ts",
+      "hash": "a520d50288d98859224cc8d52cf4f28799676a749944da25d6f94f4d9b6a26d5",
+      "last_modified": 1760241989,
+      "size": 114
+    },
+    "./apps/user-application/src/routes/_auth/dashboard.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/dashboard.tsx",
+      "hash": "7eb10eb76656cf81b75188839b16074442b362aab8cffc3843be5b15e0a21cdb",
+      "last_modified": 1760449839,
+      "size": 616
+    },
+    "./apps/user-application/src/server/devices.ts": {
+      "path": "./apps/user-application/src/server/devices.ts",
+      "hash": "d7b4765b7fd7afe22c07d19722d961ca4567e47f0fb6217776441d06b1d3f837",
+      "last_modified": 1760455381,
+      "size": 25110
+    },
+    "./packages/contracts/package.json": {
+      "path": "./packages/contracts/package.json",
+      "hash": "8c8229259537f5a2b9ed079fb6e312e12b4ff337a2cdeb8fcd56cbb2ffe24c4c",
+      "last_modified": 1760187989,
+      "size": 523
+    },
+    "./apps/user-application/src/features/overview/hooks/useOverviewOptions.tsx": {
+      "path": "./apps/user-application/src/features/overview/hooks/useOverviewOptions.tsx",
+      "hash": "820e68bc3230865464eb0d4206878a92199b0ea0d181084f60ea939f70d0cf1a",
+      "last_modified": 1760229497,
+      "size": 2488
+    },
+    "./poc-restate/src/index.ts": {
+      "path": "./poc-restate/src/index.ts",
+      "hash": "97485fe93d2edcc6a93b5dbe11a8251fc42fb2ede619bf302126621a6dc974ab",
+      "last_modified": 1760487471,
+      "size": 527
+    },
+    "./apps/user-application/src/server/discovery/services/workflow-orchestrator.ts": {
+      "path": "./apps/user-application/src/server/discovery/services/workflow-orchestrator.ts",
+      "hash": "c76e01fa6e2775712097b2a5b4e80c07b20f5ad3f8e3f7b004f4e9d829ca7d6e",
+      "last_modified": 1760457779,
+      "size": 6797
+    },
+    "./apps/user-application/src/features/auth/components/sign-up-email-form.tsx": {
+      "path": "./apps/user-application/src/features/auth/components/sign-up-email-form.tsx",
+      "hash": "a17d60e43c0952d8ab0075ed398e1e19e02c7a8b6fad85e2a64fdc1d1b960b65",
+      "last_modified": 1760229497,
+      "size": 3550
+    },
+    "./packages/constants/package.json": {
+      "path": "./packages/constants/package.json",
+      "hash": "b5995e45c01076973a5a37a21cfda075b20ddc492b8585cd767892a47a2341cd",
+      "last_modified": 1760187989,
+      "size": 209
+    },
+    "./apps/user-application/src/components/ui/input.tsx": {
+      "path": "./apps/user-application/src/components/ui/input.tsx",
+      "hash": "6050a0a413efed7fa68677292dd1990cd0a119a0d0ac759f2539bb34e4a72f6e",
+      "last_modified": 1760229497,
+      "size": 962
+    },
+    "./apps/user-application/src/modals/AddDevice.tsx": {
+      "path": "./apps/user-application/src/modals/AddDevice.tsx",
+      "hash": "a4b0a2e6d41b4409b685454e8eaeb0f62a12b744b5bf0bff18fccb8c43efa2c7",
+      "last_modified": 1760229497,
+      "size": 4428
+    },
+    "./apps/user-application/src/features/assets/index.ts": {
+      "path": "./apps/user-application/src/features/assets/index.ts",
+      "hash": "8b1ba1257a193289249a18013b1982a7768bd5b98e5149cf8dd8ed5619f0d37a",
+      "last_modified": 1760229497,
+      "size": 191
+    },
+    "./packages/config/src/index.ts": {
+      "path": "./packages/config/src/index.ts",
+      "hash": "a2174b7dfc1d2b93fb000c72ea1ee380708980df3927083b41934ff3445dfa33",
+      "last_modified": 1760241890,
+      "size": 270
+    },
+    "./apps/user-application/src/components/landing/index.ts": {
+      "path": "./apps/user-application/src/components/landing/index.ts",
+      "hash": "2f51f253cdff887378115710c3b90fc6f0cbdd37bb453ca1a62cbb46e9394fcf",
+      "last_modified": 1760361608,
+      "size": 81
+    },
+    "./apps/temporal-worker/src/workflows/portscan/activities/rustscan.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/activities/rustscan.ts",
+      "hash": "3331456a00286e65a8cb8ba58f540c42cc938c21748dabde790d70cb46d3fec0",
+      "last_modified": 1760431358,
+      "size": 15167
+    },
+    "./apps/user-application/src/features/onboarding/components/DiscoveryStatusCard.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/DiscoveryStatusCard.tsx",
+      "hash": "10570bba6fa7869050baa9bd03d0580eeb086f9f5e14fd3eed169f159a87d5b7",
+      "last_modified": 1760526659,
+      "size": 10163
+    },
+    "./apps/user-application/src/components/shared/forms/input-with-label.tsx": {
+      "path": "./apps/user-application/src/components/shared/forms/input-with-label.tsx",
+      "hash": "fb3c86a295bbe8326f1dd9b26daa9e9bb722fde4feb7bad76768d7b6886a1f9f",
+      "last_modified": 1760452634,
+      "size": 1821
+    },
+    "./apps/restate-worker/src/validation.ts": {
+      "path": "./apps/restate-worker/src/validation.ts",
+      "hash": "f3bb23fbbde1e7848e2c1994c4efa503a7b68036ee5506fb05323a78956c4d97",
+      "last_modified": 1760522411,
+      "size": 7503
+    },
+    "./packages/temporal/package.json": {
+      "path": "./packages/temporal/package.json",
+      "hash": "3a2061321292b361a80247cce6d28d0468854d8f096c12d7e0015874bda8d7a1",
+      "last_modified": 1760438070,
+      "size": 980
+    },
+    "./packages/logger/package.json": {
+      "path": "./packages/logger/package.json",
+      "hash": "9519b65cd664ef325bb1d2fadb026ab5dbcb7b0a02372819b5ac9771e7758594",
+      "last_modified": 1760187989,
+      "size": 229
+    },
+    "./packages/data-ops/src/schema/orchestration.ts": {
+      "path": "./packages/data-ops/src/schema/orchestration.ts",
+      "hash": "6bc5ffa44b2c3d1b20bc4f46e9a1654ded76c918f8a4e87165cc2cab736aac47",
+      "last_modified": 1760234215,
+      "size": 5295
+    },
+    "./apps/restate-worker/vitest.config.ts": {
+      "path": "./apps/restate-worker/vitest.config.ts",
+      "hash": "7ed86765ef254e13b00466d491ac0ff0e433db2242839799673ef8dcc87cc392",
+      "last_modified": 1760520691,
+      "size": 432
+    },
+    "./apps/user-application/src/components/ui/grid-table.tsx": {
+      "path": "./apps/user-application/src/components/ui/grid-table.tsx",
+      "hash": "d99b6339560c57dcba1b3652b6cc630247fe92b6885550887b834f2a561ad195",
+      "last_modified": 1760229497,
+      "size": 1695
+    },
+    "./apps/temporal-worker/vitest.config.ts": {
+      "path": "./apps/temporal-worker/vitest.config.ts",
+      "hash": "907cc789f61e233ea77e31143c508513ac119e3b8566053ed6b2dd4c8544e6ed",
+      "last_modified": 1760412918,
+      "size": 409
+    },
+    "./apps/temporal-worker/src/workflows/portscan/prescan/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/prescan/index.ts",
+      "hash": "e2661481fc7585a4a5dbabb60628d18ae58d600df29fca4783b7fa243fff4f29",
+      "last_modified": 1760409303,
+      "size": 331
+    },
+    "./apps/user-application/src/components/payments/polar/pricing-card.tsx": {
+      "path": "./apps/user-application/src/components/payments/polar/pricing-card.tsx",
+      "hash": "8b01bdbf25e7733ce163c29ed743097178105977489ab5198869cd7fa91d16d8",
+      "last_modified": 1760229497,
+      "size": 4320
+    },
+    "./apps/temporal-worker/src/workflows/discovery/mock-data/discovery.ts": {
+      "path": "./apps/temporal-worker/src/workflows/discovery/mock-data/discovery.ts",
+      "hash": "cc88cf686cda377fffae4f3b6b417b6ab123dd97f011374ffe4fc795a455d1bf",
+      "last_modified": 1760347717,
+      "size": 6740
+    },
+    "./apps/user-application/src/routes/_auth/app/index.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/app/index.tsx",
+      "hash": "e4f876caf2a6e6e349d671454efd732578ecca08da05ffc0e2d8cf27db6f5584",
+      "last_modified": 1760229497,
+      "size": 216
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/138.199.147.65.xml": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/138.199.147.65.xml",
+      "hash": "614eb5be7e83ffa11e847f4b4926d66a0178d1bda514eb6334a88f205cf26f0d",
+      "last_modified": 1760411088,
+      "size": 12774
+    },
+    "./packages/temporal/tsconfig.json": {
+      "path": "./packages/temporal/tsconfig.json",
+      "hash": "62fe1aa02480fff789848bb2ddaf7ccc947bd11662ec5b927fca1aa089ccafbd",
+      "last_modified": 1760242022,
+      "size": 376
+    },
+    "./apps/temporal-worker/src/workflows/portscan/input/normalizer.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/input/normalizer.ts",
+      "hash": "deae38f038cefb88156b2f99fdbee62048228767f8b91451e168f1177cede143",
+      "last_modified": 1760438013,
+      "size": 1705
+    },
+    "./apps/user-application/src/server.ts": {
+      "path": "./apps/user-application/src/server.ts",
+      "hash": "018f1809e9c3f35bfe615770952b6114cff724bdad1f7ff1a368eac4b3bad585",
+      "last_modified": 1760344551,
+      "size": 997
+    },
+    "./apps/user-application/src/routeTree.gen.ts": {
+      "path": "./apps/user-application/src/routeTree.gen.ts",
+      "hash": "471e6b17a778c5fff232bf18e8bd3f5375b12c860972a7a78ba6b3fd7638811c",
+      "last_modified": 1760452098,
+      "size": 17938
+    },
+    "./poc-restate/README.md": {
+      "path": "./poc-restate/README.md",
+      "hash": "d81e718554a56f047694547670b60a534a53d2d8a217fc24a7705464f9f80a74",
+      "last_modified": 1760487502,
+      "size": 2818
+    },
+    "./apps/user-application/src/routes/_auth/app/polar/portal.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/app/polar/portal.tsx",
+      "hash": "2c5b374d527f8b9bcd009bfcfb9eb979c1fd39425d68f3351a1f60b5ff146b9c",
+      "last_modified": 1760229497,
+      "size": 812
+    },
+    "./apps/user-application/src/server/utils/temporal-client.ts": {
+      "path": "./apps/user-application/src/server/utils/temporal-client.ts",
+      "hash": "0b3f752665e95077f9f1ce90ab7a5cc6e2762985354ab986d4fe39794507b4f5",
+      "last_modified": 1760242048,
+      "size": 1041
+    },
+    "./apps/user-application/src/components/onboarding/onboarding-layout.tsx": {
+      "path": "./apps/user-application/src/components/onboarding/onboarding-layout.tsx",
+      "hash": "eac88fbf71b6abaafb70da89d06ebad6306814095fa41922eb9e859049a7e85f",
+      "last_modified": 1760249211,
+      "size": 792
+    },
+    "./apps/temporal-worker/src/utilities/heartbeat-helpers.ts": {
+      "path": "./apps/temporal-worker/src/utilities/heartbeat-helpers.ts",
+      "hash": "217bbe4590c5ca58b417ee24f48245418a3a58b3628b57b7157aadd29ce9f461",
+      "last_modified": 1760409407,
+      "size": 7132
+    },
+    "./apps/restate-worker/src/port-scanner.ts": {
+      "path": "./apps/restate-worker/src/port-scanner.ts",
+      "hash": "ac52bd21355e9cd896ecac1b12da9cd9ee9850636a74ff642b7c131e0089ac46",
+      "last_modified": 1760527901,
+      "size": 8204
+    },
+    "./apps/user-application/src/features/settings/components/profile-settings.tsx": {
+      "path": "./apps/user-application/src/features/settings/components/profile-settings.tsx",
+      "hash": "d8893e4bddd9578f2563826529b37d151f9edea19480842bc7eed0b869361aa7",
+      "last_modified": 1760229497,
+      "size": 6892
+    },
+    "./apps/user-application/src/features/assets/components/device-card.tsx": {
+      "path": "./apps/user-application/src/features/assets/components/device-card.tsx",
+      "hash": "e29bb190e8eae8b82ba823eec5776c03840be63339afc667ffbfa337f63a1546",
+      "last_modified": 1760229497,
+      "size": 13660
+    },
+    "./apps/user-application/src/core/middleware/auth.ts": {
+      "path": "./apps/user-application/src/core/middleware/auth.ts",
+      "hash": "79c39c31a741f0bca679c0517ec8b3c66ab44fdd7b1ccaf9cb559114e52daf57",
+      "last_modified": 1760229497,
+      "size": 841
+    },
+    "./apps/data-service/src/index.ts": {
+      "path": "./apps/data-service/src/index.ts",
+      "hash": "4254c7f4ba2d8384139ed0e2f0d0c4c37b12529685ef0868c6a5deac6477a002",
+      "last_modified": 1760012856,
+      "size": 240
+    },
+    "./packages/data-ops/package.json": {
+      "path": "./packages/data-ops/package.json",
+      "hash": "7d4d74c926d06b22e77272e9e513f53aecd8b6fd63bfef46d19642e13153c58f",
+      "last_modified": 1760245638,
+      "size": 2290
+    },
+    "./apps/user-application/src/routes/index.tsx": {
+      "path": "./apps/user-application/src/routes/index.tsx",
+      "hash": "c8d4a06cf8d259fb3222c5a54db2130c04bef85b3c70daad40099ae34d9e9fb4",
+      "last_modified": 1760363001,
+      "size": 523
+    },
+    "./apps/user-application/tsconfig.json": {
+      "path": "./apps/user-application/tsconfig.json",
+      "hash": "c62440bd569e813f6d664517fc9ed55890bdd7d58de1de2ba77a771d4e9133b6",
+      "last_modified": 1760012856,
+      "size": 645
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/types.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/types.ts",
+      "hash": "d5178757e6996833aa60aee9ef0c2b9c16459c4ada1ad73c5174fb8c65f211e9",
+      "last_modified": 1760414736,
+      "size": 2867
+    },
+    "./packages/config/package.json": {
+      "path": "./packages/config/package.json",
+      "hash": "bf751d80e6910f7b7cee5b7502e38e6b87599a33d7e1e3d04ee2823b3a394a36",
+      "last_modified": 1760241901,
+      "size": 280
+    },
+    "./apps/user-application/src/modals/EditDevice.tsx": {
+      "path": "./apps/user-application/src/modals/EditDevice.tsx",
+      "hash": "fc4491d5df16a4eb762875de0585055f65637eb7d8dd7a0f034879fade0bbf57",
+      "last_modified": 1760229497,
+      "size": 15028
+    },
+    "./apps/user-application/src/features/auth/components/sign-in-email-form.tsx": {
+      "path": "./apps/user-application/src/features/auth/components/sign-in-email-form.tsx",
+      "hash": "4695e405e4fcb0bfab5bb5e410c45825959ed25cae8bfbe4d023489ea5d00f3f",
+      "last_modified": 1760229497,
+      "size": 2829
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/metadata-parser.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/metadata-parser.ts",
+      "hash": "e9978abf90fd1d3ba7763005caea2f1ee83bbc4ac0634b2f0d152d2dc4b49ddb",
+      "last_modified": 1760415463,
+      "size": 3110
+    },
+    "./apps/user-application/src/server/discovery/workflows/device-scan-handler.ts": {
+      "path": "./apps/user-application/src/server/discovery/workflows/device-scan-handler.ts",
+      "hash": "db36d8f5536cf3be54f5a3e39587aa12ee3a1b0b2f35c556db0c063f58cc11d8",
+      "last_modified": 1760229497,
+      "size": 1424
+    },
+    "./apps/temporal-worker/src/config/activity-policies.ts": {
+      "path": "./apps/temporal-worker/src/config/activity-policies.ts",
+      "hash": "ebbef0f9d8ad33e0e992dd9ee8784f81f1304883e568cb15da998656c07eda33",
+      "last_modified": 1760437770,
+      "size": 2552
+    },
+    "./apps/user-application/src/routes/onboarding/index.tsx": {
+      "path": "./apps/user-application/src/routes/onboarding/index.tsx",
+      "hash": "43f93091302532b74b3b48eee775b83e5f381f09c53de8db7c16b13a9c188355",
+      "last_modified": 1760253019,
+      "size": 692
+    },
+    "./apps/user-application/src/modals/AddDiscovery.tsx": {
+      "path": "./apps/user-application/src/modals/AddDiscovery.tsx",
+      "hash": "6a9fdf8a4a650d1a953f76804027779b40fadc77744b0569dc086ef2545b8792",
+      "last_modified": 1760453756,
+      "size": 14699
+    },
+    "./apps/temporal-worker/src/utilities/guardrails.ts": {
+      "path": "./apps/temporal-worker/src/utilities/guardrails.ts",
+      "hash": "fcf59630bb779729b2cb0387098d24d02a611d8cf599c74fb565ba045fb1e13f",
+      "last_modified": 1760409106,
+      "size": 3520
+    },
+    "./packages/temporal/src/types/index.ts": {
+      "path": "./packages/temporal/src/types/index.ts",
+      "hash": "6d46e88ea5a53e171d0f23a895836b52df76fb091eb72ca3e46c3c874589208b",
+      "last_modified": 1760241989,
+      "size": 1603
+    },
+    "./apps/user-application/src/components/ui/scroll-area.tsx": {
+      "path": "./apps/user-application/src/components/ui/scroll-area.tsx",
+      "hash": "81f11ccb3c803bfaca7bb5cf0e4b4ee0df46abef4e6ca340054c28971f49f65f",
+      "last_modified": 1760229497,
+      "size": 1631
+    },
+    "./apps/user-application/src/core/functions/example-functions.ts": {
+      "path": "./apps/user-application/src/core/functions/example-functions.ts",
+      "hash": "b1d94bb8031903298934e9bbf0c4e663a53ca672357745278f9d65b5143475be",
+      "last_modified": 1760229497,
+      "size": 903
+    },
+    "./apps/user-application/src/server/discovery/services/scan-recorder.ts": {
+      "path": "./apps/user-application/src/server/discovery/services/scan-recorder.ts",
+      "hash": "51a73fb4796ac6a7440b521327149b005d391c90d033cb7d22d5ef291e237273",
+      "last_modified": 1760440933,
+      "size": 2511
+    },
+    "./apps/temporal-worker/src/workflows/portscan/prescan/prescan-stage.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/prescan/prescan-stage.ts",
+      "hash": "0db97d61c4e6c936fe2f23c5c21f49b065b3fb3570fd7d6a5edeaf1af4879bb4",
+      "last_modified": 1760429003,
+      "size": 4627
+    },
+    "./apps/user-application/src/features/onboarding/components/2-create-project.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/2-create-project.tsx",
+      "hash": "d1910f12db37eeb4cc83940f3e58227d4ea95a7514a6b8bd7e46a9941949ae70",
+      "last_modified": 1760410592,
+      "size": 10486
+    },
+    "./apps/user-application/src/components/navigation/index.ts": {
+      "path": "./apps/user-application/src/components/navigation/index.ts",
+      "hash": "46f59afe2a62d08a2ca32587c246082a869c391405b65e1f187519a9f0ee777a",
+      "last_modified": 1760229497,
+      "size": 48
+    },
+    "./apps/user-application/src/server/scans.ts": {
+      "path": "./apps/user-application/src/server/scans.ts",
+      "hash": "080bd894c4e2f92b1e9ae0c20d6ee4927b0711542e3febbd9ceb9bbaf6962898",
+      "last_modified": 1760229497,
+      "size": 1071
+    },
+    "./apps/user-application/src/features/auth/components/google-oauth-button.tsx": {
+      "path": "./apps/user-application/src/features/auth/components/google-oauth-button.tsx",
+      "hash": "a2ae9f1e0cd6fe9e9d1659846d8b6bd27ef1c64a0a4a0eb37069ece21cc8630a",
+      "last_modified": 1760243207,
+      "size": 2666
+    },
+    "./packages/temporal/src/index.ts": {
+      "path": "./packages/temporal/src/index.ts",
+      "hash": "a015eb230880566e75dc0b940d34eefb409eeadc5a5fac1b647f45757c581e15",
+      "last_modified": 1760241989,
+      "size": 217
+    },
+    "./apps/temporal-worker/src/workflows/discovery/activities/subdomain-discovery.ts": {
+      "path": "./apps/temporal-worker/src/workflows/discovery/activities/subdomain-discovery.ts",
+      "hash": "cdb1442d3953f29f18956b0ed35733c83a8c82948a64a0a7e83abf7839c5d43b",
+      "last_modified": 1760437996,
+      "size": 8735
+    },
+    "./apps/user-application/src/components/theme/theme-toggle.tsx": {
+      "path": "./apps/user-application/src/components/theme/theme-toggle.tsx",
+      "hash": "2c9f92ccc1647409b65d00f87af86bf5452aa564773c771e29156ad4ed7c9014",
+      "last_modified": 1760452665,
+      "size": 6916
+    },
+    "./packages/data-ops/src/zod-schema/example.ts": {
+      "path": "./packages/data-ops/src/zod-schema/example.ts",
+      "hash": "af64b8a26b066a1eb8b109204e6cf457aec51384f37af9ae678535bc480ba8e0",
+      "last_modified": 1760012856,
+      "size": 145
+    },
+    "./apps/temporal-worker/package.json": {
+      "path": "./apps/temporal-worker/package.json",
+      "hash": "fce66e0250b797b5b9f953e14f837d51f32d98baabd055afb5a13add6357f290",
+      "last_modified": 1760440251,
+      "size": 893
+    },
+    "./apps/user-application/src/features/settings/index.ts": {
+      "path": "./apps/user-application/src/features/settings/index.ts",
+      "hash": "5553686011e84f3016d1c9d50fb8102d8658f69796038e869623643b0d473b6d",
+      "last_modified": 1760229497,
+      "size": 209
+    },
+    "./apps/user-application/src/server/discovery/services/port-scan-service.ts": {
+      "path": "./apps/user-application/src/server/discovery/services/port-scan-service.ts",
+      "hash": "cac72373898123c985693994f53ae1ed439e74fa9eae916c590218845f4381bf",
+      "last_modified": 1760528448,
+      "size": 4292
+    },
+    "./apps/user-application/src/features/onboarding/components/steps.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/steps.tsx",
+      "hash": "d05469840e2cee09f1247f94da2e9b47733a5dfc64caca2ccb51c7fee7877e94",
+      "last_modified": 1760333587,
+      "size": 5265
+    },
+    "./apps/user-application/src/routes/_auth/assets.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/assets.tsx",
+      "hash": "d5330f6f2538c3c9bdca60a865d056c67ff583c2df68dae22fad55ba7519a71c",
+      "last_modified": 1760229497,
+      "size": 5679
+    },
+    "./packages/data-ops/drizzle.config.ts": {
+      "path": "./packages/data-ops/drizzle.config.ts",
+      "hash": "2934c35bd160b327f85072e791c54632b2f9ecc056159ac1ddf10bc8a0a05295",
+      "last_modified": 1760234562,
+      "size": 540
+    },
+    "./apps/temporal-worker/src/workflows/discovery/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/discovery/index.ts",
+      "hash": "0669b610593ce4f1695046729d5bede48d7084ba701cd942cf85428f5598443a",
+      "last_modified": 1760347976,
+      "size": 134
+    },
+    "./apps/user-application/src/integrations/tanstack-query/root-provider.tsx": {
+      "path": "./apps/user-application/src/integrations/tanstack-query/root-provider.tsx",
+      "hash": "fd4d96a61d8fd30312879b874bbae2752117c6cdd4e4fa17c152629f660768b6",
+      "last_modified": 1760229497,
+      "size": 395
+    },
+    "./apps/user-application/src/server/utils/device-transforms.ts": {
+      "path": "./apps/user-application/src/server/utils/device-transforms.ts",
+      "hash": "f0312751a9cb31d6a78bc81dea288186eed6b325b16c9c5df9df5242b2e85a90",
+      "last_modified": 1760229497,
+      "size": 2935
+    },
+    "./apps/user-application/src/components/ui/calendar.tsx": {
+      "path": "./apps/user-application/src/components/ui/calendar.tsx",
+      "hash": "f406c989199f06ef0c2dca7273b6462bd2b3f8d30b1aeb5bd9f8d777c1212e67",
+      "last_modified": 1760452711,
+      "size": 2374
+    },
+    "./apps/restate-worker/src/__tests__/discovery-workflow.test.ts": {
+      "path": "./apps/restate-worker/src/__tests__/discovery-workflow.test.ts",
+      "hash": "db9e72915f0712fab376b2b789a8342c6649b0298ccc4527660af7c46fa45c1f",
+      "last_modified": 1760523495,
+      "size": 14332
+    },
+    "./apps/user-application/src/features/onboarding/components/4-connect.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/4-connect.tsx",
+      "hash": "2477c36c690aa3cc6411a14dc5916a9a5f8b173b00d9d5242aced62a5898302e",
+      "last_modified": 1760249225,
+      "size": 3784
+    },
+    "./apps/user-application/src/components/ui/padding.tsx": {
+      "path": "./apps/user-application/src/components/ui/padding.tsx",
+      "hash": "c7ade600f3ffbc72f5caadda1c2f1cf44988b42c23e97de6fb12d472f64e6712",
+      "last_modified": 1760449566,
+      "size": 281
+    },
+    "./apps/user-application/src/components/payments/polar/pricing-grid.tsx": {
+      "path": "./apps/user-application/src/components/payments/polar/pricing-grid.tsx",
+      "hash": "fc1eda09c75df730d79c003f3f498e74fc9ecf9961bfe9c0232bebfdd665139f",
+      "last_modified": 1760229497,
+      "size": 1006
+    },
+    "./packages/validation/src/types.validation.ts": {
+      "path": "./packages/validation/src/types.validation.ts",
+      "hash": "73ec7f3b0daf9844947cd39a435c5a8b2692f57c582abaaff2b8379bc2e718db",
+      "last_modified": 1760187805,
+      "size": 2461
+    },
+    "./apps/user-application/src/components/ui/checkbox.tsx": {
+      "path": "./apps/user-application/src/components/ui/checkbox.tsx",
+      "hash": "fa420f88d1b0ce691ee37a9bdee4ae4610329c5114d9ec683767413db149c026",
+      "last_modified": 1760229497,
+      "size": 1053
+    },
+    "./apps/user-application/src/hooks/useScansTableQuery.ts": {
+      "path": "./apps/user-application/src/hooks/useScansTableQuery.ts",
+      "hash": "e5c0969d06e0b96159ef6b0e3b73611aa8877c410bb58d8cf7030b1f6818a8da",
+      "last_modified": 1760453857,
+      "size": 1121
+    },
+    "./packages/data-ops/migrations/0002_mushy_gertrude_yorkes.sql": {
+      "path": "./packages/data-ops/migrations/0002_mushy_gertrude_yorkes.sql",
+      "hash": "0e95bb11ee3968246ee020fd199d6b6650f7238cc722579848916f3b58f1858d",
+      "last_modified": 1760234587,
+      "size": 7815
+    },
+    "./apps/data-service/wrangler.jsonc": {
+      "path": "./apps/data-service/wrangler.jsonc",
+      "hash": "62af473b7e2829626c49222aed8f8a127288af9fc9f554cb2669043b52677b13",
+      "last_modified": 1760012856,
+      "size": 393
+    },
+    "./packages/data-ops/src/schema/index.ts": {
+      "path": "./packages/data-ops/src/schema/index.ts",
+      "hash": "59dd85b04c59a05b15478a0dee1f67f1b2d99e0465c29c1f7b3deeb0589f8211",
+      "last_modified": 1760229467,
+      "size": 331
+    },
+    "./apps/restate-worker/src/index.ts": {
+      "path": "./apps/restate-worker/src/index.ts",
+      "hash": "f6e014cce47e67c4768ca9d3a067660780245317f67f5835995fb2258a3697ca",
+      "last_modified": 1760523540,
+      "size": 1910
+    },
+    "./packages/data-ops/src/drizzle/auth-schema.ts": {
+      "path": "./packages/data-ops/src/drizzle/auth-schema.ts",
+      "hash": "87958d377e2bb2e96548d84e1b19000d48400fbad324aedbc5e66b88bd770c2d",
+      "last_modified": 1760457252,
+      "size": 4146
+    },
+    "./apps/user-application/src/components/payments/polar/use-checkout.ts": {
+      "path": "./apps/user-application/src/components/payments/polar/use-checkout.ts",
+      "hash": "f54e859277d16fc05ffad1be2c9645b61361036bee2ab39881af757e0978566f",
+      "last_modified": 1760229497,
+      "size": 624
+    },
+    "./docs/discovery-workflow-analysis.md": {
+      "path": "./docs/discovery-workflow-analysis.md",
+      "hash": "ec20d497d8e7973830d04e086a0c55ca2422c07b2aeb802ec0904d2b63c9e0b5",
+      "last_modified": 1760521746,
+      "size": 13304
+    },
+    "./apps/temporal-worker/src/workflows/portscan/result-analysis.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/result-analysis.ts",
+      "hash": "d1afa43018eeee870474eefb4c11f2ba81311fd86c30e13469b9a7545e571fc6",
+      "last_modified": 1760410562,
+      "size": 2147
+    },
+    "./apps/user-application/src/components/shared/discovery-loading.tsx": {
+      "path": "./apps/user-application/src/components/shared/discovery-loading.tsx",
+      "hash": "507da08363e9ef92bba724e9461a419eb7f5b62ae4bbc6cbd4ba1771ad23a65b",
+      "last_modified": 1760452196,
+      "size": 2133
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/index.ts",
+      "hash": "d81845f936a01b5ee87fdfc975339fc471ff442ca41275473f1cca9b3e736ee7",
+      "last_modified": 1760417370,
+      "size": 5588
+    },
+    "./apps/user-application/src/server/discovery/services/device-manager.ts": {
+      "path": "./apps/user-application/src/server/discovery/services/device-manager.ts",
+      "hash": "cc352ab66ee0e9b20c6963d86ebbc70b077c2633d7722377a32631f267d49c5c",
+      "last_modified": 1760442757,
+      "size": 870
+    },
+    "./docs/restate_vs_temporal.md": {
+      "path": "./docs/restate_vs_temporal.md",
+      "hash": "edafb1a23381090beb719a2083d944c8955eb25c9cf4e1f1fb88be61f63a4f77",
+      "last_modified": 1760519255,
+      "size": 17251
+    },
+    "./apps/user-application/src/features/onboarding/index.ts": {
+      "path": "./apps/user-application/src/features/onboarding/index.ts",
+      "hash": "5f37453044904c07112c7768c418af1a5218c41d0df14f0e83637953e02c3950",
+      "last_modified": 1760334079,
+      "size": 425
+    },
+    "./docs/best-practices/temporal/README.md": {
+      "path": "./docs/best-practices/temporal/README.md",
+      "hash": "044d05a6c325130a1ffa01090b7007de8f91484239e2d40a820495755adb2726",
+      "last_modified": 1760243758,
+      "size": 22128
+    },
+    "./poc-restate/tsconfig.json": {
+      "path": "./poc-restate/tsconfig.json",
+      "hash": "cd5861cf29a51c9ad73f7134fcb345b1096265c05e3f69390a53ac46445d74e1",
+      "last_modified": 1760487323,
+      "size": 346
+    },
+    "./apps/user-application/src/routes/_auth/app/polar/subscriptions.tsx": {
+      "path": "./apps/user-application/src/routes/_auth/app/polar/subscriptions.tsx",
+      "hash": "26e4a0e5ae9252498ed867f2c672ad128b8c4a60d2add6e3310f41d7b66fa5fa",
+      "last_modified": 1760229497,
+      "size": 1565
+    },
+    "./apps/user-application/src/routes/api/auth.$.tsx": {
+      "path": "./apps/user-application/src/routes/api/auth.$.tsx",
+      "hash": "94071c16b0f2ad32007211886bd2e630c9b209e6b029e92efd89d19d69de74a8",
+      "last_modified": 1760229497,
+      "size": 430
+    },
+    "./apps/user-application/src/routes/onboarding/$projectId/discovery.tsx": {
+      "path": "./apps/user-application/src/routes/onboarding/$projectId/discovery.tsx",
+      "hash": "be360b3e55cf65977463728a44aef2ef5ce6e82326a5c40c1e8d0ce9f3c72ab9",
+      "last_modified": 1760334794,
+      "size": 2197
+    },
+    "./packages/contracts/scanners/types.ts": {
+      "path": "./packages/contracts/scanners/types.ts",
+      "hash": "10bb36b71d4d162e34e25fa7c46cc5e16453467ca8735364fe682c445e8f1bc7",
+      "last_modified": 1760187831,
+      "size": 4902
+    },
+    "./apps/temporal-worker/src/utilities/__tests__/heartbeat-helpers.test.ts": {
+      "path": "./apps/temporal-worker/src/utilities/__tests__/heartbeat-helpers.test.ts",
+      "hash": "732d360b032b3637d54867268c30fdbb9ca80c05799709e94741d1c00eeff228",
+      "last_modified": 1760430090,
+      "size": 4118
+    },
+    "./docs/best-practices/drizzle-orm/drizzle-llm.txt": {
+      "path": "./docs/best-practices/drizzle-orm/drizzle-llm.txt",
+      "hash": "8a65a7750ff6ff55e26c3655f5de1b16c5b2a97118b9f98d898ca3a1415ac57d",
+      "last_modified": 1760243758,
+      "size": 1077738
+    },
+    "./packages/data-ops/src/queries/polar.ts": {
+      "path": "./packages/data-ops/src/queries/polar.ts",
+      "hash": "ed2fbb9907755f5e18d996cfdf131c18a9657326f348ad78ce9154fe5b22050d",
+      "last_modified": 1760012856,
+      "size": 1522
+    },
+    "./packages/contracts/scanners/port-schemes.test.ts": {
+      "path": "./packages/contracts/scanners/port-schemes.test.ts",
+      "hash": "46f7cb94338bacc31c960b435ac16fbf43b32ad10d00fa4bc26329c6c0e83d48",
+      "last_modified": 1760187831,
+      "size": 7847
+    },
+    "./apps/user-application/src/modals/Confirm.tsx": {
+      "path": "./apps/user-application/src/modals/Confirm.tsx",
+      "hash": "b8fb637075095dfcd888bc97501bb931fe1e2323da57857a01e4e707e28374a3",
+      "last_modified": 1760229497,
+      "size": 924
+    },
+    "./apps/user-application/src/router.tsx": {
+      "path": "./apps/user-application/src/router.tsx",
+      "hash": "61b0094a6f13925962f65cca1c6bdbd738495355758127f78d97aa3b27611eb6",
+      "last_modified": 1760229497,
+      "size": 814
+    },
+    "./apps/user-application/src/server/scan-results-postback.ts": {
+      "path": "./apps/user-application/src/server/scan-results-postback.ts",
+      "hash": "cef8eda154d1aae9b5289bd651ab30fcc1b4bd9d9ee8c75c7770f18d73aec30b",
+      "last_modified": 1760452264,
+      "size": 5250
+    },
+    "./apps/user-application/src/components/shared/time-window-picker.tsx": {
+      "path": "./apps/user-application/src/components/shared/time-window-picker.tsx",
+      "hash": "237a196a6dae7677de5258eb4915e83566cc12f8f9efed26165f6142fa304dc9",
+      "last_modified": 1760453744,
+      "size": 6989
+    },
+    "./apps/user-application/src/components/auth/account-dialog.tsx": {
+      "path": "./apps/user-application/src/components/auth/account-dialog.tsx",
+      "hash": "9b374ee646f84b7e45cbdd4cfa3b0eb2a9e02555007d037101400ec03ac0ed99",
+      "last_modified": 1760229497,
+      "size": 2505
+    },
+    "./apps/data-service/tsconfig.json": {
+      "path": "./apps/data-service/tsconfig.json",
+      "hash": "1d3146e3fa4cb80d731c62f536b82be920db4d2e83b26d76e30c7e0c81802308",
+      "last_modified": 1760012856,
+      "size": 1784
+    },
+    "./apps/user-application/src/features/onboarding/components/5-verify.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/5-verify.tsx",
+      "hash": "8070b405382d03ea2c9b76f1302fc7555e23abbd4e765613a9660bc6a473d8be",
+      "last_modified": 1760249237,
+      "size": 3411
+    },
+    "./apps/user-application/src/components/ui/sheet.tsx": {
+      "path": "./apps/user-application/src/components/ui/sheet.tsx",
+      "hash": "bfdedad8eaf17190741f17915133bc4d21a50efea32c77f600c0822a485e73ec",
+      "last_modified": 1760229497,
+      "size": 4076
+    },
+    "./apps/user-application/components.json": {
+      "path": "./apps/user-application/components.json",
+      "hash": "5089698066bd50cb7b48de212d7ac0932a7cbb17522b361ffcac3705c236bce5",
+      "last_modified": 1760012856,
+      "size": 423
+    },
+    "./apps/user-application/src/server/discovery/utils/port-scan.ts": {
+      "path": "./apps/user-application/src/server/discovery/utils/port-scan.ts",
+      "hash": "c7d8d1053030cef5ce1b94bd407f39ac36460ee92801d16a14dbdcfe60104504",
+      "last_modified": 1760452499,
+      "size": 2593
+    },
+    "./apps/user-application/src/server/discovery/workflows/discovery-handler.ts": {
+      "path": "./apps/user-application/src/server/discovery/workflows/discovery-handler.ts",
+      "hash": "d9896b80e8e44347731eb6d8c2f2b663c508d37b750dbf7548f7c19366c6eced",
+      "last_modified": 1760526360,
+      "size": 4845
+    },
+    "./apps/user-application/src/modals/index.tsx": {
+      "path": "./apps/user-application/src/modals/index.tsx",
+      "hash": "9f7e2d35a7ce0fad69a66819f3de0a57a24bf38b5e063900705acdc7be9600c3",
+      "last_modified": 1760331126,
+      "size": 6584
+    },
+    "./apps/temporal-worker/.env.example": {
+      "path": "./apps/temporal-worker/.env.example",
+      "hash": "2246d9ff6d2224340655f89905efe8a0d493e419192ec6322ee0164646994c1e",
+      "last_modified": 1760348911,
+      "size": 902
+    },
+    "./packages/validation/package.json": {
+      "path": "./packages/validation/package.json",
+      "hash": "2b8e0277dea1eae1576ba57746501f9b09df8699e7f90f1ecd8eedac1b5ec808",
+      "last_modified": 1760187989,
+      "size": 298
+    },
+    "./apps/temporal-worker/src/utilities/port-utils.ts": {
+      "path": "./apps/temporal-worker/src/utilities/port-utils.ts",
+      "hash": "cc1c04068c583fa629ff15e9651aae605a9682453735293f4995b7b707a9adeb",
+      "last_modified": 1760409125,
+      "size": 3010
+    },
+    "./apps/user-application/src/routes/onboarding/$projectId/verify.tsx": {
+      "path": "./apps/user-application/src/routes/onboarding/$projectId/verify.tsx",
+      "hash": "9b6bac68533d63e2d718ec498fdcf98f7d0abe3fc8842182afc1a8b20b7f18d0",
+      "last_modified": 1760333512,
+      "size": 1181
+    },
+    "./packages/data-ops/src/schema/scanners.ts": {
+      "path": "./packages/data-ops/src/schema/scanners.ts",
+      "hash": "07a6c8eb61fda97627e218a681b1772b4d8be06e24b5b0a1cb621ca1dda47ff5",
+      "last_modified": 1760229407,
+      "size": 1151
+    },
+    "./apps/user-application/src/server/__tests__/scan-results-postback.test.ts": {
+      "path": "./apps/user-application/src/server/__tests__/scan-results-postback.test.ts",
+      "hash": "8b66116090ca7fc1ac456d8d60cdfa75237b85a251d19e619f84c185e72ca652",
+      "last_modified": 1760452252,
+      "size": 6717
+    },
+    "./apps/user-application/src/features/overview/components/overview-range.tsx": {
+      "path": "./apps/user-application/src/features/overview/components/overview-range.tsx",
+      "hash": "986bd3611b67c95d8e9b930ed8e5f79a9f470ac838d50c31ad4a4fa232e57c43",
+      "last_modified": 1760229497,
+      "size": 498
+    },
+    "./packages/data-ops/src/index.ts": {
+      "path": "./packages/data-ops/src/index.ts",
+      "hash": "910209c618992f4d8f104f8289d88f5fb04ef473983e9d49428a8c31d4e1daf8",
+      "last_modified": 1760451726,
+      "size": 891
+    },
+    "./apps/user-application/src/features/settings/components/user-settings-dialog.tsx": {
+      "path": "./apps/user-application/src/features/settings/components/user-settings-dialog.tsx",
+      "hash": "cd9c4b3470b58c7d0e41b69cad9984552f7d20214d0313052cfbf47f0e5e99ed",
+      "last_modified": 1760229497,
+      "size": 5451
+    },
+    "./packages/contracts/scanners/schemas.ts": {
+      "path": "./packages/contracts/scanners/schemas.ts",
+      "hash": "49a36f3e79d383280144de16ba7e1ba117c6100cc3a13c7f7adf1bfa523197af",
+      "last_modified": 1760187831,
+      "size": 4575
+    },
+    "./packages/contracts/artifacts/index.ts": {
+      "path": "./packages/contracts/artifacts/index.ts",
+      "hash": "f19e98ac5bef2ce72e5f6004e3d14919a6318ff217a922192d618c4a6bc8f781",
+      "last_modified": 1760187830,
+      "size": 953
+    },
+    "./apps/user-application/src/features/settings/components/organization-settings.tsx": {
+      "path": "./apps/user-application/src/features/settings/components/organization-settings.tsx",
+      "hash": "508ba007877fd50b1e68a3ef14b8f477ef87105ffde894733c5a494ea7bc7764",
+      "last_modified": 1760229497,
+      "size": 3480
+    },
+    "./apps/user-application/src/components/navigation/page-tabs.tsx": {
+      "path": "./apps/user-application/src/components/navigation/page-tabs.tsx",
+      "hash": "58943b45e2985677d57eb9c1dd7cd7a26218274738771a3bc308d5ee37bc0695",
+      "last_modified": 1760229497,
+      "size": 1511
+    },
+    "./packages/data-ops/src/auth/server.ts": {
+      "path": "./packages/data-ops/src/auth/server.ts",
+      "hash": "b1c785fbd72045f6871be70a5468dfcd23b9d13dfe410352e3b17c831a53cb86",
+      "last_modified": 1760246102,
+      "size": 1158
+    },
+    "./apps/user-application/public/docs/database.md": {
+      "path": "./apps/user-application/public/docs/database.md",
+      "hash": "ed6c39d0bfb703ef8e983b784ff0418dd9b3356c53fa0a77e7fc61fa35c0058b",
+      "last_modified": 1760087031,
+      "size": 18796
+    },
+    "./apps/user-application/package.json": {
+      "path": "./apps/user-application/package.json",
+      "hash": "9dd13d96fe72e76e39c3094b857cca749172f552fde5c5eeae049f18a62a4b96",
+      "last_modified": 1760527444,
+      "size": 2935
+    },
+    "./apps/user-application/src/server/discovery/utils/workflow-helpers.ts": {
+      "path": "./apps/user-application/src/server/discovery/utils/workflow-helpers.ts",
+      "hash": "b5c5ad4b72e72e7073455db4f50b2237ed77b6e83612fc32067ea95defd51aa9",
+      "last_modified": 1760526631,
+      "size": 1642
+    },
+    "./apps/user-application/src/components/not-found.tsx": {
+      "path": "./apps/user-application/src/components/not-found.tsx",
+      "hash": "5433c61fb70138dc3155860666415b69886b679318482351745e2f90261b95c4",
+      "last_modified": 1760361822,
+      "size": 5036
+    },
+    "./packages/contracts/scanners/README.md": {
+      "path": "./packages/contracts/scanners/README.md",
+      "hash": "2b058d726a620df209471f1e3f0a8b7e2eab66e22fdd306dd4837456e1318bd0",
+      "last_modified": 1760187831,
+      "size": 5519
+    },
+    "./packages/contracts/scanners/index.ts": {
+      "path": "./packages/contracts/scanners/index.ts",
+      "hash": "35338bf19962ebdcb8a4d4981ba40c49acdc253c7dd3933e3e2d203e02047621",
+      "last_modified": 1760187831,
+      "size": 150
+    },
+    "./apps/user-application/vitest.config.ts": {
+      "path": "./apps/user-application/vitest.config.ts",
+      "hash": "e7bc1f5b56da93f26c723082abde43382371f3b0d96ac6cca9b00308decf6eb3",
+      "last_modified": 1760452153,
+      "size": 282
+    },
+    "./apps/user-application/src/components/ui/textarea.tsx": {
+      "path": "./apps/user-application/src/components/ui/textarea.tsx",
+      "hash": "4f050b8f84f37a70e81894176f44b98167ac47016030b60dacb9e3fa24336d86",
+      "last_modified": 1760229497,
+      "size": 769
+    },
+    "./apps/temporal-worker/PORTING_PLAN.md": {
+      "path": "./apps/temporal-worker/PORTING_PLAN.md",
+      "hash": "05e803e38d27f11b46ea670ddcb356511e6a2432270cfc7fbffd083ea9b22e50",
+      "last_modified": 1760427282,
+      "size": 10277
+    },
+    "./packages/validation/tsconfig.json": {
+      "path": "./packages/validation/tsconfig.json",
+      "hash": "62fe1aa02480fff789848bb2ddaf7ccc947bd11662ec5b927fca1aa089ccafbd",
+      "last_modified": 1760234706,
+      "size": 376
+    },
+    "./docs/best-practices/tanstack-start/avoid-useEffect-summary.md": {
+      "path": "./docs/best-practices/tanstack-start/avoid-useEffect-summary.md",
+      "hash": "0a85e8ab64b8425842f96ce5af84116708e2d825b09270b1c4ce2675a2ab5cf7",
+      "last_modified": 1760243758,
+      "size": 3065
+    },
+    "./apps/user-application/src/modals/Modal/Container.tsx": {
+      "path": "./apps/user-application/src/modals/Modal/Container.tsx",
+      "hash": "dfb5b800a975fc2978c4877dff468322811202cf73cdbf7461bc79ca21089002",
+      "last_modified": 1760229497,
+      "size": 2174
+    },
+    "./packages/logger/index.ts": {
+      "path": "./packages/logger/index.ts",
+      "hash": "7853402f69354338c782aca6d267526d6cd3ceff78f026ce29a10fd4e6bfbea9",
+      "last_modified": 1760187798,
+      "size": 3544
+    },
+    "./packages/data-ops/migrations/0001_real_loners.sql": {
+      "path": "./packages/data-ops/migrations/0001_real_loners.sql",
+      "hash": "25e13088b3895b7c036e48d692e62230c5c31c0f1e8e465ad8c7d58ae97e3c21",
+      "last_modified": 1760234526,
+      "size": 1228
+    },
+    "./apps/user-application/src/components/ui/select.tsx": {
+      "path": "./apps/user-application/src/components/ui/select.tsx",
+      "hash": "0e6c769128e8fb280992fa396ea1c949a36e7fe88c2eaf8acae648f15f640d28",
+      "last_modified": 1760229497,
+      "size": 5634
+    },
+    "./apps/user-application/worker-configuration.d.ts": {
+      "path": "./apps/user-application/worker-configuration.d.ts",
+      "hash": "bc535aa1202be3fb88d3ef4baa0d03d2cc4a30a256c92dca4cfc38aa88de6ad0",
+      "last_modified": 1760086847,
+      "size": 327624
+    },
+    "./apps/user-application/src/components/default-catch-boundary.tsx": {
+      "path": "./apps/user-application/src/components/default-catch-boundary.tsx",
+      "hash": "5dbb380c3c62d80a59edbb4856f0cded84d19ccb8c7da9b24a031a9acd9dc78a",
+      "last_modified": 1760229497,
+      "size": 5328
+    },
+    "./apps/user-application/src/components/shared/device-scan-chart.tsx": {
+      "path": "./apps/user-application/src/components/shared/device-scan-chart.tsx",
+      "hash": "f48e219fae5c14c1d7ae318428cb7b0bdb804f9bd3da4fa49786fe3e9ba76889",
+      "last_modified": 1760229497,
+      "size": 3986
+    },
+    "./poc-restate/src/port-scanner.ts": {
+      "path": "./poc-restate/src/port-scanner.ts",
+      "hash": "e34f1e7ccd44bbaae04a8d8f5e2954f4a32bdc9ca3dedb3b9411580dc87f86c2",
+      "last_modified": 1760487459,
+      "size": 5183
+    },
+    "./packages/temporal/src/workflows/index.ts": {
+      "path": "./packages/temporal/src/workflows/index.ts",
+      "hash": "e7e110f80b0ad43c34a1e0f91b60a4c8bcb0427b7d6065b82b0fc42ffb9c9fa1",
+      "last_modified": 1760241989,
+      "size": 102
+    },
+    "./apps/user-application/src/components/ui/avatar.tsx": {
+      "path": "./apps/user-application/src/components/ui/avatar.tsx",
+      "hash": "a206a185cb34589b96a569ff1c8eda725386b89de8e14ae324263778ba40c498",
+      "last_modified": 1760229497,
+      "size": 1083
+    },
+    "./apps/user-application/src/core/middleware/example-middleware.ts": {
+      "path": "./apps/user-application/src/core/middleware/example-middleware.ts",
+      "hash": "496757c90f7c60aeb94053acde024b0a6ef9151007b19a7a5316b4e3483cd5b4",
+      "last_modified": 1760229497,
+      "size": 326
+    },
+    "./packages/data-ops/migrations/meta/0001_snapshot.json": {
+      "path": "./packages/data-ops/migrations/meta/0001_snapshot.json",
+      "hash": "5c6a33ccdfc50cc226039447b6117de04ebcdf16efdb96e5d5de4eaeaee3a149",
+      "last_modified": 1760234526,
+      "size": 14906
+    },
+    "./apps/user-application/src/server/discovery.ts": {
+      "path": "./apps/user-application/src/server/discovery.ts",
+      "hash": "00b03bc5f230a921ecf781448efdc70db2ef668138133724a61e4320429e7aff",
+      "last_modified": 1760229497,
+      "size": 35
+    },
+    "./packages/data-ops/src/database/setup.ts": {
+      "path": "./packages/data-ops/src/database/setup.ts",
+      "hash": "8c7cc8a4507273ffeae6df61435b970ab655c246aee16cb7e3bfc1107fbfde20",
+      "last_modified": 1760086822,
+      "size": 411
+    },
+    "./apps/user-application/src/integrations/tanstack-query/devtools.tsx": {
+      "path": "./apps/user-application/src/integrations/tanstack-query/devtools.tsx",
+      "hash": "e5b742f88ad80f6376e834232409c514c70758878788f46f962c64ebebb35f5d",
+      "last_modified": 1760229497,
+      "size": 158
+    },
+    "./apps/user-application/src/start.tsx": {
+      "path": "./apps/user-application/src/start.tsx",
+      "hash": "441bc478d7eb1384ccf36940ca846bfd3829b4619557b80811dba21d72817eb5",
+      "last_modified": 1760229497,
+      "size": 436
+    },
+    "./packages/data-ops/src/auth/organization-api.ts": {
+      "path": "./packages/data-ops/src/auth/organization-api.ts",
+      "hash": "f46edf5d4f68dbcae9537d4155b91b60257ac07fa97c79354b4dbc4bea41f243",
+      "last_modified": 1760457000,
+      "size": 2132
+    },
+    "./README.md": {
+      "path": "./README.md",
+      "hash": "8f0ded750e0eb29bc0fbc50036369a8829e1081a2588dda50fbb92fc9f92b44d",
+      "last_modified": 1760360272,
+      "size": 1956
+    },
+    "./apps/user-application/src/server/discovery/workflows/port-scan/start.ts": {
+      "path": "./apps/user-application/src/server/discovery/workflows/port-scan/start.ts",
+      "hash": "a31063aee5c7212171db04fb7f46eccf76527d87c18d22036ed5703dbb362bfd",
+      "last_modified": 1760527343,
+      "size": 2400
+    },
+    "./apps/user-application/src/features/assets/components/device-detail-sheet.tsx": {
+      "path": "./apps/user-application/src/features/assets/components/device-detail-sheet.tsx",
+      "hash": "af2cf0165fc3461f874eaf2b24db56a34fb985d97799acb01c38fe06d317e10d",
+      "last_modified": 1760229497,
+      "size": 3693
+    },
+    "./apps/user-application/src/server/discovery/services/workflow-orchestrator-http.ts": {
+      "path": "./apps/user-application/src/server/discovery/services/workflow-orchestrator-http.ts",
+      "hash": "da6bee20bcf75ac5b6a1f11ab2a76f146e0530415d6fd91ed2a6497b1e863fdf",
+      "last_modified": 1760443896,
+      "size": 1849
+    },
+    "./apps/user-application/src/components/ui/tooltip.tsx": {
+      "path": "./apps/user-application/src/components/ui/tooltip.tsx",
+      "hash": "7d241ebec7353d8adce872e01079e225d66c59a9e66771ba05051fdd42ba3040",
+      "last_modified": 1760229497,
+      "size": 2398
+    },
+    "./apps/user-application/src/components/ui/card.tsx": {
+      "path": "./apps/user-application/src/components/ui/card.tsx",
+      "hash": "17cc795a19698e765eff94fc10e9332637abd9c313ddcee6af5b561e94adf1e7",
+      "last_modified": 1760229497,
+      "size": 1989
+    },
+    "./packages/temporal/src/contracts/discovery.ts": {
+      "path": "./packages/temporal/src/contracts/discovery.ts",
+      "hash": "cb1a8494cf0d295081469374be002ba4eded59545ba97129f29eb845584349f5",
+      "last_modified": 1760437817,
+      "size": 4086
+    },
+    "./apps/user-application/src/core/functions/payments.ts": {
+      "path": "./apps/user-application/src/core/functions/payments.ts",
+      "hash": "da13a1de130e2701b50ba77bb489d06e20392d3f34bb39466de66085581c5447",
+      "last_modified": 1760229497,
+      "size": 1994
+    },
+    "./apps/temporal-worker/src/workflows/portscan/merge/port-merger.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/merge/port-merger.ts",
+      "hash": "40603221ef87ce03ab99b2e8cefca85b3dc518f9e6648d06ff9d05d513473c71",
+      "last_modified": 1760410371,
+      "size": 6581
+    },
+    "./packages/logger/tsconfig.json": {
+      "path": "./packages/logger/tsconfig.json",
+      "hash": "e1adb0dda761eb982f1821b13f905428bed51d1001b034ed408c52d886ffc903",
+      "last_modified": 1760234706,
+      "size": 375
+    },
+    "./apps/user-application/src/utils/seo.ts": {
+      "path": "./apps/user-application/src/utils/seo.ts",
+      "hash": "e33a4243c940e2b1806f9b0550ade54e0a4531e52b42f42fbd0cbc12d4016523",
+      "last_modified": 1760360892,
+      "size": 827
+    },
+    "./apps/user-application/public/manifest.json": {
+      "path": "./apps/user-application/public/manifest.json",
+      "hash": "d7bbebe72589fa729452e6ed80989eb1b1b07ba4f492e305d5ab3aba89e85467",
+      "last_modified": 1760012856,
+      "size": 498
+    },
+    "./apps/user-application/src/routes/onboarding/project.tsx": {
+      "path": "./apps/user-application/src/routes/onboarding/project.tsx",
+      "hash": "4534536414df0e06802513d40315987c20c20503b5dc1beedc8853d4a86776cb",
+      "last_modified": 1760410618,
+      "size": 1859
+    },
+    "./packages/data-ops/src/schema/enums.ts": {
+      "path": "./packages/data-ops/src/schema/enums.ts",
+      "hash": "c15fb171785b43e295ea024c35bd5bcf026254ca730616e03997f55c9548c8f4",
+      "last_modified": 1760228573,
+      "size": 2359
+    },
+    "./apps/user-application/src/components/ui/dialog.tsx": {
+      "path": "./apps/user-application/src/components/ui/dialog.tsx",
+      "hash": "36d15f23cb0eb238aa24e8158a973bda2e8565671689091cb26f2ecf7b204ce1",
+      "last_modified": 1760229497,
+      "size": 3968
+    },
+    "./packages/data-ops/src/queries/scans.ts": {
+      "path": "./packages/data-ops/src/queries/scans.ts",
+      "hash": "3aa908a94791d5d046312243ce8fe19044a9cc1ff5ff93c111ac93b025a9b753",
+      "last_modified": 1760442914,
+      "size": 6055
+    },
+    "./packages/validation/src/index.ts": {
+      "path": "./packages/validation/src/index.ts",
+      "hash": "c086f41e4f82e3e93dfc4205906501b72d1922075f1a7ffe38d1aa3c91c975d4",
+      "last_modified": 1760240508,
+      "size": 11699
+    },
+    "./apps/user-application/src/hooks/useDeviceScanStatus.ts": {
+      "path": "./apps/user-application/src/hooks/useDeviceScanStatus.ts",
+      "hash": "80154b470cb23bafc146b4e5f474aa234d74d613ace8ef8b6d19877919e5d81f",
+      "last_modified": 1760453834,
+      "size": 7431
+    },
+    "./apps/user-application/src/components/ui/or-divider.tsx": {
+      "path": "./apps/user-application/src/components/ui/or-divider.tsx",
+      "hash": "50ab53b5fbadb6c19f9d6c3b09127aad25ae31ece1ef51187cf60f0d278e7d98",
+      "last_modified": 1760237452,
+      "size": 501
+    },
+    "./apps/user-application/src/server/discovery/schemas/port-scan-schemas.ts": {
+      "path": "./apps/user-application/src/server/discovery/schemas/port-scan-schemas.ts",
+      "hash": "a519ae7997c59b8de8be62a5262d80939ea7ccc61f2ec23a847d44a7de54884d",
+      "last_modified": 1760229497,
+      "size": 1565
+    },
+    "./apps/user-application/src/server/discovery/utils/__tests__/port-scan.test.ts": {
+      "path": "./apps/user-application/src/server/discovery/utils/__tests__/port-scan.test.ts",
+      "hash": "2499a7d4df1a169af5fa86ba73ad99454cb03edae1264510317c90041b868a81",
+      "last_modified": 1760454172,
+      "size": 4596
+    },
+    "./apps/data-service/service-bindings.d.ts": {
+      "path": "./apps/data-service/service-bindings.d.ts",
+      "hash": "870338d58ff8bef9bba9fa65452b8975c47f2b0607ffa35cc8a0b16be75cc20a",
+      "last_modified": 1760012856,
+      "size": 93
+    },
+    "./apps/temporal-worker/src/workflows/portscan/activities/masscan.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/activities/masscan.ts",
+      "hash": "ee8abd84745da9ed1c312eff1860ae4ff2f7582aa4b837d0bcec41df7eb159cb",
+      "last_modified": 1760431403,
+      "size": 11882
+    },
+    "./apps/data-service/src/durable-objects/example-durable-object.ts": {
+      "path": "./apps/data-service/src/durable-objects/example-durable-object.ts",
+      "hash": "0859cf4d378ea15c6f0700d51769e43c0ca3d517e3c455bbfbbc3dfa1f7b7cdc",
+      "last_modified": 1760012856,
+      "size": 527
+    },
+    "./packages/contracts/scanners/activity-policies.ts": {
+      "path": "./packages/contracts/scanners/activity-policies.ts",
+      "hash": "280b833ff86e5860ce735eb7e57657ebe8880f60168e75a15d8acc1ab80dd7d9",
+      "last_modified": 1760187831,
+      "size": 5670
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/host-parser.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/host-parser.ts",
+      "hash": "ef8316d0b22dc2bf114920c5e93e2185412382103f01213291b0df9946979733",
+      "last_modified": 1760415396,
+      "size": 2774
+    },
+    "./apps/user-application/src/server/utils/temporal-client-factory.ts": {
+      "path": "./apps/user-application/src/server/utils/temporal-client-factory.ts",
+      "hash": "c90dd78c91a74e087d22d2c7fb97700dc7ed68324f3b827807161cebf5b12537",
+      "last_modified": 1760265834,
+      "size": 1605
+    },
+    "./packages/data-ops/config/auth.ts": {
+      "path": "./packages/data-ops/config/auth.ts",
+      "hash": "43651d6f4701a79af663d685cf60906fcc4751df21dd1aa8bd32bbdb4679bfba",
+      "last_modified": 1760086827,
+      "size": 331
+    },
+    "./apps/user-application/src/components/ui/button.tsx": {
+      "path": "./apps/user-application/src/components/ui/button.tsx",
+      "hash": "564050d6a929fdee5a19e66e89f9844b5bbb1691a0bc67b5ce14adb83076234b",
+      "last_modified": 1760229497,
+      "size": 2083
+    },
+    "./docs/best-practices/temporal/passing-variables.md": {
+      "path": "./docs/best-practices/temporal/passing-variables.md",
+      "hash": "17c9cda60792527459cf48d914203a1088c46f059665f5087118c93fd0cea037",
+      "last_modified": 1760243758,
+      "size": 9145
+    },
+    "./apps/user-application/src/routes/_static/route.tsx": {
+      "path": "./apps/user-application/src/routes/_static/route.tsx",
+      "hash": "88cdb27b621c6e8c5b28c00dfdc47e10c329c7e43259bf319ceb36d35485d39e",
+      "last_modified": 1760229497,
+      "size": 403
+    },
+    "./docs/data-model.md": {
+      "path": "./docs/data-model.md",
+      "hash": "819eeb3e01e0e9b4a3edacb8b0d924d0a7246a270b5b453d3ef8a6352a6964e4",
+      "last_modified": 1760451180,
+      "size": 3439
+    },
+    "./apps/user-application/src/features/scans/components/table/scans-data-table.tsx": {
+      "path": "./apps/user-application/src/features/scans/components/table/scans-data-table.tsx",
+      "hash": "414a7ab7e7c6307e8479665ac65ba3d652c037c7b0d98705ad5559483f6a0fe0",
+      "last_modified": 1760229497,
+      "size": 2686
+    },
+    "./packages/temporal/src/contracts/common.ts": {
+      "path": "./packages/temporal/src/contracts/common.ts",
+      "hash": "dd19727c0e8db16362c6f0a7ae465eae2bbe4a9a8b381b6915da7b236c6c5c2b",
+      "last_modified": 1760430141,
+      "size": 110
+    },
+    "./apps/user-application/src/lib/utils.ts": {
+      "path": "./apps/user-application/src/lib/utils.ts",
+      "hash": "58975bc5646cac0724ca3ccd03b3275c33eb2ae154053f0cc0823dec7bf2b976",
+      "last_modified": 1760229497,
+      "size": 166
+    },
+    "./packages/contracts/scanners/port-schemes.ts": {
+      "path": "./packages/contracts/scanners/port-schemes.ts",
+      "hash": "a274fc8bc8edf22bd6ab4913c7d1d06907a939e66ae44b79db5a14a74e655090",
+      "last_modified": 1760187831,
+      "size": 4979
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/nmap-sample-2.xml": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/nmap-sample-2.xml",
+      "hash": "da55aa9feec8040a51fef2245dca10c5b9da60d1c1b5b91fc1f251b500c71b85",
+      "last_modified": 1760411088,
+      "size": 2942
+    },
+    "./apps/user-application/src/features/assets/components/device-open-ports.tsx": {
+      "path": "./apps/user-application/src/features/assets/components/device-open-ports.tsx",
+      "hash": "156025108255e3a33d1d000dc7b7de258500ecbdbf28271990e02e829e1eeff2",
+      "last_modified": 1760229497,
+      "size": 16482
+    },
+    "./packages/temporal/src/contracts/portscan.ts": {
+      "path": "./packages/temporal/src/contracts/portscan.ts",
+      "hash": "672550ed251c85b2f36b9a0452fc3b4ec11a74889be78f120a1f2d45585db38a",
+      "last_modified": 1760437827,
+      "size": 3319
+    },
+    "./apps/user-application/src/server/utils/temporal-http-client.ts": {
+      "path": "./apps/user-application/src/server/utils/temporal-http-client.ts",
+      "hash": "f7d846845a536a5744bf73d042d65ee72ea8ef89901675b434405d5091eddf97",
+      "last_modified": 1760442574,
+      "size": 9513
+    },
+    "./apps/user-application/src/features/onboarding/components/3-discovery.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/3-discovery.tsx",
+      "hash": "ffd3685e039f2081ddabf8ac3c54a731e40dbd2241e6a3ad2a085e5697994fc9",
+      "last_modified": 1760453798,
+      "size": 10631
+    },
+    "./apps/user-application/src/hooks/useBreakpoint.ts": {
+      "path": "./apps/user-application/src/hooks/useBreakpoint.ts",
+      "hash": "8689d40e0bfe918f685fc530b0ebcce0bb8083afeb9ce2d5a2eb231627f494c7",
+      "last_modified": 1760229497,
+      "size": 1019
+    },
+    "./apps/user-application/src/components/navigation/navigation-bar.tsx": {
+      "path": "./apps/user-application/src/components/navigation/navigation-bar.tsx",
+      "hash": "9c372f8acd8cb1cfae7996c5c9f4dcde446e879358a2782994f5238b0b0497fc",
+      "last_modified": 1760453665,
+      "size": 10089
+    },
+    "./apps/temporal-worker/docs/database-free-portscan-architecture.md": {
+      "path": "./apps/temporal-worker/docs/database-free-portscan-architecture.md",
+      "hash": "fc47cd261d8f719549d85fc09b271368cbfa94661a5fa8df2fa7995637197f0f",
+      "last_modified": 1760451332,
+      "size": 22207
+    },
+    "./packages/config/src/temporal.ts": {
+      "path": "./packages/config/src/temporal.ts",
+      "hash": "b6620c7eef3cd330651102cc99b75b08b22376e4d5e5c53b24aeaa5440e1148f",
+      "last_modified": 1760255558,
+      "size": 4766
+    },
+    "./apps/temporal-worker/src/workflows/portscan/observability.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/observability.ts",
+      "hash": "36e5c8a47469eae0ff87992a34c1d3310c5aca59e0e9a195e4157b2ea3ef095a",
+      "last_modified": 1760409407,
+      "size": 2059
+    },
+    "./apps/user-application/src/server/workflows/scan-schedule-manager.ts": {
+      "path": "./apps/user-application/src/server/workflows/scan-schedule-manager.ts",
+      "hash": "4b599244dc1862ca173c89a24af1c31f2f32705f69a5ae06c5c24cd0264250eb",
+      "last_modified": 1760457733,
+      "size": 4206
+    },
+    "./apps/user-application/src/routes/__root.tsx": {
+      "path": "./apps/user-application/src/routes/__root.tsx",
+      "hash": "306c9772a6948c70e31f33022debb97d619cc5f8e40bd187787dd769501f7f38",
+      "last_modified": 1760361291,
+      "size": 3165
+    },
+    "./apps/user-application/src/lib/auth-client.ts": {
+      "path": "./apps/user-application/src/lib/auth-client.ts",
+      "hash": "f8dbf50100a6a91aea12f0d0671fcfc0aede45ea537a166de7fca718963f46c0",
+      "last_modified": 1760243588,
+      "size": 272
+    },
+    "./packages/data-ops/src/zod-schema/polar.ts": {
+      "path": "./packages/data-ops/src/zod-schema/polar.ts",
+      "hash": "af1349b9f5f9a1a6a0404dea36dcc9499bcb25c9adc112b7cc9a93cae41f3262",
+      "last_modified": 1760012856,
+      "size": 0
+    },
+    "./apps/user-application/src/components/auth/google-login.tsx": {
+      "path": "./apps/user-application/src/components/auth/google-login.tsx",
+      "hash": "ba4c47b4ab63003e1ad62fcb4ca2935e276467638c3a23ce3502361014a1832e",
+      "last_modified": 1760229497,
+      "size": 1803
+    },
+    "./apps/restate-worker/README.md": {
+      "path": "./apps/restate-worker/README.md",
+      "hash": "920ca867338d36d51708aec9c6f170b02a939b0a822012c55dfecdb0a3212b25",
+      "last_modified": 1760498074,
+      "size": 7114
+    },
+    "./packages/contracts/scanners/tsconfig.json": {
+      "path": "./packages/contracts/scanners/tsconfig.json",
+      "hash": "135cafb43c5bb639f22058a80ce96571b66e7a6069abab8cadebf1d96fd034f3",
+      "last_modified": 1760187831,
+      "size": 203
+    },
+    "./apps/user-application/src/components/ui/collapsible.tsx": {
+      "path": "./apps/user-application/src/components/ui/collapsible.tsx",
+      "hash": "8dfcedaf0d3f4c36143f0d8681edc12a19c42bf6ac8a499a3562375ca719db90",
+      "last_modified": 1760229497,
+      "size": 786
+    },
+    "./packages/data-ops/src/auth/setup.ts": {
+      "path": "./packages/data-ops/src/auth/setup.ts",
+      "hash": "57cbeb0c660e48b8ab37949a6b6a2f06d57d86fabb3ab62f37e816dcd7e3d276",
+      "last_modified": 1760456754,
+      "size": 873
+    },
+    "./apps/user-application/src/components/ui/alert.tsx": {
+      "path": "./apps/user-application/src/components/ui/alert.tsx",
+      "hash": "3d5497c60cbf1918143607788f6664573a0ef4339b9e24d8781e8d8946dd3c7a",
+      "last_modified": 1760229497,
+      "size": 1614
+    },
+    "./apps/user-application/src/components/payments/polar/index.ts": {
+      "path": "./apps/user-application/src/components/payments/polar/index.ts",
+      "hash": "4be73d295227efb6422ec6476eb6db0cfddedc338327416fbf50c34576f9c51d",
+      "last_modified": 1760229497,
+      "size": 137
+    },
+    "./apps/user-application/src/features/onboarding/components/1-welcome.tsx": {
+      "path": "./apps/user-application/src/features/onboarding/components/1-welcome.tsx",
+      "hash": "69b4ee9f34fb3ab6306e34113d30e92d4c32ae4750da019b29485a54f244e782",
+      "last_modified": 1760253062,
+      "size": 9981
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/nmap-sample.xml": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/nmap-sample.xml",
+      "hash": "e8f9a6d9563bbdd11b4be220af5ad74181d178fc504a51ec7203035a0648fd95",
+      "last_modified": 1760411088,
+      "size": 6214
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/rustscan-status.openpanel.dev.xml": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/__tests__/fixtures/rustscan-status.openpanel.dev.xml",
+      "hash": "0c16b4614992a438d43067df795499db5af9a95d6f9c06dfae781797c07fd6be",
+      "last_modified": 1760411088,
+      "size": 5635
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/port-parser.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/port-parser.ts",
+      "hash": "c2ea906c5b6473427fccc1b26a3f929ac83b7600a3f00590c108160baae344d9",
+      "last_modified": 1760417387,
+      "size": 7488
+    },
+    "./apps/temporal-worker/src/workflows/portscan/input/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/input/index.ts",
+      "hash": "003d3b5a6976a9f419b128a4d7487e7e875515cb7edffffdd6b8f7e7cfc5a9ff",
+      "last_modified": 1760409303,
+      "size": 85
+    },
+    "./packages/contracts/index.ts": {
+      "path": "./packages/contracts/index.ts",
+      "hash": "0b265a9b32598958670073b0b678d2624511177cdcd6315b2a8ae08deb30cad9",
+      "last_modified": 1760187831,
+      "size": 149
+    },
+    "./apps/user-application/wrangler.jsonc": {
+      "path": "./apps/user-application/wrangler.jsonc",
+      "hash": "b5420eb7033030e0d632dc3c5f27b5c58b42ca61a764f22b4f113b5ec9f46e41",
+      "last_modified": 1760345959,
+      "size": 485
+    },
+    "./apps/temporal-worker/src/workflows/shared/activities/__tests__/postback.test.ts": {
+      "path": "./apps/temporal-worker/src/workflows/shared/activities/__tests__/postback.test.ts",
+      "hash": "96c624f8b210f2af2560c2f89e05f02cd66762aa1bd3794eaa6996421acf3415",
+      "last_modified": 1760451111,
+      "size": 4731
+    },
+    "./apps/temporal-worker/src/workflows/shared/activities/validation.ts": {
+      "path": "./apps/temporal-worker/src/workflows/shared/activities/validation.ts",
+      "hash": "cab8a6ec2704a5793648d2fe9e0453d72da746cfa7f9c4d5aaf7827b2e090ace",
+      "last_modified": 1760347842,
+      "size": 6414
+    },
+    "./apps/temporal-worker/src/workflows/portscan/__tests__/workflow.test.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/__tests__/workflow.test.ts",
+      "hash": "3a86d08e8ba021c34401ae5f2d884a0f823e55475d175e39c54ae0c7c22752b7",
+      "last_modified": 1760451368,
+      "size": 3137
+    },
+    "./apps/temporal-worker/src/workflows/discovery/activities/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/discovery/activities/index.ts",
+      "hash": "3d3c96f2d5b5ed366a418ff3fe6c713ed98afcb3dfbf691398d52f957615ec62",
+      "last_modified": 1760347853,
+      "size": 182
+    },
+    "./apps/data-service/src/workflows/example-workflow.ts": {
+      "path": "./apps/data-service/src/workflows/example-workflow.ts",
+      "hash": "7aa593296607cb7652ddeb37e560caf9bf4b60e4e4ec096a29ee0274ae6b7b9f",
+      "last_modified": 1760012856,
+      "size": 629
+    },
+    "./apps/data-service/package.json": {
+      "path": "./apps/data-service/package.json",
+      "hash": "2be6ad296ce1e973e9109ddefbe9c3324b2de9b7b44ad09fbfb3983148f853b6",
+      "last_modified": 1760012856,
+      "size": 574
+    },
+    "./apps/user-application/src/server/discovery/workflows/port-scan/index.ts": {
+      "path": "./apps/user-application/src/server/discovery/workflows/port-scan/index.ts",
+      "hash": "e92f4a6b88636340e988ef58a2ac75ffe64a0631d86965f078027a7e14b5cd24",
+      "last_modified": 1760229497,
+      "size": 135
+    },
+    "./packages/data-ops/migrations/meta/0000_snapshot.json": {
+      "path": "./packages/data-ops/migrations/meta/0000_snapshot.json",
+      "hash": "49a9499eb5aebb32a3e6f21ede4492665d513a7f07ddb4aa7714cf615ffe63e7",
+      "last_modified": 1760089398,
+      "size": 9036
+    },
+    "./pnpm-lock.yaml": {
+      "path": "./pnpm-lock.yaml",
+      "hash": "149b6d387977f66628e5fa42d5c0d32244549ac86b2c29a516e8a16fdb4de676",
+      "last_modified": 1760527444,
+      "size": 395927
+    },
+    "./packages/data-ops/tsconfig.json": {
+      "path": "./packages/data-ops/tsconfig.json",
+      "hash": "a27c99cc0dd20720fcb03c15632dba858b4ab50f56696564ad05604279d8d102",
+      "last_modified": 1760012856,
+      "size": 426
+    },
+    "./apps/user-application/public/robots.txt": {
+      "path": "./apps/user-application/public/robots.txt",
+      "hash": "b82aec6c2e955c98ba291982d1989072c5199a90d22d2b38e20030538f2a1865",
+      "last_modified": 1760012856,
+      "size": 67
+    },
+    "./apps/user-application/src/components/shared/pagination.tsx": {
+      "path": "./apps/user-application/src/components/shared/pagination.tsx",
+      "hash": "b21f923f2cc1c8d6af810a3449f1261b2758ab45da9c4b0b1efe21869f039fd9",
+      "last_modified": 1760452680,
+      "size": 2106
+    },
+    "./apps/temporal-worker/src/workflows/portscan/activities/index.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/activities/index.ts",
+      "hash": "f83d991ff5a1fe59a96ad14f6af0eca2e36b4fa49a364cd70866b3af76fe4e0d",
+      "last_modified": 1760439820,
+      "size": 131
+    },
+    "./apps/user-application/src/utils/storage.ts": {
+      "path": "./apps/user-application/src/utils/storage.ts",
+      "hash": "cb7894014112317f14e7058a0cb174b290bf34c601bce77d1765d069110b45e2",
+      "last_modified": 1760229497,
+      "size": 747
+    },
+    "./packages/data-ops/src/schema/utils.ts": {
+      "path": "./packages/data-ops/src/schema/utils.ts",
+      "hash": "db48a4117f4e1b5ce8f6487beeabf50d40c2faf83ba0f3ea1868cc43f87c54de",
+      "last_modified": 1760233533,
+      "size": 818
+    },
+    "./apps/temporal-worker/src/workflows/portscan/activities.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/activities.ts",
+      "hash": "fe93177ff95215ff9135bb67643f430fce45f23d84eb269b40113209a9517471",
+      "last_modified": 1760431336,
+      "size": 19094
+    },
+    "./apps/temporal-worker/src/workflows/portscan/xml-parser/os-parser.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/xml-parser/os-parser.ts",
+      "hash": "3e5de3b3fc9720a851080efb6e01ef9006cb622962fcfdb3468c4a4db4e960ec",
+      "last_modified": 1760415440,
+      "size": 4253
+    },
+    "./apps/user-application/CLAUDE.md": {
+      "path": "./apps/user-application/CLAUDE.md",
+      "hash": "41844582a7a38d16fcfec33f7844c52605aa133a92390d20d62e73800ae6b925",
+      "last_modified": 1760012856,
+      "size": 2487
+    },
+    "./apps/user-application/src/modals/DeleteDeviceConfirm.tsx": {
+      "path": "./apps/user-application/src/modals/DeleteDeviceConfirm.tsx",
+      "hash": "87f317b353feb21f9e04382af12eddd247c665866af99ef4c48a4f2076c2e34b",
+      "last_modified": 1760229497,
+      "size": 2966
+    },
+    "./apps/temporal-worker/src/workflows/portscan/workflow.ts": {
+      "path": "./apps/temporal-worker/src/workflows/portscan/workflow.ts",
+      "hash": "dc42f18b022b90c9435470c0c5dbaf0a13e309894c16e24529d9e8ccae5c0d17",
+      "last_modified": 1760451826,
+      "size": 7847
+    },
+    "./packages/constants/index.ts": {
+      "path": "./packages/constants/index.ts",
+      "hash": "4fd72864860422d06f3f1cefb48ce06cfce854b9c680cef00186902d6c265734",
+      "last_modified": 1760453710,
+      "size": 10307
+    },
+    "./apps/user-application/README.md": {
+      "path": "./apps/user-application/README.md",
+      "hash": "6b6ac231ad3b779983f27c3e304299c84ccaea2a6b7aa67bb0f0aa2640c720d6",
+      "last_modified": 1760012856,
+      "size": 9209
+    }
+  },
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "embedding_dimensions": 384,
+  "chunk_hash_version": 2
+}

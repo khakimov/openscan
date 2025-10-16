@@ -3,12 +3,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
-  ChevronsRightIcon,
 } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
 import { useState } from "react";
 
-import { Button } from "./ui/button";
+import { Button } from "@/components/ui/button";
 
 export function usePagination(take: number) {
   const [page, setPage] = useState(0);
@@ -55,19 +54,23 @@ export function Pagination({
           onClick={() => setCursor(0)}
           disabled={cursor === 0}
           className="max-sm:hidden"
-          icon={ChevronsLeftIcon}
-        />
+        >
+          <ChevronsLeftIcon className="h-4 w-4" />
+          <span className="sr-only">First page</span>
+        </Button>
       )}
       <Button
         variant="outline"
         size="icon"
         onClick={() => setCursor((p) => Math.max(0, p - 1))}
         disabled={cursor === 0}
-        icon={ChevronLeftIcon}
-      />
+      >
+        <ChevronLeftIcon className="h-4 w-4" />
+        <span className="sr-only">Previous page</span>
+      </Button>
 
-      <Button loading={loading} disabled variant="outline" size="icon">
-        {loading ? "" : cursor}
+      <Button disabled variant="outline" size="icon" aria-live="polite">
+        {loading ? "…" : cursor + 1}
       </Button>
 
       <Button
@@ -75,8 +78,10 @@ export function Pagination({
         size="icon"
         onClick={() => setCursor((p) => Math.min(lastCursor, p + 1))}
         disabled={isNextDisabled}
-        icon={ChevronRightIcon}
-      />
+      >
+        <ChevronRightIcon className="h-4 w-4" />
+        <span className="sr-only">Next page</span>
+      </Button>
     </div>
   );
 }

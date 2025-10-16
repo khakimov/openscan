@@ -31,11 +31,11 @@ export async function getScanRunsWithArtifacts(
 }
 
 /**
- * Create a new scan workflow record to track Temporal workflow
+ * Create a new scan workflow record to track Restate workflow
  */
 export async function createScanWorkflow(params: {
   organizationId: string;
-  temporalWorkflowId: string;
+  workflowId: string;
   kind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
 }): Promise<ScanWorkflow> {
   const db = getDb();
@@ -44,7 +44,7 @@ export async function createScanWorkflow(params: {
     .insert(scanWorkflows)
     .values({
       organizationId: params.organizationId,
-      temporalId: params.temporalWorkflowId,
+      workflowId: params.workflowId,
       kind: params.kind,
       status: 'PENDING',
     })
@@ -88,8 +88,7 @@ export async function createScanRun(params: {
  */
 export async function updateScanWorkflowStatus(
   workflowId: string,
-  status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'CANCELED' | 'TIMEOUT',
-  temporalRunId?: string
+  status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'CANCELED' | 'TIMEOUT'
 ): Promise<void> {
   const db = getDb();
 
@@ -103,11 +102,6 @@ export async function updateScanWorkflowStatus(
   }
   if (['SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'].includes(status)) {
     updates.finishedAt = new Date();
-  }
-
-  // Update temporal run ID if provided
-  if (temporalRunId) {
-    updates.temporalRunId = temporalRunId;
   }
 
   await db
@@ -158,11 +152,11 @@ export async function updateScanRunStatus(
 }
 
 /**
- * Get scan workflow by Temporal workflow ID
+ * Get scan workflow by workflow ID (Restate workflow ID)
  */
-export async function getScanWorkflowByTemporalId(
+export async function getScanWorkflowByWorkflowId(
   organizationId: string,
-  temporalId: string
+  workflowId: string
 ): Promise<ScanWorkflow | null> {
   const db = getDb();
 
@@ -171,7 +165,7 @@ export async function getScanWorkflowByTemporalId(
     .from(scanWorkflows)
     .where(and(
       eq(scanWorkflows.organizationId, organizationId),
-      eq(scanWorkflows.temporalId, temporalId)
+      eq(scanWorkflows.workflowId, workflowId)
     ));
 
   return workflow || null;

@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { DiscoveryLoading } from "@/components/shared/discovery-loading";
+import { QUERY_CONFIG } from "@repo/constants";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
@@ -113,7 +114,7 @@ export default function AddDiscovery({
     },
   });
 
-  // Smart polling for workflow status
+  // Smart polling for workflow status (reduced frequency with postback architecture)
   const { data: workflowStatus } = useQuery({
     queryKey: ["workflow-status", workflowId, runId],
     queryFn: () => getWorkflowStatus({ data: { workflowId: workflowId!, runId: runId || undefined } }),
@@ -123,7 +124,8 @@ export default function AddDiscovery({
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
-      return 1000; // Poll every 1 second while running
+      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
     },
   });
 

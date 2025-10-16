@@ -16,17 +16,17 @@ const logger = createLogger({ name: 'discovery-scan-recorder' });
 export class ScanRecorder {
   async createWorkflow(params: {
     tenantId: string;
-    temporalWorkflowId: string;
+    workflowId: string;
     kind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
   }) {
     const workflow = await createScanWorkflow({
       organizationId: params.tenantId,
-      temporalWorkflowId: params.temporalWorkflowId,
+      workflowId: params.workflowId,
       kind: params.kind,
     });
     logger.info('Created scan workflow record', {
       workflowId: workflow.id,
-      temporalWorkflowId: params.temporalWorkflowId,
+      restateWorkflowId: params.workflowId,
       tenantId: params.tenantId,
     });
     return workflow;
@@ -62,12 +62,11 @@ export class ScanRecorder {
     logger.info('Marked scan run as running', { scanRunId });
   }
 
-  async updateWorkflowStatus(workflowId: string, status: WorkflowStatus, runId?: string) {
-    await updateScanWorkflowStatus(workflowId, status, runId);
+  async updateWorkflowStatus(workflowId: string, status: WorkflowStatus) {
+    await updateScanWorkflowStatus(workflowId, status);
     logger.info('Updated scan workflow status', {
       workflowId,
       status,
-      runId,
     });
   }
 

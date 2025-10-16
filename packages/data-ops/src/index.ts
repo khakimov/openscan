@@ -34,3 +34,6 @@ export * from './auth/setup';
 // Export queries
 export * from './queries/devices';
 export * from './queries/scans';
+
+// Explicitly re-export getDeviceByIdGlobal (internal use only)
+export { getDeviceByIdGlobal } from './queries/devices';

@@ -1,10 +1,10 @@
 /**
  * Scan Results Postback Handler
  *
- * Receives scan results from temporal-worker via HTTP postback.
- * Follows the Temporal activity-based side effects pattern.
+ * Receives scan results from restate-worker via HTTP postback.
+ * Follows the Restate side effects pattern with HTTP callbacks.
  *
- * Architecture: See apps/temporal-worker/docs/database-free-portscan-architecture.md
+ * Architecture: See apps/restate-worker/CLAUDE.md
  * Data Model: See docs/data-model.md
  */
 
@@ -13,7 +13,7 @@ import { z } from 'zod';
 import {
   getDeviceByIdGlobal,
   updateDevice,
-  getScanWorkflowByTemporalId,
+  getScanWorkflowByWorkflowId,
   updateScanRunStatus,
   updateScanWorkflowStatus,
   getDb,
@@ -93,8 +93,8 @@ async function storeScanResults(params: {
     portCount: results.ports?.length || 0,
   });
 
-  // Step 1: Find the scan workflow and run by temporal workflow ID
-  const workflow = await getScanWorkflowByTemporalId(organizationId, workflowId);
+  // Step 1: Find the scan workflow and run by workflow ID
+  const workflow = await getScanWorkflowByWorkflowId(organizationId, workflowId);
 
   if (!workflow) {
     logger.warn('Scan workflow not found for postback', {
@@ -157,7 +157,7 @@ async function storeScanResults(params: {
 }
 
 /**
- * Handle scan results postback from temporal-worker
+ * Handle scan results postback from restate-worker
  * This is the main entry point called by the API route
  */
 export async function handleScanResultsPostback(request: Request): Promise<Response> {

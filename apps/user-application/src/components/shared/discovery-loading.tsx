@@ -12,7 +12,7 @@ import {
   ZapIcon,
   RadarIcon,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const icons = [
   { Icon: SearchIcon, color: 'text-blue-400' },

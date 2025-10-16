@@ -27,7 +27,6 @@ export const Route = createFileRoute("/onboarding/project")({
     };
 
     return {
-      organizations,
       hasOrganization: organizations.length > 0,
       onboarding: status,
       initialForm,
@@ -37,11 +36,10 @@ export const Route = createFileRoute("/onboarding/project")({
 });
 
 function OnboardingProjectPage() {
-  const { organizations, hasOrganization, onboarding, initialForm } = Route.useLoaderData();
+  const { hasOrganization, onboarding, initialForm } = Route.useLoaderData();
 
   console.log("[OnboardingProjectPage] Rendering with:", {
     hasOrganization,
-    organizationCount: organizations.length,
   });
 
   return (
@@ -52,7 +50,6 @@ function OnboardingProjectPage() {
     >
       <OnboardingCreateProject
         hasOrganization={hasOrganization}
-        organizations={organizations}
         organizationId={onboarding.organizationId}
         deviceId={onboarding.projectId}
         initialValues={initialForm}

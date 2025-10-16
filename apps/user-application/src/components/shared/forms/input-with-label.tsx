@@ -1,19 +1,19 @@
+import { forwardRef, type ReactNode, type ComponentPropsWithoutRef } from "react";
 import { BanIcon, InfoIcon } from "lucide-react";
-import { forwardRef } from "react";
 
 import { Input } from "@/components/ui/input";
-import type { InputProps } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tooltiper } from "@/components/ui/tooltip";
 
 type WithLabel = {
-  children: React.ReactNode;
+  children: ReactNode;
   label: string;
   error?: string | undefined;
-  info?: React.ReactNode;
+  info?: ReactNode;
   className?: string;
 };
-type InputWithLabelProps = InputProps & Omit<WithLabel, "children">;
+type InputWithLabelProps = ComponentPropsWithoutRef<typeof Input> &
+  Omit<WithLabel, "children">;
 
 export const WithLabel = ({
   children,
@@ -56,10 +56,10 @@ export const WithLabel = ({
 };
 
 export const InputWithLabel = forwardRef<HTMLInputElement, InputWithLabelProps>(
-  (props, ref) => {
+  ({ label, error, info, className, ...inputProps }, ref) => {
     return (
-      <WithLabel {...props}>
-        <Input ref={ref} id={props.label} {...props} />
+      <WithLabel label={label} error={error} info={info} className={className}>
+        <Input ref={ref} id={label} {...inputProps} />
       </WithLabel>
     );
   },

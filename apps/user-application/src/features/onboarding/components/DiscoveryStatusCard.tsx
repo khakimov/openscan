@@ -135,6 +135,25 @@ export function DiscoveryStatusCard({
             {/* Results Display */}
             {discoveryStatus.result && (
               <div className="mt-4 space-y-3">
+                {/* Errors from discovery result */}
+                {discoveryStatus.result.errors && discoveryStatus.result.errors.length > 0 && (
+                  <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                    <div className="flex items-start gap-2">
+                      <XCircle className="h-4 w-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium text-yellow-900">
+                          Discovery completed with {discoveryStatus.result.errors.length} warning{discoveryStatus.result.errors.length !== 1 ? 's' : ''}
+                        </p>
+                        <ul className="text-xs text-yellow-800 space-y-1 list-disc list-inside">
+                          {discoveryStatus.result.errors.map((error, idx) => (
+                            <li key={idx} className="break-words">{error}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Total Count */}
                 <div className="flex items-center justify-between py-2 px-3 bg-muted/50 rounded-lg">
                   <span className="text-sm font-medium">Total Subdomains</span>
