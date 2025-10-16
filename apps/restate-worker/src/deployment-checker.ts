@@ -38,18 +38,28 @@ export async function checkDeploymentStatus(
   try {
     // Try to fetch deployment information from Restate admin API
     // Note: This requires Restate to be running
+    logger.debug('Checking deployment status', { adminUrl, endpoint: `${adminUrl}/deployments` });
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+
+    // Add auth header if RESTATE_API_KEY is set (for Restate Cloud)
+    const apiKey = process.env.RESTATE_API_KEY;
+    if (apiKey) {
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
     const response = await fetch(`${adminUrl}/deployments`, {
       method: 'GET',
-      headers: { 'Content-Type': 'application/json' },
+      headers,
       signal: AbortSignal.timeout(5000), // 5 second timeout (cloud might be slower)
     });
 
     if (!response.ok) {
-      // Restate not accessible - can't determine status
+      const errorText = await response.text().catch(() => 'No error details');
       return {
         registered: false,
         needsUpdate: false,
-        reason: 'Cannot connect to Restate - is it running?',
+        reason: `Restate API error (${response.status}): ${errorText.substring(0, 100)}`,
       };
     }
 
@@ -114,11 +124,14 @@ export async function checkDeploymentStatus(
       needsUpdate: false,
     };
   } catch (error) {
-    // Network error or timeout - likely Restate not running
+    // Network error or timeout
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.debug('Deployment check failed', { error: errorMessage, adminUrl });
+
     return {
       registered: false,
       needsUpdate: false,
-      reason: 'Cannot connect to Restate - is it running?',
+      reason: `Cannot connect to ${adminUrl}: ${errorMessage}`,
     };
   }
 }
@@ -132,6 +145,10 @@ export function logDeploymentGuidance(
   restateAdminUrl?: string
 ) {
   const adminUrl = restateAdminUrl || 'http://localhost:8080';
+
+  logger.info('');
+  logger.info(`🔍 Checking deployment at: ${adminUrl}`);
+  logger.info('');
 
   if (!status.registered) {
     logger.warn('⚠️  Worker not registered with Restate');

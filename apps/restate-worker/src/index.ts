@@ -57,6 +57,11 @@ endpoint
 
     // Check deployment status
     const restateAdminUrl = process.env.RESTATE_ADMIN_URL;
+    logger.debug('Checking deployment with', {
+      adminUrl: restateAdminUrl || 'http://localhost:8080 (default)',
+      hasApiKey: !!process.env.RESTATE_API_KEY,
+    });
+
     const status = await checkDeploymentStatus(PORT, services, restateAdminUrl);
 
     // Log guidance based on status
