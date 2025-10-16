@@ -165,7 +165,8 @@ export class RestateHttpClient {
   }
 
   /**
-   * Start port scan workflow
+   * Start port scan workflow (async with postback)
+   * Uses /send endpoint to start workflow without blocking
    */
   async startPortScan(input: {
     target: string;
@@ -179,16 +180,14 @@ export class RestateHttpClient {
   }): Promise<{
     scanId: string;
     target: string;
-    ports: any[];
-    totalPorts: number;
-    scanDuration: number;
-    completedAt: string;
   }> {
-    const url = `${this.baseUrl}/PortScanner/scan`;
+    // Use /send endpoint for async workflow execution
+    const url = `${this.baseUrl}/PortScanner/scan/send`;
 
-    logger.info('Calling Restate PortScanner service', {
+    logger.info('Starting async port scan in Restate', {
       url,
       target: input.target,
+      hasCallback: !!input.callbackUrl,
     });
 
     try {
@@ -203,23 +202,19 @@ export class RestateHttpClient {
         throw new Error(`Restate service error (${response.status}): ${errorText}`);
       }
 
-      const result = (await response.json()) as {
-        scanId: string;
-        target: string;
-        ports: any[];
-        totalPorts: number;
-        scanDuration: number;
-        completedAt: string;
-      };
-
-      logger.info('Port scan completed', {
-        scanId: result.scanId,
-        portsFound: result.totalPorts,
+      // /send endpoint returns immediately without waiting for scan results
+      // Results will come via postback callback
+      logger.info('Port scan workflow started successfully', {
+        target: input.target,
       });
 
-      return result;
+      // Return scanId and target - results will come via postback
+      return {
+        scanId: input.workflowId || input.target,
+        target: input.target,
+      };
     } catch (error) {
-      logger.error('Failed to call Restate PortScanner service', {
+      logger.error('Failed to start port scan workflow', {
         error: error instanceof Error ? error.message : String(error),
         url,
       });

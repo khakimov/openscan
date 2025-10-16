@@ -61,7 +61,21 @@ export class PortScanService {
       target: input.target,
     });
 
-    // Step 2: Start Restate port scan with postback
+    // Step 2: Link device if provided (before starting scan)
+    if (input.deviceId) {
+      await deviceManager.attachDeviceToScan({
+        tenantId,
+        scanRunId: scanRun.id,
+        deviceId: input.deviceId,
+        target: input.target,
+      });
+    }
+
+    // Step 3: Update scan status to running (before starting scan to avoid race condition)
+    await scanRecorder.markRunRunning(scanRun.id);
+    await scanRecorder.updateWorkflowStatus(scanWorkflow.id, 'RUNNING');
+
+    // Step 4: Start Restate port scan with postback (async - returns immediately)
     const client = getRestateHttpClient();
 
     // Build callback URL for postback
@@ -81,24 +95,11 @@ export class PortScanService {
       workflowId,
     });
 
-    logger.info('Restate port scan started', {
+    logger.info('Port scan workflow started', {
       scanId: scanResult.scanId,
       target: scanResult.target,
+      workflowId,
     });
-
-    // Step 3: Link device if provided
-    if (input.deviceId) {
-      await deviceManager.attachDeviceToScan({
-        tenantId,
-        scanRunId: scanRun.id,
-        deviceId: input.deviceId,
-        target: input.target,
-      });
-    }
-
-    // Step 4: Update scan status to running
-    await scanRecorder.markRunRunning(scanRun.id);
-    await scanRecorder.updateWorkflowStatus(scanWorkflow.id, 'RUNNING');
 
     return {
       workflowId,
@@ -106,8 +107,9 @@ export class PortScanService {
       scanRunId: scanRun.id,
       scanId: scanResult.scanId,
       target: scanResult.target,
-      ports: scanResult.ports,
-      totalPorts: scanResult.totalPorts,
+      // Ports will come via postback - don't include here
+      ports: [],
+      totalPorts: 0,
     };
   }
 
