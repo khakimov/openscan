@@ -56,11 +56,11 @@ endpoint
     });
 
     // Check deployment status
-    const restateIngressUrl = process.env.RESTATE_INGRESS_URL;
-    const status = await checkDeploymentStatus(PORT, services, restateIngressUrl);
+    const restateAdminUrl = process.env.RESTATE_ADMIN_URL;
+    const status = await checkDeploymentStatus(PORT, services, restateAdminUrl);
 
     // Log guidance based on status
-    logDeploymentGuidance(status, PORT, restateIngressUrl);
+    logDeploymentGuidance(status, PORT, restateAdminUrl);
   })
   .catch((err) => {
     logger.error('Failed to start Restate worker', { error: err });

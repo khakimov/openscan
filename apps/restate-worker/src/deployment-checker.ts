@@ -25,23 +25,23 @@ interface DeploymentStatus {
  *
  * @param workerPort - Port the worker is listening on
  * @param currentServices - Services currently defined in the worker
- * @param restateIngressUrl - Restate ingress URL (optional, defaults to localhost:8080)
+ * @param restateAdminUrl - Restate admin API URL (optional, defaults to localhost:8080)
  */
 export async function checkDeploymentStatus(
   workerPort: number,
   currentServices: ServiceInfo[],
-  restateIngressUrl?: string
+  restateAdminUrl?: string
 ): Promise<DeploymentStatus> {
-  const ingressUrl = restateIngressUrl || 'http://localhost:8080';
+  const adminUrl = restateAdminUrl || 'http://localhost:8080';
   const workerUrl = `http://localhost:${workerPort}`;
 
   try {
     // Try to fetch deployment information from Restate admin API
     // Note: This requires Restate to be running
-    const response = await fetch(`${ingressUrl}/deployments`, {
+    const response = await fetch(`${adminUrl}/deployments`, {
       method: 'GET',
       headers: { 'Content-Type': 'application/json' },
-      signal: AbortSignal.timeout(2000), // 2 second timeout
+      signal: AbortSignal.timeout(5000), // 5 second timeout (cloud might be slower)
     });
 
     if (!response.ok) {
@@ -129,9 +129,9 @@ export async function checkDeploymentStatus(
 export function logDeploymentGuidance(
   status: DeploymentStatus,
   workerPort: number,
-  restateIngressUrl?: string
+  restateAdminUrl?: string
 ) {
-  const ingressUrl = restateIngressUrl || 'http://localhost:8080';
+  const adminUrl = restateAdminUrl || 'http://localhost:8080';
 
   if (!status.registered) {
     logger.warn('⚠️  Worker not registered with Restate');
@@ -153,7 +153,7 @@ export function logDeploymentGuidance(
     logger.info('');
   } else {
     logger.info('✅ Worker is registered and up-to-date');
-    logger.info(`   Restate ingress: ${ingressUrl}`);
+    logger.info(`   Restate admin: ${adminUrl}`);
     logger.info('');
   }
 }
