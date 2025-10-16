@@ -64,7 +64,7 @@ describe('Device Scan Statistics (TDD)', () => {
 
     const olderScan = {
       target: 'test-device.example.com',
-      resultSummary: JSON.stringify({
+      resultSummary: {
         openPortCount: 5,
         ports: [
           { port: 22, state: 'open', service: 'ssh' },
@@ -73,30 +73,31 @@ describe('Device Scan Statistics (TDD)', () => {
           { port: 3000, state: 'open', service: 'unknown' },
           { port: 8080, state: 'open', service: 'http-alt' },
         ],
-      }),
+      },
       completedAt: new Date('2025-10-15T10:00:00Z'),
     };
 
     const newerScan = {
       target: 'test-device.example.com',
-      resultSummary: JSON.stringify({
+      resultSummary: {
         openPortCount: 3,
         ports: [
           { port: 22, state: 'open', service: 'ssh' },
           { port: 80, state: 'open', service: 'http' },
           { port: 443, state: 'open', service: 'https' },
         ],
-      }),
+      },
       completedAt: new Date('2025-10-16T10:00:00Z'), // LATEST
     };
 
     // Mock database responses using mockAll (sequential calls with mockResolvedValueOnce)
     mockAll
-      .mockResolvedValueOnce([mockDevice]) // 1st call: devices query
-      .mockResolvedValueOnce([])  // 2nd call: IP addresses
-      .mockResolvedValueOnce([])  // 3rd call: tags
-      .mockResolvedValueOnce([olderScan, newerScan]) // 4th call: latest scans
-      .mockResolvedValueOnce([{ target: 'test-device.example.com', scan_count: 2 }]); // 5th call: scan counts
+      .mockResolvedValueOnce([{ count: 1 }]) // 1st call: count query
+      .mockResolvedValueOnce([mockDevice]) // 2nd call: devices query
+      .mockResolvedValueOnce([])  // 3rd call: IP addresses
+      .mockResolvedValueOnce([])  // 4th call: tags
+      .mockResolvedValueOnce([newerScan, olderScan]) // 5th call: latest scans (newest first, DESC order)
+      .mockResolvedValueOnce([{ target: 'test-device.example.com', scanCount: 2 }]); // 6th call: scan counts
 
     // Act: Call the function
     const result = await getDevicesForTenant(testOrgId);
@@ -130,7 +131,8 @@ describe('Device Scan Statistics (TDD)', () => {
     };
 
     mockAll
-      .mockResolvedValueOnce([mockDevice]) // 1st call: devices
+      .mockResolvedValueOnce([{ count: 1 }]) // 1st call: count query
+      .mockResolvedValueOnce([mockDevice]) // 2nd call: devices
       .mockResolvedValue([]); // All other calls: empty (IPs, tags, scans)
 
     // Act: Call the function
@@ -153,16 +155,17 @@ describe('Device Scan Statistics (TDD)', () => {
 
     const scanWithNullTarget = {
       target: null, // NULL target should be handled gracefully
-      resultSummary: JSON.stringify({ openPortCount: 1 }),
+      resultSummary: { openPortCount: 1 },
       completedAt: new Date('2025-10-16T10:00:00Z'),
     };
 
     mockAll
-      .mockResolvedValueOnce([mockDevice]) // 1st: devices
-      .mockResolvedValueOnce([]) // 2nd: IPs
-      .mockResolvedValueOnce([]) // 3rd: tags
-      .mockResolvedValueOnce([scanWithNullTarget]) // 4th: scans with null target
-      .mockResolvedValue([]); // 5th and beyond: empty
+      .mockResolvedValueOnce([{ count: 1 }]) // 1st: count query
+      .mockResolvedValueOnce([mockDevice]) // 2nd: devices
+      .mockResolvedValueOnce([]) // 3rd: IPs
+      .mockResolvedValueOnce([]) // 4th: tags
+      .mockResolvedValueOnce([scanWithNullTarget]) // 5th: scans with null target
+      .mockResolvedValue([]); // 6th and beyond: empty
 
     // Act: Should not throw error
     const result = await getDevicesForTenant(testOrgId);
@@ -184,18 +187,19 @@ describe('Device Scan Statistics (TDD)', () => {
 
     const successfulScan = {
       target: 'test-device.example.com',
-      resultSummary: JSON.stringify({ openPortCount: 3 }),
+      resultSummary: { openPortCount: 3 },
       completedAt: new Date('2025-10-16T10:00:00Z'),
     };
 
     // Note: The database query already filters by status='SUCCEEDED',
     // so we shouldn't see failed scans in the results
     mockAll
-      .mockResolvedValueOnce([mockDevice]) // 1st: devices
-      .mockResolvedValueOnce([]) // 2nd: IPs
-      .mockResolvedValueOnce([]) // 3rd: tags
-      .mockResolvedValueOnce([successfulScan]) // 4th: only SUCCEEDED scans
-      .mockResolvedValueOnce([{ target: 'test-device.example.com', scan_count: 1 }]); // 5th: scan counts
+      .mockResolvedValueOnce([{ count: 1 }]) // 1st: count query
+      .mockResolvedValueOnce([mockDevice]) // 2nd: devices
+      .mockResolvedValueOnce([]) // 3rd: IPs
+      .mockResolvedValueOnce([]) // 4th: tags
+      .mockResolvedValueOnce([successfulScan]) // 5th: only SUCCEEDED scans
+      .mockResolvedValueOnce([{ target: 'test-device.example.com', scanCount: 1 }]); // 6th: scan counts
 
     // Act: Call the function
     const result = await getDevicesForTenant(testOrgId);
