@@ -4,8 +4,9 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod/v4";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-import { authClient } from "better-auth";
+import { authClient } from "@/lib/auth-client";
 import { InputWithLabel } from "@/components/shared/forms/input-with-label";
 import { Button } from "@/components/ui/button";
 
@@ -27,6 +28,7 @@ export function SignInEmailForm() {
     any,
     z.output<typeof validator>
   >({
+    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers
     resolver: zodResolver(validator),
   });
 
@@ -78,7 +80,8 @@ export function SignInEmailForm() {
         autoComplete="current-password"
       />
 
-      <Button type="submit" loading={isLoading} disabled={isLoading}>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading && <Loader2 className="animate-spin" />}
         Sign in
       </Button>
 

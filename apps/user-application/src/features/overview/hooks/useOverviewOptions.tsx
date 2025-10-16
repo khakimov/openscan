@@ -9,7 +9,8 @@ import {
   intervals,
   timeWindows,
 } from "@repo/constants";
-import type { IChartRange } from "@repo/constants";
+
+type IChartRange = keyof typeof timeWindows;
 
 // Define the search params schema
 export const overviewSearchSchema = z.object({
@@ -36,13 +37,14 @@ export function useOverviewOptions() {
 
   const interval =
     overrideInterval ||
-    getDefaultIntervalByDates(startDate, endDate) ||
-    getDefaultIntervalByRange(range);
+    getDefaultIntervalByDates(startDate || null, endDate || null) ||
+    getDefaultIntervalByRange(range as IChartRange);
 
   // Helper to update search params
   const updateSearch = (updates: Partial<OverviewSearchParams>) => {
     navigate({
-      search: (prev) => ({
+      // @ts-expect-error - TanStack Router search param types are complex
+      search: (prev: Record<string, unknown>) => ({
         ...prev,
         ...updates,
       }),

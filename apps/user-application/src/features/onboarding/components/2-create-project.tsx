@@ -189,9 +189,9 @@ export function OnboardingCreateProject({
                       Updating this will rename your existing workspace.
                     </p>
                   )}
-                  {!!field.state.meta.touchedErrors?.length && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
-                      {field.state.meta.touchedErrors[0]}
+                      {field.state.meta.errors[0]}
                     </p>
                   )}
                 </div>
@@ -250,9 +250,9 @@ export function OnboardingCreateProject({
                     aria-invalid={field.state.meta.errors.length > 0}
                     required
                   />
-                  {!!field.state.meta.touchedErrors?.length && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
-                      {field.state.meta.touchedErrors[0]}
+                      {field.state.meta.errors[0]}
                     </p>
                   )}
                 </div>
@@ -284,9 +284,9 @@ export function OnboardingCreateProject({
                     onBlur={field.handleBlur}
                     aria-invalid={field.state.meta.errors.length > 0}
                   />
-                  {!!field.state.meta.touchedErrors?.length && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
-                      {field.state.meta.touchedErrors[0]}
+                      {field.state.meta.errors[0]}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">

@@ -4,8 +4,9 @@ import { type SubmitHandler, useForm } from "react-hook-form";
 import { z } from "zod/v4";
 import { useState } from "react";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
 
-import { authClient } from "better-auth";
+import { authClient } from "@/lib/auth-client";
 import { InputWithLabel } from "@/components/shared/forms/input-with-label";
 import { Button } from "@/components/ui/button";
 
@@ -29,6 +30,7 @@ export function SignUpEmailForm() {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<IForm>({
+    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers
     resolver: zodResolver(validator),
   });
 
@@ -48,8 +50,8 @@ export function SignUpEmailForm() {
         toast.success(
           "Account created! Please check your email to verify your account."
         );
-        // Redirect to a "check your email" page or login
-        router.navigate({ to: "/login" });
+        // After sign up, user will be redirected to onboarding or dashboard automatically
+        await router.invalidate();
       }
     } catch (err) {
       toast.error("An unexpected error occurred");
@@ -105,7 +107,8 @@ export function SignUpEmailForm() {
         autoComplete="new-password"
       />
 
-      <Button type="submit" loading={isLoading} disabled={isLoading}>
+      <Button type="submit" disabled={isLoading}>
+        {isLoading && <Loader2 className="animate-spin" />}
         Create account
       </Button>
 
