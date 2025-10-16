@@ -3,6 +3,7 @@ import { QUERY_CONFIG } from '@repo/constants';
 import {
   getDeviceDetailData,
   getDeviceVulnerabilitiesData,
+  type TransformedDevice,
 } from "@/server/devices";
 // Types are inferred from server function return types
 
@@ -16,9 +17,9 @@ export const DEVICE_VULNERABILITIES_QUERY_KEY = (
 ) => ["device-vulnerabilities", deviceId, page];
 
 export function useDeviceDetailQuery(deviceId: string | null) {
-  return useQuery({
+  return useQuery<TransformedDevice>({
     queryKey: deviceId ? DEVICE_DETAIL_QUERY_KEY(deviceId) : ["device-detail"],
-    queryFn: async () => {
+    queryFn: async (): Promise<TransformedDevice> => {
       if (!deviceId) throw new Error("No device ID provided");
       console.log('📡 useDeviceDetailQuery: Fetching fresh device detail...', { deviceId });
       const result = await getDeviceDetailData({ data: { deviceId } });
