@@ -1,4 +1,6 @@
-export type ScanScope = 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
+import type { ScanScope } from '@repo/contracts';
+
+export type { ScanScope };
 
 const PRIVATE_NETWORK_REGEX = /^(192\.168\.|10\.|172\.(1[6-9]|2[0-9]|3[01])\.)/;
 

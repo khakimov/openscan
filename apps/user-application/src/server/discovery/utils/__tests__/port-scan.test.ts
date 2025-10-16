@@ -11,7 +11,7 @@ describe('buildScannerInput', () => {
 
   beforeEach(() => {
     // Set test server URL
-    process.env.BETTER_AUTH_URL = 'http://localhost:3000';
+    (process.env as Record<string, string>).BETTER_AUTH_URL = 'http://localhost:3000';
   });
 
   afterEach(() => {
@@ -63,7 +63,7 @@ describe('buildScannerInput', () => {
     });
 
     it('should use BETTER_AUTH_URL from environment to construct callbackUrl', () => {
-      process.env.BETTER_AUTH_URL = 'https://example.com';
+      (process.env as Record<string, string>).BETTER_AUTH_URL = 'https://example.com';
 
       const input: PortScanInput = {
         target: '192.168.1.1',
@@ -85,7 +85,7 @@ describe('buildScannerInput', () => {
     });
 
     it('should handle missing BETTER_AUTH_URL gracefully', () => {
-      delete process.env.BETTER_AUTH_URL;
+      delete (process.env as Record<string, string | undefined>).BETTER_AUTH_URL;
 
       const input: PortScanInput = {
         target: '192.168.1.1',

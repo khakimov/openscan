@@ -502,13 +502,13 @@ export const getDiscoveryDevices = createServerFn({
       // Filter out ONBOARDING devices (the project placeholder)
       // Include DISCOVERY devices and any EXTERNAL scope devices
       const discoveryDevices = devicesResponse.items.filter(
-        (device) => device.source !== 'ONBOARDING'
+        (device: typeof devicesResponse.items[number]) => device.source !== 'ONBOARDING'
       );
 
       logger.info('Filtered discovery devices', {
         beforeFilter: devicesResponse.items.length,
         afterFilter: discoveryDevices.length,
-        allDevices: devicesResponse.items.map(d => ({
+        allDevices: devicesResponse.items.map((d: typeof devicesResponse.items[number]) => ({
           source: d.source,
           scope: d.scope,
           name: d.name
@@ -523,7 +523,7 @@ export const getDiscoveryDevices = createServerFn({
 
       return {
         success: true,
-        devices: discoveryDevices.map(d => ({
+        devices: discoveryDevices.map((d: typeof discoveryDevices[number]) => ({
           id: d.id,
           name: d.name,
           ip: d.ip || null,

@@ -20,7 +20,7 @@ export type JobKind = typeof JOB_KINDS[number];
 export const JOB_STATUSES = ['QUEUED', 'IN_PROGRESS', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'] as const;
 export type JobStatus = typeof JOB_STATUSES[number];
 
-export const SCAN_SCOPES = ['INTERNAL', 'EXTERNAL', 'HYBRID'] as const;
+export const SCAN_SCOPES = ['INTERNAL', 'EXTERNAL', 'UNKNOWN'] as const;
 export type ScanScope = typeof SCAN_SCOPES[number];
 
 export const SCAN_TYPES = ['DISCOVERY', 'PORT', 'WEB', 'ADVANCED'] as const;

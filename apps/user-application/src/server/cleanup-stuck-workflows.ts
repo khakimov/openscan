@@ -47,13 +47,13 @@ export const cleanupStuckWorkflows = createServerFn({
 
       logger.info('Stuck workflows cleaned up', {
         count: result.length,
-        workflowIds: result.map(w => w.workflowId),
+        workflowIds: result.map((w: typeof result[number]) => w.workflowId),
       });
 
       return {
         success: true,
         count: result.length,
-        workflows: result.map(w => ({
+        workflows: result.map((w: typeof result[number]) => ({
           id: w.id,
           workflowId: w.workflowId,
           kind: w.kind,

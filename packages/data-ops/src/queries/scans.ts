@@ -1,7 +1,7 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { scanRuns, scanWorkflows, scanRunDevices } from '../schema/orchestration';
-import type { ScanRun, ScanWorkflow } from '../types';
+import type { ScanRun, ScanWorkflow, ScanScope } from '../types';
 
 /**
  * Get all scan runs for an organization
@@ -60,7 +60,7 @@ export async function createScanRun(params: {
   workflowId: string;
   organizationId: string;
   scanType: 'DISCOVERY' | 'PORT' | 'WEB' | 'ADVANCED';
-  scope: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
+  scope: ScanScope;
   requestedById: string;
   target?: string;
 }): Promise<ScanRun> {

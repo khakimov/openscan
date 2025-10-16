@@ -1,7 +1,8 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
+import { getDb, scanWorkflows, eq } from '@repo/data-ops';
 
-import { workflowOrchestratorRestate as workflowOrchestrator } from '../services/workflow-orchestrator-restate';
+import { getCurrentTenant } from '../../utils/auth';
 import { extractErrorMessage } from '../utils/workflow-helpers';
 
 const logger = createLogger({ name: 'discovery-workflow-history' });
@@ -11,18 +12,27 @@ export const getCompletedScans = createServerFn({
 })
   .handler(async () => {
     try {
-      const workflows = await workflowOrchestrator.listCompletedScans();
+      const organizationId = await getCurrentTenant();
+      const db = getDb();
 
-      const payload = workflows.map((workflow) => ({
-        workflowId: workflow.workflowId,
-        workflowType: workflow.workflowType,
-        scanType: workflow.scanType,
-        status: workflow.description.status.name.toLowerCase(),
-        startTime: workflow.description.startTime,
-        closeTime: workflow.description.closeTime,
-        runId: workflow.runId,
-        result: workflow.result,
-      }));
+      // Query completed discovery workflows from database
+      const workflows = await db
+        .select()
+        .from(scanWorkflows)
+        .where(eq(scanWorkflows.organizationId, organizationId));
+
+      const payload = workflows
+        .filter((w: typeof workflows[number]) => w.status === 'SUCCEEDED' || w.status === 'FAILED')
+        .map((workflow: typeof workflows[number]) => ({
+          workflowId: workflow.workflowId,
+          workflowType: workflow.kind,
+          scanType: workflow.kind,
+          status: workflow.status.toLowerCase(),
+          startTime: workflow.startedAt?.toISOString(),
+          closeTime: workflow.finishedAt?.toISOString(),
+          runId: workflow.workflowId,
+          result: null, // Result would need to be fetched separately if needed
+        }));
 
       logger.info('Retrieved completed scans', { count: payload.length });
 

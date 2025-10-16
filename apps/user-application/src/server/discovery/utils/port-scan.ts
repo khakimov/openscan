@@ -1,6 +1,4 @@
-import type { PortScanInput, ScannerInput } from '@repo/contracts';
-
-import type { ScanScope } from './scan-scope';
+import type { PortScanInput, ScannerInput, ScanScope } from '@repo/contracts';
 
 /**
  * Get the callback URL for scan result postbacks
@@ -87,7 +85,7 @@ export function buildScannerInput(params: {
     scanName: `Port scan of ${input.target}`,
     isExtendScan,
     authScanType: 'ANONYMOUS',
-    priority: 'MEDIUM',
+    priority: 'NORMAL',
     targets: [
       {
         value: input.target,

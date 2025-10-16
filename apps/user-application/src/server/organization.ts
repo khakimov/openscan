@@ -302,14 +302,7 @@ export const updateOrganizationOnboarding = createServerFn({
 export const getOnboardingStatus = createServerFn({
   method: "GET",
 }).handler(async () => {
-  let currentUser:
-    | {
-        id: string;
-        email: string | null;
-        name: string | null;
-        emailVerified: unknown;
-      }
-    | null = null;
+  let currentUser: Awaited<ReturnType<typeof getCurrentUser>> | null = null;
 
   try {
     try {

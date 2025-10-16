@@ -34,7 +34,7 @@ export function buildDiscoveryResult(discoveryOutput: any) {
     results: [
       {
         target,
-        subdomains: results.map((entry) => entry.host),
+        subdomains: results.map((entry: { host: string; ip: string }) => entry.host),
         results,
         tool: 'temporal-scanner',
         timestamp: new Date().toISOString(),
@@ -43,7 +43,7 @@ export function buildDiscoveryResult(discoveryOutput: any) {
       },
     ],
     totalSubdomains: results.length,
-    uniqueSubdomains: results.map((entry) => ({
+    uniqueSubdomains: results.map((entry: { host: string; ip: string }) => ({
       subdomain: entry.host,
       ip: entry.ip,
     })),
