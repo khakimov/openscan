@@ -67,6 +67,13 @@ export async function checkDeploymentStatus(
 
     // Check if our worker is registered
     // For cloud deployments, the URI contains the tunnel URL, so check if it ends with the port
+    logger.debug('Searching for worker deployment', {
+      workerUrl,
+      workerPort,
+      totalDeployments: deployments.deployments?.length,
+      deploymentUris: deployments.deployments?.map((d: any) => d.uri),
+    });
+
     const ourDeployment = deployments.deployments?.find(
       (d: any) => d.uri === workerUrl || d.uri?.includes(`/localhost/${workerPort}`)
     );
