@@ -79,7 +79,8 @@ export default function EditDevice({
     getValues,
     formState: { errors, isDirty },
   } = useForm<EditDeviceFormData>({
-    resolver: zodResolver(EditDeviceSchema),
+    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers due to multiple Zod versions in dependency tree
+    resolver: zodResolver<EditDeviceFormData, any, EditDeviceFormData>(EditDeviceSchema),
     defaultValues: {
       name: device?.name || "",
       ip: device?.ip || "",
@@ -410,9 +411,9 @@ export default function EditDevice({
               </Label>
               <div className="flex flex-wrap gap-2">
                 {tagSuggestions
-                  .filter((tag) => !watch("tags")?.includes(tag))
+                  .filter((tag: string) => !watch("tags")?.includes(tag))
                   .slice(0, 8)
-                  .map((tag) => (
+                  .map((tag: string) => (
                     <button
                       key={tag}
                       type="button"

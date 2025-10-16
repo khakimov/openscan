@@ -38,7 +38,8 @@ export default function AddDevice() {
     handleSubmit,
     formState: { errors },
   } = useForm<AddDeviceFormData>({
-    resolver: zodResolver(AddDeviceSchema),
+    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers due to multiple Zod versions in dependency tree
+    resolver: zodResolver<AddDeviceFormData, any, AddDeviceFormData>(AddDeviceSchema),
   });
 
   // Create device mutation
