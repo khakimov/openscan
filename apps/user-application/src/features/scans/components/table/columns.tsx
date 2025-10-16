@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -27,7 +28,14 @@ function getPortScanArtifact(scan: Scan) {
   )?.data;
 }
 
-function getStatusDisplay(scan: Scan) {
+type BadgeVariant = "default" | "destructive" | "outline" | "secondary";
+
+function getStatusDisplay(scan: Scan): {
+  label: string;
+  variant: BadgeVariant;
+  icon: React.ReactNode;
+  description: string;
+} {
   switch (scan.status) {
     case "PENDING":
       return {

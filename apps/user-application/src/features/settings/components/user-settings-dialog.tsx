@@ -64,7 +64,7 @@ export function UserSettingsDialog({ open, onOpenChange, user }: UserSettingsDia
     if (!open) {
       setHasChanges(false);
       // Remove focus from trigger button when dialog closes
-      document.activeElement?.blur();
+      (document.activeElement as HTMLElement)?.blur();
     }
   };
 
@@ -109,7 +109,6 @@ export function UserSettingsDialog({ open, onOpenChange, user }: UserSettingsDia
               <Input
                 id="firstName"
                 defaultValue={userData.firstName}
-                size="sm"
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
               />
             </div>
@@ -120,7 +119,6 @@ export function UserSettingsDialog({ open, onOpenChange, user }: UserSettingsDia
               <Input
                 id="lastName"
                 defaultValue={userData.lastName}
-                size="sm"
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
               />
             </div>
@@ -135,7 +133,6 @@ export function UserSettingsDialog({ open, onOpenChange, user }: UserSettingsDia
               id="email"
               type="email"
               defaultValue={userData.email}
-              size="sm"
               onChange={(e) => handleInputChange('email', e.target.value)}
             />
           </div>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { InputWithLabel } from '@/components/shared/forms/input-with-label'
 import { Widget, WidgetBody, WidgetHead } from '@/components/ui/widget'
@@ -128,8 +129,8 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
               <Button
                 type="submit"
                 disabled={!formState.isDirty || isLoading}
-                loading={isLoading}
               >
+                {isLoading && <Loader2 className="animate-spin" />}
                 Save Profile
               </Button>
             </div>
@@ -178,9 +179,9 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
               <Button
                 type="submit"
                 disabled={isPasswordLoading}
-                loading={isPasswordLoading}
                 variant="secondary"
               >
+                {isPasswordLoading && <Loader2 className="animate-spin" />}
                 Update Password
               </Button>
             </div>
