@@ -12,11 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 import * as Collapsible from "@radix-ui/react-collapsible";
 import { Badge } from "@/components/ui/badge";
 import {
-  ChevronDown,
   ChevronRight,
-  Shield,
-  AlertCircle,
-  Info,
   Copy,
   Terminal,
 } from "lucide-react";
@@ -96,7 +92,6 @@ function formatServiceInfo(service?: PortDetail["service"]) {
 }
 
 function formatRawPortOutput(port: PortDetail) {
-  const protocol = port.protocol ?? "tcp";
   const state = port.state ?? "open";
 
   let output = `Port ${port.port}/${port.service?.name || "unknown"}: ${state}`;
@@ -133,7 +128,7 @@ function formatRawPortOutput(port: PortDetail) {
     port.service.fingerprintMatches.length > 0
   ) {
     output += `\n        Fingerprint probes (${port.service.fingerprintMatches.length}):`;
-    port.service.fingerprintMatches.forEach((fp, idx) => {
+    port.service.fingerprintMatches.forEach((fp) => {
       if (fp.probe && fp.response) {
         const responseLength = fp.length || fp.response.length;
         const truncatedResponse =

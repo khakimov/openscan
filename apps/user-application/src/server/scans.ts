@@ -10,7 +10,7 @@ const logger = createLogger({ name: "scans-server" });
  */
 export const getScans = createServerFn({
   method: "GET",
-}).handler(async ({ request }) => {
+}).handler(async () => {
   try {
     const tenantId = await getCurrentTenant();
     logger.info("Fetching scan runs with artifacts", { tenantId });

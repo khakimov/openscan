@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { type TransformedDevice } from "@/server/devices";
 import {
   Sheet,
@@ -6,14 +5,13 @@ import {
   SheetTrigger,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DeviceCard } from "./device-card";
 import { DeviceOpenPorts } from "./device-open-ports";
 import { useDeviceDetailQuery } from "@/hooks/useDeviceDetailQuery";
 import { pushModal } from "@/modals";
-import { Pencil, Trash2, Scan, Download, Activity, Copy } from "lucide-react";
+import { Pencil, Trash2, Scan } from "lucide-react";
 import { toast } from "sonner";
 
 interface DeviceDetailSheetProps {
@@ -48,16 +46,6 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
       deviceId: device.id,
       deviceName: device.name,
     });
-  };
-
-  const handleCopyIP = async () => {
-    if (!device?.ip) return;
-    try {
-      await navigator.clipboard.writeText(device.ip);
-      toast.success("IP address copied to clipboard");
-    } catch (error) {
-      toast.error("Failed to copy IP address");
-    }
   };
 
   const handleScan = () => {

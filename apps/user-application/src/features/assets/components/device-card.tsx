@@ -8,7 +8,7 @@ import {
   getRiskLevelBorderClass,
 } from "@repo/constants";
 import { Card, CardActions, CardActionsItem } from "@/components/shared/card";
-import { Pencil, Trash, Radar, Loader2, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import { Pencil, Trash, Radar, Loader2, CheckCircle2, XCircle } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
 import { useDeviceScan } from "@/hooks/useDeviceScanStatus";
@@ -71,22 +71,16 @@ function RiskLevelBadge({ riskLevel }: { riskLevel: string }) {
 export function DeviceCard({ device }: DeviceCardProps) {
   const queryClient = useQueryClient();
   const {
-    scanState,
     isScanning,
-    isCompleted,
-    isFailed,
-    progress,
-    progressMessage,
     startScan,
     isStartingScan,
-    activeWorkflowId,
   } = useDeviceScan(device.id);
 
   // Verification mutation
   const verificationMutation = useMutation({
     mutationFn: (data: { deviceId: string; status: 'VERIFIED' | 'EXCLUDED' | 'CANDIDATE'; note?: string }) =>
       verifyDevice({ data }),
-    onSuccess: (result, variables) => {
+    onSuccess: (_result, variables) => {
       const statusLabels = {
         VERIFIED: 'verified',
         EXCLUDED: 'excluded',
