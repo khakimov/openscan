@@ -28,7 +28,7 @@ export const PortScanSchema = z.object({
 });
 
 export const CancelPortScanSchema = z.object({
-  workflowId: z.string().min(1, 'Workflow ID is required'),
+  scanId: z.string().min(1, 'Scan ID is required'),
   scanRunId: z.string().optional(),
   reason: z.string().min(1).max(200).optional(),
 });

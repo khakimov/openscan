@@ -5,7 +5,7 @@
  * Provides a compatible interface for easy migration.
  */
 
-import type { DiscoveryRequest } from '@repo/temporal/types';
+import type { DiscoveryRequest } from '../utils/workflow-helpers';
 import type { ScannerInput } from '@repo/contracts';
 import { createLogger } from '@repo/logger';
 import { getRestateHttpClient, type RestateDiscoveryInput } from '../../utils/restate-http-client';
@@ -45,9 +45,8 @@ export class WorkflowOrchestratorRestate {
       scanId: result.scanId,
     });
 
-    // Return compatible handle format
     return {
-      workflowId: result.scanId,
+      scanId: result.scanId, // Restate workflow key
       runId: result.scanId, // Restate uses single scanId
       result, // Include full result for immediate use
     };
@@ -74,12 +73,12 @@ export class WorkflowOrchestratorRestate {
     });
 
     logger.info('Port scan workflow started via Restate', {
-      workflowId: result.scanId,
+      scanId: result.scanId,
       target: target.value,
     });
 
     return {
-      workflowId: result.scanId,
+      scanId: result.scanId, // Restate workflow key
       runId: result.scanId,
       result,
     };
@@ -90,16 +89,16 @@ export class WorkflowOrchestratorRestate {
    * Restate doesn't have separate workflow status - discovery completes immediately
    * or returns errors in the response
    */
-  async describeWorkflow(workflowId: string, runId?: string) {
+  async describeWorkflow(scanId: string, runId?: string) {
     const client = getRestateHttpClient(this.restateUrl);
 
     try {
-      const state = await client.getDiscoveryState(workflowId);
+      const state = await client.getDiscoveryState(scanId);
 
       // Check if it's an error response
       if ('error' in state) {
         return {
-          workflowId,
+          scanId, // Restate workflow key
           status: {
             name: 'FAILED',
             code: 'FAILED',
@@ -117,7 +116,7 @@ export class WorkflowOrchestratorRestate {
       };
 
       return {
-        workflowId,
+        scanId, // Restate workflow key
         runId,
         status: {
           name: statusMap[state.phase] || 'RUNNING',
@@ -127,10 +126,10 @@ export class WorkflowOrchestratorRestate {
         closeTime: state.completedAt,
       };
     } catch (error) {
-      logger.error('Failed to describe workflow', { workflowId, error });
+      logger.error('Failed to describe workflow', { scanId, error });
 
       return {
-        workflowId,
+        scanId, // Restate workflow key
         status: {
           name: 'FAILED',
           code: 'FAILED',
@@ -144,11 +143,11 @@ export class WorkflowOrchestratorRestate {
    * Fetch discovery result
    * For Restate, the result is available immediately after discovery completes
    */
-  async fetchDiscoveryResult(workflowId: string, _runId?: string) {
+  async fetchDiscoveryResult(scanId: string, _runId?: string) {
     const client = getRestateHttpClient(this.restateUrl);
 
     try {
-      const state = await client.getDiscoveryState(workflowId);
+      const state = await client.getDiscoveryState(scanId);
 
       // Check if it's an error response
       if ('error' in state) {
@@ -163,7 +162,7 @@ export class WorkflowOrchestratorRestate {
         .map((d: any) => d.hostname);
 
       return {
-        scanId: workflowId,
+        scanId, // Restate workflow key
         startedAt: new Date(state.startedAt),
         completedAt: state.completedAt ? new Date(state.completedAt) : new Date(),
         subdomains,
@@ -178,7 +177,7 @@ export class WorkflowOrchestratorRestate {
         },
       };
     } catch (error) {
-      logger.error('Failed to fetch discovery result', { workflowId, error });
+      logger.error('Failed to fetch discovery result', { scanId, error });
       throw error;
     }
   }

@@ -38,8 +38,7 @@ export function OnboardingDiscovery({
   const navigate = useNavigate();
   const [domain, setDomain] = useState(initialDomain || "");
   const [domainError, setDomainError] = useState<string | null>(null);
-  const [workflowId, setWorkflowId] = useState<string | null>(null);
-  const [runId, setRunId] = useState<string | null>(null);
+  const [scanId, setScanId] = useState<string | null>(null);
   const [isStarting, setIsStarting] = useState(false);
   const [selectedSubdomains, setSelectedSubdomains] = useState<Set<string>>(
     new Set(),
@@ -47,12 +46,12 @@ export function OnboardingDiscovery({
 
   // Smart polling for workflow status (reduced frequency with postback architecture)
   const { data: workflowStatus } = useQuery({
-    queryKey: ["workflow-status", workflowId, runId],
+    queryKey: ["workflow-status", scanId],
     queryFn: () =>
       getWorkflowStatus({
-        data: { workflowId: workflowId!, runId: runId || undefined },
+        data: { scanId: scanId! },
       }),
-    enabled: !!workflowId,
+    enabled: !!scanId,
     refetchInterval: (query) => {
       // Stop polling when workflow is complete or failed
       const data = query.state.data;
@@ -66,10 +65,10 @@ export function OnboardingDiscovery({
 
   // Automatically fetch results when workflow completes
   const { data: workflowResults } = useQuery({
-    queryKey: ["workflow-results", workflowId, runId],
+    queryKey: ["workflow-results", scanId],
     queryFn: () =>
       getWorkflowResult({
-        data: { workflowId: workflowId!, runId: runId || undefined },
+        data: { scanId: scanId! },
       }),
     enabled: workflowStatus?.isCompleted === true,
   });
@@ -81,10 +80,9 @@ export function OnboardingDiscovery({
   const results = workflowResults?.success ? workflowResults.result : null;
 
   // Build discoveryStatus for DiscoveryStatusCard
-  const discoveryStatus: DiscoveryStatus | null = workflowId
+  const discoveryStatus: DiscoveryStatus | null = scanId
     ? {
-        workflowId,
-        runId: runId || undefined,
+        scanId,
         status: isCompleted
           ? "COMPLETED"
           : isFailed
@@ -132,13 +130,11 @@ export function OnboardingDiscovery({
         data: { target: trimmedDomain },
       });
 
-      if (discoveryResult.success && discoveryResult.workflowId) {
-        // Set workflow IDs - useQuery hooks will handle polling automatically
-        setWorkflowId(discoveryResult.workflowId);
-        setRunId(discoveryResult.runId || null);
+      if (discoveryResult.success && discoveryResult.scanId) {
+        // Set scanId - useQuery hooks will handle polling automatically
+        setScanId(discoveryResult.scanId);
         console.log("[OnboardingDiscovery] Discovery started:", {
-          workflowId: discoveryResult.workflowId,
-          runId: discoveryResult.runId,
+          scanId: discoveryResult.scanId,
         });
       } else {
         // Discovery failed to start
@@ -295,7 +291,7 @@ export function OnboardingDiscovery({
         </div>
 
         {/* Action Buttons */}
-        {!workflowId && (
+        {!scanId && (
           <div className="flex justify-end gap-3">
             <Button
               type="button"

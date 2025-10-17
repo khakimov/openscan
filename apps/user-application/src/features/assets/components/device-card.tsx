@@ -186,6 +186,12 @@ export function DeviceCard({ device }: DeviceCardProps) {
    * All scan configuration (timeout, ports, profiles) is server-controlled
    */
   const handleStartScan = async (preset: 'QUICK' | 'STANDARD' | 'THOROUGH') => {
+    console.log('[handleStartScan] Starting scan', {
+      deviceId: device.id,
+      deviceName: device.name,
+      preset
+    });
+
     // Determine target from device name or IP
     let target = device.name;
     if (target && target.includes("(")) {
@@ -197,11 +203,14 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }
 
     if (!target) {
+      console.error('[handleStartScan] No valid target found', { device });
       toast.error("No valid target found for scanning");
       return;
     }
 
     const toastId = `scan-${preset}-${device.id}`;
+
+    console.log('[handleStartScan] Calling startDeviceScan', { target, preset, deviceId: device.id });
 
     toast.loading(
       `Starting ${preset.toLowerCase()} scan for ${target}...`,
@@ -218,12 +227,21 @@ export function DeviceCard({ device }: DeviceCardProps) {
         }
       });
 
+      console.log('[handleStartScan] Server response:', { result });
+
       if (result.success) {
         // Store Restate scanId (not workflowId) in query cache so useDeviceScan can track status
         // The scanId is what Restate uses internally to query scan state
         if (result.scanId) {
+          console.log('[handleStartScan] Storing scanId in query cache', {
+            deviceId: device.id,
+            scanId: result.scanId,
+          });
+
           queryClient.setQueryData(['active-scan', device.id], result.scanId);
           queryClient.invalidateQueries({ queryKey: ['active-device-scans', device.id] });
+
+          console.log('[handleStartScan] Query cache updated, triggering refetch');
         }
 
         toast.success(
@@ -234,12 +252,13 @@ export function DeviceCard({ device }: DeviceCardProps) {
             action: {
               label: "Monitor",
               onClick: () => {
-                console.log("Monitor scan:", { scanId: result.scanId, workflowId: result.workflowId });
+                console.log("Monitor scan:", { scanId: result.scanId });
               },
             },
           },
         );
       } else {
+        console.error('[handleStartScan] Scan failed:', result.error);
         toast.error(
           `Failed to start scan: ${result.error}`,
           {
@@ -248,6 +267,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
         );
       }
     } catch (error) {
+      console.error('[handleStartScan] Exception caught:', error);
       toast.error(`Failed to start port scan`, {
         id: toastId,
         description: error instanceof Error ? error.message : "Unknown error",

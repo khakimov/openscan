@@ -17,12 +17,12 @@ type DevicesResponse = {
 }
 
 export const useDevicesQuery = (params?: UseDevicesQueryParams) => {
-  return useQuery<DevicesResponse>({
+  const query = useQuery<DevicesResponse>({
     queryKey: ['devices', params?.verificationStatus],
     initialData: params?.initialData,
     queryFn: async () => {
       console.log('📡 useDevicesQuery: Fetching fresh device data...', {
-        verificationStatus: params?.verificationStatus
+        verificationStatus: params?.verificationStatus,
       });
       const result = await getDevicesData({
         data: {
@@ -32,16 +32,11 @@ export const useDevicesQuery = (params?: UseDevicesQueryParams) => {
       console.log('✅ useDevicesQuery: Fresh data received', {
         deviceCount: result.items?.length || 0,
         totalCount: result.totalCount,
-        verificationStatus: params?.verificationStatus,
-        firstFewDevices: result.items?.slice(0, 3).map((d: TransformedDevice) => ({
-          id: d.id,
-          name: d.name,
-          tags: d.tags,
-          verificationStatus: d.verificationStatus
-        })) || []
       });
       return result;
     },
     ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
   });
+
+  return query;
 };

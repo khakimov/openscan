@@ -97,20 +97,36 @@ export class RestateHttpClient {
 
   /**
    * Start discovery workflow
+   *
+   * Discovery is a WORKFLOW (not a service), so it requires:
+   * 1. A workflow key in the URL path
+   * 2. Calling the 'run' handler
+   * 3. Using /send for async execution
    */
   async startDiscovery(input: RestateDiscoveryInput): Promise<RestateDiscoveryOutput> {
-    const url = `${this.baseUrl}/Discovery/discover`;
+    // Generate scanId or use provided one
+    const scanId = input.scanId || `discovery-${Date.now()}`;
 
-    logger.info('Calling Restate Discovery service', {
+    // Workflow invocation pattern: /WorkflowName/{key}/handlerName/send
+    const url = `${this.baseUrl}/Discovery/${scanId}/run/send`;
+
+    logger.info('Starting async discovery workflow in Restate', {
       url,
+      scanId,
       targets: input.targets.length,
     });
 
     try {
+      const headers = {
+        ...this.getHeaders(),
+        // CRITICAL: For workflows, use idempotency-key to ensure workflow key matches
+        'idempotency-key': scanId,
+      };
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: this.getHeaders(),
-        body: JSON.stringify(input),
+        headers,
+        body: JSON.stringify({ ...input, scanId }), // Include scanId in payload
       });
 
       if (!response.ok) {
@@ -118,15 +134,29 @@ export class RestateHttpClient {
         throw new Error(`Restate service error (${response.status}): ${errorText}`);
       }
 
-      const result = (await response.json()) as RestateDiscoveryOutput;
+      // /send endpoint returns immediately - workflow runs in background
+      const invocationId = response.headers.get('x-restate-invocation-id');
 
-      logger.info('Discovery completed', {
-        scanId: result.scanId,
-        devicesFound: result.devices?.length || 0,
-        errors: result.errors?.length || 0,
+      logger.info('Discovery workflow started successfully', {
+        scanId,
+        invocationId,
+        targets: input.targets.length,
       });
 
-      return result;
+      // Return minimal response - results will come via state polling
+      // Client should poll getDiscoveryState() to get results
+      return {
+        scanId,
+        startedAt: new Date().toISOString(),
+        completedAt: '', // Not completed yet - will be populated via polling
+        devices: [], // Empty - will be populated via polling
+        totalTargetsProcessed: 0,
+        errors: [],
+        performance: {
+          executionTimeMs: 0,
+          devicesPerSecond: 0,
+        },
+      } as RestateDiscoveryOutput;
     } catch (error) {
       logger.error('Failed to call Restate Discovery service', {
         error: error instanceof Error ? error.message : String(error),
@@ -138,15 +168,18 @@ export class RestateHttpClient {
 
   /**
    * Get discovery state (for polling)
+   *
+   * For workflows, we need to call the shared handler with the workflow key in the URL
    */
   async getDiscoveryState(scanId: string): Promise<RestateDiscoveryState | { error: string }> {
-    const url = `${this.baseUrl}/Discovery/getState`;
+    // Workflow shared handler pattern: /WorkflowName/{key}/getState
+    const url = `${this.baseUrl}/Discovery/${scanId}/getState`;
 
     try {
       const response = await fetch(url, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({ scanId }),
+        body: JSON.stringify({}), // Empty body - key is in URL
       });
 
       if (!response.ok) {
@@ -176,7 +209,7 @@ export class RestateHttpClient {
     timeout?: number;
     callbackUrl?: string;
     deviceId?: string;
-    workflowId?: string;
+    scanId?: string; // Restate workflow key (optional - will be generated if not provided)
   }): Promise<{
     scanId: string;
     target: string;
@@ -185,16 +218,27 @@ export class RestateHttpClient {
     // Use /send endpoint for async workflow execution
     const url = `${this.baseUrl}/PortScanner/scan/send`;
 
+    // Use scanId from input or generate one if not provided
+    const scanId = input.scanId || `portscan-${input.target}-${Date.now()}`;
+
     logger.info('Starting async port scan in Restate', {
       url,
       target: input.target,
+      scanId,
       hasCallback: !!input.callbackUrl,
     });
 
     try {
+      const headers = {
+        ...this.getHeaders(),
+        // CRITICAL: Restate uses idempotency-key to track workflow invocations
+        // Without this, we can't query the scan state later
+        'idempotency-key': scanId,
+      };
+
       const response = await fetch(url, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers,
         body: JSON.stringify(input),
       });
 
@@ -206,20 +250,6 @@ export class RestateHttpClient {
       // /send endpoint returns immediately with invocation metadata
       // Extract invocation ID from response headers or body
       const invocationId = response.headers.get('x-restate-invocation-id');
-
-      // Try to parse response body for additional metadata
-      let responseData: any = {};
-      try {
-        const text = await response.text();
-        if (text) {
-          responseData = JSON.parse(text);
-        }
-      } catch {
-        // Response might be empty for /send, which is OK
-      }
-
-      // Use the scanId from response if available, otherwise use input workflowId
-      const scanId = responseData.scanId || input.workflowId || input.target;
 
       logger.info('Port scan workflow started successfully', {
         target: input.target,

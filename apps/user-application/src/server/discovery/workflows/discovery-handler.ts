@@ -2,13 +2,10 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
-import { workflowOrchestratorRestate } from '../services/workflow-orchestrator-restate';
-import { buildDiscoveryRequest, buildDiscoveryResult, extractErrorMessage } from '../utils/workflow-helpers';
+import { sendToRestate, type DiscoveryState } from '../../../utils/restate-client';
+import { generateWorkflowId } from '../utils/workflow-helpers';
 
 const logger = createLogger({ name: 'discovery-handler' });
-
-// Using Restate for discovery workflows
-const orchestrator = workflowOrchestratorRestate;
 
 logger.info('Discovery handler initialized', {
   engine: 'Restate',
@@ -37,38 +34,47 @@ export const startDiscoveryWorkflow = createServerFn({
         engine: 'Restate',
       });
 
-      const discoveryRequest = buildDiscoveryRequest(target);
-      const handle = await orchestrator.startDiscovery(discoveryRequest);
+      // Generate scanId for workflow key (deterministic pattern)
+      const scanId = generateWorkflowId('discovery', target);
+
+      // Call Discovery workflow's run handler (async)
+      await sendToRestate({
+        service: 'Discovery',
+        key: scanId,
+        method: 'run',
+        data: {
+          targets: [
+            {
+              type: 'DOMAIN',
+              value: target,
+              scope: 'EXTERNAL',
+            },
+          ],
+          tools: ['subfinder'],
+          scanId,
+        },
+        async: true, // Fire and forget - don't wait for completion
+      });
 
       return {
         success: true,
-        workflowId: handle.workflowId,
-        runId: handle.runId, // Include runId for status queries
+        scanId, // Single ID following Restate pattern
         target,
         message: `Discovery started for ${target}`,
       };
     } catch (error) {
-      const errorMessage = extractErrorMessage(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       logger.error('Failed to start discovery workflow', {
         target,
         error: errorMessage,
       });
 
-      // Check for CSP/Workers environment errors
-      if (errorMessage.includes('Code generation from strings disallowed') ||
-          errorMessage.includes('eval') ||
-          errorMessage.includes('unsafe-eval')) {
-        return {
-          success: false,
-          error: 'Discovery workflows require a Node.js runtime environment. The Cloudflare Workers environment does not support the Temporal client. Please run the application in Node.js mode or skip discovery for now.',
-          target,
-          errorType: 'RUNTIME_NOT_SUPPORTED',
-        };
-      }
-
+      // Provide user-friendly error messages
       const friendlyMessage = errorMessage.includes('ECONNREFUSED')
-        ? 'Discovery service is not available. Please ensure the worker is running.'
+        ? 'Discovery service is not available. Please ensure the Restate worker is running.'
+        : errorMessage.includes('fetch failed')
+        ? 'Unable to connect to discovery service. Check RESTATE_INGRESS_URL configuration.'
         : errorMessage;
 
       return {
@@ -82,36 +88,49 @@ export const startDiscoveryWorkflow = createServerFn({
 export const getWorkflowStatus = createServerFn({
   method: 'POST',
 })
-  .inputValidator((data: { workflowId: string; runId?: string }) => {
-    if (!data?.workflowId) {
-      throw new Error('Workflow ID is required');
+  .inputValidator((data: { scanId: string }) => {
+    if (!data?.scanId) {
+      throw new Error('Scan ID is required');
     }
     return data;
   })
   .handler(async ({ data }) => {
-    const { workflowId, runId } = data;
+    const { scanId } = data;
 
     try {
-      const description = await orchestrator.describeWorkflow(workflowId, runId);
+      // Query workflow state using getState handler
+      const state = await sendToRestate<DiscoveryState>({
+        service: 'Discovery',
+        key: scanId,
+        method: 'getState',
+      });
 
-      // Handle both string and object status types
-      const statusName = typeof description.status === 'string'
-        ? description.status
-        : description.status.name;
+      // Map Restate phases to status
+      const statusMap: Record<string, string> = {
+        VALIDATING: 'RUNNING',
+        DISCOVERING: 'RUNNING',
+        COMPLETED: 'COMPLETED',
+        FAILED: 'FAILED',
+      };
+
+      const status = statusMap[state.phase] || 'RUNNING';
 
       return {
-        workflowId,
-        status: statusName,
-        isRunning: statusName === 'RUNNING',
-        isCompleted: statusName === 'COMPLETED',
-        isFailed: statusName === 'FAILED',
+        scanId,
+        status,
+        phase: state.phase,
+        isRunning: status === 'RUNNING',
+        isCompleted: status === 'COMPLETED',
+        isFailed: status === 'FAILED',
+        processedTargets: state.processedTargets,
+        devicesFound: state.devicesFound,
       };
     } catch (error) {
-      logger.error('Failed to get workflow status', { workflowId, error });
+      logger.error('Failed to get workflow status', { scanId, error });
       return {
-        workflowId,
+        scanId,
         status: 'UNKNOWN',
-        error: extractErrorMessage(error),
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   });
@@ -119,34 +138,77 @@ export const getWorkflowStatus = createServerFn({
 export const getWorkflowResult = createServerFn({
   method: 'POST',
 })
-  .inputValidator((data: { workflowId: string; runId?: string }) => {
-    if (!data?.workflowId) {
-      throw new Error('Workflow ID is required');
+  .inputValidator((data: { scanId: string }) => {
+    if (!data?.scanId) {
+      throw new Error('Scan ID is required');
     }
     return data;
   })
   .handler(async ({ data }) => {
-    const { workflowId, runId } = data;
+    const { scanId } = data;
 
     try {
-      const discoveryOutput = await orchestrator.fetchDiscoveryResult(workflowId, runId);
-      const result = buildDiscoveryResult(discoveryOutput);
+      // Query workflow state to get final results
+      const state = await sendToRestate<DiscoveryState>({
+        service: 'Discovery',
+        key: scanId,
+        method: 'getState',
+      });
+
+      // Extract devices and build result format
+      const devices = state.devices || [];
+      const subdomains = devices
+        .filter((d: any) => d.hostname && d.hostname.length > 0)
+        .map((d: any) => d.hostname);
+
+      const results = devices.map((device: any) => ({
+        host: device.hostname,
+        ip: device.ipAddress || '',
+      }));
+
+      const target = devices[0]?.metadata?.originalDomain || 'unknown';
 
       logger.info('Retrieved discovery workflow result', {
-        workflowId,
-        totalSubdomains: result.totalSubdomains,
-        uniqueSubdomains: result.uniqueSubdomains.length,
+        scanId,
+        totalDevices: devices.length,
+        uniqueSubdomains: subdomains.length,
       });
 
       return {
         success: true,
-        result,
+        result: {
+          request: {
+            target,
+            scanType: 'basic',
+            tools: ['subfinder'],
+          },
+          results: [
+            {
+              target,
+              subdomains,
+              results,
+              tool: 'restate-scanner',
+              timestamp: state.completedAt || new Date().toISOString(),
+              success: state.errors.length === 0,
+              errors: state.errors.length > 0 ? state.errors : undefined,
+            },
+          ],
+          totalSubdomains: results.length,
+          uniqueSubdomains: results.map((entry: { host: string; ip: string }) => ({
+            subdomain: entry.host,
+            ip: entry.ip,
+          })),
+          executionTime: state.completedAt && state.startedAt
+            ? new Date(state.completedAt).getTime() - new Date(state.startedAt).getTime()
+            : 0,
+          errors: state.errors.length > 0 ? state.errors : undefined,
+        },
       };
     } catch (error) {
-      const errorMessage = extractErrorMessage(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
 
       logger.error('Failed to get workflow result', {
-        workflowId,
+        scanId,
         error: errorMessage,
       });
 

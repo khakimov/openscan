@@ -16,24 +16,24 @@ const logger = createLogger({ name: 'discovery-scan-recorder' });
 export class ScanRecorder {
   async createWorkflow(params: {
     tenantId: string;
-    workflowId: string;
+    scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
     kind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
   }) {
     const workflow = await createScanWorkflow({
       organizationId: params.tenantId,
-      workflowId: params.workflowId,
+      scanId: params.scanId,
       kind: params.kind,
     });
     logger.info('Created scan workflow record', {
-      workflowId: workflow.id,
-      restateWorkflowId: params.workflowId,
+      scanWorkflowId: workflow.id, // Database ID (CUID)
+      restateScanId: params.scanId, // Restate workflow key
       tenantId: params.tenantId,
     });
     return workflow;
   }
 
   async createRun(params: {
-    workflowId: string;
+    scanWorkflowId: string; // FK to scanWorkflows.id (CUID)
     tenantId: string;
     scanType: 'DISCOVERY' | 'PORT' | 'WEB' | 'ADVANCED';
     scope: ScanScope;
@@ -42,7 +42,7 @@ export class ScanRecorder {
     targets: string[];
   }) {
     const run = await createScanRun({
-      workflowId: params.workflowId,
+      scanWorkflowId: params.scanWorkflowId,
       organizationId: params.tenantId,
       scanType: params.scanType,
       scope: params.scope,
@@ -51,7 +51,7 @@ export class ScanRecorder {
     });
     logger.info('Created scan run record', {
       scanRunId: run.id,
-      workflowId: params.workflowId,
+      scanWorkflowId: params.scanWorkflowId,
       target: params.target,
     });
     return run;
@@ -62,10 +62,10 @@ export class ScanRecorder {
     logger.info('Marked scan run as running', { scanRunId });
   }
 
-  async updateWorkflowStatus(workflowId: string, status: WorkflowStatus) {
-    await updateScanWorkflowStatus(workflowId, status);
+  async updateWorkflowStatus(scanWorkflowId: string, status: WorkflowStatus) {
+    await updateScanWorkflowStatus(scanWorkflowId, status);
     logger.info('Updated scan workflow status', {
-      workflowId,
+      scanWorkflowId,
       status,
     });
   }

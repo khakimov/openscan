@@ -149,7 +149,7 @@ describe('buildScannerInput', () => {
       });
 
       expect(result.tenantId).toBe('tenant-1');
-      expect(result.workflowId).toBe('workflow-1');
+      expect(result.scanWorkflowId).toBe('workflow-1'); // Database FK to scanWorkflows.id (CUID)
       expect(result.scanRunId).toBe('run-1');
       expect(result.targets).toHaveLength(1);
       expect(result.targets[0].value).toBe('example.com');

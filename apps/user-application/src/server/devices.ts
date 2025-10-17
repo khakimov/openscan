@@ -984,7 +984,7 @@ export const startDeviceScan = createServerFn({
           deviceId: data.deviceId,
           target: data.target,
           preset: data.preset,
-          workflowId: result.workflowId,
+          scanId: result.scanId,
         });
       }
 

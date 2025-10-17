@@ -27,7 +27,7 @@ describe('Scan Results Postback (Integration)', () => {
 
   // Test data IDs for cleanup
   let testDeviceId: string;
-  let testWorkflowId: string;
+  let testScanId: string;
   let testScanRunId: string;
   let testWorkflowDbId: string;
 
@@ -68,10 +68,10 @@ describe('Scan Results Postback (Integration)', () => {
     testDeviceId = device.id;
 
     // Create scan workflow
-    testWorkflowId = `test-workflow-${Date.now()}`;
+    testScanId = `portscan-test-${Date.now()}`;
     const [workflow] = await db.insert(scanWorkflows).values({
       organizationId: testOrgId,
-      workflowId: testWorkflowId,
+      scanId: testScanId, // Restate workflow key
       kind: 'PORT',
       status: 'RUNNING',
     }).returning();
@@ -79,7 +79,7 @@ describe('Scan Results Postback (Integration)', () => {
 
     // Create scan run
     const [scanRun] = await db.insert(scanRuns).values({
-      workflowId: workflow.id,
+      scanWorkflowId: workflow.id, // Database FK to scanWorkflows.id
       organizationId: testOrgId,
       scanType: 'PORT',
       scope: 'EXTERNAL',
@@ -92,7 +92,7 @@ describe('Scan Results Postback (Integration)', () => {
 
     console.log('📝 Created test data:', {
       deviceId: testDeviceId,
-      workflowId: testWorkflowId,
+      scanId: testScanId,
       scanRunId: testScanRunId,
     });
   });
@@ -116,7 +116,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: testDeviceId,
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           ports: [],
         },
@@ -149,7 +149,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: testDeviceId,
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           ports: [],
         },
@@ -174,7 +174,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         // Missing deviceId
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           ports: [],
         },
@@ -199,7 +199,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: testDeviceId,
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           // Missing required 'ports' array
           osInfo: null,
@@ -240,7 +240,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: testDeviceId,
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           target: 'test-postback-device',
           ports: portResults,
@@ -303,7 +303,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: testDeviceId,
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           target: 'test-postback-device',
           ports: [], // No ports found
@@ -343,7 +343,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: 'non-existent-device-id',
-        workflowId: testWorkflowId,
+        scanId: testScanId,
         results: {
           ports: [],
         },
@@ -368,7 +368,7 @@ describe('Scan Results Postback (Integration)', () => {
       },
       body: JSON.stringify({
         deviceId: testDeviceId,
-        workflowId: 'non-existent-workflow-id',
+        scanId: 'portscan-nonexistent-123456',
         results: {
           ports: [],
         },

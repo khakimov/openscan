@@ -74,7 +74,7 @@ describe('Device Scan Statistics (Integration)', () => {
     // First scan (older) - 2 ports
     const [workflow1a] = await db.insert(scanWorkflows).values({
       organizationId: testOrgId,
-      workflowId: 'test-workflow-1a',
+      scanId: 'portscan-test-1a',
       kind: 'PORT',
       status: 'SUCCEEDED',
       startedAt: new Date('2025-01-15T09:00:00Z'),
@@ -83,7 +83,7 @@ describe('Device Scan Statistics (Integration)', () => {
     testDataIds.workflows.push(workflow1a.id);
 
     const [scanRun1a] = await db.insert(scanRuns).values({
-      workflowId: workflow1a.id,
+      scanWorkflowId: workflow1a.id,
       organizationId: testOrgId,
       scanType: 'PORT',
       scope: 'EXTERNAL',
@@ -105,7 +105,7 @@ describe('Device Scan Statistics (Integration)', () => {
     // Second scan (latest) - 5 ports
     const [workflow1b] = await db.insert(scanWorkflows).values({
       organizationId: testOrgId,
-      workflowId: 'test-workflow-1b',
+      scanId: 'portscan-test-1b',
       kind: 'PORT',
       status: 'SUCCEEDED',
       startedAt: new Date('2025-01-15T10:00:00Z'),
@@ -114,7 +114,7 @@ describe('Device Scan Statistics (Integration)', () => {
     testDataIds.workflows.push(workflow1b.id);
 
     const [scanRun1b] = await db.insert(scanRuns).values({
-      workflowId: workflow1b.id,
+      scanWorkflowId: workflow1b.id,
       organizationId: testOrgId,
       scanType: 'PORT',
       scope: 'EXTERNAL',
@@ -149,7 +149,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
     const [workflow2] = await db.insert(scanWorkflows).values({
       organizationId: testOrgId,
-      workflowId: 'test-workflow-2',
+      scanId: 'portscan-test-2',
       kind: 'PORT',
       status: 'SUCCEEDED',
       startedAt: new Date('2025-01-15T11:00:00Z'),
@@ -158,7 +158,7 @@ describe('Device Scan Statistics (Integration)', () => {
     testDataIds.workflows.push(workflow2.id);
 
     const [scanRun2] = await db.insert(scanRuns).values({
-      workflowId: workflow2.id,
+      scanWorkflowId: workflow2.id,
       organizationId: testOrgId,
       scanType: 'PORT',
       scope: 'EXTERNAL',
@@ -187,7 +187,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
     const [workflow3] = await db.insert(scanWorkflows).values({
       organizationId: testOrgId,
-      workflowId: 'test-workflow-3',
+      scanId: 'portscan-test-3',
       kind: 'PORT',
       status: 'SUCCEEDED',
       startedAt: new Date('2025-01-15T12:00:00Z'),
@@ -196,7 +196,7 @@ describe('Device Scan Statistics (Integration)', () => {
     testDataIds.workflows.push(workflow3.id);
 
     const [scanRun3] = await db.insert(scanRuns).values({
-      workflowId: workflow3.id,
+      scanWorkflowId: workflow3.id,
       organizationId: testOrgId,
       scanType: 'PORT',
       scope: 'EXTERNAL',

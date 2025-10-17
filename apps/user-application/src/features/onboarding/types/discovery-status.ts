@@ -1,11 +1,13 @@
 /**
  * Discovery workflow status types
  * Discriminated union for type-safe status handling
+ *
+ * Updated for Restate workflow pattern (sec-42):
+ * - Single scanId instead of workflowId + runId
  */
 
 export type DiscoveryStatus = {
-  workflowId?: string;
-  runId?: string;
+  scanId?: string;
   status?: "RUNNING" | "COMPLETED" | "FAILED" | "UNKNOWN";
   message?: string;
   error?: string;

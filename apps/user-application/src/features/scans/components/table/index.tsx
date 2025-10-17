@@ -89,11 +89,11 @@ type ScanArtifact = {
     // Scan context for traceability
     scanContext?: {
       target: string;
-      scanId: string;
+      scanId: string; // Restate workflow key
       userId: string;
       tenantId: string;
       scanRunId: string;
-      workflowId: string;
+      scanWorkflowId: string; // Database FK to scanWorkflows.id (CUID)
       authScanType: string;
       isExtendScan: boolean;
     };
@@ -118,8 +118,8 @@ type ScanArtifact = {
 };
 
 export type Scan = {
-  id: string;
-  workflowId: string;
+  id: string; // Database CUID (scanWorkflows.id)
+  scanId: string; // Restate workflow key (scanWorkflows.scanId)
   organizationId: string;
   scope: "INTERNAL" | "EXTERNAL" | "HYBRID";
   scanType: "DISCOVERY" | "PORT" | "WEB" | "ADVANCED";

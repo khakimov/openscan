@@ -59,9 +59,11 @@ export const portScanner = restate.service({
       timeout?: number;
       callbackUrl?: string;
       deviceId?: string;
-      workflowId?: string;
+      scanId?: string; // Restate workflow key (optional)
     }) => {
-      const scanId = ctx.rand.uuidv4();
+      // Use scanId from input if provided (set via idempotency-key),
+      // otherwise generate a new UUID (services don't have ctx.key like workflows do)
+      const scanId = input.scanId || ctx.rand.uuidv4();
       const startTime = Date.now();
 
       // Initialize state
@@ -199,7 +201,7 @@ export const portScanner = restate.service({
         logger.info('Parsing nmap XML', { scanId });
 
         try {
-          // Use real XML parser from temporal-worker
+          // Use XML parser for nmap output
           const parsed = await parseNmapXml(nmapXml);
 
           logger.info('XML parsing complete', {
@@ -297,7 +299,7 @@ export const portScanner = restate.service({
       };
 
       // Step 5: Postback results if callbackUrl provided (durable)
-      if (input.callbackUrl && input.deviceId && input.workflowId) {
+      if (input.callbackUrl && input.deviceId) {
         await ctx.run('postback-results', async () => {
           logger.info('Posting scan results back to server', {
             scanId,
@@ -308,7 +310,7 @@ export const portScanner = restate.service({
           await postbackScanResults({
             callbackUrl: input.callbackUrl!,
             deviceId: input.deviceId!,
-            workflowId: input.workflowId!,
+            scanId: scanId, // Restate workflow key (generated or from input)
             results: {
               target: input.target,
               ports: portsWithServices,

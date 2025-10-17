@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1760089398956,
-      "tag": "0000_careless_cerise",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1760234526190,
-      "tag": "0001_real_loners",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1760234587437,
-      "tag": "0002_mushy_gertrude_yorkes",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1760588940707,
-      "tag": "0003_rename_temporal_to_workflow",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1760676025160,
-      "tag": "0004_complete_champions",
+      "when": 1760696586085,
+      "tag": "0000_gigantic_alex_wilder",
       "breakpoints": true
     }
   ]
