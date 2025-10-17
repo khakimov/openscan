@@ -64,7 +64,44 @@ interface DiscoveryInput {
   scanId?: string;
 }
 
-// Types are inferred from service - these are just for documentation
+interface DiscoveredDevice {
+  scope: 'EXTERNAL' | 'INTERNAL';
+  hostname: string;
+  ipAddress?: string;
+  discoveryMethod: string;
+  confidence: number;
+  metadata: {
+    originalDomain: string;
+    [key: string]: any;
+  };
+}
+
+interface DiscoveryResult {
+  scanId: string;
+  startedAt: string;
+  completedAt: string;
+  devices: DiscoveredDevice[];
+  totalTargetsProcessed: number;
+  errors: string[];
+  performance: {
+    executionTimeMs: number;
+    devicesPerSecond: number;
+  };
+}
+
+interface DiscoveryState {
+  phase: 'VALIDATING' | 'DISCOVERING' | 'COMPLETED' | 'FAILED';
+  totalTargets: number;
+  processedTargets: number;
+  devicesFound: number;
+  errors: string[];
+}
+
+// Typed client interface
+type DiscoveryServiceClient = {
+  discover: (input: DiscoveryInput) => Promise<DiscoveryResult>;
+  getState: (input: { scanId: string }) => Promise<DiscoveryState>;
+}
 
 /**
  * Integration tests requiring Docker testcontainers
@@ -91,7 +128,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Single Domain Discovery', () => {
     it('should discover subdomains for a single domain', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -133,7 +170,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should use all specified tools for discovery', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -156,7 +193,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should deduplicate devices found by multiple tools', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -181,7 +218,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Multiple Domain Discovery', () => {
     it('should process multiple domains in sequence', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -202,7 +239,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should handle mixed target types', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -231,7 +268,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Input Validation', () => {
     it('should reject invalid domain format', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -248,7 +285,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should reject shell metacharacters', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -265,7 +302,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should reject empty targets array', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [],
@@ -278,7 +315,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Error Handling', () => {
     it('should continue with other targets if one fails', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -300,7 +337,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should include error details in output', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -319,7 +356,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('State Queries', () => {
     it('should provide state information during execution', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         scanId: 'test-scan-123',
@@ -347,7 +384,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Scope Configuration', () => {
     it('should respect EXTERNAL scope', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -362,7 +399,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should respect INTERNAL scope', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -378,7 +415,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Performance Metrics', () => {
     it('should calculate devices per second', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -400,7 +437,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should include timing information', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
@@ -424,7 +461,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
 
   describe('Custom Scan ID', () => {
     it('should use provided scanId if specified', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const customScanId = 'my-custom-scan-id-123';
 
@@ -442,7 +479,7 @@ describe.skip('Discovery Workflow Integration (sec-29)', () => {
     });
 
     it('should generate scanId if not provided', async () => {
-      const client = restateIngress.serviceClient(discoveryService);
+      const client = restateIngress.serviceClient(discoveryService) as DiscoveryServiceClient;
 
       const input: DiscoveryInput = {
         targets: [
