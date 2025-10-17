@@ -180,6 +180,7 @@ export class RestateHttpClient {
   }): Promise<{
     scanId: string;
     target: string;
+    invocationId?: string;
   }> {
     // Use /send endpoint for async workflow execution
     const url = `${this.baseUrl}/PortScanner/scan/send`;
@@ -202,16 +203,35 @@ export class RestateHttpClient {
         throw new Error(`Restate service error (${response.status}): ${errorText}`);
       }
 
-      // /send endpoint returns immediately without waiting for scan results
-      // Results will come via postback callback
+      // /send endpoint returns immediately with invocation metadata
+      // Extract invocation ID from response headers or body
+      const invocationId = response.headers.get('x-restate-invocation-id');
+
+      // Try to parse response body for additional metadata
+      let responseData: any = {};
+      try {
+        const text = await response.text();
+        if (text) {
+          responseData = JSON.parse(text);
+        }
+      } catch {
+        // Response might be empty for /send, which is OK
+      }
+
+      // Use the scanId from response if available, otherwise use input workflowId
+      const scanId = responseData.scanId || input.workflowId || input.target;
+
       logger.info('Port scan workflow started successfully', {
         target: input.target,
+        scanId,
+        invocationId,
       });
 
-      // Return scanId and target - results will come via postback
+      // Return scanId and target - results will come via postback callback
       return {
-        scanId: input.workflowId || input.target,
+        scanId,
         target: input.target,
+        invocationId: invocationId || undefined,
       };
     } catch (error) {
       logger.error('Failed to start port scan workflow', {

@@ -32,6 +32,9 @@ const stateStore = new Map<string, PortScanState>();
  *
  * This replaces the Temporal worker with a simpler Restate service.
  * Each step is automatically durable and retryable.
+ *
+ * IMPORTANT: Scan operations can take up to 5+ minutes
+ * Timeouts are configured to prevent premature termination
  */
 export const portScanner = restate.service({
   name: 'PortScanner',
@@ -39,8 +42,16 @@ export const portScanner = restate.service({
     /**
      * Main scan handler - runs nmap and returns parsed results
      * Optional: callbackUrl for postback when scan completes
+     *
+     * Timeout Configuration:
+     * - Inactivity timeout: 10 minutes (600,000ms - allows long-running tools like nmap)
+     * - Abort timeout: 2 minutes (120,000ms - time to gracefully suspend after inactivity)
+     * - This allows THOROUGH scans (up to 5 minutes) to complete
      */
-    scan: async (ctx, input: {
+    scan: restate.handlers.handler({
+      inactivityTimeout: 600000, // 10 minutes in milliseconds
+      abortTimeout: 120000, // 2 minutes in milliseconds
+    }, async (ctx, input: {
       target: string;
       ports?: string;
       protocol?: 'tcp' | 'udp';
@@ -69,49 +80,56 @@ export const portScanner = restate.service({
 
       // Step 1 (Optional): Run prescans for fast port discovery
       // These return [] gracefully if disabled via feature flags
+      // Split into separate ctx.run() blocks to avoid 1-minute timeout
       let prescanPorts: any[] = [];
       let targetPorts: string | undefined = input.ports; // User-specified ports
 
-      const prescanResult = await ctx.run('prescan-discovery', async () => {
-        // Check for cancellation
-        const currentState = stateStore.get(scanId);
-        if (currentState?.cancelRequested) {
-          state.status = 'CANCELLED';
-          state.completedAt = new Date().toISOString();
-          stateStore.set(scanId, state);
-          throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
-        }
-
-        state.status = 'PRESCANNING';
+      // Check for cancellation before starting prescans
+      const currentState = stateStore.get(scanId);
+      if (currentState?.cancelRequested) {
+        state.status = 'CANCELLED';
+        state.completedAt = new Date().toISOString();
         stateStore.set(scanId, state);
+        throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
+      }
 
-        logger.info('Running prescans (masscan, rustscan)', { scanId, target: sanitizedTarget });
+      state.status = 'PRESCANNING';
+      stateStore.set(scanId, state);
 
-        // Run masscan (fast TCP scan 1-65535 if enabled)
-        const masscanPorts = await runMasscan(sanitizedTarget, {
+      logger.info('Running prescans (masscan, rustscan)', { scanId, target: sanitizedTarget });
+
+      // Run masscan in its own ctx.run() to avoid timeout
+      const masscanPorts = await ctx.run('masscan-discovery', async () => {
+        return await runMasscan(sanitizedTarget, {
           protocol: input.protocol,
           aggressive: input.aggressive,
           timeout: input.timeout,
         });
+      });
 
-        // Run rustscan (fast scan, can validate masscan findings if enabled)
-        const rustscanPorts = await runRustscan(sanitizedTarget, {
+      // Heartbeat: Send journal entry to reset Restate timeout
+      await ctx.sleep(0);
+
+      // Run rustscan in its own ctx.run() to avoid timeout
+      const rustscanPorts = await ctx.run('rustscan-discovery', async () => {
+        return await runRustscan(sanitizedTarget, {
           protocol: input.protocol,
           aggressive: input.aggressive,
           timeout: input.timeout,
         });
+      });
 
-        // Combine and deduplicate prescan discoveries
-        const combined = combinePortDiscoveries(masscanPorts, rustscanPorts);
+      // Heartbeat: Send journal entry to reset Restate timeout
+      await ctx.sleep(0);
 
-        logger.info('Prescan complete', {
-          scanId,
-          masscanFound: masscanPorts.length,
-          rustscanFound: rustscanPorts.length,
-          combinedUnique: combined.length,
-        });
+      // Combine and deduplicate prescan discoveries (fast operation, no ctx.run needed)
+      const prescanResult = combinePortDiscoveries(masscanPorts, rustscanPorts);
 
-        return combined;
+      logger.info('Prescan complete', {
+        scanId,
+        masscanFound: masscanPorts.length,
+        rustscanFound: rustscanPorts.length,
+        combinedUnique: prescanResult.length,
       });
 
       prescanPorts = prescanResult;
@@ -312,7 +330,7 @@ export const portScanner = restate.service({
       }
 
       return results;
-    },
+    }),
 
     /**
      * Cancel a running scan

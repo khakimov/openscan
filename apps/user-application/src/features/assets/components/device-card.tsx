@@ -219,15 +219,22 @@ export function DeviceCard({ device }: DeviceCardProps) {
       });
 
       if (result.success) {
+        // Store Restate scanId (not workflowId) in query cache so useDeviceScan can track status
+        // The scanId is what Restate uses internally to query scan state
+        if (result.scanId) {
+          queryClient.setQueryData(['active-scan', device.id], result.scanId);
+          queryClient.invalidateQueries({ queryKey: ['active-device-scans', device.id] });
+        }
+
         toast.success(
           `Scan started for ${target}`,
           {
             id: toastId,
-            description: result.presetDescription || `Workflow ID: ${result.workflowId}`,
+            description: result.presetDescription || `Scan ID: ${result.scanId}`,
             action: {
               label: "Monitor",
               onClick: () => {
-                console.log("Monitor workflow:", result.workflowId);
+                console.log("Monitor scan:", { scanId: result.scanId, workflowId: result.workflowId });
               },
             },
           },
