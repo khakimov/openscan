@@ -18,7 +18,7 @@ export type TargetType =
   | 'IP_RANGE'
   | 'EMAIL';
 
-export type ScanScope = 'INTERNAL' | 'EXTERNAL' | 'UNKNOWN';
+import type { ScanScope } from './common';
 
 export type DiscoveryPhase =
   | 'VALIDATING'

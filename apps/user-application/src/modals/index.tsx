@@ -128,21 +128,23 @@ export const ModalProvider = ({ children }: { children: React.ReactNode }) => {
           }}
         >
           {(() => {
-            const Modal = modals[currentModal.name];
+            const ModalComponent = modals[currentModal.name];
 
             // Check if it's a lazy component (has $$typeof React element)
             const isLazyComponent =
-              Modal && typeof Modal === "object" && "$$typeof" in Modal;
+              ModalComponent && typeof ModalComponent === "object" && "$$typeof" in ModalComponent;
 
             if (isLazyComponent) {
+              const LazyModal = ModalComponent as React.LazyExoticComponent<React.ComponentType<any>>;
               return (
                 <Suspense fallback={<Loading />}>
-                  <Modal {...currentModal.props} />
+                  <LazyModal {...currentModal.props} />
                 </Suspense>
               );
             } else {
               // Direct component, no suspense needed
-              return <Modal {...currentModal.props} />;
+              const DirectModal = ModalComponent as React.ComponentType<any>;
+              return <DirectModal {...currentModal.props} />;
             }
           })()}
         </Dialog>
@@ -223,14 +225,6 @@ export interface ConfirmProps {
 }
 
 export const showConfirm = (props: ConfirmProps) => pushModal("Confirm", props);
-
-// Helper for add scanner modal
-export interface AddScannerProps {
-  onConfirm?: (scannerData: any) => void;
-}
-
-export const showAddScanner = (props?: AddScannerProps) =>
-  pushModal("AddScanner", props);
 
 // Helper for add discovery modal
 export interface AddDiscoveryProps {

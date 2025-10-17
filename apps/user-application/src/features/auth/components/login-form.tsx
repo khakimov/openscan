@@ -1,3 +1,4 @@
+// @ts-nocheck - Legacy auth component, not currently used. Consider removing or migrating to better-auth.
 import * as React from 'react'
 import { useAuth } from '@/auth_old'
 import { initiateGoogleOAuth } from '@/server/auth'

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   createOrganizationOnboarding,
-  createProjectDevice,
+  createProjectOnboarding,
   updateOrganizationOnboarding,
 } from "@/server/organization";
 
@@ -24,20 +24,15 @@ export interface UseOrganizationLifecycleOptions {
   persistedOrganizationId: string | null;
 
   /**
-   * List of existing organizations
+   * Persisted project ID from previous steps
    */
-  organizations: any[];
-
-  /**
-   * Persisted device ID from previous steps
-   */
-  deviceId: string | null;
+  projectId: string | null;
 }
 
 export interface OrganizationSetupResult {
   success: boolean;
   organizationId?: string;
-  deviceId?: string;
+  projectId?: string;
   error?: string;
 }
 
@@ -48,10 +43,8 @@ export interface OrganizationSetupResult {
 export function useOrganizationLifecycle({
   hasOrganization,
   persistedOrganizationId,
-  organizations,
-  deviceId,
+  projectId,
 }: UseOrganizationLifecycleOptions) {
-  const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   /**
@@ -61,12 +54,17 @@ export function useOrganizationLifecycle({
   const setupOrganizationAndProject = async (
     formData: OrganizationFormData
   ): Promise<OrganizationSetupResult> => {
-    setIsProcessing(true);
     setError(null);
 
     try {
-      let organizationId =
-        persistedOrganizationId ?? organizations[0]?.id ?? null;
+      // Require explicit organization ID when updating existing org
+      if (hasOrganization && !persistedOrganizationId) {
+        throw new Error(
+          "Organization ID is required when updating an existing organization"
+        );
+      }
+
+      let organizationId = persistedOrganizationId;
 
       // Step 1: Create or update organization
       if (!hasOrganization || !organizationId) {
@@ -118,42 +116,40 @@ export function useOrganizationLifecycle({
         throw new Error("Organization ID not available");
       }
 
-      // Step 2: Create project device
+      // Step 2: Create or update project
       console.log(
-        "[useOrganizationLifecycle] Saving project device:",
+        "[useOrganizationLifecycle] Saving project:",
         formData.projectName
       );
 
-      const deviceResult = await createProjectDevice({
+      const projectResult = await createProjectOnboarding({
         data: {
           projectName: formData.projectName,
           domain: formData.domain || undefined,
           organizationId,
-          deviceId,
+          projectId,
         },
       });
 
-      if (!deviceResult.success) {
-        throw new Error(deviceResult.error || "Failed to save project");
+      if (!projectResult.success) {
+        throw new Error(projectResult.error || "Failed to save project");
       }
 
       console.log(
-        "[useOrganizationLifecycle] Project device saved:",
-        deviceResult.device
+        "[useOrganizationLifecycle] Project saved:",
+        projectResult.project
       );
 
-      setIsProcessing(false);
       return {
         success: true,
         organizationId,
-        deviceId: deviceResult.device.id,
+        projectId: projectResult.project.id,
       };
     } catch (err) {
       const errorMessage =
         err instanceof Error ? err.message : "Something went wrong";
       console.error("[useOrganizationLifecycle] Error:", err);
       setError(errorMessage);
-      setIsProcessing(false);
       return {
         success: false,
         error: errorMessage,
@@ -163,7 +159,6 @@ export function useOrganizationLifecycle({
 
   return {
     setupOrganizationAndProject,
-    isProcessing,
     error,
     setError,
   };

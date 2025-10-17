@@ -16,6 +16,7 @@ export type DiscoveryStatus = {
 export type DiscoveryResult = {
   totalSubdomains: number;
   uniqueSubdomains: Array<DiscoverySubdomain>;
+  errors?: string[];
 };
 
 export type DiscoverySubdomain = {

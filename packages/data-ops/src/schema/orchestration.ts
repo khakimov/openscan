@@ -10,8 +10,7 @@ export const scanWorkflows = sqliteTable('scan_workflows', {
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   kind: text('kind').notNull(), // 'EXTEND_SCAN', 'RESCAN', 'DISCOVERY', 'BULK_IMPORT', 'SYNC_QUALYS'
   status: text('status').notNull().default('PENDING'), // 'PENDING', 'RUNNING', 'PAUSED', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
-  temporalId: text('temporal_id').notNull(),
-  temporalRunId: text('temporal_run_id'),
+  workflowId: text('workflow_id').notNull(),
   startedAt: integer('started_at', { mode: 'timestamp_ms' }),
   finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
   cancelRequestedAt: integer('cancel_requested_at', { mode: 'timestamp_ms' }),
@@ -19,7 +18,7 @@ export const scanWorkflows = sqliteTable('scan_workflows', {
 }, (t) => ({
   orgStatusIdx: index('scan_workflows_org_status_idx').on(t.organizationId, t.status),
   statusStartedIdx: index('scan_workflows_status_started_idx').on(t.status, t.startedAt),
-  orgTemporalUq: uniqueIndex('scan_workflows_org_temporal_uq').on(t.organizationId, t.temporalId),
+  orgWorkflowUq: uniqueIndex('scan_workflows_org_workflow_uq').on(t.organizationId, t.workflowId),
 }));
 
 export const scanRuns = sqliteTable('scan_runs', {

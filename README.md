@@ -1,23 +1,29 @@
-# saas-kit
+# openscan
 
 [![Watch the video](https://img.youtube.com/vi/TWQv_tr5ABI/maxresdefault.jpg)](https://www.youtube.com/watch?v=TWQv_tr5ABI&t=1s)
 
-A monorepo SaaS application with user-facing frontend and data service backend.
+A security scanning and asset discovery platform with distributed workflow orchestration.
 
 ## Project Structure
 
 ```
 ├── apps/
-│   ├── user-application/          # TanStack Start frontend deployed to Cloudflare
-│   │   ├── public/docs/           # Markdown docs consumed by the docs routes
-│   │   └── src/                   # Routes, components, and middleware
-│   └── data-service/              # API worker scaffold (Cloudflare Worker)
+│   ├── user-application/          # TanStack Start web app (Cloudflare Workers)
+│   │   ├── public/docs/           # Documentation
+│   │   └── src/                   # Routes, components, features
+│   └── temporal-worker/           # Standalone workflow worker (Node.js)
+│       └── src/
+│           ├── workflows/         # Discovery, scanning workflows
+│           └── activities/        # Subdomain discovery, port scanning
 ├── packages/
-│   └── data-ops/                  # Shared auth/database layer and migrations
-│       ├── config/                # Better Auth CLI + Drizzle configuration
-│       ├── migrations/            # Drizzle migrations pushed to Cloudflare D1
-│       └── src/                   # Reusable auth helpers, queries, and setup
-├── pnpm-workspace.yaml            # Workspace configuration for the monorepo
+│   ├── data-ops/                  # Database operations (D1 + Drizzle ORM)
+│   │   ├── migrations/            # Database migrations
+│   │   └── src/                   # Auth, queries, schema
+│   ├── temporal/                  # Workflow contracts and types
+│   ├── config/                    # Shared configuration
+│   ├── logger/                    # Logging utilities
+│   └── validation/                # Shared validation schemas
+├── pnpm-workspace.yaml
 └── README.md
 ```
 
@@ -36,9 +42,9 @@ This installs all dependencies and builds required packages.
 pnpm run dev:user-application
 ```
 
-### Data Service
+### Temporal Worker
 ```bash
-pnpm run dev:data-service
+pnpm run dev:worker
 ```
 
 ## Deployment
@@ -48,9 +54,10 @@ pnpm run dev:data-service
 pnpm run deploy:user-application
 ```
 
-### Data Service
+### Temporal Worker (Self-hosted)
 ```bash
-pnpm run deploy:data-service
+pnpm run build:worker
+pnpm run start:worker
 ```
 
 ## Working with Individual Apps

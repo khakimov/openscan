@@ -14,6 +14,7 @@ export type DeviceQueryParams = {
 export type DeviceUpdateData = {
   name?: string;
   ip?: string;
+  projectId?: string | null;
   riskLevel?: string;
   state?: string;
   scope?: string;
@@ -88,7 +89,7 @@ export async function getDevicesForTenant(
     .offset(offset);
 
   // Get primary IPs for each device
-  const deviceIds = deviceList.map(d => d.id);
+  const deviceIds = deviceList.map((d: any) => d.id);
   const ips = deviceIds.length > 0
     ? await db
         .select()
@@ -112,18 +113,79 @@ export async function getDevicesForTenant(
     : [];
 
   // Map IPs and tags to devices
-  const ipMap = new Map(ips.map(ip => [ip.deviceId, ip.ip]));
+  const ipMap = new Map(ips.map((ip: any) => [ip.deviceId, ip.ip]));
   const tagsMap = new Map<string, string[]>();
-  deviceTagsData.forEach(({ deviceId, tag }) => {
+  deviceTagsData.forEach(({ deviceId, tag }: any) => {
     if (!tagsMap.has(deviceId)) tagsMap.set(deviceId, []);
     tagsMap.get(deviceId)!.push(tag.name);
   });
 
+  // Get scan statistics for each device (latest scan per target)
+  const scanStatsMap = new Map();
+  if (deviceIds.length > 0) {
+    // Get the latest scan for each target
+    const latestScans = await db
+      .select({
+        target: scanRuns.target,
+        resultSummary: scanRuns.resultSummary,
+        completedAt: scanRuns.completedAt,
+      })
+      .from(scanRuns)
+      .where(and(
+        inArray(scanRuns.target, deviceList.map((d: any) => d.name)),
+        eq(scanRuns.organizationId, organizationId),
+        eq(scanRuns.status, 'SUCCEEDED')
+      ))
+      .orderBy(desc(scanRuns.completedAt));
+
+    // Get scan counts per target
+    const scanCounts = await db
+      .select({
+        target: scanRuns.target,
+        scanCount: sql<number>`count(*)`.as('scan_count'),
+      })
+      .from(scanRuns)
+      .where(and(
+        inArray(scanRuns.target, deviceList.map((d: any) => d.name)),
+        eq(scanRuns.organizationId, organizationId),
+        eq(scanRuns.status, 'SUCCEEDED')
+      ))
+      .groupBy(scanRuns.target);
+
+    const scanCountMap = new Map(scanCounts.map((s: any) => [s.target, Number(s.scanCount)]));
+
+    // Map latest scan per target
+    const latestPerTarget = new Map<string, typeof latestScans[0]>();
+    for (const scan of latestScans) {
+      if (scan.target && !latestPerTarget.has(scan.target)) {
+        latestPerTarget.set(scan.target, scan);
+      }
+    }
+
+    // Build scan stats map
+    for (const [target, scan] of latestPerTarget) {
+      const resultSummary = scan.resultSummary as any;
+      const ports = resultSummary?.ports || [];
+      const openPortCount = resultSummary?.openPortCount || ports.length || 0;
+      const scanCount = scanCountMap.get(target) || 1;
+
+      scanStatsMap.set(target, {
+        scanCount,
+        totalScans: scanCount,
+        lastScanAt: scan.completedAt,
+        openPortCount,
+        totalPortCount: openPortCount,
+        ports,
+      });
+    }
+  }
+
   // Combine data
-  const items = deviceList.map(device => ({
+  const items = deviceList.map((device: any) => ({
     ...device,
     ip: ipMap.get(device.id) || null,
     tags: tagsMap.get(device.id) || [],
+    scanStats: scanStatsMap.get(device.name) || undefined,
   }));
 
   return {
@@ -169,10 +231,83 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     .innerJoin(tags, eq(deviceTags.tagId, tags.id))
     .where(eq(deviceTags.deviceId, deviceId));
 
+  // Get scan statistics
+  const scanStats = await db
+    .select({
+      scanCount: sql<number>`count(*)`.as('scan_count'),
+      lastScanAt: sql<Date>`max(${scanRuns.completedAt})`.as('last_scan_at'),
+      ports: scanRuns.resultSummary,
+    })
+    .from(scanRuns)
+    .where(and(
+      eq(scanRuns.target, device.name),
+      eq(scanRuns.organizationId, organizationId),
+      eq(scanRuns.status, 'SUCCEEDED')
+    ))
+    .groupBy(scanRuns.target);
+
+  let deviceScanStats = undefined;
+  if (scanStats.length > 0) {
+    const stat = scanStats[0];
+    const resultSummary = stat.ports as any;
+    const ports = resultSummary?.ports || [];
+    const openPortCount = resultSummary?.openPortCount || ports.length || 0;
+
+    deviceScanStats = {
+      scanCount: Number(stat.scanCount),
+      totalScans: Number(stat.scanCount),
+      lastScanAt: stat.lastScanAt,
+      openPortCount,
+      totalPortCount: openPortCount,
+      ports,
+    };
+  }
+
   return {
     ...device,
     ip: primaryIp?.ip || null,
-    tags: deviceTagsData.map(({ tag }) => tag.name),
+    tags: deviceTagsData.map(({ tag }: any) => tag.name),
+    scanStats: deviceScanStats,
+  };
+}
+
+/**
+ * Get a single device by ID globally (no tenant filter)
+ * Used by internal services that need to resolve device → organization
+ * SECURITY: Only use this in authenticated internal endpoints
+ */
+export async function getDeviceByIdGlobal(deviceId: string) {
+  const db = getDb();
+
+  const [device] = await db
+    .select()
+    .from(devices)
+    .where(eq(devices.id, deviceId))
+    .limit(1);
+
+  if (!device) return null;
+
+  // Get primary IP
+  const [primaryIp] = await db
+    .select()
+    .from(deviceIps)
+    .where(and(
+      eq(deviceIps.deviceId, deviceId),
+      eq(deviceIps.primary, sql`1`)
+    ))
+    .limit(1);
+
+  // Get tags
+  const deviceTagsData = await db
+    .select({ tag: tags })
+    .from(deviceTags)
+    .innerJoin(tags, eq(deviceTags.tagId, tags.id))
+    .where(eq(deviceTags.deviceId, deviceId));
+
+  return {
+    ...device,
+    ip: primaryIp?.ip || null,
+    tags: deviceTagsData.map(({ tag }: any) => tag.name),
   };
 }
 
@@ -201,6 +336,7 @@ export async function createMultipleDevicesFromDiscovery(
   targets: Array<{ host: string; ip?: string }>,
   organizationId: string,
   options?: {
+    projectId?: string | null;
     source?: string;
     scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
     verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
@@ -211,6 +347,7 @@ export async function createMultipleDevicesFromDiscovery(
 
   // Default values for options
   const {
+    projectId = null,
     source = 'DISCOVERY',
     scope = 'EXTERNAL',
     verificationStatus = 'CANDIDATE'
@@ -230,7 +367,7 @@ export async function createMultipleDevicesFromDiscovery(
     // If IP is provided, check if the name+IP combination exists
     if (target.ip && devicesWithSameName.length > 0) {
       // Get IPs for devices with same name
-      const deviceIds = devicesWithSameName.map(d => d.id);
+      const deviceIds = devicesWithSameName.map((d: any) => d.id);
       const existingIps = await db
         .select()
         .from(deviceIps)
@@ -254,6 +391,7 @@ export async function createMultipleDevicesFromDiscovery(
       .insert(devices)
       .values({
         organizationId,
+        projectId,
         name: target.host,
         source,
         scope,
@@ -393,7 +531,7 @@ export async function getDeviceTagSuggestions(organizationId: string) {
     .where(eq(tags.organizationId, organizationId))
     .orderBy(asc(tags.name));
 
-  return tagList.map(t => t.name);
+  return tagList.map((t: any) => t.name);
 }
 
 /**

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE nmaprun>
+<?xml-stylesheet href="file:///usr/bin/../share/nmap/nmap.xsl" type="text/xsl"?>
+<!-- Nmap 7.94SVN scan initiated Fri Sep 26 06:57:39 2025 as: nmap -sS -O -sV -T4 -p1-1000 -&#45;open -oX - 144.76.82.253 -->
+<nmaprun scanner="nmap" args="nmap -sS -O -sV -T4 -p1-1000 -&#45;open -oX - 144.76.82.253" start="1758862659" startstr="Fri Sep 26 06:57:39 2025" version="7.94SVN" xmloutputversion="1.05">
+<scaninfo type="syn" protocol="tcp" numservices="1000" services="1-1000"/>
+<verbose level="0"/>
+<debugging level="0"/>
+<host starttime="1758862659" endtime="1758862672"><status state="up" reason="localhost-response" reason_ttl="0"/>
+<address addr="144.76.82.253" addrtype="ipv4"/>
+<hostnames>
+<hostname name="samsara" type="PTR"/>
+</hostnames>
+<ports><extraports state="closed" count="997">
+<extrareasons reason="reset" count="997" proto="tcp" ports="1-21,23-79,81-442,444-1000"/>
+</extraports>
+<port protocol="tcp" portid="22"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="ssh" product="OpenSSH" version="9.6p1 Ubuntu 3ubuntu13.11" extrainfo="Ubuntu Linux; protocol 2.0" ostype="Linux" method="probed" conf="10"><cpe>cpe:/a:openbsd:openssh:9.6p1</cpe><cpe>cpe:/o:linux:linux_kernel</cpe></service></port>
+<port protocol="tcp" portid="80"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" version="1.24.0" extrainfo="Ubuntu" ostype="Linux" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx:1.24.0</cpe><cpe>cpe:/o:linux:linux_kernel</cpe></service></port>
+<port protocol="tcp" portid="443"><state state="open" reason="syn-ack" reason_ttl="64"/><service name="http" product="nginx" version="1.24.0" extrainfo="Ubuntu" ostype="Linux" tunnel="ssl" method="probed" conf="10"><cpe>cpe:/a:igor_sysoev:nginx:1.24.0</cpe><cpe>cpe:/o:linux:linux_kernel</cpe></service></port>
+</ports>
+<os><portused state="open" proto="tcp" portid="22"/>
+<portused state="closed" proto="tcp" portid="1"/>
+<portused state="closed" proto="udp" portid="32487"/>
+<osmatch name="Linux 2.6.32" accuracy="100" line="55742">
+<osclass type="general purpose" vendor="Linux" osfamily="Linux" osgen="2.6.X" accuracy="100"><cpe>cpe:/o:linux:linux_kernel:2.6.32</cpe></osclass>
+</osmatch>
+</os>
+<uptime seconds="2454127" lastboot="Thu Aug 28 21:15:45 2025"/>
+<distance value="0"/>
+<tcpsequence index="259" difficulty="Good luck!" values="817BA94A,DA31EBBA,38B46AA4,6FCFF21F,4029C015,3214EE0F"/>
+<ipidsequence class="All zeros" values="0,0,0,0,0,0"/>
+<tcptssequence class="1000HZ" values="9246FEB8,9246FF1C,9246FF80,9246FFE5,92470049,924700AD"/>
+<times srtt="81" rttvar="20" to="100000"/>
+</host>
+<runstats><finished time="1758862672" timestr="Fri Sep 26 06:57:52 2025" summary="Nmap done at Fri Sep 26 06:57:52 2025; 1 IP address (1 host up) scanned in 13.53 seconds" elapsed="13.53" exit="success"/><hosts up="1" down="0" total="1"/>
+</runstats>
+</nmaprun>

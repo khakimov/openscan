@@ -21,9 +21,8 @@ import { useOrganizationLifecycle } from "../hooks/use-organization-lifecycle";
 
 interface OnboardingCreateProjectProps {
   hasOrganization: boolean;
-  organizations: any[];
   organizationId: string | null;
-  deviceId: string | null;
+  projectId: string | null;
   initialValues: {
     organizationName?: string;
     timezone?: string;
@@ -34,9 +33,8 @@ interface OnboardingCreateProjectProps {
 
 export function OnboardingCreateProject({
   hasOrganization,
-  organizations,
   organizationId: persistedOrganizationId,
-  deviceId,
+  projectId,
   initialValues,
 }: OnboardingCreateProjectProps) {
   const navigate = useNavigate();
@@ -49,8 +47,7 @@ export function OnboardingCreateProject({
   } = useOrganizationLifecycle({
     hasOrganization,
     persistedOrganizationId,
-    organizations,
-    deviceId,
+    projectId,
   });
 
   const timezoneList = useMemo(() => {
@@ -107,14 +104,14 @@ export function OnboardingCreateProject({
           domain: value.domain,
         });
 
-        if (!setupResult.success || !setupResult.deviceId) {
+        if (!setupResult.success || !setupResult.projectId) {
           throw new Error(
             setupResult.error || "Failed to set up organization and project",
           );
         }
 
         console.log("[OnboardingCreateProject] Project created:", {
-          deviceId: setupResult.deviceId,
+          projectId: setupResult.projectId,
           domain: value.domain,
         });
 
@@ -122,14 +119,14 @@ export function OnboardingCreateProject({
         if (value.domain) {
           navigate({
             to: "/onboarding/$projectId/discovery",
-            params: { projectId: setupResult.deviceId },
+            params: { projectId: setupResult.projectId },
             search: { domain: value.domain },
           });
         } else {
           // Skip discovery, go directly to step 4 (connect)
           navigate({
             to: "/onboarding/$projectId/connect",
-            params: { projectId: setupResult.deviceId },
+            params: { projectId: setupResult.projectId },
           });
         }
       } catch (err) {
@@ -192,9 +189,9 @@ export function OnboardingCreateProject({
                       Updating this will rename your existing workspace.
                     </p>
                   )}
-                  {!!field.state.meta.touchedErrors?.length && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
-                      {field.state.meta.touchedErrors[0]}
+                      {field.state.meta.errors[0]}
                     </p>
                   )}
                 </div>
@@ -253,9 +250,9 @@ export function OnboardingCreateProject({
                     aria-invalid={field.state.meta.errors.length > 0}
                     required
                   />
-                  {!!field.state.meta.touchedErrors?.length && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
-                      {field.state.meta.touchedErrors[0]}
+                      {field.state.meta.errors[0]}
                     </p>
                   )}
                 </div>
@@ -287,9 +284,9 @@ export function OnboardingCreateProject({
                     onBlur={field.handleBlur}
                     aria-invalid={field.state.meta.errors.length > 0}
                   />
-                  {!!field.state.meta.touchedErrors?.length && (
+                  {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
-                      {field.state.meta.touchedErrors[0]}
+                      {field.state.meta.errors[0]}
                     </p>
                   )}
                   <p className="text-xs text-muted-foreground">

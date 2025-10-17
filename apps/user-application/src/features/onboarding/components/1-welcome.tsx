@@ -6,40 +6,10 @@ import { OrDivider } from "@/components/ui/or-divider";
 import { GoogleOAuthButton } from "@/features/auth/components/google-oauth-button";
 import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
 import { useState } from "react";
+import type { OnboardingStatus } from "@/server/types/onboarding";
 
 type OnboardingWelcomeProps = {
-  onboarding: {
-    success: boolean;
-    step: number;
-    organizationId: string | null;
-    projectId: string | null;
-    user?:
-      | {
-          id: string;
-          email: string | null;
-          name: string | null;
-          emailVerified: unknown;
-        }
-      | null;
-    organization?:
-      | {
-          id: string;
-          name: string | null;
-          metadata: Record<string, unknown> | null;
-        }
-      | null;
-    project?:
-      | {
-          id: string;
-          name: string | null;
-        }
-      | null;
-    organizations?: Array<{
-      id: string;
-      name?: string | null;
-      metadata?: Record<string, unknown> | null;
-    }>;
-  };
+  onboarding: OnboardingStatus;
 };
 
 export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
@@ -58,7 +28,7 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
     navigate({ to: "/onboarding/project" });
   };
 
-  const showSummary = (onboarding?.step ?? 1) > 1;
+  const showSummary = onboarding.success && onboarding.step > 1;
 
   if (showSummary) {
     const account = onboarding.user;

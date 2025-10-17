@@ -1,5 +1,6 @@
-import { type Device } from "@repo/data-ops";
-import type { PortScanInput } from "@repo/contracts";
+'use client';
+
+import { type TransformedDevice } from "@/server/devices";
 import { format } from "date-fns";
 import {
   getRiskLevelBadgeClass,
@@ -8,20 +9,46 @@ import {
   getRiskLevelBorderClass,
 } from "@repo/constants";
 import { Card, CardActions, CardActionsItem } from "@/components/shared/card";
-import { Pencil, Trash, Radar, Loader2, CheckCircle2, XCircle, RotateCcw } from "lucide-react";
+import {
+  Pencil,
+  Trash,
+  Radar,
+  Loader2,
+  CheckCircle2,
+  XCircle,
+} from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
 import { useDeviceScan } from "@/hooks/useDeviceScanStatus";
-import { DeviceScanChart, type ScanHistoryItem } from "@/components/shared/device-scan-chart";
-import { getDeviceScanHistoryData, verifyDevice, toggleDeviceVerification } from "@/server/devices";
+import {
+  DeviceScanChart,
+  type ScanHistoryItem,
+} from "@/components/shared/device-scan-chart";
+import {
+  getDeviceScanHistoryData,
+  verifyDevice,
+  toggleDeviceVerification,
+  startDeviceScan,
+} from "@/server/devices";
 import { useQuery } from "@tanstack/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface DeviceCardProps {
-  device: Device;
+  device: TransformedDevice;
 }
 
-function StatusBadge({ status }: { status: string }) {
+function StatusBadge({
+  status,
+  hasBeenScanned
+}: {
+  status: string;
+  hasBeenScanned?: boolean;
+}) {
+  // Don't show status if device has never been scanned
+  if (!hasBeenScanned) {
+    return null;
+  }
+
   const displayStatus = status || "Unknown";
   return (
     <span className={getDeviceStatusBadgeClass(displayStatus)}>
@@ -52,8 +79,8 @@ function ScanStatusBadge({
     );
   } else if (isScanned === false) {
     return (
-      <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
-        Discovered
+      <span className="px-2 py-1 text-xs rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/30">
+        Not Scanned
       </span>
     );
   } else {
@@ -61,8 +88,20 @@ function ScanStatusBadge({
   }
 }
 
-function RiskLevelBadge({ riskLevel }: { riskLevel: string }) {
+function RiskLevelBadge({
+  riskLevel,
+  hasBeenScanned
+}: {
+  riskLevel: string;
+  hasBeenScanned?: boolean;
+}) {
+  // Don't show risk badge if device has never been scanned
+  if (!hasBeenScanned) {
+    return null;
+  }
+
   const displayLevel = riskLevel || "Unknown";
+
   return (
     <span className={getRiskLevelBadgeClass(displayLevel)}>{displayLevel}</span>
   );
@@ -70,39 +109,32 @@ function RiskLevelBadge({ riskLevel }: { riskLevel: string }) {
 
 export function DeviceCard({ device }: DeviceCardProps) {
   const queryClient = useQueryClient();
-  const {
-    scanState,
-    isScanning,
-    isCompleted,
-    isFailed,
-    progress,
-    progressMessage,
-    startScan,
-    isStartingScan,
-    activeWorkflowId,
-  } = useDeviceScan(device.id);
+  const { isScanning, isStartingScan } = useDeviceScan(device.id);
 
   // Verification mutation
   const verificationMutation = useMutation({
-    mutationFn: (data: { deviceId: string; status: 'VERIFIED' | 'EXCLUDED' | 'CANDIDATE'; note?: string }) =>
-      verifyDevice({ data }),
-    onSuccess: (result, variables) => {
+    mutationFn: (data: {
+      deviceId: string;
+      status: "VERIFIED" | "EXCLUDED" | "CANDIDATE";
+      note?: string;
+    }) => verifyDevice({ data }),
+    onSuccess: (_result, variables) => {
       const statusLabels = {
-        VERIFIED: 'verified',
-        EXCLUDED: 'excluded',
-        CANDIDATE: 'reset to candidate'
+        VERIFIED: "verified",
+        EXCLUDED: "excluded",
+        CANDIDATE: "reset to candidate",
       };
       toast.success(`Device ${statusLabels[variables.status]}`, {
-        description: `${device.name} has been ${statusLabels[variables.status]}`
+        description: `${device.name} has been ${statusLabels[variables.status]}`,
       });
       // Invalidate devices query to refresh the list
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
     onError: (error) => {
-      toast.error('Failed to update device verification', {
-        description: error instanceof Error ? error.message : 'Unknown error'
+      toast.error("Failed to update device verification", {
+        description: error instanceof Error ? error.message : "Unknown error",
       });
-    }
+    },
   });
   const scanStats = device.scanStats;
   const legacyPortCount = (() => {
@@ -110,10 +142,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
     const tcpPorts = Array.isArray(device.ports.tcp)
       ? device.ports.tcp.length
       : 0;
-    const udpPorts = Array.isArray(device.ports.udp)
-      ? device.ports.udp.length
-      : 0;
-    return tcpPorts + udpPorts;
+    // Only TCP ports are supported in the current schema
+    return tcpPorts;
   })();
   const totalOpenPorts =
     scanStats?.openPortCount ?? device.totalOpenPorts ?? legacyPortCount;
@@ -127,10 +157,11 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
   // Fetch scan history for the chart
   const { data: scanHistoryData } = useQuery({
-    queryKey: ['device-scan-history', device.name],
-    queryFn: () => getDeviceScanHistoryData({
-      data: { target: device.name, limit: 10 }
-    }),
+    queryKey: ["device-scan-history", device.name],
+    queryFn: () =>
+      getDeviceScanHistoryData({
+        data: { target: device.name, limit: 10 },
+      }),
     enabled: totalScans > 1, // Only fetch if there are multiple scans
   });
 
@@ -150,7 +181,12 @@ export function DeviceCard({ device }: DeviceCardProps) {
     });
   };
 
-  const runPortScan = async (extend: boolean) => {
+  /**
+   * Secure scan handler - uses server-side presets
+   * All scan configuration (timeout, ports, profiles) is server-controlled
+   */
+  const handleStartScan = async (preset: 'QUICK' | 'STANDARD' | 'THOROUGH') => {
+    // Determine target from device name or IP
     let target = device.name;
     if (target && target.includes("(")) {
       target = target.split("(")[0].trim();
@@ -165,38 +201,29 @@ export function DeviceCard({ device }: DeviceCardProps) {
       return;
     }
 
-    const toastId = `${extend ? "extend-scan" : "scan"}-${device.id}`;
+    const toastId = `scan-${preset}-${device.id}`;
 
     toast.loading(
-      `Starting ${extend ? "extended " : ""}port scan for ${target}...`,
+      `Starting ${preset.toLowerCase()} scan for ${target}...`,
       { id: toastId },
     );
 
-    const payload: PortScanInput = {
-      target,
-      deviceId: device.id,
-      protocol: "tcp",
-      timeout: extend ? 300000 : 30000,
-      isExtendScan: extend,
-    };
-
-    if (extend) {
-      payload.mode = "EXTEND";
-      payload.scanProfile = "PS_L5";
-      payload.aggressive = true;
-      // Scan full TCP range 1-65535
-      payload.additionalPortRanges = ["1-65535"];
-    }
-
     try {
-      const result = await startScan(payload);
+      // Call secure server function - client only passes preset choice
+      const result = await startDeviceScan({
+        data: {
+          deviceId: device.id,
+          target,
+          preset,
+        }
+      });
 
       if (result.success) {
         toast.success(
-          `${extend ? "Extended " : ""}port scan started for ${target}`,
+          `Scan started for ${target}`,
           {
             id: toastId,
-            description: `Workflow ID: ${result.workflowId}`,
+            description: result.presetDescription || `Workflow ID: ${result.workflowId}`,
             action: {
               label: "Monitor",
               onClick: () => {
@@ -207,14 +234,14 @@ export function DeviceCard({ device }: DeviceCardProps) {
         );
       } else {
         toast.error(
-          `Failed to start ${extend ? "extended " : ""}scan: ${result.error}`,
+          `Failed to start scan: ${result.error}`,
           {
             id: toastId,
           },
         );
       }
     } catch (error) {
-      toast.error(`Failed to start ${extend ? "extended " : ""}port scan`, {
+      toast.error(`Failed to start port scan`, {
         id: toastId,
         description: error instanceof Error ? error.message : "Unknown error",
       });
@@ -222,22 +249,25 @@ export function DeviceCard({ device }: DeviceCardProps) {
   };
 
   const handleExtendedScan = async () => {
-    await runPortScan(true);
+    await handleStartScan('THOROUGH');
   };
 
   // Verification toggle mutation (with scheduling)
   const verificationToggleMutation = useMutation({
-    mutationFn: (data: { deviceId: string; verify: boolean; interval?: string }) =>
-      toggleDeviceVerification({ data }),
+    mutationFn: (data: {
+      deviceId: string;
+      verify: boolean;
+      interval?: string;
+    }) => toggleDeviceVerification({ data }),
     onSuccess: (result) => {
-      toast.success(result.message || 'Device verification updated');
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      toast.success(result.message || "Device verification updated");
+      queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
     onError: (error) => {
-      toast.error('Failed to update device verification', {
-        description: error instanceof Error ? error.message : 'Unknown error'
+      toast.error("Failed to update device verification", {
+        description: error instanceof Error ? error.message : "Unknown error",
       });
-    }
+    },
   });
 
   const handleVerify = () => {
@@ -245,22 +275,22 @@ export function DeviceCard({ device }: DeviceCardProps) {
     verificationToggleMutation.mutate({
       deviceId: device.id,
       verify: true,
-      interval: '1h' // Default: hourly
+      interval: "1h", // Default: hourly
     });
   };
 
   const handleExclude = () => {
     verificationMutation.mutate({
       deviceId: device.id,
-      status: 'EXCLUDED',
-      note: 'Manually excluded from device card'
+      status: "EXCLUDED",
+      note: "Manually excluded from device card",
     });
   };
 
   const handleUnverify = () => {
     verificationToggleMutation.mutate({
       deviceId: device.id,
-      verify: false
+      verify: false,
     });
   };
 
@@ -273,10 +303,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }
   };
 
-  // Get status from isOnline field
+  // Get status from status field (already transformed to "active" or "offline")
   const getStatus = () => {
-    if (device.isOnline === true) return "online";
-    if (device.isOnline === false) return "offline";
     return device.status || "unknown";
   };
 
@@ -299,18 +327,23 @@ export function DeviceCard({ device }: DeviceCardProps) {
             isScanned={device.isScanned}
             isScanning={isScanning}
           />
-          <StatusBadge status={getStatus()} />
-          <RiskLevelBadge riskLevel={device.riskLevel} />
+          <StatusBadge status={getStatus()} hasBeenScanned={device.isScanned} />
+          <RiskLevelBadge
+            riskLevel={device.riskLevel}
+            hasBeenScanned={device.isScanned}
+          />
         </div>
       </div>
-      <div className="row border-y">
-        <div className="center-center col flex-1 p-4 py-2 border-r">
-          <div className="font-medium text-xl font-mono">{totalOpenPorts}</div>
+      <div className="row ">
+        <div className="center-center col flex-1 p-4 py-2 ">
+          <div className="font-medium text-xl font-mono">
+            {device.isScanned ? totalOpenPorts : "-"}
+          </div>
           <div className="text-muted-foreground whitespace-nowrap text-sm">
             open ports
           </div>
         </div>
-        <div className="center-center col flex-1 p-4 py-2 border-r">
+        <div className="center-center col flex-1 p-4 py-2 ">
           <div className="font-medium text-sm">
             {hasScanHistory
               ? lastScanAt
@@ -338,18 +371,16 @@ export function DeviceCard({ device }: DeviceCardProps) {
       </div>
 
       {totalScans > 1 && scanHistory.length > 0 && (
-        <div className="border-t">
+        <div className="">
           <div className="p-4 py-3">
             <div className="flex items-center justify-between mb-2">
               <div className="text-sm font-medium">Scan Activity</div>
               <div className="text-xs text-muted-foreground">
-                {scanHistory.length} {scanHistory.length === 1 ? "scan" : "scans"}
+                {scanHistory.length}{" "}
+                {scanHistory.length === 1 ? "scan" : "scans"}
               </div>
             </div>
-            <DeviceScanChart
-              scanHistory={scanHistory}
-              className="h-12"
-            />
+            <DeviceScanChart scanHistory={scanHistory} className="h-12" />
           </div>
         </div>
       )}
@@ -393,7 +424,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
         </CardActionsItem>
 
         {/* Verification Actions - contextual based on current status */}
-        {device.verificationStatus !== 'VERIFIED' && (
+        {device.verificationStatus !== "VERIFIED" && (
           <CardActionsItem className="w-full text-green-600" asChild>
             <button
               type="button"
@@ -406,7 +437,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
           </CardActionsItem>
         )}
 
-        {device.verificationStatus === 'VERIFIED' && (
+        {device.verificationStatus === "VERIFIED" && (
           <CardActionsItem className="w-full text-gray-600" asChild>
             <button
               type="button"
@@ -419,18 +450,19 @@ export function DeviceCard({ device }: DeviceCardProps) {
           </CardActionsItem>
         )}
 
-        {device.verificationStatus !== 'EXCLUDED' && device.verificationStatus !== 'VERIFIED' && (
-          <CardActionsItem className="w-full text-orange-600" asChild>
-            <button
-              type="button"
-              onClick={handleExclude}
-              disabled={verificationMutation.isPending}
-            >
-              <XCircle size={16} />
-              Exclude Device
-            </button>
-          </CardActionsItem>
-        )}
+        {device.verificationStatus !== "EXCLUDED" &&
+          device.verificationStatus !== "VERIFIED" && (
+            <CardActionsItem className="w-full text-orange-600" asChild>
+              <button
+                type="button"
+                onClick={handleExclude}
+                disabled={verificationMutation.isPending}
+              >
+                <XCircle size={16} />
+                Exclude Device
+              </button>
+            </CardActionsItem>
+          )}
 
         <CardActionsItem className="w-full text-destructive" asChild>
           <button type="button" onClick={handleDelete}>

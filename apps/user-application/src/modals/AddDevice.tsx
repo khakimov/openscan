@@ -1,9 +1,7 @@
-import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
@@ -40,7 +38,8 @@ export default function AddDevice() {
     handleSubmit,
     formState: { errors },
   } = useForm<AddDeviceFormData>({
-    resolver: zodResolver(AddDeviceSchema),
+    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers due to multiple Zod versions in dependency tree
+    resolver: zodResolver<AddDeviceFormData, any, AddDeviceFormData>(AddDeviceSchema),
   });
 
   // Create device mutation

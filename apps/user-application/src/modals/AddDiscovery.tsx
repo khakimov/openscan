@@ -17,6 +17,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { DiscoveryLoading } from "@/components/shared/discovery-loading";
+import { QUERY_CONFIG } from "@repo/constants";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
@@ -113,17 +114,19 @@ export default function AddDiscovery({
     },
   });
 
-  // Smart polling for workflow status
+  // Smart polling for workflow status (reduced frequency with postback architecture)
   const { data: workflowStatus } = useQuery({
     queryKey: ["workflow-status", workflowId, runId],
     queryFn: () => getWorkflowStatus({ data: { workflowId: workflowId!, runId: runId || undefined } }),
     enabled: !!workflowId,
-    refetchInterval: (data) => {
+    refetchInterval: (query) => {
       // Stop polling when workflow is complete or failed
+      const data = query.state.data;
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
-      return 1000; // Poll every 1 second while running
+      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
     },
   });
 
@@ -279,8 +282,8 @@ export default function AddDiscovery({
                             onCheckedChange={(checked) => {
                               if (checked) {
                                 const allHosts =
-                                  results.results?.[0]?.results?.map((r) => r.host) ||
-                                  results.uniqueSubdomains.map((s) => s.subdomain);
+                                  results.results?.[0]?.results?.map((r: { host: string; ip: string }) => r.host) ||
+                                  results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => s.subdomain);
                                 setSelectedResults(new Set(allHosts));
                               } else {
                                 setSelectedResults(new Set());
@@ -295,7 +298,7 @@ export default function AddDiscovery({
                     <tbody>
                       {(
                         results.results?.[0]?.results ||
-                        results.uniqueSubdomains.map((s) => ({ host: s.subdomain, ip: s.ip || '' }))
+                        results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => ({ host: s.subdomain, ip: s.ip || '' }))
                       ).map((item: any, index: number) => {
                         const host = typeof item === "string" ? item : (item.host || item.subdomain);
                         const ip = typeof item === "object" ? (item.ip || '') : '';

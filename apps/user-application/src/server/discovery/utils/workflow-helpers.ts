@@ -23,6 +23,7 @@ export function buildDiscoveryResult(discoveryOutput: any) {
   })) || [];
 
   const target = discoveryOutput?.devices?.[0]?.metadata?.originalDomain || 'unknown';
+  const errors = discoveryOutput?.errors || [];
 
   return {
     request: {
@@ -33,19 +34,21 @@ export function buildDiscoveryResult(discoveryOutput: any) {
     results: [
       {
         target,
-        subdomains: results.map((entry) => entry.host),
+        subdomains: results.map((entry: { host: string; ip: string }) => entry.host),
         results,
         tool: 'temporal-scanner',
         timestamp: new Date().toISOString(),
-        success: true,
+        success: errors.length === 0,
+        errors: errors.length > 0 ? errors : undefined,
       },
     ],
     totalSubdomains: results.length,
-    uniqueSubdomains: results.map((entry) => ({
+    uniqueSubdomains: results.map((entry: { host: string; ip: string }) => ({
       subdomain: entry.host,
       ip: entry.ip,
     })),
     executionTime: discoveryOutput?.performance?.executionTimeMs ?? 0,
+    errors: errors.length > 0 ? errors : undefined,
   } as const;
 }
 

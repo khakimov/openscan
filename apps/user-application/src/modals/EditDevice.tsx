@@ -22,10 +22,10 @@ import {
   getDeviceTagSuggestionsData,
 } from "@/server/devices";
 import { DEVICE_DETAIL_QUERY_KEY } from "@/hooks/useDeviceDetailQuery";
-import { Loader2, X, Plus, Save, AlertTriangle } from "lucide-react";
+import { Loader2, X, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
-import { getRiskLevelBadgeClass, QUERY_CONFIG } from "@repo/constants";
+import { QUERY_CONFIG } from "@repo/constants";
 
 // IP address validation regex
 const IP_REGEX =
@@ -79,7 +79,8 @@ export default function EditDevice({
     getValues,
     formState: { errors, isDirty },
   } = useForm<EditDeviceFormData>({
-    resolver: zodResolver(EditDeviceSchema),
+    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers due to multiple Zod versions in dependency tree
+    resolver: zodResolver<EditDeviceFormData, any, EditDeviceFormData>(EditDeviceSchema),
     defaultValues: {
       name: device?.name || "",
       ip: device?.ip || "",
@@ -410,9 +411,9 @@ export default function EditDevice({
               </Label>
               <div className="flex flex-wrap gap-2">
                 {tagSuggestions
-                  .filter((tag) => !watch("tags")?.includes(tag))
+                  .filter((tag: string) => !watch("tags")?.includes(tag))
                   .slice(0, 8)
-                  .map((tag) => (
+                  .map((tag: string) => (
                     <button
                       key={tag}
                       type="button"

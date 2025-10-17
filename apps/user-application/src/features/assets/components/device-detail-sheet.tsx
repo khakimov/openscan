@@ -1,4 +1,6 @@
-import { useState } from "react";
+'use client';
+
+import { type TransformedDevice } from "@/server/devices";
 import {
   Sheet,
   SheetContent,
@@ -12,11 +14,11 @@ import { DeviceCard } from "./device-card";
 import { DeviceOpenPorts } from "./device-open-ports";
 import { useDeviceDetailQuery } from "@/hooks/useDeviceDetailQuery";
 import { pushModal } from "@/modals";
-import { Pencil, Trash2, Scan, Download, Activity, Copy } from "lucide-react";
+import { Pencil, Trash2, Scan } from "lucide-react";
 import { toast } from "sonner";
 
 interface DeviceDetailSheetProps {
-  devices: Device[];
+  devices: TransformedDevice[];
 }
 
 export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
@@ -29,7 +31,7 @@ export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
   );
 }
 
-function DeviceDetailSheetItem({ device }: { device: Device }) {
+function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
   // Each device has its own Sheet with its own data loading
   const { data: deviceDetail, isLoading: isLoadingDetail } =
     useDeviceDetailQuery(device.id);
@@ -49,16 +51,6 @@ function DeviceDetailSheetItem({ device }: { device: Device }) {
     });
   };
 
-  const handleCopyIP = async () => {
-    if (!device?.ip) return;
-    try {
-      await navigator.clipboard.writeText(device.ip);
-      toast.success("IP address copied to clipboard");
-    } catch (error) {
-      toast.error("Failed to copy IP address");
-    }
-  };
-
   const handleScan = () => {
     toast.info("Scan functionality coming soon!");
     // TODO: Implement scan functionality
@@ -71,10 +63,16 @@ function DeviceDetailSheetItem({ device }: { device: Device }) {
           <DeviceCard device={device} />
         </div>
       </SheetTrigger>
-      <SheetContent className="w-[95vw] max-w-[1200px] min-w-[800px]">
+      <SheetContent
+        className="w-[95vw] max-w-[1200px] min-w-[800px]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader className="mb-6">
           <div className="flex flex-col gap-3">
             <SheetTitle className="text-left">{device.name}</SheetTitle>
+            <SheetDescription className="text-left">
+              View device details, open ports, and security information
+            </SheetDescription>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -108,7 +106,7 @@ function DeviceDetailSheetItem({ device }: { device: Device }) {
           </div>
         </SheetHeader>
 
-        <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] px-4">
           <DeviceOpenPorts
             deviceDetail={deviceDetail}
             isLoading={isLoadingDetail}

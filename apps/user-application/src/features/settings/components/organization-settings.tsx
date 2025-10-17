@@ -3,20 +3,17 @@
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
+import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { InputWithLabel } from '@/components/shared/forms/input-with-label'
 import { Widget, WidgetBody, WidgetHead } from '@/components/ui/widget'
-
-interface OrganizationSettingsProps {
-  user: any
-}
 
 interface OrganizationForm {
   name: string
   timezone: string
 }
 
-export function OrganizationSettings({ user }: OrganizationSettingsProps) {
+export function OrganizationSettings() {
   const [isLoading, setIsLoading] = useState(false)
 
   const { register, handleSubmit, formState, reset } = useForm<OrganizationForm>({
@@ -79,8 +76,8 @@ export function OrganizationSettings({ user }: OrganizationSettingsProps) {
               <Button
                 type="submit"
                 disabled={!formState.isDirty || isLoading}
-                loading={isLoading}
               >
+                {isLoading && <Loader2 className="animate-spin" />}
                 Save Changes
               </Button>
             </div>

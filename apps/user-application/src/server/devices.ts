@@ -9,21 +9,105 @@ import {
   getDeviceScanHistory,
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
-  createScanSchedule as createScanScheduleDB,
   getScanScheduleByDeviceId,
-  deleteScanSchedule as deleteScanScheduleDB,
   type DeviceQueryParams,
   type DeviceUpdateData
 } from '@repo/data-ops'
 import { createLogger } from '@repo/logger'
 import { z } from 'zod'
-import { getCurrentTenant, getCurrentUser } from './utils/auth'
+import { getCurrentOrganizationId, getCurrentUser } from './utils/auth'
 import { formatServerError } from './utils/errors'
 
 const logger = createLogger({ name: 'devices-server' })
 
 // IP address validation regex
 const IP_REGEX = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+
+/**
+ * Transformed device type with UI-friendly properties
+ * Returned by transformDeviceForUI and used in UI components
+ */
+export type TransformedDevice = {
+  id: string;
+  name: string;
+  ip: string;
+  riskLevel: string;
+  status: 'active' | 'offline';
+  discoveredOn: string;
+  lastScanned?: string;
+  source: 'agentless' | 'agentbased';
+  isScanned: boolean;
+  scanType: 'scanned' | 'discovered';
+  scope: 'internal' | 'external' | 'hybrid';
+  tags: string[];
+  respondsToICMPPing: boolean;
+  notes: string;
+  scanCount: number;
+  totalOpenPorts: number;
+  ports?: {
+    tcp: number[];
+    details: Array<{
+      port: number;
+      protocol: string;
+      state: string;
+      service?: {
+        name?: string | null;
+        product?: string | null;
+        version?: string | null;
+        extraInfo?: string | null;
+        tunnel?: string | null;
+        method?: string | null;
+        confidence?: number | null;
+        cpe?: string | null;
+        fingerprint?: string | null;
+        fingerprintMatches?: Array<{
+          probe: string;
+          length?: number;
+          response: string;
+        }>;
+      };
+      discoveredBy?: string[];
+      firstSeen?: number | null;
+      lastSeen?: number | null;
+    }>;
+  };
+  scanStats?: {
+    scanCount: number;
+    totalScans?: number;
+    lastScanAt: string | null;
+    openPortCount?: number;
+    totalPortCount?: number;
+    ports?: Array<{
+      port: number;
+      protocol: string;
+      state: string;
+      service?: {
+        name?: string | null;
+        product?: string | null;
+        version?: string | null;
+        extraInfo?: string | null;
+        tunnel?: string | null;
+        method?: string | null;
+        confidence?: number | null;
+        cpe?: string | null;
+        fingerprint?: string | null;
+        fingerprintMatches?: Array<{
+          probe: string;
+          length?: number;
+          response: string;
+        }>;
+      };
+      discoveredBy?: string[];
+      firstSeen?: number | null;
+      lastSeen?: number | null;
+    }>;
+  };
+  verificationStatus: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  verificationNote: string | null;
+  isVerified: boolean;
+};
 
 // Validation schemas
 const UpdateDeviceSchema = z.object({
@@ -83,7 +167,6 @@ function transformDeviceForUI(dbDevice: any) {
   const openPortEntries = Array.isArray(scanStats?.ports)
     ? scanStats?.ports
     : [];
-  const openPortNumbers = openPortEntries.map((port) => port.port);
   const openPortCount = scanStats?.openPortCount ?? openPortEntries.length;
 
   const totalPortCount = scanStats?.totalPortCount ?? openPortCount;
@@ -107,7 +190,6 @@ function transformDeviceForUI(dbDevice: any) {
   const computedScanStats = hasScans
     ? {
         ...scanStats,
-        lastRunId: scanStats?.lastRunId,
         totalScans,
         scanCount: scanStats?.scanCount ?? totalScans,
         lastScanAt: lastScanIso,
@@ -162,14 +244,14 @@ export const getDevicesData = createServerFn({
       verificationStatus: data?.verificationStatus
     })
 
-    // Get session for tenant context
-    const tenantId = await getCurrentTenant()
-    logger.info('Fetching devices for tenant', {
-      tenantId,
+    // Get session for organization context
+    const organizationId = await getCurrentOrganizationId()
+    logger.info('Fetching devices for organization', {
+      organizationId,
       verificationStatus: data?.verificationStatus
     })
 
-    // Query database with tenant filter and verification status
+    // Query database with organization filter and verification status
     const queryParams: DeviceQueryParams = {
       page: 1,
       pageSize: 50, // Get more devices by default
@@ -178,7 +260,7 @@ export const getDevicesData = createServerFn({
       verificationStatus: data?.verificationStatus
     }
 
-    const devicesResponse = await getDevicesForTenant(tenantId, queryParams)
+    const devicesResponse = await getDevicesForTenant(organizationId, queryParams)
 
     logger.info('Successfully fetched devices from database', {
       deviceCount: devicesResponse.items.length,
@@ -231,9 +313,9 @@ export const getDeviceDetailData = createServerFn({
   try {
     logger.info('Fetching device detail', { deviceId })
 
-    // Get session for tenant context
-    const tenantId = await getCurrentTenant()
-    const deviceDetail = await getDeviceById(deviceId, tenantId)
+    // Get session for organization context
+    const organizationId = await getCurrentOrganizationId()
+    const deviceDetail = await getDeviceById(deviceId, organizationId)
 
     if (!deviceDetail) {
       throw new Error('Device not found')
@@ -337,16 +419,16 @@ export const deleteDevice = createServerFn({
   const { deviceId } = data;
 
   try {
-    // Get session for tenant context
-    const tenantId = await getCurrentTenant()
-    logger.info('Deleting device', { deviceId, tenantId });
+    // Get session for organization context
+    const organizationId = await getCurrentOrganizationId()
+    logger.info('Deleting device', { deviceId, organizationId });
 
-    // First check if device exists for this tenant
+    // First check if device exists for this organization
     try {
-      const existingDevice = await getDeviceById(deviceId, tenantId);
+      const existingDevice = await getDeviceById(deviceId, organizationId);
       logger.info('Device lookup result', {
         deviceId,
-        tenantId,
+        organizationId,
         found: !!existingDevice,
         deviceName: existingDevice?.name
       });
@@ -357,16 +439,16 @@ export const deleteDevice = createServerFn({
     } catch (lookupError) {
       logger.error('Device lookup failed', {
         deviceId,
-        tenantId,
+        organizationId,
         lookupError: formatServerError(lookupError)
       });
       throw new Error('Device not found or access denied');
     }
 
-    const deleted = await deleteDeviceDB(deviceId, tenantId);
+    const deleted = await deleteDeviceDB(deviceId, organizationId);
 
     if (!deleted) {
-      logger.error('Delete operation returned false', { deviceId, tenantId });
+      logger.error('Delete operation returned false', { deviceId, organizationId });
       throw new Error('Device not found or access denied');
     }
 
@@ -403,14 +485,14 @@ export const getDiscoveryDevices = createServerFn({
   .handler(async ({ data }) => {
     try {
       // Use provided organizationId during onboarding, otherwise get from session
-      const tenantId = data.organizationId || await getCurrentTenant();
+      const organizationId = data.organizationId || await getCurrentOrganizationId();
 
       logger.info('Fetching discovery devices', {
-        tenantId,
+        organizationId,
         source: data.organizationId ? 'onboarding' : 'session'
       });
 
-      const devicesResponse = await getDevicesForTenant(tenantId, {
+      const devicesResponse = await getDevicesForTenant(organizationId, {
         page: 1,
         pageSize: 100,
         sortColumn: 'discoveredAt',
@@ -420,13 +502,13 @@ export const getDiscoveryDevices = createServerFn({
       // Filter out ONBOARDING devices (the project placeholder)
       // Include DISCOVERY devices and any EXTERNAL scope devices
       const discoveryDevices = devicesResponse.items.filter(
-        (device) => device.source !== 'ONBOARDING'
+        (device: typeof devicesResponse.items[number]) => device.source !== 'ONBOARDING'
       );
 
       logger.info('Filtered discovery devices', {
         beforeFilter: devicesResponse.items.length,
         afterFilter: discoveryDevices.length,
-        allDevices: devicesResponse.items.map(d => ({
+        allDevices: devicesResponse.items.map((d: typeof devicesResponse.items[number]) => ({
           source: d.source,
           scope: d.scope,
           name: d.name
@@ -434,14 +516,14 @@ export const getDiscoveryDevices = createServerFn({
       });
 
       logger.info('Discovery devices fetched', {
-        tenantId,
+        organizationId,
         totalDevices: devicesResponse.items.length,
         discoveryDevicesCount: discoveryDevices.length
       });
 
       return {
         success: true,
-        devices: discoveryDevices.map(d => ({
+        devices: discoveryDevices.map((d: typeof discoveryDevices[number]) => ({
           id: d.id,
           name: d.name,
           ip: d.ip || null,
@@ -471,6 +553,7 @@ export const createDevicesFromDiscovery = createServerFn({
   .inputValidator((data: {
     targets: Array<{host: string, ip?: string}>,
     organizationId?: string,
+    projectId?: string,
     options?: {
       source?: string;
       scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
@@ -481,6 +564,7 @@ export const createDevicesFromDiscovery = createServerFn({
       data,
       targetsLength: data?.targets?.length,
       dataType: typeof data,
+      projectId: data?.projectId,
       options: data?.options
     });
 
@@ -500,6 +584,7 @@ export const createDevicesFromDiscovery = createServerFn({
     logger.info('Input validation passed', {
       targetCount: data.targets.length,
       targets: data.targets.map(t => ({ host: t.host, hasIp: !!t.ip })),
+      projectId: data.projectId,
       options: data.options
     });
 
@@ -509,15 +594,17 @@ export const createDevicesFromDiscovery = createServerFn({
     try {
       logger.info('Starting createDevicesFromDiscovery handler', {
         targetCount: data.targets.length,
+        projectId: data.projectId,
         options: data.options,
         hasOrganizationId: !!data.organizationId
       });
 
       // Use provided organizationId during onboarding, otherwise get from session
-      const tenantId = data.organizationId || await getCurrentTenant();
+      const organizationId = data.organizationId || await getCurrentOrganizationId();
 
       logger.info('Creating devices from discovery', {
-        tenantId,
+        organizationId,
+        projectId: data.projectId,
         targetCount: data.targets.length,
         targets: data.targets,
         options: data.options,
@@ -526,12 +613,15 @@ export const createDevicesFromDiscovery = createServerFn({
 
       const createdDevices = await createMultipleDevicesFromDiscovery(
         data.targets,
-        tenantId,
-        data.options
+        organizationId,
+        {
+          ...data.options,
+          projectId: data.projectId,
+        }
       );
 
       logger.info('Successfully created devices from discovery', {
-        tenantId,
+        organizationId,
         createdCount: createdDevices.length,
         deviceIds: createdDevices.map(d => d.id)
       });
@@ -572,19 +662,23 @@ export const updateDeviceData = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      const tenantId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
 
       logger.info('Updating device', {
         deviceId: data.deviceId,
-        tenantId,
+        organizationId,
         updateFields: Object.keys(data.updates)
       });
 
       const updatedDevice = await updateDevice(
         data.deviceId,
         data.updates,
-        tenantId
+        organizationId
       );
+
+      if (!updatedDevice) {
+        throw new Error('Device not found or update failed');
+      }
 
       logger.info('Device updated successfully', {
         deviceId: updatedDevice.id,
@@ -616,13 +710,13 @@ export const getDeviceTagSuggestionsData = createServerFn({
   .inputValidator(() => ({}))
   .handler(async () => {
     try {
-      const tenantId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
 
       logger.info('Fetching device tag suggestions', {
-        tenantId
+        organizationId
       });
 
-      const tagSuggestions = await getDeviceTagSuggestions(tenantId);
+      const tagSuggestions = await getDeviceTagSuggestions(organizationId);
 
       logger.info('Tag suggestions fetched successfully', {
         tagCount: tagSuggestions.length
@@ -646,9 +740,7 @@ export const getDeviceTagSuggestionsData = createServerFn({
 // Verification schema
 const VerifyDeviceSchema = z.object({
   deviceId: z.string().min(1, 'Device ID is required'),
-  status: z.enum(['VERIFIED', 'EXCLUDED', 'CANDIDATE'], {
-    errorMap: () => ({ message: 'Status must be VERIFIED, EXCLUDED, or CANDIDATE' })
-  }),
+  status: z.enum(['VERIFIED', 'EXCLUDED', 'CANDIDATE']),
   note: z.string().max(500).optional(),
 })
 
@@ -659,18 +751,18 @@ export const verifyDevice = createServerFn({
   .inputValidator(VerifyDeviceSchema.parse)
   .handler(async ({ data }) => {
     try {
-      const tenantId = await getCurrentTenant()
+      const organizationId = await getCurrentOrganizationId()
       const currentUser = await getCurrentUser()
 
       logger.info('Verifying device', {
         deviceId: data.deviceId,
         status: data.status,
         userId: currentUser.id,
-        tenantId
+        organizationId
       })
 
       // Get current device state for logging
-      const currentDevice = await getDeviceById(data.deviceId, tenantId)
+      const currentDevice = await getDeviceById(data.deviceId, organizationId)
       if (!currentDevice) {
         throw new Error('Device not found')
       }
@@ -684,7 +776,7 @@ export const verifyDevice = createServerFn({
           verifiedBy: currentUser.id,
           verificationNote: data.note || null,
         },
-        tenantId
+        organizationId
       )
 
       // Log verification change event
@@ -697,7 +789,7 @@ export const verifyDevice = createServerFn({
         verifiedBy: currentUser.id,
         verifiedByEmail: currentUser.email,
         note: data.note,
-        tenantId
+        organizationId
       })
 
       return {
@@ -714,7 +806,7 @@ export const verifyDevice = createServerFn({
         deviceId: data.deviceId
       })
 
-      throw new Error(formatServerError(error, 'Failed to update device verification status'))
+      throw new Error('Failed to update device verification status')
     }
   })
 
@@ -730,10 +822,10 @@ export const getDeviceScanHistoryData = createServerFn({ method: 'POST' })
   .inputValidator(GetDeviceScanHistorySchema.parse)
   .handler(async ({ data }) => {
     const { target, limit } = data;
-    const tenantId = await getCurrentTenant();
+    const organizationId = await getCurrentOrganizationId();
 
     try {
-      const history = await getDeviceScanHistory(tenantId, target, limit);
+      const history = await getDeviceScanHistory(organizationId, target, limit);
       return { success: true, history };
     } catch (error) {
       logger.error('Failed to fetch device scan history', {
@@ -760,7 +852,7 @@ export const toggleDeviceVerification = createServerFn({
   .inputValidator(ToggleDeviceVerificationSchema.parse)
   .handler(async ({ data }) => {
     try {
-      const tenantId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
       const currentUser = await getCurrentUser();
 
       logger.info('Toggling device verification', {
@@ -768,78 +860,60 @@ export const toggleDeviceVerification = createServerFn({
         verify: data.verify,
         interval: data.interval,
         userId: currentUser.id,
-        tenantId
+        organizationId
       });
 
       // Get device details
-      const device = await getDeviceById(data.deviceId, tenantId);
+      const device = await getDeviceById(data.deviceId, organizationId);
       if (!device) {
         throw new Error('Device not found');
       }
 
       if (data.verify) {
-        // VERIFY: Create schedule and update device status
-        const scheduleId = `scan-device-${device.id}`;
+        // VERIFY: Update device status
+        // TODO: Implement scheduled scanning with Restate (sec-xx)
+        // const scheduleId = `scan-device-${device.id}`;
 
         // 1. Verify device in DB
-        await verifyDeviceDB(data.deviceId, tenantId, currentUser.id, data.note);
+        await verifyDeviceDB(data.deviceId, organizationId, currentUser.id, data.note);
 
-        // 2. Create Temporal schedule (comprehensive extended scan)
-        const { scanScheduleManager } = await import('./workflows/scan-schedule-manager');
-        await scanScheduleManager.createSchedule({
-          scheduleId,
-          target: device.ip || device.name,
-          interval: data.interval,
-          tenantId,
-          deviceId: device.id,
-        });
+        // 2. TODO: Create Restate schedule for recurring scans
+        // For now, just verify the device without scheduling
+        // This can be implemented later using Restate's durable timers or cron
 
-        // 3. Store schedule reference in DB
-        await createScanScheduleDB({
-          scheduleId,
+        logger.info('Device verified (scheduling not yet implemented)', {
           deviceId: device.id,
-          tenantId,
-          interval: data.interval,
-        });
-
-        logger.info('Device verified and scheduled for monitoring', {
-          deviceId: device.id,
-          scheduleId,
           interval: data.interval
         });
 
         return {
           success: true,
           verified: true,
-          scheduleId,
-          message: `Device verified and scheduled for monitoring every ${data.interval}`
+          message: `Device verified successfully`
         };
       } else {
         // UNVERIFY: Delete schedule and update device status
-        const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, tenantId);
+        const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
 
         if (existingSchedule) {
-          // 1. Delete Temporal schedule
-          const { scanScheduleManager } = await import('./workflows/scan-schedule-manager');
-          await scanScheduleManager.deleteSchedule(existingSchedule.scheduleId);
-
-          logger.info('Temporal schedule deleted', {
+          // TODO: Delete Restate schedule when implemented
+          logger.info('Schedule exists but scheduling not implemented yet', {
             deviceId: device.id,
             scheduleId: existingSchedule.scheduleId
           });
         }
 
-        // 2. Unverify device (also deletes schedule record in DB)
-        await unverifyDeviceDB(data.deviceId, tenantId);
+        // Unverify device (also deletes schedule record in DB)
+        await unverifyDeviceDB(data.deviceId, organizationId);
 
-        logger.info('Device unverified and monitoring stopped', {
+        logger.info('Device unverified', {
           deviceId: device.id
         });
 
         return {
           success: true,
           verified: false,
-          message: 'Device unverified and monitoring stopped'
+          message: 'Device unverified successfully'
         };
       }
     } catch (error) {
@@ -853,6 +927,84 @@ export const toggleDeviceVerification = createServerFn({
         verify: data.verify
       });
 
-      throw new Error(formatServerError(error, 'Failed to toggle device verification'));
+      throw new Error('Failed to toggle device verification');
+    }
+  })
+
+/**
+ * Secure device scanning with server-side configuration
+ *
+ * Security: All scan parameters are defined server-side using presets.
+ * Clients can only choose which preset to use, preventing abuse of:
+ * - Excessive timeouts
+ * - Aggressive scanning
+ * - Arbitrary port ranges
+ * - Resource exhaustion
+ */
+
+import { buildScanInputFromPreset, type ScanPresetType, getScanPresetDescription } from './devices/scan-presets';
+import { startPortScanWorkflow } from './discovery';
+
+const StartDeviceScanSchema = z.object({
+  deviceId: z.string().min(1, 'Device ID is required'),
+  target: z.string().min(1, 'Target is required'),
+  preset: z.enum(['QUICK', 'STANDARD', 'THOROUGH']),
+});
+
+export const startDeviceScan = createServerFn({
+  method: 'POST',
+})
+  .inputValidator(StartDeviceScanSchema.parse)
+  .handler(async ({ data }) => {
+    try {
+      const organizationId = await getCurrentOrganizationId();
+      const user = await getCurrentUser();
+
+      logger.info('Starting device scan with preset', {
+        deviceId: data.deviceId,
+        target: data.target,
+        preset: data.preset,
+        organizationId,
+        userId: user.id,
+      });
+
+      // Build scan input from server-side preset
+      // Client cannot manipulate timeout, port ranges, or scan profiles
+      const scanInput = buildScanInputFromPreset(
+        data.preset as ScanPresetType,
+        data.target,
+        data.deviceId
+      );
+
+      // Execute scan using existing workflow
+      const result = await startPortScanWorkflow({ data: scanInput });
+
+      if (result.success) {
+        logger.info('Device scan started successfully', {
+          deviceId: data.deviceId,
+          target: data.target,
+          preset: data.preset,
+          workflowId: result.workflowId,
+        });
+      }
+
+      return {
+        ...result,
+        preset: data.preset,
+        presetDescription: getScanPresetDescription(data.preset as ScanPresetType),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to start device scan', {
+        error: errorMessage,
+        deviceId: data.deviceId,
+        target: data.target,
+        preset: data.preset,
+      });
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   })

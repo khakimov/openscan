@@ -17,12 +17,14 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { shouldIgnoreKeypress } from "@/utils/should-ignore-keypress";
 import { timeWindows } from "@repo/constants";
-import type { IChartRange } from "@repo/constants";
 import { endOfDay, format, startOfDay } from "date-fns";
 
+type TimeWindowKey = keyof typeof timeWindows;
+type TimeWindowConfig = (typeof timeWindows)[TimeWindowKey];
+
 type Props = {
-  value: IChartRange;
-  onChange: (value: IChartRange) => void;
+  value: TimeWindowKey;
+  onChange: (value: TimeWindowKey) => void;
   onStartDateChange: (date: string) => void;
   onEndDateChange: (date: string) => void;
   endDate: string | null;
@@ -42,19 +44,27 @@ export function TimeWindowPicker({
   useOnPushModal("DateRangerPicker", (open) => {
     isDateRangerPickerOpen.current = open;
   });
-  const timeWindow = timeWindows[value ?? "30d"];
+  const timeWindow = timeWindows[value];
 
   const handleCustom = useCallback(() => {
     pushModal("DateRangerPicker", {
-      onChange: ({ startDate, endDate }) => {
-        onStartDateChange(format(startOfDay(startDate), "yyyy-MM-dd HH:mm:ss"));
-        onEndDateChange(format(endOfDay(endDate), "yyyy-MM-dd HH:mm:ss"));
+      onChange: ({
+        startDate: newStartDate,
+        endDate: newEndDate,
+      }: {
+        startDate: Date;
+        endDate: Date;
+      }) => {
+        onStartDateChange(
+          format(startOfDay(newStartDate), "yyyy-MM-dd HH:mm:ss"),
+        );
+        onEndDateChange(format(endOfDay(newEndDate), "yyyy-MM-dd HH:mm:ss"));
         onChange("custom");
       },
       startDate: startDate ? new Date(startDate) : undefined,
       endDate: endDate ? new Date(endDate) : undefined,
     });
-  }, [startDate, endDate]);
+  }, [endDate, onChange, onEndDateChange, onStartDateChange, startDate]);
 
   useEffect(() => {
     return bind(document, {
@@ -68,9 +78,9 @@ export function TimeWindowPicker({
           return;
         }
 
-        const match = Object.values(timeWindows).find(
-          (tw) => event.key === tw.shortcut.toLowerCase(),
-        );
+        const match = (
+          Object.values(timeWindows) as TimeWindowConfig[]
+        ).find((tw) => event.key === tw.shortcut.toLowerCase());
         if (match?.key === "custom") {
           handleCustom();
         } else if (match) {
@@ -78,17 +88,14 @@ export function TimeWindowPicker({
         }
       },
     });
-  }, [handleCustom]);
+  }, [handleCustom, onChange]);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
-          variant="outline"
-          icon={CalendarIcon}
-          className={cn("justify-start", className)}
-        >
-          {timeWindow?.label}
+        <Button variant="outline" className={cn("justify-start", className)}>
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          {timeWindow?.label ?? "Select"}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56">
@@ -192,7 +199,7 @@ export function TimeWindowPicker({
         <DropdownMenuSeparator />
 
         <DropdownMenuGroup>
-          <DropdownMenuItem onClick={() => handleCustom()}>
+          <DropdownMenuItem onClick={handleCustom}>
             {timeWindows.custom.label}
             <DropdownMenuShortcut>
               {timeWindows.custom.shortcut}

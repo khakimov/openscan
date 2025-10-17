@@ -18,12 +18,12 @@ interface ModalContentProps extends DialogContentProps {
 export function ModalContent({ children, title, description, hideCloseButton, className, ...props }: ModalContentProps) {
   return (
     <DialogContent className={cn(hideCloseButton && "[&>button]:hidden", className)} {...props}>
-      <DialogTitle asChild>
-        <VisuallyHidden.Root>{title || 'Modal'}</VisuallyHidden.Root>
-      </DialogTitle>
-      <DialogDescription asChild>
-        <VisuallyHidden.Root>{description || 'Modal dialog'}</VisuallyHidden.Root>
-      </DialogDescription>
+      <VisuallyHidden.Root>
+        <DialogTitle>{title || 'Modal'}</DialogTitle>
+      </VisuallyHidden.Root>
+      <VisuallyHidden.Root>
+        <DialogDescription>{description || 'Modal dialog'}</DialogDescription>
+      </VisuallyHidden.Root>
       {children}
     </DialogContent>
   );

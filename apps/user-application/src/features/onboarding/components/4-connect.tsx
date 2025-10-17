@@ -1,17 +1,22 @@
-import { Link } from "@tanstack/react-router";
-import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { LockIcon, CopyIcon } from "lucide-react";
-import { useState } from "react";
-import { toast } from "sonner";
-
 interface OnboardingConnectProps {
   projectId: string;
 }
 
-export function OnboardingConnect({ projectId }: OnboardingConnectProps) {
+export function OnboardingConnect(_props: OnboardingConnectProps) {
+  // COMMENTED OUT - Step 4 (Connect) temporarily disabled
+  // This step will be implemented later when we're ready to set up scanner agents
+  return null;
+
+  /* DISABLED - Scanner agent setup
+  import { Link } from "@tanstack/react-router";
+  import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
+  import { Button } from "@/components/ui/button";
+  import { Input } from "@/components/ui/input";
+  import { Label } from "@/components/ui/label";
+  import { LockIcon, CopyIcon } from "lucide-react";
+  import { useState } from "react";
+  import { toast } from "sonner";
+
   const [clientId] = useState("client_" + Math.random().toString(36).slice(2, 11));
   const [clientSecret] = useState("secret_" + Math.random().toString(36).slice(2, 20));
 
@@ -79,7 +84,6 @@ export function OnboardingConnect({ projectId }: OnboardingConnectProps) {
         </div>
       </div>
 
-      {/* Instructions placeholder */}
       <div className="rounded-xl border p-4 md:p-6">
         <h3 className="text-xl font-medium mb-4">Installation Instructions</h3>
         <div className="space-y-4 text-sm text-muted-foreground">
@@ -111,4 +115,5 @@ export function OnboardingConnect({ projectId }: OnboardingConnectProps) {
       </div>
     </OnboardingContentLayout>
   );
+  */
 }

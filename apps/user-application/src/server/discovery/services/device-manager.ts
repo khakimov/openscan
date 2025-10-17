@@ -13,7 +13,7 @@ export class DeviceManager {
     await addDeviceToScanRun({
       scanRunId: params.scanRunId,
       deviceId: params.deviceId,
-      tenantId: params.tenantId,
+      organizationId: params.tenantId,
       role: 'TARGET',
       metadata: { target: params.target },
     });

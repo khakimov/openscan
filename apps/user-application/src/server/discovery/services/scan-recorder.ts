@@ -9,20 +9,24 @@ import { createLogger } from '@repo/logger';
 
 import type { ScanScope } from '../utils/scan-scope';
 
-type WorkflowStatus = 'RUNNING' | 'CANCELED' | 'COMPLETED' | 'FAILED';
+type WorkflowStatus = 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'CANCELED' | 'TIMEOUT';
 
 const logger = createLogger({ name: 'discovery-scan-recorder' });
 
 export class ScanRecorder {
   async createWorkflow(params: {
     tenantId: string;
-    temporalWorkflowId: string;
-    kind: 'DISCOVERY' | string;
+    workflowId: string;
+    kind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
   }) {
-    const workflow = await createScanWorkflow(params);
+    const workflow = await createScanWorkflow({
+      organizationId: params.tenantId,
+      workflowId: params.workflowId,
+      kind: params.kind,
+    });
     logger.info('Created scan workflow record', {
       workflowId: workflow.id,
-      temporalWorkflowId: params.temporalWorkflowId,
+      restateWorkflowId: params.workflowId,
       tenantId: params.tenantId,
     });
     return workflow;
@@ -31,13 +35,20 @@ export class ScanRecorder {
   async createRun(params: {
     workflowId: string;
     tenantId: string;
-    scanType: string;
+    scanType: 'DISCOVERY' | 'PORT' | 'WEB' | 'ADVANCED';
     scope: ScanScope;
     requestedById: string;
     target: string;
     targets: string[];
   }) {
-    const run = await createScanRun(params);
+    const run = await createScanRun({
+      workflowId: params.workflowId,
+      organizationId: params.tenantId,
+      scanType: params.scanType,
+      scope: params.scope,
+      requestedById: params.requestedById,
+      target: params.target,
+    });
     logger.info('Created scan run record', {
       scanRunId: run.id,
       workflowId: params.workflowId,
@@ -51,12 +62,11 @@ export class ScanRecorder {
     logger.info('Marked scan run as running', { scanRunId });
   }
 
-  async updateWorkflowStatus(workflowId: string, status: WorkflowStatus, runId?: string) {
-    await updateScanWorkflowStatus(workflowId, status, runId);
+  async updateWorkflowStatus(workflowId: string, status: WorkflowStatus) {
+    await updateScanWorkflowStatus(workflowId, status);
     logger.info('Updated scan workflow status', {
       workflowId,
       status,
-      runId,
     });
   }
 

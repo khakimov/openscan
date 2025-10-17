@@ -12,6 +12,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
 import { NotFound } from "@/components/not-found";
 import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
+import { ModalProvider } from "@/modals";
 import appCss from "@/styles.css?url";
 import { seo } from "@/utils/seo";
 
@@ -36,9 +37,9 @@ export const Route = createRootRouteWithContext<{
         content: "width=device-width, initial-scale=1",
       },
       ...seo({
-        title:
-          "TanStack Start | Type-Safe, Client-First, Full-Stack React Framework",
-        description: `TanStack Start is a type-safe, client-first, full-stack React framework. `,
+        title: "sec.🤘 | Continuous Attack Surface Monitoring",
+        description:
+          "Proactive security for teams of any size. Discover vulnerabilities, monitor your attack surface, and prevent breaches.",
       }),
     ],
     links: [
@@ -60,7 +61,7 @@ export const Route = createRootRouteWithContext<{
         sizes: "16x16",
         href: "/favicon-16x16.png",
       },
-      { rel: "manifest", href: "/site.webmanifest", color: "#fffff" },
+      { rel: "manifest", href: "/site.webmanifest", color: "#ffffff" },
       { rel: "icon", href: "/favicon.ico" },
     ],
   }),
@@ -90,7 +91,9 @@ function RootComponent() {
 function ThemeShell({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider {...themeConfig}>
-      <RootDocument>{children}</RootDocument>
+      <ModalProvider>
+        <RootDocument>{children}</RootDocument>
+      </ModalProvider>
     </ThemeProvider>
   );
 }
@@ -110,7 +113,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         />
         <HeadContent />
       </head>
-      <body>
+      <body className="font-[family-name:var(--font-family-regular)]" suppressHydrationWarning>
         {children}
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />

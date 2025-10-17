@@ -7,7 +7,7 @@ export const Route = createFileRoute("/onboarding/$projectId/connect")({
     const status = await getOnboardingStatus();
 
     if (status.step < 2) {
-      throw redirect({ to: "/onboarding/" });
+      throw redirect({ to: "/onboarding" });
     }
 
     const fallbackProjectId = status.projectId ?? params.projectId ?? null;

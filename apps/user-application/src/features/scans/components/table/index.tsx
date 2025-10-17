@@ -1,21 +1,16 @@
 import { TableSkeleton } from "@/components/ui/table";
 import { FullPageEmptyState } from "@/components/shared/full-page-empty-state";
 import { GanttChartIcon, Loader2Icon } from "lucide-react";
-import { cn } from "@/utils/cn";
 import { useScansTableQuery } from "@/hooks/useScansTableQuery";
 
 import { ScansDataTable } from "./scans-data-table";
 import { useColumns } from "./columns";
 
-export interface Props {
-  query?: string;
-}
-
 // Enhanced types based on our actual orchestration data
 type ScanArtifact = {
   id: string;
   runId: string;
-  tenantId: string;
+  organizationId: string;
   artifactType: string;
   data: {
     // Port scan results
@@ -125,7 +120,7 @@ type ScanArtifact = {
 export type Scan = {
   id: string;
   workflowId: string;
-  tenantId: string;
+  organizationId: string;
   scope: "INTERNAL" | "EXTERNAL" | "HYBRID";
   scanType: "DISCOVERY" | "PORT" | "WEB" | "ADVANCED";
   target?: string | null; // Primary target being scanned
@@ -146,16 +141,25 @@ export type Scan = {
   scanCount?: number;
 };
 
-export const ScansTable = ({ query, ...props }: Props) => {
+type ScansResponse = {
+  success: boolean;
+  data: Scan[];
+  error?: string;
+};
+
+interface ScansTableProps {
+  initialData?: ScansResponse;
+}
+
+export const ScansTable = ({ initialData }: ScansTableProps) => {
   const columns = useColumns();
 
   const {
     data: response,
     isLoading,
     error,
-    isFetching,
     isRefetching,
-  } = useScansTableQuery();
+  } = useScansTableQuery(initialData) as { data: ScansResponse | undefined; isLoading: boolean; error: unknown; isRefetching: boolean };
 
   const hasServerData =
     response?.success &&

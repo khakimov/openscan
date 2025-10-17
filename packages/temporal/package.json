@@ -24,6 +24,10 @@
     "./contracts": {
       "import": "./src/contracts/index.ts",
       "types": "./src/contracts/index.ts"
+    },
+    "./contracts/common": {
+      "import": "./src/contracts/common.ts",
+      "types": "./src/contracts/common.ts"
     }
   },
   "dependencies": {

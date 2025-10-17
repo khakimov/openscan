@@ -23,6 +23,7 @@ import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
 import { Route as OnboardingProjectIdVerifyRouteImport } from './routes/onboarding/$projectId/verify'
 import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding/$projectId/discovery'
 import { Route as OnboardingProjectIdConnectRouteImport } from './routes/onboarding/$projectId/connect'
+import { Route as ApiInternalScanResultsRouteImport } from './routes/api/internal/scan-results'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as StaticDocsNameRouteImport } from './routes/_static/docs/$name'
 import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
@@ -100,6 +101,11 @@ const OnboardingProjectIdConnectRoute =
     path: '/$projectId/connect',
     getParentRoute: () => OnboardingRouteRoute,
   } as any)
+const ApiInternalScanResultsRoute = ApiInternalScanResultsRouteImport.update({
+  id: '/api/internal/scan-results',
+  path: '/api/internal/scan-results',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   id: '/api/auth/$',
   path: '/api/auth/$',
@@ -138,6 +144,7 @@ export interface FileRoutesByFullPath {
   '/onboarding/': typeof OnboardingIndexRoute
   '/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
   '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
@@ -156,6 +163,7 @@ export interface FileRoutesByTo {
   '/onboarding': typeof OnboardingIndexRoute
   '/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
   '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/onboarding/': typeof OnboardingIndexRoute
   '/_static/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
   '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/docs/$name'
     | '/api/auth/$'
+    | '/api/internal/scan-results'
     | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
     | '/onboarding/$projectId/verify'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/docs/$name'
     | '/api/auth/$'
+    | '/api/internal/scan-results'
     | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
     | '/onboarding/$projectId/verify'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/onboarding/'
     | '/_static/docs/$name'
     | '/api/auth/$'
+    | '/api/internal/scan-results'
     | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
     | '/onboarding/$projectId/verify'
@@ -254,6 +266,7 @@ export interface RootRouteChildren {
   StaticRouteRoute: typeof StaticRouteRouteWithChildren
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -355,6 +368,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/onboarding/$projectId/connect'
       preLoaderRoute: typeof OnboardingProjectIdConnectRouteImport
       parentRoute: typeof OnboardingRouteRoute
+    }
+    '/api/internal/scan-results': {
+      id: '/api/internal/scan-results'
+      path: '/api/internal/scan-results'
+      fullPath: '/api/internal/scan-results'
+      preLoaderRoute: typeof ApiInternalScanResultsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
       id: '/api/auth/$'
@@ -458,6 +478,7 @@ const rootRouteChildren: RootRouteChildren = {
   StaticRouteRoute: StaticRouteRouteWithChildren,
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -1,28 +1,25 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { NavigationBar } from "@/components/navigation";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { HeroSection } from "@/components/landing/hero-section";
-import { FeaturesSection } from "@/components/landing/features-section";
-import { ClaudeCodeSection } from "@/components/landing/claude-code-section";
-import { CoursePromoSection } from "@/components/landing/course-promo-section";
-import { Footer } from "@/components/landing/footer";
-import { MiddlewareDemo } from "@/components/demo";
+import { getCurrentUser } from "@/server/auth";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const user = await getCurrentUser();
+    if (user) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: LandingPage,
 });
 
 function LandingPage() {
   return (
     <div className="min-h-screen bg-background">
-      <NavigationBar />
+      {/*<NavigationBar />*/}
       <main>
         <HeroSection />
-        <ClaudeCodeSection />
-        <FeaturesSection />
-        <MiddlewareDemo />
-        <CoursePromoSection />
       </main>
-      <Footer />
+      {/*<Footer />*/}
     </div>
   );
 }

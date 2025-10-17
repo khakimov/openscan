@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import type React from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
@@ -21,32 +22,20 @@ function formatDate(value?: Date | string | null) {
   return format(date, "MMM d, yyyy HH:mm");
 }
 
-function formatDuration(elapsed?: number) {
-  if (!elapsed) return "—";
-
-  if (elapsed < 60) {
-    return `${elapsed.toFixed(1)}s`;
-  }
-
-  const minutes = Math.floor(elapsed / 60);
-  const seconds = elapsed % 60;
-
-  if (minutes < 60) {
-    return `${minutes}m ${seconds.toFixed(0)}s`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  return `${hours}h ${remainingMinutes}m`;
-}
-
 function getPortScanArtifact(scan: Scan) {
   return scan.artifacts?.find(
     (artifact) => artifact.artifactType === "port_scan",
   )?.data;
 }
 
-function getStatusDisplay(scan: Scan) {
+type BadgeVariant = "default" | "destructive" | "outline" | "secondary";
+
+function getStatusDisplay(scan: Scan): {
+  label: string;
+  variant: BadgeVariant;
+  icon: React.ReactNode;
+  description: string;
+} {
   switch (scan.status) {
     case "PENDING":
       return {
@@ -62,7 +51,7 @@ function getStatusDisplay(scan: Scan) {
         : 0;
       return {
         label: "Running",
-        variant: "blue" as const,
+        variant: "default" as const,
         icon: <LoaderIcon className="w-3 h-3 animate-spin" />,
         description: elapsed > 0 ? `${elapsed}s elapsed` : "Starting...",
       };
@@ -78,7 +67,7 @@ function getStatusDisplay(scan: Scan) {
           : null;
       return {
         label: "Complete",
-        variant: "green" as const,
+        variant: "secondary" as const,
         icon: <CheckIcon className="w-3 h-3" />,
         description: duration ? `${duration}s` : "Completed",
       };
@@ -103,7 +92,7 @@ function getStatusDisplay(scan: Scan) {
     case "TIMEOUT":
       return {
         label: "Timeout",
-        variant: "red" as const,
+        variant: "destructive" as const,
         icon: <ClockIcon className="w-3 h-3" />,
         description: "Scan timed out",
       };

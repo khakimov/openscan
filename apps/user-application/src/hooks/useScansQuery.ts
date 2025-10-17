@@ -1,6 +1,6 @@
 import { useQuery, useSuspenseQuery, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
-import { getScanSurfaceEntriesData } from '@/server/scan-surface';
+import { getScans } from '@/server/scans';
 
 export const SCANS_QUERY_KEY = ['scans'];
 
@@ -8,9 +8,7 @@ export function useScansQuery() {
   return useQuery({
     queryKey: SCANS_QUERY_KEY,
     queryFn: async () => {
-      const response = await getScanSurfaceEntriesData({
-        data: { page: 1 }
-      });
+      const response = await getScans();
       return response;
     },
     refetchOnWindowFocus: false,
@@ -22,9 +20,7 @@ export function useScansSuspenseQuery() {
   return useSuspenseQuery({
     queryKey: SCANS_QUERY_KEY,
     queryFn: async () => {
-      const response = await getScanSurfaceEntriesData({
-        data: { page: 1 }
-      });
+      const response = await getScans();
       return response;
     },
     refetchOnWindowFocus: false,

@@ -7,11 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import type { HtmlProps } from "@/types";
+import type { HTMLAttributes, ReactNode } from "react";
 import { cn } from "@/utils/cn";
 import { MoreHorizontal } from "lucide-react";
 
-type CardProps = HtmlProps<HTMLDivElement> & {
+type CardProps = HTMLAttributes<HTMLDivElement> & {
   hover?: boolean;
 };
 
@@ -30,7 +30,7 @@ export function Card({ children, hover, className }: CardProps) {
 }
 
 interface CardActionsProps {
-  children: React.ReactNode;
+  children: ReactNode;
 }
 export function CardActions({ children }: CardActionsProps) {
   return (

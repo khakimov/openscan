@@ -1,28 +1,29 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Suspense } from "react";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
-import { Button } from "@/components/ui/button";
-import { PlusIcon, SearchIcon, FilterIcon } from "lucide-react";
-import { pushModal } from "@/modals";
-import { TableButtons } from "@/components/shared/data-table";
 import { ScansTable } from "@/features/scans";
+import { getScans } from "@/server/scans";
+import { fallback, zodValidator } from "@tanstack/zod-adapter";
+import { z } from "zod";
+
+// Search params schema with proper validation
+const scansSearchSchema = z.object({
+  tab: fallback(z.enum(["all"]), "all").default("all"),
+});
 
 export const Route = createFileRoute("/_auth/scans")({
-  validateSearch: (search: Record<string, unknown>) => {
-    return {
-      tab: (search.tab as string) || "all",
-    };
+  validateSearch: zodValidator(scansSearchSchema),
+  loader: async () => {
+    // Fetch scans server-side for initial render
+    const scansResponse = await getScans();
+    return { scansResponse };
   },
   component: Scans,
 });
 
 function Scans() {
   const { tab } = Route.useSearch();
-
-  const handleStartDiscovery = () => {
-    pushModal("AddDiscovery");
-  };
+  const { scansResponse } = Route.useLoaderData();
 
   return (
     <Padding>
@@ -33,11 +34,10 @@ function Scans() {
           </PageTabsLink>
         </PageTabs>
       </div>
-      <TableButtons></TableButtons>
 
       <div className="grid grid-cols-6 gap-4  pt-0">
         <div className="col-span-6">
-          <ScansTable />
+          <ScansTable initialData={scansResponse as any} />
         </div>
       </div>
     </Padding>

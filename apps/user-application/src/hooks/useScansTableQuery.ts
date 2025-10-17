@@ -9,10 +9,17 @@ type Scan = {
   [key: string]: any;
 };
 
-export function useScansTableQuery() {
+type ScansResponse = {
+  success: boolean;
+  data: Scan[];
+  error?: string;
+};
+
+export function useScansTableQuery(initialData?: ScansResponse) {
   return useQuery({
     queryKey: SCANS_TABLE_QUERY_KEY,
     queryFn: () => getScans(),
+    initialData, // Use SSR data for initial render
     refetchInterval: (query) => {
       const data = query.state.data;
       // Only poll if there are active scans (PENDING or RUNNING)
@@ -24,10 +31,11 @@ export function useScansTableQuery() {
         (scan: Scan) => scan.status === "PENDING" || scan.status === "RUNNING"
       );
 
-      return hasActiveScans ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3 : false; // Poll every 3 seconds only if needed
+      // Poll every 30 seconds (postback notifies server immediately, this is just UI sync)
+      return hasActiveScans ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_30 : false;
     },
     refetchIntervalInBackground: false, // Only poll when tab is active
-    keepPreviousData: true, // Prevent jank by keeping old data during refetch
+    placeholderData: (previousData) => previousData, // Prevent jank by keeping old data during refetch
     ...QUERY_CONFIG.DEFAULTS.DYNAMIC_DATA,
   });
 }

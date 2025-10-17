@@ -1,5 +1,5 @@
-import { createBetterAuth } from "@/auth/setup";
-import { getDb } from "@/database/setup";
+import { createBetterAuth } from "./setup";
+import { getDb } from "../database/setup";
 import {
   auth_account,
   auth_session,
@@ -8,7 +8,7 @@ import {
   organization,
   member,
   invitation,
-} from "@/drizzle/auth-schema";
+} from "../drizzle/auth-schema";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 
 let betterAuth: ReturnType<typeof createBetterAuth>;

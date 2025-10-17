@@ -1,6 +1,16 @@
-import type { PortScanInput, ScannerInput } from '@repo/contracts';
+import type { PortScanInput, ScannerInput, ScanScope } from '@repo/contracts';
 
-import type { ScanScope } from './scan-scope';
+/**
+ * Get the callback URL for scan result postbacks
+ * Uses BETTER_AUTH_URL to construct the server's internal endpoint
+ */
+function getCallbackUrl(): string | undefined {
+  const serverUrl = process.env.BETTER_AUTH_URL;
+  if (!serverUrl) {
+    return undefined;
+  }
+  return `${serverUrl}/api/internal/scan-results`;
+}
 
 export function buildScannerInput(params: {
   tenantId: string;
@@ -51,6 +61,21 @@ export function buildScannerInput(params: {
     hasScanOptions = true;
   }
 
+  // Build metadata with callbackUrl and deviceId
+  const callbackUrl = getCallbackUrl();
+  const metadata: Record<string, unknown> = {};
+  let hasMetadata = false;
+
+  if (callbackUrl) {
+    metadata.callbackUrl = callbackUrl;
+    hasMetadata = true;
+  }
+
+  if (input.deviceId) {
+    metadata.deviceId = input.deviceId;
+    hasMetadata = true;
+  }
+
   return {
     tenantId,
     workflowId: scanWorkflowId,
@@ -60,7 +85,7 @@ export function buildScannerInput(params: {
     scanName: `Port scan of ${input.target}`,
     isExtendScan,
     authScanType: 'ANONYMOUS',
-    priority: 'MEDIUM',
+    priority: 'NORMAL',
     targets: [
       {
         value: input.target,
@@ -71,6 +96,6 @@ export function buildScannerInput(params: {
       },
     ],
     scanOptions: hasScanOptions ? scanOptions : undefined,
-    metadata: input.deviceId ? { deviceId: input.deviceId } : undefined,
+    metadata: hasMetadata ? metadata : undefined,
   };
 }

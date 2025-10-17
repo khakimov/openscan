@@ -10,6 +10,7 @@ import {
   getWorkflowResult,
 } from "@/server/discovery";
 import { createDevicesFromDiscovery } from "@/server/devices";
+import { completeOnboarding } from "@/server/organization";
 import {
   OnboardingContentLayout,
   OnboardingDescription,
@@ -19,6 +20,7 @@ import type { DiscoveryStatus } from "../types/discovery-status";
 import { validateDomain } from "../utils/validators";
 import { DiscoveryStatusCard } from "./DiscoveryStatusCard";
 import { toast } from "sonner";
+import { QUERY_CONFIG } from "@repo/constants";
 
 interface OnboardingDiscoveryProps {
   projectId: string;
@@ -43,7 +45,7 @@ export function OnboardingDiscovery({
     new Set(),
   );
 
-  // Smart polling for workflow status using TanStack Query
+  // Smart polling for workflow status (reduced frequency with postback architecture)
   const { data: workflowStatus } = useQuery({
     queryKey: ["workflow-status", workflowId, runId],
     queryFn: () =>
@@ -57,7 +59,8 @@ export function OnboardingDiscovery({
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
-      return 1000; // Poll every 1 second while running
+      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
     },
   });
 
@@ -164,14 +167,14 @@ export function OnboardingDiscovery({
         throw new Error("Please select at least one subdomain");
       }
 
-      // Extract hostname and IP data from discovery results
+      // Extract hostname and IP data from typed discovery results
       const targetsData = selectedTargets.map((host) => {
-        const result = results?.results?.[0]?.results?.find(
-          (r: any) => r.host === host
+        const subdomain = results?.uniqueSubdomains?.find(
+          (s: { subdomain: string; ip: string }) => s.subdomain === host,
         );
         return {
           host,
-          ip: result?.ip, // Include IP if resolved during discovery
+          ip: subdomain?.ip, // Include IP if resolved during discovery
         };
       });
 
@@ -179,6 +182,7 @@ export function OnboardingDiscovery({
         data: {
           targets: targetsData,
           organizationId: organizationId || undefined,
+          projectId,
           options: {
             source: "DISCOVERY",
             scope: "EXTERNAL",
@@ -187,15 +191,19 @@ export function OnboardingDiscovery({
         },
       });
     },
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       toast.success("Assets added to inventory", {
         description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
       });
 
-      // Navigate to next step
+      // Mark onboarding as complete
+      if (organizationId) {
+        await completeOnboarding({ data: { organizationId } });
+      }
+
+      // Navigate to dashboard (onboarding complete)
       navigate({
-        to: "/onboarding/$projectId/connect",
-        params: { projectId },
+        to: "/dashboard",
       });
     },
     onError: (error: any) => {
@@ -205,10 +213,15 @@ export function OnboardingDiscovery({
     },
   });
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    // Mark onboarding as complete before navigating
+    if (organizationId) {
+      await completeOnboarding({ data: { organizationId } });
+    }
+
+    // Skip discovery and go directly to dashboard (onboarding complete)
     navigate({
-      to: "/onboarding/$projectId/connect",
-      params: { projectId },
+      to: "/dashboard",
     });
   };
 
@@ -233,7 +246,8 @@ export function OnboardingDiscovery({
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-medium">Already Saved Assets</h3>
               <span className="text-xs text-muted-foreground">
-                {savedDevices.length} asset{savedDevices.length !== 1 ? "s" : ""}
+                {savedDevices.length} asset
+                {savedDevices.length !== 1 ? "s" : ""}
               </span>
             </div>
             <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
@@ -273,12 +287,10 @@ export function OnboardingDiscovery({
             disabled={isStarting || isRunning}
             aria-invalid={!!domainError}
           />
-          {domainError && (
-            <p className="text-sm text-red-600">{domainError}</p>
-          )}
+          {domainError && <p className="text-sm text-red-600">{domainError}</p>}
           <p className="text-xs text-muted-foreground">
-            We&apos;ll discover subdomains and assets associated with this
-            domain
+            Auto-discovery will find subdomains and assets. You can also add a
+            server manually later.
           </p>
         </div>
 

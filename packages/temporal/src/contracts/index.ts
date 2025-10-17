@@ -8,4 +8,6 @@
  * through Temporal, and clients decide what to persist.
  */
 
+export * from './common';
 export * from './discovery';
+export * from './portscan';
