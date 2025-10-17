@@ -151,6 +151,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     scanStats?.totalScans ?? device.scanCount ?? (device.isScanned ? 1 : 0);
   const hasScanHistory = totalScans > 0;
   const lastScanAt = scanStats?.lastScanAt ?? device.lastScanned ?? undefined;
+
   const scanCountLabel = hasScanHistory
     ? `${totalScans} ${totalScans === 1 ? "scan" : "scans"} total`
     : null;
@@ -326,7 +327,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     if (!dateString) return "Never";
     try {
       return format(new Date(dateString), "MMM dd, yyyy");
-    } catch {
+    } catch (error) {
       return "Invalid date";
     }
   };
@@ -362,8 +363,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
           />
         </div>
       </div>
-      <div className="row ">
-        <div className="center-center col flex-1 p-4 py-2 ">
+      <div className="flex">
+        <div className="center-center col flex-1 p-4 py-2">
           <div className="font-medium text-xl font-mono">
             {device.isScanned ? totalOpenPorts : "-"}
           </div>
@@ -371,21 +372,31 @@ export function DeviceCard({ device }: DeviceCardProps) {
             open ports
           </div>
         </div>
-        <div className="center-center col flex-1 p-4 py-2 ">
-          <div className="font-medium text-sm">
-            {hasScanHistory ? (lastScanAt ? formatDate(lastScanAt) : "Unknown") : "Not scanned yet"}
+        <div className="flex flex-1">
+          <div className="center-center col flex-1 p-4 py-2">
+            <div className="font-medium text-sm">
+              {hasScanHistory
+                ? lastScanAt
+                  ? formatDate(lastScanAt)
+                  : "Unknown"
+                : "Not scanned yet"}
+            </div>
+            <div className="text-muted-foreground whitespace-nowrap text-sm">
+              {hasScanHistory
+                ? scanCountLabel
+                  ? `last scan (${scanCountLabel})`
+                  : "last scan"
+                : "scan status"}
+            </div>
           </div>
-          <div className="text-muted-foreground whitespace-nowrap text-sm">
-            {hasScanHistory ? (scanCountLabel ? `last scan (${scanCountLabel})` : "last scan") : "scan status"}
-          </div>
-        </div>
 
-        <div className="center-center col flex-1 p-4 py-2">
-          <div className="font-medium text-sm">
-            {formatDate(device.discoveredOn)}
-          </div>
-          <div className="text-muted-foreground whitespace-nowrap text-sm">
-            discovered
+          <div className="center-center col flex-1 p-4 py-2">
+            <div className="font-medium text-sm">
+              {formatDate(device.discoveredOn)}
+            </div>
+            <div className="text-muted-foreground whitespace-nowrap text-sm">
+              discovered
+            </div>
           </div>
         </div>
       </div>

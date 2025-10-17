@@ -132,7 +132,7 @@ function transformDeviceForUI(dbDevice: any) {
     | {
         scanCount: number;
         totalScans?: number;
-        lastScanAt: Date | null;
+        lastScanAt: number | null;  // Database returns timestamp as number (milliseconds)
         openPortCount?: number;
         totalPortCount?: number;
         ports?: Array<{
@@ -162,8 +162,13 @@ function transformDeviceForUI(dbDevice: any) {
       }
     | undefined;
 
-  const lastScanDate: Date | null = (scanStats?.lastScanAt ?? dbDevice.lastSeenAt ?? null) || null;
-  const lastScanIso = lastScanDate ? new Date(lastScanDate).toISOString() : null;
+  // Convert timestamp (number or Date) to ISO string
+  const lastScanTimestamp = scanStats?.lastScanAt ?? dbDevice.lastSeenAt ?? null;
+  const lastScanIso = lastScanTimestamp
+    ? (lastScanTimestamp instanceof Date
+        ? lastScanTimestamp.toISOString()
+        : new Date(lastScanTimestamp).toISOString())
+    : null;
   const openPortEntries = Array.isArray(scanStats?.ports)
     ? scanStats?.ports
     : [];
