@@ -9,10 +9,17 @@ type Scan = {
   [key: string]: any;
 };
 
-export function useScansTableQuery() {
+type ScansResponse = {
+  success: boolean;
+  data: Scan[];
+  error?: string;
+};
+
+export function useScansTableQuery(initialData?: ScansResponse) {
   return useQuery({
     queryKey: SCANS_TABLE_QUERY_KEY,
     queryFn: () => getScans(),
+    initialData, // Use SSR data for initial render
     refetchInterval: (query) => {
       const data = query.state.data;
       // Only poll if there are active scans (PENDING or RUNNING)

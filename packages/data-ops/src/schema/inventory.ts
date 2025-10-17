@@ -4,9 +4,24 @@ import { cuidText, now, updatedAt } from './utils';
 import { organization } from './identity';
 import { auth_user } from '../drizzle/auth-schema';
 
+export const projects = sqliteTable('projects', {
+  id: cuidText().primaryKey(),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  domain: text('domain'),
+  description: text('description'),
+  isDefault: integer('is_default', { mode: 'boolean' }).notNull().default(sql`0`),
+  createdAt: now(),
+  updatedAt: updatedAt(),
+}, (t) => ({
+  orgIdx: index('projects_org_idx').on(t.organizationId),
+  orgDefaultIdx: index('projects_org_default_idx').on(t.organizationId, t.isDefault),
+}));
+
 export const devices = sqliteTable('devices', {
   id: cuidText().primaryKey(),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  projectId: text('project_id').references(() => projects.id, { onDelete: 'set null' }),
   source: text('source').notNull(),
   name: text('name').notNull(),
   scope: text('scope').notNull(), // 'INTERNAL', 'EXTERNAL', 'HYBRID'
@@ -28,6 +43,8 @@ export const devices = sqliteTable('devices', {
   orgRiskIdx: index('devices_org_risk_idx').on(t.organizationId, t.riskLevel),
   orgStateIdx: index('devices_org_state_idx').on(t.organizationId, t.state),
   orgVerificationIdx: index('devices_org_verification_idx').on(t.organizationId, t.verificationStatus),
+  orgProjectIdx: index('devices_org_project_idx').on(t.organizationId, t.projectId),
+  projectIdx: index('devices_project_idx').on(t.projectId),
 }));
 
 export const deviceIps = sqliteTable('device_ips', {
@@ -78,10 +95,22 @@ export const applications = sqliteTable('applications', {
 }));
 
 // Relations
+export const projectsRelations = relations(projects, ({ one, many }) => ({
+  organization: one(organization, {
+    fields: [projects.organizationId],
+    references: [organization.id],
+  }),
+  devices: many(devices),
+}));
+
 export const devicesRelations = relations(devices, ({ one, many }) => ({
   organization: one(organization, {
     fields: [devices.organizationId],
     references: [organization.id],
+  }),
+  project: one(projects, {
+    fields: [devices.projectId],
+    references: [projects.id],
   }),
   deviceIps: many(deviceIps),
   deviceTags: many(deviceTags),

@@ -12,6 +12,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
 import { NotFound } from "@/components/not-found";
 import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
+import { ModalProvider } from "@/modals";
 import appCss from "@/styles.css?url";
 import { seo } from "@/utils/seo";
 
@@ -90,7 +91,9 @@ function RootComponent() {
 function ThemeShell({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider {...themeConfig}>
-      <RootDocument>{children}</RootDocument>
+      <ModalProvider>
+        <RootDocument>{children}</RootDocument>
+      </ModalProvider>
     </ThemeProvider>
   );
 }
@@ -110,7 +113,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         />
         <HeadContent />
       </head>
-      <body>
+      <body className="font-[family-name:var(--font-family-regular)]" suppressHydrationWarning>
         {children}
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />

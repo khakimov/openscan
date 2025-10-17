@@ -181,6 +181,9 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.21.3
         version: 8.21.3(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      '@tanstack/zod-adapter':
+        specifier: ^1.133.3
+        version: 1.133.3(@tanstack/react-router@1.132.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(zod@4.1.11)
       better-auth:
         specifier: ^1.3.7
         version: 1.3.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1)(zod@4.1.11)
@@ -2556,6 +2559,13 @@ packages:
   '@tanstack/virtual-file-routes@1.132.0':
     resolution: {integrity: sha512-d3do4ih9IdLPBVY4Gb8x7Ho7z0oFDLpxoao7uNVkfWtYU7nc3B+rnnVejXIgprmI5gt1hNzyNDJFr8G/W926GA==}
     engines: {node: '>=12'}
+
+  '@tanstack/zod-adapter@1.133.3':
+    resolution: {integrity: sha512-NxR4PGpqfVC22hBLphFQsAIicriVu6zRH+X0VeVmcIvlcL2Bbi+DUC0M8TpRZkF4K0I4mg9xngO5vo8W3W2pJw==}
+    engines: {node: '>=12'}
+    peerDependencies:
+      '@tanstack/react-router': '>=1.43.2'
+      zod: ^3.23.8
 
   '@temporalio/activity@1.13.1':
     resolution: {integrity: sha512-0qFTqvjMpcc0J8aVqnG2joF7drPcnMMG3BerfW5Y7RbR8xfdWLpndT3nHdblp+qCrbEmj3AchFluuShlQh8s0Q==}
@@ -7656,6 +7666,11 @@ snapshots:
   '@tanstack/table-core@8.21.3': {}
 
   '@tanstack/virtual-file-routes@1.132.0': {}
+
+  '@tanstack/zod-adapter@1.133.3(@tanstack/react-router@1.132.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1))(zod@4.1.11)':
+    dependencies:
+      '@tanstack/react-router': 1.132.7(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      zod: 4.1.11
 
   '@temporalio/activity@1.13.1':
     dependencies:

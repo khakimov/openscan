@@ -22,7 +22,7 @@ import { useOrganizationLifecycle } from "../hooks/use-organization-lifecycle";
 interface OnboardingCreateProjectProps {
   hasOrganization: boolean;
   organizationId: string | null;
-  deviceId: string | null;
+  projectId: string | null;
   initialValues: {
     organizationName?: string;
     timezone?: string;
@@ -34,7 +34,7 @@ interface OnboardingCreateProjectProps {
 export function OnboardingCreateProject({
   hasOrganization,
   organizationId: persistedOrganizationId,
-  deviceId,
+  projectId,
   initialValues,
 }: OnboardingCreateProjectProps) {
   const navigate = useNavigate();
@@ -47,7 +47,7 @@ export function OnboardingCreateProject({
   } = useOrganizationLifecycle({
     hasOrganization,
     persistedOrganizationId,
-    deviceId,
+    projectId,
   });
 
   const timezoneList = useMemo(() => {
@@ -104,14 +104,14 @@ export function OnboardingCreateProject({
           domain: value.domain,
         });
 
-        if (!setupResult.success || !setupResult.deviceId) {
+        if (!setupResult.success || !setupResult.projectId) {
           throw new Error(
             setupResult.error || "Failed to set up organization and project",
           );
         }
 
         console.log("[OnboardingCreateProject] Project created:", {
-          deviceId: setupResult.deviceId,
+          projectId: setupResult.projectId,
           domain: value.domain,
         });
 
@@ -119,14 +119,14 @@ export function OnboardingCreateProject({
         if (value.domain) {
           navigate({
             to: "/onboarding/$projectId/discovery",
-            params: { projectId: setupResult.deviceId },
+            params: { projectId: setupResult.projectId },
             search: { domain: value.domain },
           });
         } else {
           // Skip discovery, go directly to step 4 (connect)
           navigate({
             to: "/onboarding/$projectId/connect",
-            params: { projectId: setupResult.deviceId },
+            params: { projectId: setupResult.projectId },
           });
         }
       } catch (err) {

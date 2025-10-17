@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
-import { getCurrentTenant } from '../../utils/auth';
+import { getCurrentOrganizationId } from '../../utils/auth';
 import { deviceManager } from '../services/device-manager';
 import { extractErrorMessage } from '../utils/workflow-helpers';
 
@@ -20,12 +20,12 @@ export const getActiveDeviceScans = createServerFn({
     const { deviceId } = data;
 
     try {
-      const tenantId = await getCurrentTenant();
-      const activeScans = await deviceManager.fetchActiveScans(tenantId, deviceId);
+      const organizationId = await getCurrentOrganizationId();
+      const activeScans = await deviceManager.fetchActiveScans(organizationId, deviceId);
 
       logger.info('Retrieved active scans for device', {
         deviceId,
-        tenantId,
+        organizationId,
         activeScansCount: activeScans.length,
       });
 

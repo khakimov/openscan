@@ -1,5 +1,9 @@
 import * as schema from './schema';
 
+// Project types
+export type Project = typeof schema.projects.$inferSelect;
+export type NewProject = typeof schema.projects.$inferInsert;
+
 // Device types
 export type Device = typeof schema.devices.$inferSelect;
 export type NewDevice = typeof schema.devices.$inferInsert;

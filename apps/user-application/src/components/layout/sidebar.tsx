@@ -1,14 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { LayoutProjectSelector } from "@/components/layout/layout-project-selector";
-import { authClient } from "@/lib/auth-client";
 import { cn } from "@/lib/utils";
-import { getOnboardingStatus } from "@/server/organization";
-import { QUERY_CONFIG } from "@repo/constants";
 import { useNavigate, useRouterState } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
 import { Home, Menu, Shield, ScanLine } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 
@@ -37,211 +33,49 @@ const navigationItems: NavigationItem[] = [
   },
 ];
 
-interface SidebarProps {
-  className?: string;
-}
-
-interface OrganizationOption {
+export interface SidebarOrganization {
   id: string;
-  name?: string | null;
+  name: string | null;
   slug?: string | null;
-  metadata?: Record<string, unknown> | null;
 }
 
-interface ProjectOption {
+export interface SidebarProject {
   id: string;
-  name?: string | null;
+  name: string | null;
+  domain?: string | null;
   description?: string | null;
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export interface SidebarUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
+}
+
+interface SidebarProps {
+  className?: string;
+  user: SidebarUser | null;
+  activeOrganization: SidebarOrganization | null;
+  organizations: SidebarOrganization[];
+  projects: SidebarProject[];
+}
+
+export function Sidebar({
+  className,
+  user,
+  activeOrganization,
+  organizations,
+  projects,
+}: SidebarProps) {
   const navigate = useNavigate();
   const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { data: sessionData } = authClient.useSession();
-  const { data: activeOrganization, isPending: isActiveOrganizationPending } =
-    authClient.useActiveOrganization();
-  const { data: organizationList, isPending: isOrganizationsPending } =
-    authClient.useListOrganizations();
-  const { data: onboardingStatus, isPending: isOnboardingPending } = useQuery({
-    queryKey: ["onboarding-status"],
-    queryFn: () => getOnboardingStatus(),
-    ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-  });
 
-  const { data: session } = authClient.useSession();
-
-  const user = session?.user;
   const fallbackText = user?.name
     ? user.name.charAt(0).toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "U";
-
-  const organizations = useMemo<OrganizationOption[]>(() => {
-    const normalized: OrganizationOption[] = (organizationList ?? []).map((organization) => ({
-      id: organization.id,
-      name: organization.name ?? "Unnamed organization",
-      slug: organization.slug ?? null,
-      metadata:
-        typeof organization.metadata === "object" &&
-        organization.metadata !== null
-          ? (organization.metadata as Record<string, unknown>)
-          : null,
-    }));
-
-    const onboardingOrg = onboardingStatus?.organization;
-    if (onboardingOrg) {
-      const onboardingOrgId =
-        typeof onboardingOrg.id === "string" && onboardingOrg.id.length > 0
-          ? onboardingOrg.id
-          : null;
-
-      if (!onboardingOrgId) {
-        return normalized;
-      }
-
-      const exists = normalized.some((org) => org.id === onboardingOrgId);
-      if (!exists) {
-        normalized.push({
-          id: onboardingOrgId,
-          name: onboardingOrg.name ?? "Unnamed organization",
-          slug:
-            "slug" in onboardingOrg && typeof onboardingOrg.slug === "string"
-              ? onboardingOrg.slug
-              : null,
-          metadata:
-            typeof onboardingOrg.metadata === "object" &&
-            onboardingOrg.metadata !== null
-              ? (onboardingOrg.metadata as Record<string, unknown>)
-              : null,
-        });
-      }
-    }
-
-    return normalized;
-  }, [organizationList, onboardingStatus?.organization]);
-
-  const normalizedActiveOrganization = useMemo(() => {
-    if (activeOrganization) {
-      return {
-        id: activeOrganization.id,
-        name: activeOrganization.name ?? "Unnamed organization",
-        slug: activeOrganization.slug ?? null,
-        metadata:
-          typeof activeOrganization.metadata === "object" &&
-          activeOrganization.metadata !== null
-            ? (activeOrganization.metadata as Record<string, unknown>)
-            : null,
-      } as OrganizationOption;
-    }
-
-    const onboardingOrg = onboardingStatus?.organization;
-    if (onboardingOrg) {
-      return {
-        id: onboardingOrg.id,
-        name: onboardingOrg.name ?? "Unnamed organization",
-        slug:
-          "slug" in onboardingOrg && typeof onboardingOrg.slug === "string"
-            ? onboardingOrg.slug
-            : null,
-        metadata:
-          typeof onboardingOrg.metadata === "object" &&
-          onboardingOrg.metadata !== null
-            ? (onboardingOrg.metadata as Record<string, unknown>)
-            : null,
-      } as OrganizationOption;
-    }
-
-    return null;
-  }, [activeOrganization, onboardingStatus?.organization]);
-
-  const sessionOrganizationId =
-    sessionData?.session?.activeOrganizationId ?? null;
-
-  const fallbackOrganization = useMemo(() => {
-    if (!sessionOrganizationId) {
-      return organizations[0] ?? null;
-    }
-
-    return (
-      organizations.find((org) => org.id === sessionOrganizationId) ??
-      organizations[0] ??
-      null
-    );
-  }, [organizations, sessionOrganizationId]);
-
-  const tenant = normalizedActiveOrganization ?? fallbackOrganization ?? null;
-
-  const tenantProjects = useMemo<ProjectOption[]>(() => {
-    const onboardingProject = onboardingStatus?.project;
-    if (onboardingProject) {
-      return [
-        {
-          id: onboardingProject.id,
-          name: onboardingProject.name ?? "Untitled project",
-          description:
-            typeof onboardingProject.domain === "string"
-              ? onboardingProject.domain
-              : null,
-        },
-      ];
-    }
-
-    if (!tenant) {
-      return [];
-    }
-
-    const metadataProjects = Array.isArray(
-      (tenant.metadata as { projects?: unknown[] } | undefined)?.projects,
-    )
-      ? ((
-          tenant.metadata as
-            | {
-                projects?: Array<{
-                  id: string;
-                  name?: string | null;
-                  description?: string | null;
-                }>;
-              }
-            | undefined
-        )?.projects ?? [])
-      : [];
-
-    if (metadataProjects.length > 0) {
-      return metadataProjects
-        .filter(
-          (
-            project,
-          ): project is {
-            id: string;
-            name?: string | null;
-            description?: string | null;
-          } => {
-            return Boolean(
-              project && typeof project === "object" && "id" in project,
-            );
-          },
-        )
-        .map((project) => ({
-          id: project.id,
-          name: project.name ?? "Untitled project",
-          description: project.description ?? null,
-        }));
-    }
-
-    return [
-      {
-        id: tenant.id,
-        name: tenant.name ?? "Untitled project",
-        description: null,
-      },
-    ];
-  }, [onboardingStatus?.project, tenant]);
-
-  const isSelectorLoading =
-    isActiveOrganizationPending ||
-    isOrganizationsPending ||
-    isOnboardingPending;
 
   return (
     <>
@@ -260,10 +94,10 @@ export function Sidebar({ className }: SidebarProps) {
               <div className="min-w-0 flex-1">
                 <LayoutProjectSelector
                   align="start"
-                  projects={tenantProjects}
+                  projects={projects}
                   organizations={organizations}
-                  tenant={tenant}
-                  isLoading={isSelectorLoading}
+                  tenant={activeOrganization}
+                  isLoading={false}
                 />
               </div>
             </div>
@@ -323,14 +157,11 @@ export function Sidebar({ className }: SidebarProps) {
               isCollapsed && "justify-center",
             )}
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
-              U
-            </div>
             {!isCollapsed && (
               <AccountDialog>
                 <Button
                   variant="ghost"
-                  className="flex items-center gap-2 px-3"
+                  className="flex items-center gap-2 px-3 w-full justify-start"
                 >
                   <Avatar className="h-8 w-8">
                     <AvatarImage
@@ -341,13 +172,23 @@ export function Sidebar({ className }: SidebarProps) {
                       {fallbackText}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="hidden sm:flex flex-col items-start">
-                    <span className="text-sm font-medium">
+                  <div className="flex flex-col items-start min-w-0">
+                    <span className="text-sm font-medium truncate">
                       {user?.name || "User"}
                     </span>
+                    {user?.email && (
+                      <span className="text-xs text-muted-foreground truncate">
+                        {user.email}
+                      </span>
+                    )}
                   </div>
                 </Button>
               </AccountDialog>
+            )}
+            {isCollapsed && (
+              <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-medium">
+                {fallbackText}
+              </div>
             )}
           </div>
         </div>

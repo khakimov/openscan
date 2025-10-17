@@ -1,24 +1,24 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
 import { getScanRunsWithArtifacts } from "@repo/data-ops";
-import { getCurrentTenant } from "./utils/auth";
+import { getCurrentOrganizationId } from "./utils/auth";
 
 const logger = createLogger({ name: "scans-server" });
 
 /**
- * Get all scan runs with artifacts for the current tenant
+ * Get all scan runs with artifacts for the current organization
  */
 export const getScans = createServerFn({
   method: "GET",
 }).handler(async () => {
   try {
-    const tenantId = await getCurrentTenant();
-    logger.info("Fetching scan runs with artifacts", { tenantId });
+    const organizationId = await getCurrentOrganizationId();
+    logger.info("Fetching scan runs with artifacts", { organizationId });
 
-    const scansWithArtifacts = await getScanRunsWithArtifacts(tenantId);
+    const scansWithArtifacts = await getScanRunsWithArtifacts(organizationId);
 
     logger.info("Retrieved scan runs", {
-      tenantId,
+      organizationId,
       count: scansWithArtifacts.length,
     });
 

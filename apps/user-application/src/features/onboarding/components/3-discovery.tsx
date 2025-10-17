@@ -10,6 +10,7 @@ import {
   getWorkflowResult,
 } from "@/server/discovery";
 import { createDevicesFromDiscovery } from "@/server/devices";
+import { completeOnboarding } from "@/server/organization";
 import {
   OnboardingContentLayout,
   OnboardingDescription,
@@ -181,6 +182,7 @@ export function OnboardingDiscovery({
         data: {
           targets: targetsData,
           organizationId: organizationId || undefined,
+          projectId,
           options: {
             source: "DISCOVERY",
             scope: "EXTERNAL",
@@ -189,15 +191,19 @@ export function OnboardingDiscovery({
         },
       });
     },
-    onSuccess: (response) => {
+    onSuccess: async (response) => {
       toast.success("Assets added to inventory", {
         description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
       });
 
-      // Navigate to next step
+      // Mark onboarding as complete
+      if (organizationId) {
+        await completeOnboarding({ data: { organizationId } });
+      }
+
+      // Navigate to dashboard (onboarding complete)
       navigate({
-        to: "/onboarding/$projectId/connect",
-        params: { projectId },
+        to: "/dashboard",
       });
     },
     onError: (error: any) => {
@@ -207,10 +213,15 @@ export function OnboardingDiscovery({
     },
   });
 
-  const handleSkip = () => {
+  const handleSkip = async () => {
+    // Mark onboarding as complete before navigating
+    if (organizationId) {
+      await completeOnboarding({ data: { organizationId } });
+    }
+
+    // Skip discovery and go directly to dashboard (onboarding complete)
     navigate({
-      to: "/onboarding/$projectId/connect",
-      params: { projectId },
+      to: "/dashboard",
     });
   };
 

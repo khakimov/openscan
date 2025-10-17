@@ -5,6 +5,7 @@ import type { TransformedDevice } from '@/server/devices';
 
 interface UseDevicesQueryParams {
   verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | ('CANDIDATE' | 'VERIFIED' | 'EXCLUDED')[];
+  initialData?: DevicesResponse;
 }
 
 // Response type matching what getDevicesData returns
@@ -18,6 +19,7 @@ type DevicesResponse = {
 export const useDevicesQuery = (params?: UseDevicesQueryParams) => {
   return useQuery<DevicesResponse>({
     queryKey: ['devices', params?.verificationStatus],
+    initialData: params?.initialData,
     queryFn: async () => {
       console.log('📡 useDevicesQuery: Fetching fresh device data...', {
         verificationStatus: params?.verificationStatus

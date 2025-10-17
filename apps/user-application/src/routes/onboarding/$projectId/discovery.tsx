@@ -2,17 +2,16 @@ import { createFileRoute } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingDiscovery } from "@/features/onboarding";
 import { getOnboardingStatus } from "@/server/organization";
 import { getDiscoveryDevices } from "@/server/devices";
+import { zodValidator } from "@tanstack/zod-adapter";
+import { z } from "zod";
 
-type DiscoverySearch = {
-  domain?: string;
-};
+// Search params schema with proper validation
+const discoverySearchSchema = z.object({
+  domain: z.string().optional(),
+});
 
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
-  validateSearch: (search: Record<string, unknown>): DiscoverySearch => {
-    return {
-      domain: typeof search.domain === "string" ? search.domain : undefined,
-    };
-  },
+  validateSearch: zodValidator(discoverySearchSchema),
   loader: async () => {
     console.log("[OnboardingDiscovery] Loader executing");
     const status = await getOnboardingStatus();

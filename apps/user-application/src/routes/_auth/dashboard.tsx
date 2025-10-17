@@ -1,14 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
-import { authClient } from "@/lib/auth-client";
 
 export const Route = createFileRoute("/_auth/dashboard")({
   component: Dashboard,
 });
 
 function Dashboard() {
-  const { data: session } = authClient.useSession();
-  const user = session?.user;
+  const { user } = Route.useRouteContext();
 
   return (
     <Padding>

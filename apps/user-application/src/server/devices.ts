@@ -15,7 +15,7 @@ import {
 } from '@repo/data-ops'
 import { createLogger } from '@repo/logger'
 import { z } from 'zod'
-import { getCurrentTenant, getCurrentUser } from './utils/auth'
+import { getCurrentOrganizationId, getCurrentUser } from './utils/auth'
 import { formatServerError } from './utils/errors'
 
 const logger = createLogger({ name: 'devices-server' })
@@ -245,7 +245,7 @@ export const getDevicesData = createServerFn({
     })
 
     // Get session for organization context
-    const organizationId = await getCurrentTenant()
+    const organizationId = await getCurrentOrganizationId()
     logger.info('Fetching devices for organization', {
       organizationId,
       verificationStatus: data?.verificationStatus
@@ -314,7 +314,7 @@ export const getDeviceDetailData = createServerFn({
     logger.info('Fetching device detail', { deviceId })
 
     // Get session for organization context
-    const organizationId = await getCurrentTenant()
+    const organizationId = await getCurrentOrganizationId()
     const deviceDetail = await getDeviceById(deviceId, organizationId)
 
     if (!deviceDetail) {
@@ -420,7 +420,7 @@ export const deleteDevice = createServerFn({
 
   try {
     // Get session for organization context
-    const organizationId = await getCurrentTenant()
+    const organizationId = await getCurrentOrganizationId()
     logger.info('Deleting device', { deviceId, organizationId });
 
     // First check if device exists for this organization
@@ -485,7 +485,7 @@ export const getDiscoveryDevices = createServerFn({
   .handler(async ({ data }) => {
     try {
       // Use provided organizationId during onboarding, otherwise get from session
-      const organizationId = data.organizationId || await getCurrentTenant();
+      const organizationId = data.organizationId || await getCurrentOrganizationId();
 
       logger.info('Fetching discovery devices', {
         organizationId,
@@ -553,6 +553,7 @@ export const createDevicesFromDiscovery = createServerFn({
   .inputValidator((data: {
     targets: Array<{host: string, ip?: string}>,
     organizationId?: string,
+    projectId?: string,
     options?: {
       source?: string;
       scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
@@ -563,6 +564,7 @@ export const createDevicesFromDiscovery = createServerFn({
       data,
       targetsLength: data?.targets?.length,
       dataType: typeof data,
+      projectId: data?.projectId,
       options: data?.options
     });
 
@@ -582,6 +584,7 @@ export const createDevicesFromDiscovery = createServerFn({
     logger.info('Input validation passed', {
       targetCount: data.targets.length,
       targets: data.targets.map(t => ({ host: t.host, hasIp: !!t.ip })),
+      projectId: data.projectId,
       options: data.options
     });
 
@@ -591,15 +594,17 @@ export const createDevicesFromDiscovery = createServerFn({
     try {
       logger.info('Starting createDevicesFromDiscovery handler', {
         targetCount: data.targets.length,
+        projectId: data.projectId,
         options: data.options,
         hasOrganizationId: !!data.organizationId
       });
 
       // Use provided organizationId during onboarding, otherwise get from session
-      const organizationId = data.organizationId || await getCurrentTenant();
+      const organizationId = data.organizationId || await getCurrentOrganizationId();
 
       logger.info('Creating devices from discovery', {
         organizationId,
+        projectId: data.projectId,
         targetCount: data.targets.length,
         targets: data.targets,
         options: data.options,
@@ -609,7 +614,10 @@ export const createDevicesFromDiscovery = createServerFn({
       const createdDevices = await createMultipleDevicesFromDiscovery(
         data.targets,
         organizationId,
-        data.options
+        {
+          ...data.options,
+          projectId: data.projectId,
+        }
       );
 
       logger.info('Successfully created devices from discovery', {
@@ -654,7 +662,7 @@ export const updateDeviceData = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      const organizationId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
 
       logger.info('Updating device', {
         deviceId: data.deviceId,
@@ -702,7 +710,7 @@ export const getDeviceTagSuggestionsData = createServerFn({
   .inputValidator(() => ({}))
   .handler(async () => {
     try {
-      const organizationId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
 
       logger.info('Fetching device tag suggestions', {
         organizationId
@@ -743,7 +751,7 @@ export const verifyDevice = createServerFn({
   .inputValidator(VerifyDeviceSchema.parse)
   .handler(async ({ data }) => {
     try {
-      const organizationId = await getCurrentTenant()
+      const organizationId = await getCurrentOrganizationId()
       const currentUser = await getCurrentUser()
 
       logger.info('Verifying device', {
@@ -814,7 +822,7 @@ export const getDeviceScanHistoryData = createServerFn({ method: 'POST' })
   .inputValidator(GetDeviceScanHistorySchema.parse)
   .handler(async ({ data }) => {
     const { target, limit } = data;
-    const organizationId = await getCurrentTenant();
+    const organizationId = await getCurrentOrganizationId();
 
     try {
       const history = await getDeviceScanHistory(organizationId, target, limit);
@@ -844,7 +852,7 @@ export const toggleDeviceVerification = createServerFn({
   .inputValidator(ToggleDeviceVerificationSchema.parse)
   .handler(async ({ data }) => {
     try {
-      const organizationId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
       const currentUser = await getCurrentUser();
 
       logger.info('Toggling device verification', {
@@ -920,5 +928,83 @@ export const toggleDeviceVerification = createServerFn({
       });
 
       throw new Error('Failed to toggle device verification');
+    }
+  })
+
+/**
+ * Secure device scanning with server-side configuration
+ *
+ * Security: All scan parameters are defined server-side using presets.
+ * Clients can only choose which preset to use, preventing abuse of:
+ * - Excessive timeouts
+ * - Aggressive scanning
+ * - Arbitrary port ranges
+ * - Resource exhaustion
+ */
+
+import { buildScanInputFromPreset, type ScanPresetType, getScanPresetDescription } from './devices/scan-presets';
+import { startPortScanWorkflow } from './discovery';
+
+const StartDeviceScanSchema = z.object({
+  deviceId: z.string().min(1, 'Device ID is required'),
+  target: z.string().min(1, 'Target is required'),
+  preset: z.enum(['QUICK', 'STANDARD', 'THOROUGH']),
+});
+
+export const startDeviceScan = createServerFn({
+  method: 'POST',
+})
+  .inputValidator(StartDeviceScanSchema.parse)
+  .handler(async ({ data }) => {
+    try {
+      const organizationId = await getCurrentOrganizationId();
+      const user = await getCurrentUser();
+
+      logger.info('Starting device scan with preset', {
+        deviceId: data.deviceId,
+        target: data.target,
+        preset: data.preset,
+        organizationId,
+        userId: user.id,
+      });
+
+      // Build scan input from server-side preset
+      // Client cannot manipulate timeout, port ranges, or scan profiles
+      const scanInput = buildScanInputFromPreset(
+        data.preset as ScanPresetType,
+        data.target,
+        data.deviceId
+      );
+
+      // Execute scan using existing workflow
+      const result = await startPortScanWorkflow({ data: scanInput });
+
+      if (result.success) {
+        logger.info('Device scan started successfully', {
+          deviceId: data.deviceId,
+          target: data.target,
+          preset: data.preset,
+          workflowId: result.workflowId,
+        });
+      }
+
+      return {
+        ...result,
+        preset: data.preset,
+        presetDescription: getScanPresetDescription(data.preset as ScanPresetType),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to start device scan', {
+        error: errorMessage,
+        deviceId: data.deviceId,
+        target: data.target,
+        preset: data.preset,
+      });
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
     }
   })

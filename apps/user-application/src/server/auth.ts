@@ -1,5 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { getRequest } from "@tanstack/react-start/server";
+import { getAuth } from "@repo/data-ops/auth/server";
+import { getActiveOrganizationId } from "@repo/data-ops/auth/organization-api";
 
 /**
  * NOTE: Most auth functions are now handled by better-auth automatically:
@@ -12,6 +15,51 @@ import { z } from "zod";
  *
  * See better-auth docs: https://www.better-auth.com/docs
  */
+
+export type User = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  emailVerified: boolean;
+  organizationId: string | undefined;
+};
+
+/**
+ * Get current authenticated user (returns null if not authenticated)
+ * This follows the TanStack Router recommended pattern for route protection
+ *
+ * Use this in `beforeLoad` for route guards:
+ * ```ts
+ * export const Route = createFileRoute('/_auth')({
+ *   beforeLoad: async () => {
+ *     const user = await getCurrentUser()
+ *     if (!user) {
+ *       throw redirect({ to: '/login' })
+ *     }
+ *     return { user }
+ *   },
+ * })
+ * ```
+ */
+export const getCurrentUser = createServerFn({ method: "GET" }).handler(
+  async (): Promise<User | null> => {
+    const request = getRequest();
+    const auth = getAuth();
+    const session = await auth.api.getSession(request);
+
+    if (!session?.user) {
+      return null;
+    }
+
+    return {
+      id: session.user.id,
+      email: session.user.email ?? null,
+      name: session.user.name ?? null,
+      emailVerified: Boolean(session.user.emailVerified),
+      organizationId: getActiveOrganizationId(session),
+    };
+  }
+);
 
 /**
  * @deprecated Auth is now handled by better-auth client

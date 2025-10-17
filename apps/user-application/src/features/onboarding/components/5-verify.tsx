@@ -1,14 +1,19 @@
-import { Link } from "@tanstack/react-router";
-import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
-import { Button } from "@/components/ui/button";
-import { CheckCircle2, Loader2, XCircle } from "lucide-react";
-import { useState, useEffect } from "react";
-
 interface OnboardingVerifyProps {
   projectId: string;
 }
 
-export function OnboardingVerify({ projectId }: OnboardingVerifyProps) {
+export function OnboardingVerify(_props: OnboardingVerifyProps) {
+  // COMMENTED OUT - Step 5 (Verify) temporarily disabled
+  // This step will be implemented later when we're ready to verify scanner connections
+  return null;
+
+  /* DISABLED - Scanner connection verification
+  import { Link } from "@tanstack/react-router";
+  import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
+  import { Button } from "@/components/ui/button";
+  import { CheckCircle2, Loader2, XCircle } from "lucide-react";
+  import { useState, useEffect } from "react";
+
   const [status, setStatus] = useState<"waiting" | "success" | "error">("waiting");
 
   useEffect(() => {
@@ -101,4 +106,5 @@ export function OnboardingVerify({ projectId }: OnboardingVerifyProps) {
       )}
     </OnboardingContentLayout>
   );
+  */
 }

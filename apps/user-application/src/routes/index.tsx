@@ -1,9 +1,14 @@
-import { createFileRoute } from "@tanstack/react-router";
-// import { NavigationBar } from "@/components/navigation";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { HeroSection } from "@/components/landing/hero-section";
-// import { Footer } from "@/components/landing/footer";
+import { getCurrentUser } from "@/server/auth";
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const user = await getCurrentUser();
+    if (user) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: LandingPage,
 });
 

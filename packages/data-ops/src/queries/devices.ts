@@ -14,6 +14,7 @@ export type DeviceQueryParams = {
 export type DeviceUpdateData = {
   name?: string;
   ip?: string;
+  projectId?: string | null;
   riskLevel?: string;
   state?: string;
   scope?: string;
@@ -335,6 +336,7 @@ export async function createMultipleDevicesFromDiscovery(
   targets: Array<{ host: string; ip?: string }>,
   organizationId: string,
   options?: {
+    projectId?: string | null;
     source?: string;
     scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
     verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
@@ -345,6 +347,7 @@ export async function createMultipleDevicesFromDiscovery(
 
   // Default values for options
   const {
+    projectId = null,
     source = 'DISCOVERY',
     scope = 'EXTERNAL',
     verificationStatus = 'CANDIDATE'
@@ -388,6 +391,7 @@ export async function createMultipleDevicesFromDiscovery(
       .insert(devices)
       .values({
         organizationId,
+        projectId,
         name: target.host,
         source,
         scope,

@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 import { getDb, scanWorkflows, eq } from '@repo/data-ops';
 
-import { getCurrentTenant } from '../../utils/auth';
+import { getCurrentOrganizationId } from '../../utils/auth';
 import { extractErrorMessage } from '../utils/workflow-helpers';
 
 const logger = createLogger({ name: 'discovery-workflow-history' });
@@ -12,7 +12,7 @@ export const getCompletedScans = createServerFn({
 })
   .handler(async () => {
     try {
-      const organizationId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
       const db = getDb();
 
       // Query completed discovery workflows from database

@@ -51,7 +51,7 @@ function OnboardingProjectPage() {
       <OnboardingCreateProject
         hasOrganization={hasOrganization}
         organizationId={onboarding.organizationId}
-        deviceId={onboarding.projectId}
+        projectId={onboarding.projectId}
         initialValues={initialForm}
       />
     </OnboardingLayout>

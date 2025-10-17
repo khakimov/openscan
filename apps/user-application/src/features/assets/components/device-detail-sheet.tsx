@@ -1,3 +1,5 @@
+'use client';
+
 import { type TransformedDevice } from "@/server/devices";
 import {
   Sheet,
@@ -5,6 +7,7 @@ import {
   SheetTrigger,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DeviceCard } from "./device-card";
@@ -60,10 +63,16 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
           <DeviceCard device={device} />
         </div>
       </SheetTrigger>
-      <SheetContent className="w-[95vw] max-w-[1200px] min-w-[800px]">
+      <SheetContent
+        className="w-[95vw] max-w-[1200px] min-w-[800px]"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
         <SheetHeader className="mb-6">
           <div className="flex flex-col gap-3">
             <SheetTitle className="text-left">{device.name}</SheetTitle>
+            <SheetDescription className="text-left">
+              View device details, open ports, and security information
+            </SheetDescription>
 
             <div className="flex flex-wrap items-center gap-2">
               <Button
@@ -97,7 +106,7 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
           </div>
         </SheetHeader>
 
-        <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)]">
+        <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] px-4">
           <DeviceOpenPorts
             deviceDetail={deviceDetail}
             isLoading={isLoadingDetail}

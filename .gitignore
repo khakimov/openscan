@@ -146,4 +146,9 @@ vite.config.ts.timestamp-*
 *.sqlite
 *.sqlite-shm
 *.sqlite-wal
+*.db
 .ck/
+
+# Local development tools
+.beads/
+.zed/

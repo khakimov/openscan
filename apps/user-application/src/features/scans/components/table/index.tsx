@@ -10,7 +10,7 @@ import { useColumns } from "./columns";
 type ScanArtifact = {
   id: string;
   runId: string;
-  tenantId: string;
+  organizationId: string;
   artifactType: string;
   data: {
     // Port scan results
@@ -120,7 +120,7 @@ type ScanArtifact = {
 export type Scan = {
   id: string;
   workflowId: string;
-  tenantId: string;
+  organizationId: string;
   scope: "INTERNAL" | "EXTERNAL" | "HYBRID";
   scanType: "DISCOVERY" | "PORT" | "WEB" | "ADVANCED";
   target?: string | null; // Primary target being scanned
@@ -147,7 +147,11 @@ type ScansResponse = {
   error?: string;
 };
 
-export const ScansTable = () => {
+interface ScansTableProps {
+  initialData?: ScansResponse;
+}
+
+export const ScansTable = ({ initialData }: ScansTableProps) => {
   const columns = useColumns();
 
   const {
@@ -155,7 +159,7 @@ export const ScansTable = () => {
     isLoading,
     error,
     isRefetching,
-  } = useScansTableQuery() as { data: ScansResponse | undefined; isLoading: boolean; error: unknown; isRefetching: boolean };
+  } = useScansTableQuery(initialData) as { data: ScansResponse | undefined; isLoading: boolean; error: unknown; isRefetching: boolean };
 
   const hasServerData =
     response?.success &&

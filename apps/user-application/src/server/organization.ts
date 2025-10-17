@@ -1,9 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
 import { getAuth } from "@repo/data-ops/auth/server";
-import { getOrganizationAPI } from "@repo/data-ops/auth/organization-api";
+import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth/organization-api";
 import { getRequest } from "@tanstack/react-start/server";
-import { and, desc, eq } from "@repo/data-ops";
+import { getDb } from "@repo/data-ops/database/setup";
+import { organization, projects } from "@repo/data-ops/schema";
+import { and, eq } from "@repo/data-ops";
+import { createProject, updateProject } from "@repo/data-ops";
 import { getCurrentUser } from "./utils/auth";
 import type {
   OnboardingOrganizationSummary,
@@ -173,13 +176,13 @@ export const getUserOrganizations = createServerFn({
 });
 
 /**
- * Create initial device/project during onboarding
+ * Create initial project during onboarding
  */
-export const createProjectDevice = createServerFn({
+export const createProjectOnboarding = createServerFn({
   method: "POST",
 })
   .inputValidator(
-    (data: { projectName: string; organizationId: string; deviceId?: string | null; domain?: string }) => {
+    (data: { projectName: string; organizationId: string; projectId?: string | null; domain?: string }) => {
       if (!data?.projectName || data.projectName.trim().length < 2) {
         throw new Error("Project name must be at least 2 characters");
       }
@@ -191,74 +194,64 @@ export const createProjectDevice = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
-      const { getDb } = await import("@repo/data-ops/database/setup");
-      const { devices } = await import("@repo/data-ops/schema");
-
-      const db = getDb();
-
-      if (data.deviceId) {
-        logger.info("Updating project device during onboarding", {
+      // If projectId provided, update existing project
+      if (data.projectId) {
+        logger.info("Updating project during onboarding", {
+          projectId: data.projectId,
           projectName: data.projectName,
           domain: data.domain,
           organizationId: data.organizationId,
-          deviceId: data.deviceId,
         });
 
-        const [device] = await db
-          .update(devices)
-          .set({
+        const project = await updateProject(
+          data.projectId,
+          data.organizationId,
+          {
             name: data.projectName,
-            notes: data.domain ? `Domain: ${data.domain}` : null,
-          })
-          .where(and(eq(devices.id, data.deviceId), eq(devices.organizationId, data.organizationId)))
-          .returning();
+            domain: data.domain,
+          }
+        );
 
-        if (!device) {
-          throw new Error("Project device not found");
+        if (!project) {
+          throw new Error("Project not found");
         }
 
-        logger.info("Project device updated successfully", {
-          deviceId: device.id,
+        logger.info("Project updated successfully", {
+          projectId: project.id,
           organizationId: data.organizationId,
         });
 
         return {
           success: true,
-          device,
+          project,
         };
       }
 
-      logger.info("Creating project device during onboarding", {
+      // Create new project
+      logger.info("Creating project during onboarding", {
         projectName: data.projectName,
         domain: data.domain,
         organizationId: data.organizationId,
       });
 
-      const [device] = await db
-        .insert(devices)
-        .values({
-          organizationId: data.organizationId,
-          name: data.projectName,
-          notes: data.domain ? `Domain: ${data.domain}` : null,
-          source: "ONBOARDING",
-          scope: "INTERNAL",
-          state: "AVAILABLE",
-          verificationStatus: "VERIFIED", // Auto-verify devices created during onboarding
-        })
-        .returning();
+      const project = await createProject(data.organizationId, {
+        name: data.projectName,
+        domain: data.domain,
+        isDefault: true, // First project created during onboarding is default
+      });
 
-      logger.info("Project device created successfully", {
-        deviceId: device.id,
+      logger.info("Project created successfully", {
+        projectId: project.id,
         organizationId: data.organizationId,
       });
 
       return {
         success: true,
-        device,
+        project,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      logger.error("Failed to create or update project device", {
+      logger.error("Failed to create or update project", {
         error: errorMessage,
         data,
       });
@@ -289,9 +282,6 @@ export const updateOrganizationOnboarding = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
-      const { getDb } = await import("@repo/data-ops/database/setup");
-      const { organization } = await import("@repo/data-ops/schema");
-
       const db = getDb();
       const [existing] = await db
         .select({
@@ -348,6 +338,133 @@ export const updateOrganizationOnboarding = createServerFn({
   });
 
 /**
+ * Mark onboarding as complete for the organization
+ */
+export const completeOnboarding = createServerFn({
+  method: "POST",
+})
+  .inputValidator((data: { organizationId: string }) => {
+    if (!data?.organizationId) {
+      throw new Error("Organization ID is required");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    try {
+      const db = getDb();
+      const [existing] = await db
+        .select({
+          metadata: organization.metadata,
+        })
+        .from(organization)
+        .where(eq(organization.id, data.organizationId))
+        .limit(1);
+
+      let metadataObj: Record<string, unknown> = {};
+      if (existing?.metadata) {
+        try {
+          metadataObj = JSON.parse(existing.metadata);
+        } catch (err) {
+          logger.warn("Failed to parse organization metadata, resetting", {
+            organizationId: data.organizationId,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      // Mark onboarding as complete
+      metadataObj.onboardingCompleted = true;
+      metadataObj.onboardingCompletedAt = new Date().toISOString();
+
+      await db
+        .update(organization)
+        .set({
+          metadata: JSON.stringify(metadataObj),
+        })
+        .where(eq(organization.id, data.organizationId));
+
+      logger.info("Onboarding marked as complete", {
+        organizationId: data.organizationId,
+      });
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Failed to mark onboarding as complete", {
+        error: errorMessage,
+        data,
+      });
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  });
+
+/**
+ * Get active organization from session
+ */
+export const getActiveOrganization = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  try {
+    const request = getRequest();
+    const auth = getAuth();
+
+    // Get session and extract active organization ID
+    const session = await auth.api.getSession(request);
+    const activeOrgId = session ? getActiveOrganizationId(session) : null;
+
+    if (!activeOrgId) {
+      return {
+        success: false,
+        organization: null,
+      };
+    }
+
+    // Query organization from database using data-ops
+    const db = getDb();
+    const [org] = await db
+      .select({
+        id: organization.id,
+        name: organization.name,
+        slug: organization.slug,
+      })
+      .from(organization)
+      .where(eq(organization.id, activeOrgId))
+      .limit(1);
+
+    if (!org) {
+      return {
+        success: false,
+        organization: null,
+      };
+    }
+
+    return {
+      success: true,
+      organization: {
+        id: org.id,
+        name: org.name ?? null,
+        slug: org.slug ?? null,
+      },
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error("Failed to get active organization", { error: errorMessage });
+
+    return {
+      success: false,
+      organization: null,
+      error: errorMessage,
+    };
+  }
+});
+
+/**
  * Determine onboarding progress for the current user.
  */
 export const getOnboardingStatus = createServerFn({
@@ -395,11 +512,9 @@ export const getOnboardingStatus = createServerFn({
         projectId: null,
         user: currentUser,
         organizations,
+        onboardingCompleted: false,
       } satisfies OnboardingStatus;
     }
-
-    const { getDb } = await import("@repo/data-ops/database/setup");
-    const { devices, organization } = await import("@repo/data-ops/schema");
 
     const db = getDb();
     const [organizationRecord] = await db
@@ -424,29 +539,23 @@ export const getOnboardingStatus = createServerFn({
       }
     }
 
-    const [latestOnboardingDevice] = await db
+    // Query for default project (created during onboarding)
+    const [defaultProject] = await db
       .select({
-        id: devices.id,
-        name: devices.name,
-        notes: devices.notes,
+        id: projects.id,
+        name: projects.name,
+        domain: projects.domain,
       })
-      .from(devices)
+      .from(projects)
       .where(
-        and(eq(devices.organizationId, primaryOrganizationId), eq(devices.source, "ONBOARDING"))
+        and(
+          eq(projects.organizationId, primaryOrganizationId),
+          eq(projects.isDefault, true)
+        )
       )
-      .orderBy(desc(devices.discoveredAt))
       .limit(1);
 
-    const hasOnboardingDevice = Boolean(latestOnboardingDevice);
-
-    // Extract domain from notes field (format: "Domain: example.com")
-    let domain: string | null = null;
-    if (latestOnboardingDevice?.notes) {
-      const domainMatch = latestOnboardingDevice.notes.match(/^Domain:\s*(.+)$/);
-      if (domainMatch) {
-        domain = domainMatch[1];
-      }
-    }
+    const hasProject = Boolean(defaultProject);
 
     const organizationSummary: OnboardingOrganizationSummary | null = organizationRecord
       ? {
@@ -456,23 +565,27 @@ export const getOnboardingStatus = createServerFn({
         }
       : null;
 
-    const projectSummary: OnboardingProjectSummary | null = latestOnboardingDevice
+    const projectSummary: OnboardingProjectSummary | null = defaultProject
       ? {
-          id: latestOnboardingDevice.id,
-          name: latestOnboardingDevice.name ?? null,
-          domain,
+          id: defaultProject.id,
+          name: defaultProject.name ?? null,
+          domain: defaultProject.domain ?? null,
         }
       : null;
 
+    // Check if onboarding is complete from organization metadata
+    const onboardingCompleted = organizationMetadata?.onboardingCompleted === true;
+
     return {
       success: true,
-      step: hasOnboardingDevice ? 3 : 2,
+      step: hasProject ? 3 : 2,
       organizationId: primaryOrganizationId,
-      projectId: latestOnboardingDevice?.id ?? null,
+      projectId: defaultProject?.id ?? null,
       user: currentUser,
       organization: organizationSummary,
       project: projectSummary,
       organizations,
+      onboardingCompleted,
     } satisfies OnboardingStatus;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
@@ -485,6 +598,7 @@ export const getOnboardingStatus = createServerFn({
       projectId: null,
       user: currentUser,
       organizations: [],
+      onboardingCompleted: false,
       error: errorMessage,
     } satisfies OnboardingStatus;
   }

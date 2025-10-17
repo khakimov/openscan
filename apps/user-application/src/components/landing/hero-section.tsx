@@ -6,13 +6,13 @@ export function HeroSection() {
   return (
     <section className="relative px-6 lg:px-8 py-24 sm:py-32">
       <div className="mx-auto max-w-4xl text-center">
-        <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-6xl lg:text-7xl">
+        <h1 className="text-[5rem]/[1.2] tracking-tight text-foreground mt-16 mb-8">
           sec.🤘
         </h1>
 
-        <p className="mt-8 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
-          Monitor your infrastructure exposure. Fix issues before attackers find
-          them.
+        <p className="mt-8 mb-4 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
+          Know what’s exposed across your servers and web apps - and close them
+          before attackers do.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">

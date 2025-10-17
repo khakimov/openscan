@@ -27,6 +27,7 @@ type OnboardingBase = {
   projectId: string | null;
   user: OnboardingUserSummary | null;
   organizations: OnboardingOrganizationSummary[];
+  onboardingCompleted?: boolean;
 };
 
 export type OnboardingStatusSuccessPending = OnboardingBase & {
@@ -36,6 +37,7 @@ export type OnboardingStatusSuccessPending = OnboardingBase & {
   projectId: null;
   organization?: null;
   project?: null;
+  onboardingCompleted?: false;
   error?: undefined;
 };
 
@@ -46,6 +48,7 @@ export type OnboardingStatusSuccessActive = OnboardingBase & {
   projectId: string | null;
   organization: OnboardingOrganizationSummary | null;
   project: OnboardingProjectSummary | null;
+  onboardingCompleted?: boolean;
   error?: undefined;
 };
 
@@ -56,6 +59,7 @@ export type OnboardingStatusFailure = OnboardingBase & {
   projectId: null;
   organization?: null;
   project?: null;
+  onboardingCompleted?: false;
 };
 
 export type OnboardingStatus =

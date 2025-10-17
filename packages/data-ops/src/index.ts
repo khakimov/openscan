@@ -3,6 +3,8 @@ export * from './schema';
 
 // Export additional type helpers from types.ts (non-conflicting types)
 export type {
+  Project,
+  NewProject,
   Device,
   NewDevice,
   DeviceIp,
@@ -34,6 +36,7 @@ export * from './auth/setup';
 // Export queries
 export * from './queries/devices';
 export * from './queries/scans';
+export * from './queries/projects';
 
 // Explicitly re-export getDeviceByIdGlobal (internal use only)
 export { getDeviceByIdGlobal } from './queries/devices';

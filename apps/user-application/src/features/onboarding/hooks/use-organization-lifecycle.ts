@@ -1,7 +1,7 @@
 import { useState } from "react";
 import {
   createOrganizationOnboarding,
-  createProjectDevice,
+  createProjectOnboarding,
   updateOrganizationOnboarding,
 } from "@/server/organization";
 
@@ -24,15 +24,15 @@ export interface UseOrganizationLifecycleOptions {
   persistedOrganizationId: string | null;
 
   /**
-   * Persisted device ID from previous steps
+   * Persisted project ID from previous steps
    */
-  deviceId: string | null;
+  projectId: string | null;
 }
 
 export interface OrganizationSetupResult {
   success: boolean;
   organizationId?: string;
-  deviceId?: string;
+  projectId?: string;
   error?: string;
 }
 
@@ -43,7 +43,7 @@ export interface OrganizationSetupResult {
 export function useOrganizationLifecycle({
   hasOrganization,
   persistedOrganizationId,
-  deviceId,
+  projectId,
 }: UseOrganizationLifecycleOptions) {
   const [error, setError] = useState<string | null>(null);
 
@@ -116,34 +116,34 @@ export function useOrganizationLifecycle({
         throw new Error("Organization ID not available");
       }
 
-      // Step 2: Create project device
+      // Step 2: Create or update project
       console.log(
-        "[useOrganizationLifecycle] Saving project device:",
+        "[useOrganizationLifecycle] Saving project:",
         formData.projectName
       );
 
-      const deviceResult = await createProjectDevice({
+      const projectResult = await createProjectOnboarding({
         data: {
           projectName: formData.projectName,
           domain: formData.domain || undefined,
           organizationId,
-          deviceId,
+          projectId,
         },
       });
 
-      if (!deviceResult.success) {
-        throw new Error(deviceResult.error || "Failed to save project");
+      if (!projectResult.success) {
+        throw new Error(projectResult.error || "Failed to save project");
       }
 
       console.log(
-        "[useOrganizationLifecycle] Project device saved:",
-        deviceResult.device
+        "[useOrganizationLifecycle] Project saved:",
+        projectResult.project
       );
 
       return {
         success: true,
         organizationId,
-        deviceId: deviceResult.device.id,
+        projectId: projectResult.project.id,
       };
     } catch (err) {
       const errorMessage =

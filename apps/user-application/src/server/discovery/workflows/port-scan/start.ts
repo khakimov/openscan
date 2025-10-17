@@ -3,7 +3,7 @@ import { createLogger } from '@repo/logger';
 
 import { extractErrorMessage } from '../../utils/workflow-helpers';
 import { PortScanSchema } from '../../schemas/port-scan-schemas';
-import { getCurrentTenant, getCurrentUser } from '../../../utils/auth';
+import { getCurrentOrganizationId, getCurrentUser } from '../../../utils/auth';
 import { portScanService } from '../../services/port-scan-service';
 
 import type { PortScanInput } from '@repo/contracts';
@@ -27,20 +27,20 @@ export const startPortScanWorkflow = createServerFn({
     const input = data as PortScanInput;
 
     try {
-      const tenantId = await getCurrentTenant();
+      const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
 
       logger.info('Starting port scan via Restate', {
         target: input.target,
         ports: input.ports,
-        tenantId,
+        organizationId,
         userId: user.id,
       });
 
       // Use service for full orchestration (Restate + database tracking)
       const result = await portScanService.startScan({
         input,
-        tenantId,
+        tenantId: organizationId,
         userId: user.id,
       });
 
