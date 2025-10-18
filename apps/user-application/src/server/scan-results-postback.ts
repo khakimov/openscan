@@ -195,7 +195,12 @@ async function storeScanResults(params: {
  * Handle scan results postback from restate-worker
  * This is the main entry point called by the API route
  */
-export async function handleScanResultsPostback(request: Request): Promise<Response> {
+export async function handleScanResultsPostback(
+  request: Request,
+  env?: { ANALYTICS?: AnalyticsEngineDataset }
+): Promise<Response> {
+  const startTime = Date.now();
+
   logger.info('Postback request received', {
     method: request.method,
     url: request.url,
@@ -206,6 +211,15 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
     // 1. Authenticate request
     if (!authenticateRequest(request)) {
       logger.error('Postback authentication failed - returning 401');
+
+      // Track authentication failure
+      const latency = Date.now() - startTime;
+      env?.ANALYTICS?.writeDataPoint({
+        blobs: ['unknown', 'unknown', 'Authentication failed'],
+        doubles: [latency],
+        indexes: ['postback_auth_failed'],
+      });
+
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -226,6 +240,14 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
       const errorMessage = path
         ? `Invalid payload: ${path} - ${firstError.message}`
         : `Invalid payload: ${firstError.message}`;
+
+      // Track validation failure
+      const latency = Date.now() - startTime;
+      env?.ANALYTICS?.writeDataPoint({
+        blobs: ['unknown', 'unknown', errorMessage],
+        doubles: [latency],
+        indexes: ['postback_validation_failed'],
+      });
 
       return Response.json(
         { error: errorMessage },
@@ -250,6 +272,15 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
 
     if (!device) {
       logger.warn('Device not found for postback', { deviceId, scanId });
+
+      // Track device not found error
+      const latency = Date.now() - startTime;
+      env?.ANALYTICS?.writeDataPoint({
+        blobs: [scanId, deviceId, 'Device not found'],
+        doubles: [latency],
+        indexes: ['postback_device_not_found'],
+      });
+
       return Response.json({ error: 'Device not found' }, { status: 404 });
     }
 
@@ -267,6 +298,14 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
       organizationId: device.organizationId,
     });
 
+    // Track successful postback
+    const latency = Date.now() - startTime;
+    env?.ANALYTICS?.writeDataPoint({
+      blobs: [scanId, deviceId, device.organizationId],
+      doubles: [latency, results.ports.length],
+      indexes: ['postback_success'],
+    });
+
     return Response.json({ success: true });
   } catch (error) {
     logger.error('Failed to process scan results postback', {
@@ -275,6 +314,15 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
         message: error.message,
         stack: error.stack,
       } : error,
+    });
+
+    // Track general failure
+    const latency = Date.now() - startTime;
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    env?.ANALYTICS?.writeDataPoint({
+      blobs: ['unknown', 'unknown', errorMessage],
+      doubles: [latency],
+      indexes: ['postback_failure'],
     });
 
     return Response.json(

@@ -17,6 +17,63 @@ sec/
 └── CLAUDE.md               # This file
 ```
 
+## Task Management with Beads
+
+This project uses [beads](https://github.com/steveyegge/beads) - a dependency-aware issue tracker designed for AI-supervised workflows.
+
+### Quick Reference
+
+**When you need help with beads commands:**
+```bash
+bd quickstart  # Show comprehensive quick reference guide
+```
+
+**Call `bd quickstart` when:**
+- You're unsure about beads command syntax
+- You need to understand dependency types (blocks, parent-child, discovered-from, related)
+- You want to see all available commands at a glance
+- You're new to the beads workflow
+
+### Common Beads Workflow
+
+```bash
+# List current work
+bd list -s open           # Show all open issues
+bd ready                  # Show issues ready to work (unblocked)
+
+# Show issue details
+bd show sec-42            # View full issue details
+
+# Create new issues
+bd create "Fix bug in device scanner" -p 1 -t bug
+bd create "Add feature X" --deps "blocks:sec-42"
+
+# Update issues
+bd update sec-42 --status in_progress
+bd close sec-42 "Implemented feature successfully"
+
+# Manage dependencies
+bd dep add sec-43 sec-42  # sec-42 blocks sec-43
+bd dep tree sec-42        # Visualize dependency tree
+```
+
+### Dependency Types
+
+- **blocks** - Task B must complete before task A (hard dependency)
+- **parent-child** - Epic/subtask hierarchical relationship
+- **discovered-from** - Auto-created when AI discovers related work during a task
+- **related** - Soft connection, doesn't block progress
+
+### Integration with Development
+
+All beads data is stored in `.beads/sec.db` and automatically synced to git via JSONL export. Issues use the `sec-` prefix (e.g., `sec-42`, `sec-43`).
+
+When working on tasks:
+1. Check `bd ready` to find unblocked work
+2. Update status to `in_progress` when starting
+3. Create new issues with `--deps discovered-from:sec-X` when you discover related work
+4. Close issues with a descriptive reason when complete
+
 ## Data-Ops Package Architecture
 
 **Location:** `packages/data-ops/`

@@ -12,12 +12,13 @@
 
 import { createFileRoute } from '@tanstack/react-router';
 import { handleScanResultsPostback } from '../../../server/scan-results-postback';
+import { env } from 'cloudflare:workers';
 
 export const Route = createFileRoute('/api/internal/scan-results')({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        return handleScanResultsPostback(request);
+        return handleScanResultsPostback(request, env);
       },
     },
   },

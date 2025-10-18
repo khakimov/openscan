@@ -19,4 +19,10 @@
       "migrations_dir": "../../packages/data-ops/migrations",
     },
   ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "postback_events",
+    },
+  ],
 }

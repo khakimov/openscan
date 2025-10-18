@@ -17,6 +17,7 @@ declare namespace Cloudflare {
 		GOOGLE_REDIRECT_URI: string;
 		POLAR_SECRET: string;
 		DB: D1Database;
+		ANALYTICS: AnalyticsEngineDataset;
 	}
 }
 interface Env extends Cloudflare.Env {}
