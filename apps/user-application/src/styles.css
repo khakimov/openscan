@@ -3,7 +3,6 @@
  * Tailwind directives (@apply, @layer, @theme) are valid and processed by the Tailwind Vite plugin
  */
 
-
 /* Local variable fonts */
 @font-face {
     font-family: "Muoto";
@@ -24,6 +23,13 @@
 @import "tailwindcss";
 
 @import "tw-animate-css";
+
+/* Register CSS custom property for animation */
+@property --border-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
 
 :root {
     --background: oklch(1 0 0);
@@ -59,6 +65,7 @@
     --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
     --sidebar-border: oklch(0.92 0.004 286.32);
     --sidebar-ring: oklch(0.871 0.006 286.286);
+    --border-angle: 0deg;
 }
 
 .dark {
@@ -140,6 +147,13 @@
 
     /* Custom animations */
     --animate-ping-slow: ping-slow 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+    --animate-rotate-border: border-rotate 3s linear infinite;
+
+    @keyframes border-rotate {
+        to {
+            --border-angle: 360deg;
+        }
+    }
 }
 
 /* Custom keyframes for slower ping animation */
@@ -148,16 +162,6 @@
     100% {
         transform: scale(2);
         opacity: 0;
-    }
-}
-
-/* Scanning border animation - rotating gradient effect */
-@keyframes scanningBorderSpin {
-    0% {
-        transform: rotate(0deg);
-    }
-    100% {
-        transform: rotate(360deg);
     }
 }
 
@@ -181,49 +185,4 @@
     @apply rounded-md border;
     border-color: hsl(var(--border));
     background-color: hsl(var(--card));
-}
-
-.scanning-border {
-    position: relative;
-    overflow: hidden;
-    /* Create a new stacking context to isolate z-index */
-    isolation: isolate;
-}
-
-.scanning-border::before {
-    content: "";
-    position: absolute;
-    left: -50%;
-    top: -50%;
-    width: 200%;
-    height: 200%;
-    background: conic-gradient(
-        rgb(59 130 246 / 0.8) 0deg,
-        rgb(34 197 94 / 0.8) 120deg,
-        rgb(59 130 246 / 0.8) 240deg,
-        transparent 300deg,
-        transparent 360deg
-    );
-    border-radius: inherit;
-    z-index: -2;
-    animation: scanningBorderSpin 3s linear infinite;
-}
-
-/* Create a single content overlay */
-.scanning-border::after {
-    content: "";
-    position: absolute;
-    top: 2px;
-    left: 2px;
-    right: 2px;
-    bottom: 2px;
-    background-color: hsl(var(--card));
-    border-radius: calc(var(--radius) - 1px);
-    z-index: -1;
-}
-
-/* Ensure card content is above the overlay, but preserve absolute positioning */
-.scanning-border > *:not(.absolute) {
-    position: relative;
-    z-index: 1;
 }

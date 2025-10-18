@@ -563,26 +563,20 @@ export async function getDeviceScanHistory(
 ) {
   const db = getDb();
 
-  const history = await db
+  return await db
     .select({
       id: scanRuns.id,
-      status: scanRuns.status,
-      scanType: scanRuns.scanType,
-      target: scanRuns.target,
       requestedAt: scanRuns.requestedAt,
-      startedAt: scanRuns.startedAt,
-      completedAt: scanRuns.completedAt,
       resultSummary: scanRuns.resultSummary,
     })
     .from(scanRuns)
     .where(and(
       eq(scanRuns.organizationId, organizationId),
-      eq(scanRuns.target, target)
+      eq(scanRuns.target, target),
+      eq(scanRuns.status, 'SUCCEEDED')
     ))
     .orderBy(desc(scanRuns.requestedAt))
     .limit(limit);
-
-  return history;
 }
 
 /**

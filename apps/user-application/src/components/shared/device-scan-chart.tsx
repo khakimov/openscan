@@ -1,15 +1,19 @@
 import { useMemo } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
+import { format } from "date-fns";
 
 export interface ScanHistoryItem {
   id: string;
-  createdAt: Date;
-  ports: Array<{
-    port: number;
-    protocol: string;
-    state: string;
-    service?: string;
-  }>;
+  requestedAt: Date; // Timestamp from Drizzle
+  resultSummary: {
+    openPortCount?: number;
+    ports?: Array<{
+      port: number;
+      protocol: string;
+      state: string;
+      service?: string;
+    }>;
+  };
 }
 
 interface DeviceScanChartProps {
@@ -35,16 +39,27 @@ export function DeviceScanChart({
     const sortedHistory = [...scanHistory].reverse();
 
     return sortedHistory.map((scan, index) => {
-      // Handle cases where ports might be undefined or not an array
-      const openPorts = (scan.ports || [])
+      // Extract ports from resultSummary
+      const ports = scan.resultSummary?.ports || [];
+      const openPorts = ports
         .filter(p => p.state === 'open')
         .map(p => p.port)
         .sort((a, b) => a - b);
 
+      // Handle requestedAt - Drizzle returns it as a Date object
+      let dateStr = 'Unknown date';
+      if (scan.requestedAt) {
+        try {
+          dateStr = format(new Date(scan.requestedAt), 'MMM dd, yyyy');
+        } catch (e) {
+          console.error('Date formatting error:', e, scan.requestedAt);
+        }
+      }
+
       return {
         scan: index + 1,
         ports: openPorts.length,
-        date: new Date(scan.createdAt).toLocaleDateString(),
+        date: dateStr,
         scanNumber: `Scan #${index + 1}`,
         allPorts: openPorts,
       };
@@ -108,15 +123,14 @@ export function DeviceScanChart({
           <Line
             type="monotone"
             dataKey="ports"
-            stroke="hsl(var(--primary))"
+            stroke="#3b82f6"
             strokeWidth={2}
-            dot={{ r: 3, fill: "hsl(var(--primary))" }}
-            strokeOpacity={0.8}
+            dot={{ r: 3, fill: "#3b82f6" }}
             activeDot={{
-              r: 4,
-              fill: "hsl(var(--primary))",
+              r: 5,
+              fill: "#3b82f6",
               strokeWidth: 2,
-              stroke: "hsl(var(--background))"
+              stroke: "#ffffff"
             }}
           />
         </LineChart>

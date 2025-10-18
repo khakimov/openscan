@@ -20,98 +20,60 @@ import {
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
 import { useDeviceScan } from "@/hooks/useDeviceScanStatus";
-import {
-  DeviceScanChart,
-  type ScanHistoryItem,
-} from "@/components/shared/device-scan-chart";
+import { DeviceScanChart } from "@/components/shared/device-scan-chart";
 import {
   getDeviceScanHistoryData,
   verifyDevice,
   toggleDeviceVerification,
   startDeviceScan,
 } from "@/server/devices";
-import { useQuery } from "@tanstack/react-query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface DeviceCardProps {
   device: TransformedDevice;
 }
 
-function StatusBadge({
-  status,
-  hasBeenScanned,
-}: {
-  status: string;
-  hasBeenScanned?: boolean;
-}) {
-  // Don't show status if device has never been scanned
-  if (!hasBeenScanned) {
-    return null;
+// Helper to get scan target from device
+function getScanTarget(device: TransformedDevice): string | null {
+  let target = device.name;
+
+  // Clean up name with parentheses
+  if (target?.includes("(")) {
+    target = target.split("(")[0].trim();
   }
 
-  const displayStatus = status || "Unknown";
-  return (
-    <span className={getDeviceStatusBadgeClass(displayStatus)}>
-      {displayStatus}
-    </span>
-  );
-}
-
-function ScanStatusBadge({
-  isScanned,
-  isScanning,
-}: {
-  isScanned?: boolean;
-  isScanning?: boolean;
-}) {
-  if (isScanning) {
-    return (
-      <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center gap-1">
-        <Loader2 className="w-3 h-3 animate-spin" />
-        Scanning
-      </span>
-    );
-  } else if (isScanned === true) {
-    return (
-      <span className="px-2 py-1 text-xs rounded-full bg-green-500/10 text-green-400 border border-green-500/30">
-        Scanned
-      </span>
-    );
-  } else if (isScanned === false) {
-    return (
-      <span className="px-2 py-1 text-xs rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/30">
-        Not Scanned
-      </span>
-    );
-  } else {
-    return null;
-  }
-}
-
-function RiskLevelBadge({
-  riskLevel,
-  hasBeenScanned,
-}: {
-  riskLevel: string;
-  hasBeenScanned?: boolean;
-}) {
-  // Don't show risk badge if device has never been scanned
-  if (!hasBeenScanned) {
-    return null;
+  // Use IP if name doesn't look like a hostname
+  if (!target || !target.includes(".")) {
+    target = device.ip;
   }
 
-  const displayLevel = riskLevel || "Unknown";
-
-  return (
-    <span className={getRiskLevelBadgeClass(displayLevel)}>{displayLevel}</span>
-  );
+  return target || null;
 }
 
 export function DeviceCard({ device }: DeviceCardProps) {
   const queryClient = useQueryClient();
-  const { isScanning, isStartingScan } = useDeviceScan(device.id);
+  const { isScanning, isStartingScan, activeScanId } = useDeviceScan(device.id);
 
-  // Verification mutation
+  // Show scanning state if there's an active scan (from database or workflow)
+  const isActivelyScanning = isScanning || !!activeScanId;
+
+  // Simplified stats - trust server data
+  const totalOpenPorts = device.scanStats?.openPortCount ?? 0;
+  const totalScans = device.scanStats?.totalScans ?? 0;
+  const lastScanAt = device.scanStats?.lastScanAt;
+  const hasScanHistory = totalScans > 0;
+
+  // Fetch scan history for chart
+  const { data: scanHistoryData } = useQuery({
+    queryKey: ["device-scan-history", device.name],
+    queryFn: () =>
+      getDeviceScanHistoryData({ data: { target: device.name, limit: 10 } }),
+    enabled: totalScans > 1,
+  });
+
+  const scanHistory = scanHistoryData?.history || [];
+
+  // Mutations
   const verificationMutation = useMutation({
     mutationFn: (data: {
       deviceId: string;
@@ -119,169 +81,21 @@ export function DeviceCard({ device }: DeviceCardProps) {
       note?: string;
     }) => verifyDevice({ data }),
     onSuccess: (_result, variables) => {
-      const statusLabels = {
+      const labels = {
         VERIFIED: "verified",
         EXCLUDED: "excluded",
         CANDIDATE: "reset to candidate",
       };
-      toast.success(`Device ${statusLabels[variables.status]}`, {
-        description: `${device.name} has been ${statusLabels[variables.status]}`,
-      });
-      // Invalidate devices query to refresh the list
+      toast.success(`Device ${labels[variables.status]}`);
       queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
     onError: (error) => {
-      toast.error("Failed to update device verification", {
+      toast.error("Failed to update device", {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
   });
-  const scanStats = device.scanStats;
-  const legacyPortCount = (() => {
-    if (!device.ports) return 0;
-    const tcpPorts = Array.isArray(device.ports.tcp)
-      ? device.ports.tcp.length
-      : 0;
-    // Only TCP ports are supported in the current schema
-    return tcpPorts;
-  })();
-  const totalOpenPorts =
-    scanStats?.openPortCount ?? device.totalOpenPorts ?? legacyPortCount;
-  const totalScans =
-    scanStats?.totalScans ?? device.scanCount ?? (device.isScanned ? 1 : 0);
-  const hasScanHistory = totalScans > 0;
-  const lastScanAt = scanStats?.lastScanAt ?? device.lastScanned ?? undefined;
 
-  const scanCountLabel = hasScanHistory
-    ? `${totalScans} ${totalScans === 1 ? "scan" : "scans"} total`
-    : null;
-
-  // Fetch scan history for the chart
-  const { data: scanHistoryData } = useQuery({
-    queryKey: ["device-scan-history", device.name],
-    queryFn: () =>
-      getDeviceScanHistoryData({
-        data: { target: device.name, limit: 10 },
-      }),
-    enabled: totalScans > 1, // Only fetch if there are multiple scans
-  });
-
-  const scanHistory: ScanHistoryItem[] = scanHistoryData?.history || [];
-
-  const handleDelete = () => {
-    pushModal("DeleteDeviceConfirm", {
-      deviceId: device.id,
-      deviceName: device.name,
-    });
-  };
-
-  const handleEdit = () => {
-    pushModal("EditDevice", {
-      deviceId: device.id,
-      device: device,
-    });
-  };
-
-  /**
-   * Secure scan handler - uses server-side presets
-   * All scan configuration (timeout, ports, profiles) is server-controlled
-   */
-  const handleStartScan = async (preset: "QUICK" | "STANDARD" | "THOROUGH") => {
-    console.log("[handleStartScan] Starting scan", {
-      deviceId: device.id,
-      deviceName: device.name,
-      preset,
-    });
-
-    // Determine target from device name or IP
-    let target = device.name;
-    if (target && target.includes("(")) {
-      target = target.split("(")[0].trim();
-    }
-
-    if (!target || !target.includes(".")) {
-      target = device.ip;
-    }
-
-    if (!target) {
-      console.error("[handleStartScan] No valid target found", { device });
-      toast.error("No valid target found for scanning");
-      return;
-    }
-
-    const toastId = `scan-${preset}-${device.id}`;
-
-    console.log("[handleStartScan] Calling startDeviceScan", {
-      target,
-      preset,
-      deviceId: device.id,
-    });
-
-    toast.loading(`Starting ${preset.toLowerCase()} scan for ${target}...`, {
-      id: toastId,
-    });
-
-    try {
-      // Call secure server function - client only passes preset choice
-      const result = await startDeviceScan({
-        data: {
-          deviceId: device.id,
-          target,
-          preset,
-        },
-      });
-
-      console.log("[handleStartScan] Server response:", { result });
-
-      if (result.success) {
-        // Store Restate scanId (not workflowId) in query cache so useDeviceScan can track status
-        // The scanId is what Restate uses internally to query scan state
-        if (result.scanId) {
-          console.log("[handleStartScan] Storing scanId in query cache", {
-            deviceId: device.id,
-            scanId: result.scanId,
-          });
-
-          queryClient.setQueryData(["active-scan", device.id], result.scanId);
-          queryClient.invalidateQueries({
-            queryKey: ["active-device-scans", device.id],
-          });
-
-          console.log(
-            "[handleStartScan] Query cache updated, triggering refetch",
-          );
-        }
-
-        toast.success(`Scan started for ${target}`, {
-          id: toastId,
-          description: result.presetDescription || `Scan ID: ${result.scanId}`,
-          action: {
-            label: "Monitor",
-            onClick: () => {
-              console.log("Monitor scan:", { scanId: result.scanId });
-            },
-          },
-        });
-      } else {
-        console.error("[handleStartScan] Scan failed:", result.error);
-        toast.error(`Failed to start scan: ${result.error}`, {
-          id: toastId,
-        });
-      }
-    } catch (error) {
-      console.error("[handleStartScan] Exception caught:", error);
-      toast.error(`Failed to start port scan`, {
-        id: toastId,
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
-  };
-
-  const handleExtendedScan = async () => {
-    await handleStartScan("THOROUGH");
-  };
-
-  // Verification toggle mutation (with scheduling)
   const verificationToggleMutation = useMutation({
     mutationFn: (data: {
       deviceId: string;
@@ -293,56 +107,68 @@ export function DeviceCard({ device }: DeviceCardProps) {
       queryClient.invalidateQueries({ queryKey: ["devices"] });
     },
     onError: (error) => {
-      toast.error("Failed to update device verification", {
+      toast.error("Failed to update device", {
         description: error instanceof Error ? error.message : "Unknown error",
       });
     },
   });
 
-  const handleVerify = () => {
-    // TODO: Add dialog for interval selection
-    verificationToggleMutation.mutate({
-      deviceId: device.id,
-      verify: true,
-      interval: "1h", // Default: hourly
-    });
-  };
+  // Handlers
+  const handleScan = async () => {
+    const target = getScanTarget(device);
+    if (!target) {
+      toast.error("No valid target found for scanning");
+      return;
+    }
 
-  const handleExclude = () => {
-    verificationMutation.mutate({
-      deviceId: device.id,
-      status: "EXCLUDED",
-      note: "Manually excluded from device card",
-    });
-  };
+    const toastId = `scan-${device.id}`;
+    toast.loading(`Starting scan for ${target}...`, { id: toastId });
 
-  const handleUnverify = () => {
-    verificationToggleMutation.mutate({
-      deviceId: device.id,
-      verify: false,
-    });
-  };
-
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return "Never";
     try {
-      return format(new Date(dateString), "MMM dd, yyyy");
+      const result = await startDeviceScan({
+        data: { deviceId: device.id, target, preset: "THOROUGH" },
+      });
+
+      if (result.success && result.scanId) {
+        queryClient.setQueryData(["active-scan", device.id], result.scanId);
+        queryClient.invalidateQueries({
+          queryKey: ["active-device-scans", device.id],
+        });
+
+        toast.success(`Scan started for ${target}`, {
+          id: toastId,
+          description: result.presetDescription || `Scan ID: ${result.scanId}`,
+        });
+      } else {
+        toast.error(`Failed to start scan: ${result.error}`, { id: toastId });
+      }
     } catch (error) {
-      return "Invalid date";
+      toast.error("Failed to start port scan", {
+        id: toastId,
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   };
 
-  // Get status from status field (already transformed to "active" or "offline")
-  const getStatus = () => {
-    return device.status || "unknown";
-  };
-
   return (
-    <Card
-      hover
-      className={`${getRiskLevelBorderClass(device.riskLevel)} ${isScanning ? "scanning-border" : ""}`}
+    <div
+      className={isActivelyScanning ? "animate-rotate-border rounded-lg p-px w-full" : "w-full"}
+      style={
+        isActivelyScanning
+          ? {
+              background: `conic-gradient(from var(--border-angle), transparent 0%, rgb(59 130 246) 50%, transparent 100%)`
+            }
+          : undefined
+      }
     >
-      <div className="p-4">
+      <div
+        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 border ${!isActivelyScanning ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'}`}
+        style={{
+          backgroundColor: '#262626'
+        }}
+      >
+        {/* Header */}
+        <div className="p-4">
         <div className="flex justify-between items-start mb-2">
           <div className="col min-w-0 flex-1 pr-10">
             <div className="font-medium leading-[28px] truncate">
@@ -351,71 +177,82 @@ export function DeviceCard({ device }: DeviceCardProps) {
             <div className="text-sm text-muted-foreground">{device.ip}</div>
           </div>
         </div>
+
+        {/* Badges */}
         <div className="flex gap-2 mt-2">
-          <ScanStatusBadge
-            isScanned={device.isScanned}
-            isScanning={isScanning}
-          />
-          <StatusBadge status={getStatus()} hasBeenScanned={device.isScanned} />
-          <RiskLevelBadge
-            riskLevel={device.riskLevel}
-            hasBeenScanned={device.isScanned}
-          />
-        </div>
-      </div>
-      <div className="flex">
-        <div className="center-center col flex-1 p-4 py-2">
-          <div className="font-medium text-xl font-mono">
-            {device.isScanned ? totalOpenPorts : "-"}
-          </div>
-          <div className="text-muted-foreground whitespace-nowrap text-sm">
-            open ports
-          </div>
-        </div>
-        <div className="flex flex-1">
-          <div className="center-center col flex-1 p-4 py-2">
-            <div className="font-medium text-sm">
-              {hasScanHistory
-                ? lastScanAt
-                  ? formatDate(lastScanAt)
-                  : "Unknown"
-                : "Not scanned yet"}
-            </div>
-            <div className="text-muted-foreground whitespace-nowrap text-sm">
-              {hasScanHistory
-                ? scanCountLabel
-                  ? `last scan (${scanCountLabel})`
-                  : "last scan"
-                : "scan status"}
-            </div>
-          </div>
+          {/* Scan Status Badge */}
+          {isActivelyScanning ? (
+            <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Scanning
+            </span>
+          ) : device.isScanned ? (
+            <span className="px-2 py-1 text-xs rounded-full bg-green-500/10 text-green-400 border border-green-500/30">
+              Scanned
+            </span>
+          ) : (
+            <span className="px-2 py-1 text-xs rounded-full bg-gray-500/10 text-gray-400 border border-gray-500/30">
+              Not Scanned
+            </span>
+          )}
 
-          <div className="center-center col flex-1 p-4 py-2">
-            <div className="font-medium text-sm">
-              {formatDate(device.discoveredOn)}
-            </div>
-            <div className="text-muted-foreground whitespace-nowrap text-sm">
-              discovered
-            </div>
-          </div>
+          {/* Status & Risk - only show if scanned */}
+          {device.isScanned && (
+            <>
+              <span className={getDeviceStatusBadgeClass(device.status)}>
+                {device.status}
+              </span>
+              <span className={getRiskLevelBadgeClass(device.riskLevel)}>
+                {device.riskLevel}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
+      {/* Stats Grid */}
+      <div className="grid grid-cols-3 items-start gap-x-6 gap-y-1 p-4 sm:p-6">
+        <div className="text-sm text-muted-foreground">open ports</div>
+        <div className="text-sm text-muted-foreground">
+          {hasScanHistory ? "last scan" : "scan status"}
+        </div>
+        <div className="text-sm text-muted-foreground">discovered</div>
+
+        <div className="font-mono text-xl px-2">
+          {device.isScanned ? totalOpenPorts : "-"}
+        </div>
+        <div className="text-sm whitespace-nowrap">
+          {hasScanHistory && lastScanAt
+            ? format(new Date(lastScanAt), "MMM dd, yyyy")
+            : hasScanHistory
+              ? "Unknown"
+              : "Not scanned yet"}
+        </div>
+        <div className="text-sm whitespace-nowrap">
+          {format(new Date(device.discoveredOn), "MMM dd, yyyy")}
+        </div>
+
+        {hasScanHistory && totalScans > 0 && (
+          <div className="col-start-2 row-start-3 text-xs text-muted-foreground">
+            ({totalScans} {totalScans === 1 ? "scan" : "scans"} total)
+          </div>
+        )}
+      </div>
+
+      {/* Scan Chart */}
       {totalScans > 1 && scanHistory.length > 0 && (
-        <div className="">
-          <div className="p-4 py-3">
-            <div className="flex items-center justify-between mb-2">
-              <div className="text-sm font-medium">Scan Activity</div>
-              <div className="text-xs text-muted-foreground">
-                {scanHistory.length}{" "}
-                {scanHistory.length === 1 ? "scan" : "scans"}
-              </div>
+        <div className="p-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-medium">Ports Activity</div>
+            <div className="text-xs text-muted-foreground">
+              {scanHistory.length} {scanHistory.length === 1 ? "scan" : "scans"}
             </div>
-            <DeviceScanChart scanHistory={scanHistory} className="h-12" />
           </div>
+          <DeviceScanChart scanHistory={scanHistory} className="h-12" />
         </div>
       )}
 
+      {/* Tags */}
       {device.tags && device.tags.length > 0 && (
         <div className="p-4 pt-2">
           <div className="flex flex-wrap gap-1">
@@ -427,14 +264,16 @@ export function DeviceCard({ device }: DeviceCardProps) {
           </div>
         </div>
       )}
+
+      {/* Actions */}
       <CardActions>
         <CardActionsItem className="w-full text-blue-600" asChild>
           <button
             type="button"
-            onClick={handleExtendedScan}
-            disabled={isScanning || isStartingScan}
+            onClick={handleScan}
+            disabled={isActivelyScanning || isStartingScan}
             className={
-              isScanning || isStartingScan
+              isActivelyScanning || isStartingScan
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }
@@ -444,22 +283,33 @@ export function DeviceCard({ device }: DeviceCardProps) {
             ) : (
               <Radar size={16} />
             )}
-            {isScanning ? "Scanning..." : "Scan"}
+            {isActivelyScanning ? "Scanning..." : "Scan"}
           </button>
         </CardActionsItem>
+
         <CardActionsItem className="w-full" asChild>
-          <button type="button" onClick={handleEdit}>
+          <button
+            type="button"
+            onClick={() =>
+              pushModal("EditDevice", { deviceId: device.id, device })
+            }
+          >
             <Pencil size={16} />
             Edit
           </button>
         </CardActionsItem>
 
-        {/* Verification Actions - contextual based on current status */}
         {device.verificationStatus !== "VERIFIED" && (
           <CardActionsItem className="w-full text-green-600" asChild>
             <button
               type="button"
-              onClick={handleVerify}
+              onClick={() =>
+                verificationToggleMutation.mutate({
+                  deviceId: device.id,
+                  verify: true,
+                  interval: "1h",
+                })
+              }
               disabled={verificationToggleMutation.isPending}
             >
               <CheckCircle2 size={16} />
@@ -472,7 +322,12 @@ export function DeviceCard({ device }: DeviceCardProps) {
           <CardActionsItem className="w-full text-gray-600" asChild>
             <button
               type="button"
-              onClick={handleUnverify}
+              onClick={() =>
+                verificationToggleMutation.mutate({
+                  deviceId: device.id,
+                  verify: false,
+                })
+              }
               disabled={verificationToggleMutation.isPending}
             >
               <XCircle size={16} />
@@ -481,27 +336,41 @@ export function DeviceCard({ device }: DeviceCardProps) {
           </CardActionsItem>
         )}
 
-        {device.verificationStatus !== "EXCLUDED" &&
-          device.verificationStatus !== "VERIFIED" && (
-            <CardActionsItem className="w-full text-orange-600" asChild>
-              <button
-                type="button"
-                onClick={handleExclude}
-                disabled={verificationMutation.isPending}
-              >
-                <XCircle size={16} />
-                Exclude Device
-              </button>
-            </CardActionsItem>
-          )}
+        {device.verificationStatus === "CANDIDATE" && (
+          <CardActionsItem className="w-full text-orange-600" asChild>
+            <button
+              type="button"
+              onClick={() =>
+                verificationMutation.mutate({
+                  deviceId: device.id,
+                  status: "EXCLUDED",
+                  note: "Manually excluded",
+                })
+              }
+              disabled={verificationMutation.isPending}
+            >
+              <XCircle size={16} />
+              Exclude Device
+            </button>
+          </CardActionsItem>
+        )}
 
         <CardActionsItem className="w-full text-destructive" asChild>
-          <button type="button" onClick={handleDelete}>
+          <button
+            type="button"
+            onClick={() =>
+              pushModal("DeleteDeviceConfirm", {
+                deviceId: device.id,
+                deviceName: device.name,
+              })
+            }
+          >
             <Trash size={16} />
             Delete
           </button>
         </CardActionsItem>
       </CardActions>
-    </Card>
+      </div>
+    </div>
   );
 }
