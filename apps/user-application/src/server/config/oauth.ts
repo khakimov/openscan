@@ -3,7 +3,7 @@ import { z } from "zod";
 const googleOAuthConfigSchema = z.object({
   clientId: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
   clientSecret: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
-  redirectUri: z.string().url("GOOGLE_REDIRECT_URI must be a valid URL"),
+  redirectUri: z.url("GOOGLE_REDIRECT_URI must be a valid URL"),
 });
 
 export type GoogleOAuthConfig = z.infer<typeof googleOAuthConfigSchema>;
@@ -26,7 +26,9 @@ export function getGoogleOAuthConfig(): GoogleOAuthConfig {
   });
 
   if (!result.success) {
-    const errors = result.error.issues.map((e) => `${e.path.join(".")}: ${e.message}`).join(", ");
+    const errors = result.error.issues
+      .map((e) => `${e.path.join(".")}: ${e.message}`)
+      .join(", ");
     throw new Error(`Google OAuth configuration error: ${errors}`);
   }
 
