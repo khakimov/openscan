@@ -7,8 +7,8 @@ import { ModalContent, ModalHeader } from "./Modal/Container";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   startDiscoveryWorkflow,
-  getWorkflowStatus,
-  getWorkflowResult,
+  getScanWorkflowStatusDB,
+  getScanWorkflowResultsDB,
 } from "@/server/discovery";
 import { createDevicesFromDiscovery } from "@/server/devices";
 import { Loader2 } from "lucide-react";
@@ -112,10 +112,10 @@ export default function AddDiscovery({
     },
   });
 
-  // Smart polling for workflow status (reduced frequency with postback architecture)
+  // Database polling for workflow status (postback updates database)
   const { data: workflowStatus } = useQuery({
-    queryKey: ["workflow-status", scanId],
-    queryFn: () => getWorkflowStatus({ data: { scanId: scanId! } }),
+    queryKey: ["workflow-status-db", scanId],
+    queryFn: () => getScanWorkflowStatusDB({ data: { scanId: scanId! } }),
     enabled: !!scanId,
     refetchInterval: (query) => {
       // Stop polling when workflow is complete or failed
@@ -123,15 +123,15 @@ export default function AddDiscovery({
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
-      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
-      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
+      // Poll every 3 seconds (database polling is fast and efficient)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3;
     },
   });
 
-  // Automatically fetch results when workflow completes
+  // Automatically fetch results from database when workflow completes
   const { data: workflowResults } = useQuery({
-    queryKey: ["workflow-results", scanId],
-    queryFn: () => getWorkflowResult({ data: { scanId: scanId! } }),
+    queryKey: ["workflow-results-db", scanId],
+    queryFn: () => getScanWorkflowResultsDB({ data: { scanId: scanId! } }),
     enabled: workflowStatus?.isCompleted === true,
   });
 
