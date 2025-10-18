@@ -2,6 +2,11 @@ import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules } from '../schema';
 
+// Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
+function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
+  return (timestamp !== null && timestamp !== undefined) ? new Date(timestamp) : undefined;
+}
+
 // Types
 export type DeviceQueryParams = {
   page?: number;
@@ -139,30 +144,28 @@ export async function getDevicesForTenant(
       ))
       .groupBy(scanRunDevices.deviceId);
 
-    // Get latest scan result summary for each device
-    const latestScansSubquery = db
-      .select({
-        deviceId: scanRunDevices.deviceId,
-        resultSummary: scanRuns.resultSummary,
-        completedAt: scanRuns.completedAt,
-        rowNum: sql<number>`row_number() OVER (PARTITION BY ${scanRunDevices.deviceId} ORDER BY ${scanRuns.completedAt} DESC)`.as('row_num'),
-      })
-      .from(scanRuns)
-      .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
-      .where(and(
-        inArray(scanRunDevices.deviceId, deviceIds),
-        eq(scanRuns.organizationId, organizationId),
-        eq(scanRuns.status, 'SUCCEEDED')
-      ))
-      .as('latest_scans');
+    // Get latest scan for each device (simpler approach without window functions)
+    const latestScanMap = new Map();
+    for (const deviceId of deviceIds) {
+      const [latestScan] = await db
+        .select({
+          deviceId: scanRunDevices.deviceId,
+          resultSummary: scanRuns.resultSummary,
+        })
+        .from(scanRuns)
+        .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+        .where(and(
+          eq(scanRunDevices.deviceId, deviceId),
+          eq(scanRuns.organizationId, organizationId),
+          eq(scanRuns.status, 'SUCCEEDED')
+        ))
+        .orderBy(desc(scanRuns.completedAt))
+        .limit(1);
 
-    const latestScans: any[] = await db
-      .select()
-      .from(latestScansSubquery)
-      .where(eq(latestScansSubquery.rowNum, 1));
-
-    // Build maps
-    const latestScanMap = new Map(latestScans.map((s: any) => [s.deviceId, s]));
+      if (latestScan) {
+        latestScanMap.set(deviceId, latestScan);
+      }
+    }
 
     // Build scan stats map
     for (const stat of scanStats) {
@@ -174,7 +177,7 @@ export async function getDevicesForTenant(
       scanStatsMap.set(stat.deviceId, {
         scanCount: Number(stat.scanCount),
         totalScans: Number(stat.scanCount),
-        lastScanAt: stat.lastScanAt,
+        lastScanAt: toDateOrUndefined(stat.lastScanAt),
         openPortCount,
         totalPortCount: openPortCount,
         ports,
@@ -272,7 +275,7 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     deviceScanStats = {
       scanCount: Number(stat.scanCount),
       totalScans: Number(stat.scanCount),
-      lastScanAt: stat.lastScanAt,
+      lastScanAt: toDateOrUndefined(stat.lastScanAt),
       openPortCount,
       totalPortCount: openPortCount,
       ports,

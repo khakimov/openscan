@@ -14,51 +14,53 @@
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getDevicesForTenant } from '@repo/data-ops/queries/devices';
-import { initDatabase, resetDatabase, getDb } from '@repo/data-ops/database/setup';
-import { Miniflare } from 'miniflare';
-import path from 'node:path';
-import { scanRuns, scanWorkflows, devices } from '@repo/data-ops/schema';
+import { getDb } from '@repo/data-ops/database/setup';
+import { scanRuns, scanWorkflows, devices, scanRunDevices } from '@repo/data-ops/schema';
+import { auth_user, organization } from '@repo/data-ops/drizzle/auth-schema';
 import { eq } from 'drizzle-orm';
+import { createId } from '@paralleldrive/cuid2';
 
 describe('Device Scan Statistics (Integration)', () => {
-  // Real IDs from local database
-  const testOrgId = 'TbIfOEaeC8ugXZ60H21hQ15adbR8DxZz';
-  const testUserId = '2zypi2dDgq8S0Y4ZgowF2vm6Psksnjfi'; // Real user ID from auth_user table
+  // Test data IDs (created in beforeAll, cleaned up in afterAll)
+  let testOrgId: string;
+  let testUserId: string;
 
   // Test data IDs for cleanup
   const testDataIds = {
     workflows: [] as string[],
     scanRuns: [] as string[],
     devices: [] as string[],
+    scanRunDevices: [] as string[],
   };
 
   beforeAll(async () => {
-    // Reset any previously cached database instance
-    resetDatabase();
+    // Database is already initialized by global setup
+    console.log('📊 Using shared database connection (global setup)');
 
-    // Create Miniflare instance pointing to existing D1 database
-    // Using database_id from wrangler.jsonc which maps to the existing SQLite file
-    const mf = new Miniflare({
-      modules: true,
-      script: '',
-      d1Databases: {
-        DB: '93d2bd33-3b3e-42f3-a982-39b790922949', // database_id from wrangler.jsonc
-      },
-      d1Persist: path.join(process.cwd(), '.wrangler/state/v3/d1'),
-    });
+    // Create test organization and user using better-auth schema
+    const db = getDb();
 
-    // Get the D1Database binding using the correct API
-    const d1db = await mf.getD1Database('DB');
+    testOrgId = createId();
+    const [org] = await db.insert(organization).values({
+      id: testOrgId,
+      name: 'Test Organization',
+      slug: `test-org-${Date.now()}`,
+      createdAt: new Date(),
+    }).returning();
 
-    // Initialize data-ops with the D1 binding
-    initDatabase(d1db);
+    testUserId = createId();
+    const [user] = await db.insert(auth_user).values({
+      id: testUserId,
+      name: 'Test User',
+      email: `test-user-${Date.now()}@example.com`,
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
 
-    console.log('✅ Connected to local D1 database via Miniflare');
-    console.log('📊 Database ID: 93d2bd33-3b3e-42f3-a982-39b790922949');
-    console.log('📋 Testing with organization:', testOrgId);
+    console.log('📋 Created test organization and user:', { testOrgId, testUserId });
 
     // Insert test data
-    const db = getDb();
 
     // Device 1: Multiple scans with different port results (shows latest scan logic)
     const [device1] = await db.insert(devices).values({
@@ -102,6 +104,15 @@ describe('Device Scan Statistics (Integration)', () => {
     }).returning();
     testDataIds.scanRuns.push(scanRun1a.id);
 
+    // Link scan run to device via junction table
+    await db.insert(scanRunDevices).values({
+      runId: scanRun1a.id,
+      deviceId: device1.id,
+      organizationId: testOrgId,
+      role: 'TARGET',
+      metadata: {},
+    });
+
     // Second scan (latest) - 5 ports
     const [workflow1b] = await db.insert(scanWorkflows).values({
       organizationId: testOrgId,
@@ -135,6 +146,15 @@ describe('Device Scan Statistics (Integration)', () => {
       },
     }).returning();
     testDataIds.scanRuns.push(scanRun1b.id);
+
+    // Link scan run to device via junction table
+    await db.insert(scanRunDevices).values({
+      runId: scanRun1b.id,
+      deviceId: device1.id,
+      organizationId: testOrgId,
+      role: 'TARGET',
+      metadata: {},
+    });
 
     // Device 2: No open ports
     const [device2] = await db.insert(devices).values({
@@ -173,6 +193,15 @@ describe('Device Scan Statistics (Integration)', () => {
       },
     }).returning();
     testDataIds.scanRuns.push(scanRun2.id);
+
+    // Link scan run to device via junction table
+    await db.insert(scanRunDevices).values({
+      runId: scanRun2.id,
+      deviceId: device2.id,
+      organizationId: testOrgId,
+      role: 'TARGET',
+      metadata: {},
+    });
 
     // Device 3: Single port (minimal case)
     const [device3] = await db.insert(devices).values({
@@ -214,6 +243,15 @@ describe('Device Scan Statistics (Integration)', () => {
     }).returning();
     testDataIds.scanRuns.push(scanRun3.id);
 
+    // Link scan run to device via junction table
+    await db.insert(scanRunDevices).values({
+      runId: scanRun3.id,
+      deviceId: device3.id,
+      organizationId: testOrgId,
+      role: 'TARGET',
+      metadata: {},
+    });
+
     // Device 4: No scans (for testing undefined scanStats)
     const [device4] = await db.insert(devices).values({
       organizationId: testOrgId,
@@ -235,7 +273,10 @@ describe('Device Scan Statistics (Integration)', () => {
     // Clean up test data in reverse order (respect foreign keys)
     const db = getDb();
 
-    // Delete scan runs first
+    // Delete junction table entries first (scan_run_devices references scan_runs and devices)
+    await db.delete(scanRunDevices).where(eq(scanRunDevices.organizationId as any, testOrgId));
+
+    // Delete scan runs
     for (const id of testDataIds.scanRuns) {
       await db.delete(scanRuns).where(eq(scanRuns.id as any, id));
     }
@@ -245,15 +286,21 @@ describe('Device Scan Statistics (Integration)', () => {
       await db.delete(scanWorkflows).where(eq(scanWorkflows.id as any, id));
     }
 
-    // Delete devices last
+    // Delete devices
     for (const id of testDataIds.devices) {
       await db.delete(devices).where(eq(devices.id as any, id));
     }
 
+    // Delete user and organization
+    await db.delete(auth_user).where(eq(auth_user.id as any, testUserId));
+    await db.delete(organization).where(eq(organization.id as any, testOrgId));
+
     console.log('🧹 Cleaned up test data');
+    console.log(`   Deleted junction table entries`);
     console.log(`   Deleted ${testDataIds.scanRuns.length} scan runs`);
     console.log(`   Deleted ${testDataIds.workflows.length} workflows`);
     console.log(`   Deleted ${testDataIds.devices.length} devices`);
+    console.log(`   Deleted test user and organization`);
   });
 
   it('should return all test devices with correct structure', async () => {

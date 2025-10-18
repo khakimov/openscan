@@ -12,44 +12,51 @@
  * - Tests error cases
  */
 
-import { describe, it, expect, beforeAll, beforeEach, afterEach } from 'vitest';
-import { initDatabase, resetDatabase, getDb } from '@repo/data-ops/database/setup';
-import { Miniflare } from 'miniflare';
-import path from 'node:path';
-import { scanRuns, scanWorkflows, devices } from '@repo/data-ops/schema';
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll } from 'vitest';
+import { getDb } from '@repo/data-ops/database/setup';
+import { scanRuns, scanWorkflows, devices, scanRunDevices } from '@repo/data-ops/schema';
+import { auth_user, organization } from '@repo/data-ops/drizzle/auth-schema';
 import { eq } from 'drizzle-orm';
 import { handleScanResultsPostback } from '../scan-results-postback';
+import { createId } from '@paralleldrive/cuid2';
 
 describe('Scan Results Postback (Integration)', () => {
-  // Real IDs from local database
-  const testOrgId = 'TbIfOEaeC8ugXZ60H21hQ15adbR8DxZz';
-  const testUserId = '2zypi2dDgq8S0Y4ZgowF2vm6Psksnjfi';
+  // Test data IDs (created in beforeAll, used across tests)
+  let testOrgId: string;
+  let testUserId: string;
 
-  // Test data IDs for cleanup
+  // Test data IDs for cleanup (per test)
   let testDeviceId: string;
   let testScanId: string;
   let testScanRunId: string;
   let testWorkflowDbId: string;
 
   beforeAll(async () => {
-    // Reset any previously cached database instance
-    resetDatabase();
+    // Database is already initialized by global setup
+    console.log('📊 Using shared database connection (global setup)');
 
-    // Create Miniflare instance pointing to existing D1 database
-    const mf = new Miniflare({
-      modules: true,
-      script: '',
-      d1Databases: {
-        DB: '93d2bd33-3b3e-42f3-a982-39b790922949',
-      },
-      d1Persist: path.join(process.cwd(), '.wrangler/state/v3/d1'),
-    });
+    // Create test organization and user using better-auth schema
+    const db = getDb();
 
-    // Get the D1Database binding
-    const d1db = await mf.getD1Database('DB');
-    initDatabase(d1db);
+    testOrgId = createId();
+    const [org] = await db.insert(organization).values({
+      id: testOrgId,
+      name: 'Test Organization Postback',
+      slug: `test-org-postback-${Date.now()}`,
+      createdAt: new Date(),
+    }).returning();
 
-    console.log('✅ Connected to local D1 database for postback tests');
+    testUserId = createId();
+    const [user] = await db.insert(auth_user).values({
+      id: testUserId,
+      name: 'Test User Postback',
+      email: `test-user-postback-${Date.now()}@example.com`,
+      emailVerified: true,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    console.log('📋 Created test organization and user for postback tests:', { testOrgId, testUserId });
   });
 
   beforeEach(async () => {
@@ -90,6 +97,15 @@ describe('Scan Results Postback (Integration)', () => {
     }).returning();
     testScanRunId = scanRun.id;
 
+    // Link scan run to device via junction table
+    await db.insert(scanRunDevices).values({
+      runId: scanRun.id,
+      deviceId: device.id,
+      organizationId: testOrgId,
+      role: 'TARGET',
+      metadata: {},
+    });
+
     console.log('📝 Created test data:', {
       deviceId: testDeviceId,
       scanId: testScanId,
@@ -98,14 +114,28 @@ describe('Scan Results Postback (Integration)', () => {
   });
 
   afterEach(async () => {
-    // Clean up test data
+    // Clean up test data in reverse order (respect foreign keys)
     const db = getDb();
 
+    // Delete junction table entries first
+    await db.delete(scanRunDevices).where(eq(scanRunDevices.runId as any, testScanRunId));
+
+    // Then delete scan runs, workflows, and devices
     await db.delete(scanRuns).where(eq(scanRuns.id as any, testScanRunId));
     await db.delete(scanWorkflows).where(eq(scanWorkflows.id as any, testWorkflowDbId));
     await db.delete(devices).where(eq(devices.id as any, testDeviceId));
 
-    console.log('🧹 Cleaned up test data');
+    console.log('🧹 Cleaned up test data for this test');
+  });
+
+  afterAll(async () => {
+    // Clean up organization and user
+    const db = getDb();
+
+    await db.delete(auth_user).where(eq(auth_user.id as any, testUserId));
+    await db.delete(organization).where(eq(organization.id as any, testOrgId));
+
+    console.log('🧹 Cleaned up test organization and user');
   });
 
   it('should reject request without authentication', async () => {

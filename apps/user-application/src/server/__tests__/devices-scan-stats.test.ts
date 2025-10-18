@@ -91,13 +91,21 @@ describe('Device Scan Statistics (TDD)', () => {
     };
 
     // Mock database responses using mockAll (sequential calls with mockResolvedValueOnce)
+    // Updated for junction table (scan_run_devices) pattern
     mockAll
       .mockResolvedValueOnce([{ count: 1 }]) // 1st call: count query
       .mockResolvedValueOnce([mockDevice]) // 2nd call: devices query
       .mockResolvedValueOnce([])  // 3rd call: IP addresses
       .mockResolvedValueOnce([])  // 4th call: tags
-      .mockResolvedValueOnce([newerScan, olderScan]) // 5th call: latest scans (newest first, DESC order)
-      .mockResolvedValueOnce([{ target: 'test-device.example.com', scanCount: 2 }]); // 6th call: scan counts
+      .mockResolvedValueOnce([{
+        deviceId: 'device-1',
+        scanCount: 2,
+        lastScanAt: newerScan.completedAt
+      }]) // 5th call: scan stats (junction table with GROUP BY)
+      .mockResolvedValueOnce([{
+        deviceId: 'device-1',
+        resultSummary: newerScan.resultSummary
+      }]); // 6th call: latest scan for device-1 (loop query)
 
     // Act: Call the function
     const result = await getDevicesForTenant(testOrgId);
@@ -198,8 +206,15 @@ describe('Device Scan Statistics (TDD)', () => {
       .mockResolvedValueOnce([mockDevice]) // 2nd: devices
       .mockResolvedValueOnce([]) // 3rd: IPs
       .mockResolvedValueOnce([]) // 4th: tags
-      .mockResolvedValueOnce([successfulScan]) // 5th: only SUCCEEDED scans
-      .mockResolvedValueOnce([{ target: 'test-device.example.com', scanCount: 1 }]); // 6th: scan counts
+      .mockResolvedValueOnce([{
+        deviceId: 'device-4',
+        scanCount: 1,
+        lastScanAt: successfulScan.completedAt
+      }]) // 5th: scan stats (junction table)
+      .mockResolvedValueOnce([{
+        deviceId: 'device-4',
+        resultSummary: successfulScan.resultSummary
+      }]); // 6th: latest scan for device-4
 
     // Act: Call the function
     const result = await getDevicesForTenant(testOrgId);
