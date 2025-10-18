@@ -16,6 +16,7 @@
 
 import * as restate from '@restatedev/restate-sdk';
 import type { WorkflowContext, WorkflowSharedContext } from '@restatedev/restate-sdk';
+import { createLogger } from '@repo/logger';
 import { validateDiscoveryTarget } from './validation';
 import {
   runDiscoveryTool,
@@ -24,6 +25,9 @@ import {
   type DiscoveryTool,
   type ScanScope,
 } from './discovery-tools';
+import { postUniversalPostback } from './postback';
+
+const logger = createLogger({ name: 'discovery-service' });
 
 // Input/Output types
 interface DiscoveryTarget {
@@ -37,6 +41,8 @@ interface DiscoveryInput {
   tools?: DiscoveryTool[];
   enablePingSweep?: boolean;
   scanId?: string;
+  callbackUrl?: string; // Optional: postback URL for results
+  organizationId?: string; // Optional: organization ID for postback
 }
 
 interface DiscoveryOutput {
@@ -220,6 +226,41 @@ export const discoveryService = restate.workflow({
       const startedAt = await ctx.get<string>('startedAt');
       const processedTargets = await ctx.get<number>('processedTargets');
       const errors = await ctx.get<string[]>('errors');
+
+      // Step 5: Postback results if callbackUrl provided (durable)
+      if (input.callbackUrl && input.organizationId) {
+        await ctx.run('postback-results', async () => {
+          logger.info('Posting discovery results to server', {
+            callbackUrl: input.callbackUrl,
+            scanId,
+            organizationId: input.organizationId,
+            deviceCount: uniqueDevices.length,
+          });
+
+          await postUniversalPostback({
+            type: 'DISCOVERY',
+            scanId,
+            organizationId: input.organizationId!,
+            timestamp: completedAt.toISOString(),
+            status: 'SUCCESS',
+            callbackUrl: input.callbackUrl!,
+            data: {
+              target: input.targets[0]?.value || 'unknown', // Primary target
+              devices: serializedDevices.map(d => ({
+                hostname: d.hostname,
+                ipAddress: d.ipAddress,
+                metadata: d.metadata,
+              })),
+              totalSubdomains: uniqueDevices.length,
+              executionTime: executionTimeMs,
+              tools,
+              errors: errors || [],
+            },
+          });
+
+          logger.info('Postback successful', { scanId, organizationId: input.organizationId });
+        });
+      }
 
       return {
         scanId,

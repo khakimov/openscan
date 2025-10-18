@@ -2,7 +2,7 @@
  * Postback helper for posting scan results to server
  *
  * Used by Restate services to POST results back to TanStack Start API
- * when scans complete.
+ * when scans complete. Supports universal postback format with type discrimination.
  */
 
 import { createLogger } from '@repo/logger';
@@ -10,29 +10,80 @@ import { createLogger } from '@repo/logger';
 const logger = createLogger({ name: 'restate-postback' });
 
 /**
- * Payload for postback
- * Generic to support different result types (portscan, discovery, etc.)
+ * Legacy Payload for postback (PORT_SCAN type)
+ * Will be deprecated in favor of typed payloads
  */
 export interface PostbackPayload {
   callbackUrl: string;
   deviceId: string;
   scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
-  results: any; // Generic - can be PortScanResult, DiscoveryResult, etc.
+  results: any; // Port scan results
+  organizationId?: string; // Optional: will be required in future
 }
 
 /**
- * Posts scan results to server callback URL
+ * Universal Postback Payload (Type-Safe)
+ * New format that includes type discrimination for routing
+ */
+export interface UniversalPostbackPayload {
+  type: 'PORT_SCAN' | 'DISCOVERY';
+  scanId: string;
+  organizationId: string;
+  timestamp: string;
+  status: 'SUCCESS' | 'FAILURE';
+  callbackUrl: string;
+  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY)
+  deviceId?: string; // Only for PORT_SCAN
+  error?: string; // Only for FAILURE status
+}
+
+/**
+ * Posts scan results to server callback URL (LEGACY)
  * Uses WORKER_API_KEY for authentication
  * Throws on failure (caller should handle retries)
+ *
+ * @deprecated Use postUniversalPostback for new code
  */
 export async function postbackScanResults(payload: PostbackPayload): Promise<void> {
-  const { callbackUrl, ...data } = payload;
+  const { callbackUrl, organizationId, ...data } = payload;
 
-  logger.info('Posting scan results to server', {
+  logger.info('Posting scan results to server (legacy format)', {
     callbackUrl,
     deviceId: data.deviceId,
     scanId: data.scanId,
     resultsType: data.results?.constructor?.name || typeof data.results,
+  });
+
+  // Convert legacy format to universal format
+  const universalPayload: UniversalPostbackPayload = {
+    type: 'PORT_SCAN',
+    scanId: data.scanId,
+    organizationId: organizationId || 'UNKNOWN', // TODO: Make required
+    timestamp: new Date().toISOString(),
+    status: 'SUCCESS',
+    callbackUrl,
+    deviceId: data.deviceId,
+    data: data.results,
+  };
+
+  return postUniversalPostback(universalPayload);
+}
+
+/**
+ * Posts results using universal postback format
+ * Supports type discrimination for PORT_SCAN, DISCOVERY, etc.
+ * Uses WORKER_API_KEY for authentication
+ * Throws on failure (caller should handle retries)
+ */
+export async function postUniversalPostback(payload: UniversalPostbackPayload): Promise<void> {
+  const { callbackUrl, ...data } = payload;
+
+  logger.info('Posting results to server (universal format)', {
+    callbackUrl,
+    type: data.type,
+    scanId: data.scanId,
+    status: data.status,
+    organizationId: data.organizationId,
   });
 
   const apiKey = process.env.WORKER_API_KEY;
