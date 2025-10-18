@@ -21,21 +21,20 @@ import { QUERY_CONFIG } from "@repo/constants";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
-  workflowId?: string;
+  scanId?: string;
   target?: string;
 }
 
 export default function AddDiscovery({
   onConfirm,
-  workflowId: propWorkflowId,
+  scanId: propScanId,
   target: propTarget,
 }: AddDiscoveryProps) {
   const [target, setTarget] = useState(propTarget || "");
   const [error, setError] = useState<string | null>(null);
-  const [workflowId, setWorkflowId] = useState<string | null>(
-    propWorkflowId || null,
+  const [scanId, setScanId] = useState<string | null>(
+    propScanId || null,
   );
-  const [runId, setRunId] = useState<string | null>(null);
   const [selectedResults, setSelectedResults] = useState<Set<string>>(
     new Set(),
   );
@@ -99,8 +98,7 @@ export default function AddDiscovery({
         queryClient.invalidateQueries({ queryKey: ['scans'] });
 
         setError(null);
-        setWorkflowId(result.workflowId);
-        setRunId(result.runId); // Store runId for status queries
+        setScanId(result.scanId);
         toast.success(`Discovery started for ${target}`, {
           description: "You will be notified when results are ready",
         });
@@ -116,9 +114,9 @@ export default function AddDiscovery({
 
   // Smart polling for workflow status (reduced frequency with postback architecture)
   const { data: workflowStatus } = useQuery({
-    queryKey: ["workflow-status", workflowId, runId],
-    queryFn: () => getWorkflowStatus({ data: { workflowId: workflowId!, runId: runId || undefined } }),
-    enabled: !!workflowId,
+    queryKey: ["workflow-status", scanId],
+    queryFn: () => getWorkflowStatus({ data: { scanId: scanId! } }),
+    enabled: !!scanId,
     refetchInterval: (query) => {
       // Stop polling when workflow is complete or failed
       const data = query.state.data;
@@ -132,8 +130,8 @@ export default function AddDiscovery({
 
   // Automatically fetch results when workflow completes
   const { data: workflowResults } = useQuery({
-    queryKey: ["workflow-results", workflowId, runId],
-    queryFn: () => getWorkflowResult({ data: { workflowId: workflowId!, runId: runId || undefined } }),
+    queryKey: ["workflow-results", scanId],
+    queryFn: () => getWorkflowResult({ data: { scanId: scanId! } }),
     enabled: workflowStatus?.isCompleted === true,
   });
 

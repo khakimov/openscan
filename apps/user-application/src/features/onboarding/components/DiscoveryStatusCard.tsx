@@ -125,10 +125,10 @@ export function DiscoveryStatusCard({
               </div>
             )}
 
-            {/* Workflow ID */}
-            {discoveryStatus.workflowId && (
+            {/* Scan ID */}
+            {discoveryStatus.scanId && (
               <p className="text-xs text-muted-foreground font-mono">
-                Workflow ID: {discoveryStatus.workflowId}
+                Scan ID: {discoveryStatus.scanId}
               </p>
             )}
 

@@ -1,6 +1,6 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { devices, deviceIps, deviceTags, tags, scanRuns, scanSchedules } from '../schema';
+import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules } from '../schema';
 
 // Types
 export type DeviceQueryParams = {
@@ -120,59 +120,61 @@ export async function getDevicesForTenant(
     tagsMap.get(deviceId)!.push(tag.name);
   });
 
-  // Get scan statistics for each device (latest scan per target)
+  // Get scan statistics for each device using junction table
   const scanStatsMap = new Map();
   if (deviceIds.length > 0) {
-    // Get the latest scan for each target
-    const latestScans = await db
+    // Get scan stats per device using junction table
+    const scanStats = await db
       .select({
-        target: scanRuns.target,
+        deviceId: scanRunDevices.deviceId,
+        scanCount: sql<number>`count(*)`.as('scan_count'),
+        lastScanAt: sql<number>`max(${scanRuns.completedAt})`.as('last_scan_at'),
+      })
+      .from(scanRuns)
+      .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+      .where(and(
+        inArray(scanRunDevices.deviceId, deviceIds),
+        eq(scanRuns.organizationId, organizationId),
+        eq(scanRuns.status, 'SUCCEEDED')
+      ))
+      .groupBy(scanRunDevices.deviceId);
+
+    // Get latest scan result summary for each device
+    const latestScansSubquery = db
+      .select({
+        deviceId: scanRunDevices.deviceId,
         resultSummary: scanRuns.resultSummary,
         completedAt: scanRuns.completedAt,
+        rowNum: sql<number>`row_number() OVER (PARTITION BY ${scanRunDevices.deviceId} ORDER BY ${scanRuns.completedAt} DESC)`.as('row_num'),
       })
       .from(scanRuns)
+      .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
       .where(and(
-        inArray(scanRuns.target, deviceList.map((d: any) => d.name)),
+        inArray(scanRunDevices.deviceId, deviceIds),
         eq(scanRuns.organizationId, organizationId),
         eq(scanRuns.status, 'SUCCEEDED')
       ))
-      .orderBy(desc(scanRuns.completedAt));
+      .as('latest_scans');
 
-    // Get scan counts per target
-    const scanCounts = await db
-      .select({
-        target: scanRuns.target,
-        scanCount: sql<number>`count(*)`.as('scan_count'),
-      })
-      .from(scanRuns)
-      .where(and(
-        inArray(scanRuns.target, deviceList.map((d: any) => d.name)),
-        eq(scanRuns.organizationId, organizationId),
-        eq(scanRuns.status, 'SUCCEEDED')
-      ))
-      .groupBy(scanRuns.target);
+    const latestScans: any[] = await db
+      .select()
+      .from(latestScansSubquery)
+      .where(eq(latestScansSubquery.rowNum, 1));
 
-    const scanCountMap = new Map(scanCounts.map((s: any) => [s.target, Number(s.scanCount)]));
-
-    // Map latest scan per target
-    const latestPerTarget = new Map<string, typeof latestScans[0]>();
-    for (const scan of latestScans) {
-      if (scan.target && !latestPerTarget.has(scan.target)) {
-        latestPerTarget.set(scan.target, scan);
-      }
-    }
+    // Build maps
+    const latestScanMap = new Map(latestScans.map((s: any) => [s.deviceId, s]));
 
     // Build scan stats map
-    for (const [target, scan] of latestPerTarget) {
-      const resultSummary = scan.resultSummary as any;
+    for (const stat of scanStats) {
+      const latestScan = latestScanMap.get(stat.deviceId);
+      const resultSummary = latestScan?.resultSummary as any;
       const ports = resultSummary?.ports || [];
       const openPortCount = resultSummary?.openPortCount || ports.length || 0;
-      const scanCount = scanCountMap.get(target) || 1;
 
-      scanStatsMap.set(target, {
-        scanCount,
-        totalScans: scanCount,
-        lastScanAt: scan.completedAt,
+      scanStatsMap.set(stat.deviceId, {
+        scanCount: Number(stat.scanCount),
+        totalScans: Number(stat.scanCount),
+        lastScanAt: stat.lastScanAt,
         openPortCount,
         totalPortCount: openPortCount,
         ports,
@@ -185,7 +187,7 @@ export async function getDevicesForTenant(
     ...device,
     ip: ipMap.get(device.id) || null,
     tags: tagsMap.get(device.id) || [],
-    scanStats: scanStatsMap.get(device.name) || undefined,
+    scanStats: scanStatsMap.get(device.id) || undefined,
   }));
 
   return {
@@ -231,25 +233,39 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     .innerJoin(tags, eq(deviceTags.tagId, tags.id))
     .where(eq(deviceTags.deviceId, deviceId));
 
-  // Get scan statistics
-  const scanStats = await db
+  // Get scan statistics using junction table (proper device-to-scan relationship)
+  const scanStatsResult = await db
     .select({
       scanCount: sql<number>`count(*)`.as('scan_count'),
-      lastScanAt: sql<Date>`max(${scanRuns.completedAt})`.as('last_scan_at'),
-      ports: scanRuns.resultSummary,
+      lastScanAt: sql<number>`max(${scanRuns.completedAt})`.as('last_scan_at'),
     })
     .from(scanRuns)
+    .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
     .where(and(
-      eq(scanRuns.target, device.name),
+      eq(scanRunDevices.deviceId, deviceId),
+      eq(scanRuns.organizationId, organizationId),
+      eq(scanRuns.status, 'SUCCEEDED')
+    ));
+
+  // Get the latest scan's result summary for port information
+  const latestScan = await db
+    .select({
+      resultSummary: scanRuns.resultSummary,
+    })
+    .from(scanRuns)
+    .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+    .where(and(
+      eq(scanRunDevices.deviceId, deviceId),
       eq(scanRuns.organizationId, organizationId),
       eq(scanRuns.status, 'SUCCEEDED')
     ))
-    .groupBy(scanRuns.target);
+    .orderBy(desc(scanRuns.completedAt))
+    .limit(1);
 
   let deviceScanStats = undefined;
-  if (scanStats.length > 0) {
-    const stat = scanStats[0];
-    const resultSummary = stat.ports as any;
+  if (scanStatsResult.length > 0 && scanStatsResult[0].scanCount > 0 && scanStatsResult[0].lastScanAt !== null) {
+    const stat = scanStatsResult[0];
+    const resultSummary = latestScan[0]?.resultSummary as any;
     const ports = resultSummary?.ports || [];
     const openPortCount = resultSummary?.openPortCount || ports.length || 0;
 

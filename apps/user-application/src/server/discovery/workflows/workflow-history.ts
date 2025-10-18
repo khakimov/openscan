@@ -24,13 +24,13 @@ export const getCompletedScans = createServerFn({
       const payload = workflows
         .filter((w: typeof workflows[number]) => w.status === 'SUCCEEDED' || w.status === 'FAILED')
         .map((workflow: typeof workflows[number]) => ({
-          workflowId: workflow.workflowId,
+          scanId: workflow.scanId, // Restate workflow key
           workflowType: workflow.kind,
           scanType: workflow.kind,
           status: workflow.status.toLowerCase(),
           startTime: workflow.startedAt?.toISOString(),
           closeTime: workflow.finishedAt?.toISOString(),
-          runId: workflow.workflowId,
+          runId: workflow.scanId, // Same as scanId for now
           result: null, // Result would need to be fetched separately if needed
         }));
 

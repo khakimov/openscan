@@ -16,7 +16,7 @@ const logger = createLogger({ name: 'restate-postback' });
 export interface PostbackPayload {
   callbackUrl: string;
   deviceId: string;
-  workflowId: string;
+  scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
   results: any; // Generic - can be PortScanResult, DiscoveryResult, etc.
 }
 
@@ -31,7 +31,7 @@ export async function postbackScanResults(payload: PostbackPayload): Promise<voi
   logger.info('Posting scan results to server', {
     callbackUrl,
     deviceId: data.deviceId,
-    workflowId: data.workflowId,
+    scanId: data.scanId,
     resultsType: data.results?.constructor?.name || typeof data.results,
   });
 
@@ -66,7 +66,7 @@ export async function postbackScanResults(payload: PostbackPayload): Promise<voi
 
     logger.info('Postback successful', {
       deviceId: data.deviceId,
-      workflowId: data.workflowId,
+      scanId: data.scanId,
     });
   } catch (error) {
     // Network errors, timeouts, etc.

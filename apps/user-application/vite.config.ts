@@ -30,7 +30,6 @@ const config = defineConfig({
       '@repo/data-ops',
       '@repo/config',
       '@repo/logger',
-      '@repo/temporal',
       '@repo/validation',
       '@repo/constants',
       '@repo/contracts',

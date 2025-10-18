@@ -9,7 +9,7 @@ import { createLogger } from '@repo/logger';
 import { getRestateHttpClient } from '../../utils/restate-http-client';
 import { scanRecorder } from './scan-recorder';
 import { deviceManager } from './device-manager';
-import { generateWorkflowId } from '../utils/workflow-helpers';
+import { generateScanId } from '../utils/workflow-helpers';
 import { determineScanScope } from '../utils/scan-scope';
 
 import type { PortScanInput } from '@repo/contracts';
@@ -33,19 +33,19 @@ export class PortScanService {
   async startScan(params: StartPortScanParams) {
     const { input, tenantId, userId } = params;
 
-    // Generate workflow ID for tracking
-    const workflowId = generateWorkflowId('portscan', input.target);
+    // Generate scanId (Restate workflow key) for tracking
+    const scanId = generateScanId('portscan', input.target);
 
     // Step 1: Create database records for tracking
     const scanWorkflow = await scanRecorder.createWorkflow({
       tenantId,
-      workflowId: workflowId,
+      scanId: scanId,
       kind: 'DISCOVERY',
     });
 
     const scope = determineScanScope(input.target);
     const scanRun = await scanRecorder.createRun({
-      workflowId: scanWorkflow.id,
+      scanWorkflowId: scanWorkflow.id, // FK to scanWorkflows.id (CUID)
       tenantId,
       scanType: 'PORT',
       scope,
@@ -55,7 +55,7 @@ export class PortScanService {
     });
 
     logger.info('Port scan database records created', {
-      workflowId,
+      scanId,
       scanWorkflowId: scanWorkflow.id,
       scanRunId: scanRun.id,
       target: input.target,
@@ -92,20 +92,20 @@ export class PortScanService {
       // Postback configuration
       callbackUrl,
       deviceId: input.deviceId,
-      workflowId,
+      scanId: scanId, // Restate workflow key
     });
 
-    logger.info('Port scan workflow started', {
+    logger.info('Port scan workflow started in Restate', {
       scanId: scanResult.scanId,
       target: scanResult.target,
-      workflowId,
+      restateScanId: scanId,
     });
 
     return {
-      workflowId,
-      scanWorkflowId: scanWorkflow.id,
+      success: true,
+      scanId: scanResult.scanId, // Restate workflow key
+      scanWorkflowId: scanWorkflow.id, // Database ID
       scanRunId: scanRun.id,
-      scanId: scanResult.scanId,
       target: scanResult.target,
       // Ports will come via postback - don't include here
       ports: [],

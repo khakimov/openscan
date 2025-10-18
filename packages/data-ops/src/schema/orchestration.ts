@@ -10,7 +10,7 @@ export const scanWorkflows = sqliteTable('scan_workflows', {
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   kind: text('kind').notNull(), // 'EXTEND_SCAN', 'RESCAN', 'DISCOVERY', 'BULK_IMPORT', 'SYNC_QUALYS'
   status: text('status').notNull().default('PENDING'), // 'PENDING', 'RUNNING', 'PAUSED', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
-  workflowId: text('workflow_id').notNull(),
+  scanId: text('scan_id').notNull(), // Restate workflow key (e.g., "portscan-0-0-0-0-123456" or "discovery-123456")
   startedAt: integer('started_at', { mode: 'timestamp_ms' }),
   finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
   cancelRequestedAt: integer('cancel_requested_at', { mode: 'timestamp_ms' }),
@@ -18,12 +18,12 @@ export const scanWorkflows = sqliteTable('scan_workflows', {
 }, (t) => ({
   orgStatusIdx: index('scan_workflows_org_status_idx').on(t.organizationId, t.status),
   statusStartedIdx: index('scan_workflows_status_started_idx').on(t.status, t.startedAt),
-  orgWorkflowUq: uniqueIndex('scan_workflows_org_workflow_uq').on(t.organizationId, t.workflowId),
+  orgScanIdUq: uniqueIndex('scan_workflows_org_scan_id_uq').on(t.organizationId, t.scanId),
 }));
 
 export const scanRuns = sqliteTable('scan_runs', {
   id: cuidText().primaryKey(),
-  workflowId: text('workflow_id').notNull().references(() => scanWorkflows.id, { onDelete: 'cascade' }),
+  scanWorkflowId: text('scan_workflow_id').notNull().references(() => scanWorkflows.id, { onDelete: 'cascade' }), // Foreign key to scanWorkflows.id (CUID)
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
   scope: text('scope').notNull(), // 'INTERNAL', 'EXTERNAL', 'HYBRID'
   scanType: text('scan_type').notNull(), // 'DISCOVERY', 'PORT', 'WEB', 'ADVANCED'
@@ -36,7 +36,7 @@ export const scanRuns = sqliteTable('scan_runs', {
   resultSummary: text('result_summary', { mode: 'json' }).$type<Record<string, any>>(),
 }, (t) => ({
   orgStatusIdx: index('scan_runs_org_status_idx').on(t.organizationId, t.status),
-  workflowIdx: index('scan_runs_workflow_idx').on(t.workflowId),
+  scanWorkflowIdx: index('scan_runs_scan_workflow_idx').on(t.scanWorkflowId),
 }));
 
 export const scanRunDevices = sqliteTable('scan_run_devices', {
@@ -75,7 +75,7 @@ export const scanWorkflowsRelations = relations(scanWorkflows, ({ one, many }) =
 
 export const scanRunsRelations = relations(scanRuns, ({ one, many }) => ({
   workflow: one(scanWorkflows, {
-    fields: [scanRuns.workflowId],
+    fields: [scanRuns.scanWorkflowId],
     references: [scanWorkflows.id],
   }),
   organization: one(organization, {

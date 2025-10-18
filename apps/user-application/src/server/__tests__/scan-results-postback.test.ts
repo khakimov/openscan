@@ -63,7 +63,7 @@ describe('handleScanResultsPostback', () => {
         },
         body: JSON.stringify({
           deviceId: 'device-123',
-          workflowId: 'workflow-456',
+          scanId: 'portscan-192-168-1-1-123456',
           results: { ports: [] },
         }),
       });
@@ -84,7 +84,7 @@ describe('handleScanResultsPostback', () => {
         },
         body: JSON.stringify({
           deviceId: 'device-123',
-          workflowId: 'workflow-456',
+          scanId: 'portscan-192-168-1-1-123456',
           results: { ports: [] },
         }),
       });
@@ -105,7 +105,7 @@ describe('handleScanResultsPostback', () => {
         },
         body: JSON.stringify({
           deviceId: 'device-123',
-          workflowId: 'workflow-456',
+          scanId: 'portscan-192-168-1-1-123456',
           results: {
             ports: [],
             osInfo: null,
@@ -131,7 +131,7 @@ describe('handleScanResultsPostback', () => {
           'Authorization': 'Bearer test-api-key-12345',
         },
         body: JSON.stringify({
-          workflowId: 'workflow-456',
+          scanId: 'portscan-192-168-1-1-123456',
           results: { ports: [] },
         }),
       });
@@ -143,7 +143,7 @@ describe('handleScanResultsPostback', () => {
       expect(json.error).toContain('deviceId');
     });
 
-    it('should reject requests without workflowId', async () => {
+    it('should reject requests without scanId', async () => {
       const request = new Request('http://localhost/api/internal/scan-results', {
         method: 'POST',
         headers: {
@@ -160,7 +160,7 @@ describe('handleScanResultsPostback', () => {
 
       expect(response.status).toBe(400);
       const json = await response.json() as { error: string };
-      expect(json.error).toContain('workflowId');
+      expect(json.error).toContain('scanId');
     });
 
     it('should reject requests without results', async () => {
@@ -172,7 +172,7 @@ describe('handleScanResultsPostback', () => {
         },
         body: JSON.stringify({
           deviceId: 'device-123',
-          workflowId: 'workflow-456',
+          scanId: 'portscan-192-168-1-1-123456',
         }),
       });
 
@@ -197,7 +197,7 @@ describe('handleScanResultsPostback', () => {
         },
         body: JSON.stringify({
           deviceId: 'nonexistent-device',
-          workflowId: 'workflow-456',
+          scanId: 'portscan-192-168-1-1-123456',
           results: {
             ports: [],
             osInfo: null,

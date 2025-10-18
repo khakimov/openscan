@@ -13,7 +13,7 @@ import { z } from 'zod';
 import {
   getDeviceByIdGlobal,
   updateDevice,
-  getScanWorkflowByWorkflowId,
+  getScanWorkflowByScanId,
   updateScanRunStatus,
   updateScanWorkflowStatus,
   getDb,
@@ -28,7 +28,7 @@ const logger = createLogger({ name: 'scan-results-postback' });
  */
 const PostbackPayloadSchema = z.object({
   deviceId: z.string().min(1, 'deviceId is required'),
-  workflowId: z.string().min(1, 'workflowId is required'),
+  scanId: z.string().min(1, 'scanId is required'), // Restate workflow key
   results: z.object({
     target: z.string().optional(),
     ports: z.array(z.any()),
@@ -55,6 +55,13 @@ function authenticateRequest(request: Request): boolean {
   const authHeader = request.headers.get('Authorization');
   const expectedKey = process.env.WORKER_API_KEY;
 
+  logger.info('Authenticating postback request', {
+    hasAuthHeader: !!authHeader,
+    authHeaderPrefix: authHeader?.substring(0, 10) + '...',
+    hasExpectedKey: !!expectedKey,
+    expectedKeyPrefix: expectedKey?.substring(0, 10) + '...',
+  });
+
   if (!expectedKey) {
     logger.error('WORKER_API_KEY not configured in environment');
     return false;
@@ -66,11 +73,24 @@ function authenticateRequest(request: Request): boolean {
   }
 
   const [scheme, token] = authHeader.split(' ');
+
+  logger.info('Auth header parsed', {
+    scheme,
+    tokenPrefix: token?.substring(0, 10) + '...',
+    expectedKeyPrefix: expectedKey?.substring(0, 10) + '...',
+    tokensMatch: token === expectedKey,
+  });
+
   if (scheme !== 'Bearer' || token !== expectedKey) {
-    logger.warn('Invalid API key in postback request');
+    logger.warn('Invalid API key in postback request', {
+      scheme,
+      isBearer: scheme === 'Bearer',
+      tokenMatch: token === expectedKey,
+    });
     return false;
   }
 
+  logger.info('Postback authentication successful');
   return true;
 }
 
@@ -80,28 +100,28 @@ function authenticateRequest(request: Request): boolean {
  */
 async function storeScanResults(params: {
   deviceId: string;
-  workflowId: string;
+  scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
   results: any;
   organizationId: string;
 }): Promise<void> {
-  const { deviceId, workflowId, results, organizationId } = params;
+  const { deviceId, scanId, results, organizationId } = params;
 
   logger.info('Storing scan results', {
     deviceId,
-    workflowId,
+    scanId,
     organizationId,
     portCount: results.ports?.length || 0,
   });
 
-  // Step 1: Find the scan workflow and run by workflow ID
-  const workflow = await getScanWorkflowByWorkflowId(organizationId, workflowId);
+  // Step 1: Find the scan workflow by scanId (Restate workflow key)
+  const workflow = await getScanWorkflowByScanId(organizationId, scanId);
 
   if (!workflow) {
     logger.warn('Scan workflow not found for postback', {
-      workflowId,
+      scanId,
       organizationId,
     });
-    throw new Error(`Scan workflow not found: ${workflowId}`);
+    throw new Error(`Scan workflow not found: ${scanId}`);
   }
 
   // Step 2: Get the scan run for this workflow
@@ -111,12 +131,12 @@ async function storeScanResults(params: {
   const [scanRun] = await db
     .select()
     .from(scanRuns)
-    .where(eq(scanRuns.workflowId, workflow.id))
+    .where(eq(scanRuns.scanWorkflowId, workflow.id))
     .limit(1);
 
   if (!scanRun) {
     logger.warn('No scan run found for workflow', {
-      workflowId: workflow.id,
+      scanWorkflowId: workflow.id,
     });
     throw new Error(`No scan run found for workflow: ${workflow.id}`);
   }
@@ -146,8 +166,8 @@ async function storeScanResults(params: {
 
   // Step 4: Update workflow status
   logger.info('Updating workflow status to SUCCEEDED', {
-    workflowDatabaseId: workflow.id,
-    workflowId: workflow.workflowId,
+    scanWorkflowId: workflow.id, // Database ID (CUID)
+    scanId: workflow.scanId, // Restate workflow key
     organizationId,
   });
   await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
@@ -165,7 +185,7 @@ async function storeScanResults(params: {
 
   logger.info('Scan results stored successfully', {
     deviceId,
-    workflowId,
+    scanId,
     scanRunId: scanRun.id,
     portCount,
   });
@@ -176,9 +196,16 @@ async function storeScanResults(params: {
  * This is the main entry point called by the API route
  */
 export async function handleScanResultsPostback(request: Request): Promise<Response> {
+  logger.info('Postback request received', {
+    method: request.method,
+    url: request.url,
+    hasBody: request.body !== null,
+  });
+
   try {
     // 1. Authenticate request
     if (!authenticateRequest(request)) {
+      logger.error('Postback authentication failed - returning 401');
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -206,11 +233,11 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
       );
     }
 
-    const { deviceId, workflowId, results } = parseResult.data;
+    const { deviceId, scanId, results } = parseResult.data;
 
     logger.info('Received scan results postback', {
       deviceId,
-      workflowId,
+      scanId,
       portCount: results.ports.length,
     });
 
@@ -222,21 +249,21 @@ export async function handleScanResultsPostback(request: Request): Promise<Respo
     const device = await getDeviceByIdGlobal(deviceId);
 
     if (!device) {
-      logger.warn('Device not found for postback', { deviceId, workflowId });
+      logger.warn('Device not found for postback', { deviceId, scanId });
       return Response.json({ error: 'Device not found' }, { status: 404 });
     }
 
     // 4. Store scan results
     await storeScanResults({
       deviceId,
-      workflowId,
+      scanId,
       results,
       organizationId: device.organizationId,
     });
 
     logger.info('Scan results postback completed successfully', {
       deviceId,
-      workflowId,
+      scanId,
       organizationId: device.organizationId,
     });
 

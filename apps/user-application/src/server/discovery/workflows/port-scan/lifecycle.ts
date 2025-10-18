@@ -12,29 +12,29 @@ export const cancelPortScanWorkflowExecution = createServerFn({
 })
   .inputValidator((data: unknown) => CancelPortScanSchema.parse(data))
   .handler(async ({ data }) => {
-    const { workflowId, scanRunId, reason } = data as {
-      workflowId: string;
+    const { scanId, scanRunId, reason } = data as {
+      scanId: string;
       scanRunId?: string;
       reason?: string;
     };
 
     try {
       logger.info('Cancel port scan request received', {
-        workflowId,
+        scanId,
         scanRunId,
         hasReason: Boolean(reason),
       });
 
       // Use port scan service for cancellation (handles Restate + database)
       await portScanService.cancelScan({
-        scanId: workflowId,
+        scanId,
         scanRunId,
         reason,
       });
 
       return {
         success: true,
-        workflowId,
+        scanId,
         scanRunId,
         status: 'canceled',
       };
@@ -42,7 +42,7 @@ export const cancelPortScanWorkflowExecution = createServerFn({
       const message = extractErrorMessage(error);
 
       logger.error('Failed to cancel port scan', {
-        workflowId,
+        scanId,
         scanRunId,
         error: message,
       });
@@ -57,18 +57,18 @@ export const cancelPortScanWorkflowExecution = createServerFn({
 export const getPortScanState = createServerFn({
   method: 'POST',
 })
-  .inputValidator((data: { workflowId: string }) => {
-    if (!data?.workflowId) {
-      throw new Error('Workflow ID is required');
+  .inputValidator((data: { scanId: string }) => {
+    if (!data?.scanId) {
+      throw new Error('Scan ID is required');
     }
     return data;
   })
   .handler(async ({ data }) => {
-    const { workflowId } = data;
+    const { scanId } = data;
 
     try {
       // Use port scan service to get state from Restate
-      const state = await portScanService.getScanState(workflowId);
+      const state = await portScanService.getScanState(scanId);
 
       return {
         success: true,
@@ -82,7 +82,7 @@ export const getPortScanState = createServerFn({
       const message = extractErrorMessage(error);
 
       logger.error('Failed to query port scan state', {
-        workflowId,
+        scanId,
         error: message,
       });
 

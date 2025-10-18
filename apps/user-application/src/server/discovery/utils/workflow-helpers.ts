@@ -1,12 +1,28 @@
-import type { DiscoveryRequest } from '@repo/temporal/types';
+/**
+ * Discovery request type (migrated from Temporal contracts)
+ */
+export interface DiscoveryRequest {
+  target: string;
+  scanType: string;
+  tools: Array<'subfinder' | 'amass' | 'assetfinder'>;
+}
 
-export function normalizeTargetForWorkflowId(target: string) {
+export function normalizeTargetForScanId(target: string) {
   return target.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
-export function generateWorkflowId(prefix: string, target: string) {
-  return `${prefix}-${normalizeTargetForWorkflowId(target)}-${Date.now()}`;
+/**
+ * Generate scanId (Restate workflow key)
+ * Format: "{prefix}-{normalized-target}-{timestamp}"
+ * Example: "portscan-192-168-1-1-1760694114399"
+ */
+export function generateScanId(prefix: string, target: string) {
+  return `${prefix}-${normalizeTargetForScanId(target)}-${Date.now()}`;
 }
+
+// Legacy alias for backward compatibility during migration
+export const generateWorkflowId = generateScanId;
+export const normalizeTargetForWorkflowId = normalizeTargetForScanId;
 
 export function buildDiscoveryRequest(target: string): DiscoveryRequest {
   return {
@@ -36,7 +52,7 @@ export function buildDiscoveryResult(discoveryOutput: any) {
         target,
         subdomains: results.map((entry: { host: string; ip: string }) => entry.host),
         results,
-        tool: 'temporal-scanner',
+        tool: 'restate-scanner',
         timestamp: new Date().toISOString(),
         success: errors.length === 0,
         errors: errors.length > 0 ? errors : undefined,

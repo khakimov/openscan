@@ -1,6 +1,9 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
-import { getPortScanState, startPortScanWorkflow, getActiveDeviceScans } from '@/server/discovery';
+// Import directly from source modules to avoid circular dependencies
+import { getPortScanState } from '@/server/discovery/workflows/port-scan/lifecycle';
+import { startPortScanWorkflow } from '@/server/discovery/workflows/port-scan/start';
+import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
 import type { PortScanInput } from '@repo/contracts';
 
 /**
@@ -9,17 +12,26 @@ import type { PortScanInput } from '@repo/contracts';
  */
 export function useDeviceScanStatus(
   deviceId: string,
-  workflowId: string | null,
+  scanId: string | null, // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
   enabled = true
 ) {
   const queryClient = useQueryClient();
 
   const { data, isLoading, error, isFetching } = useQuery({
-    queryKey: ['device-scan-status', deviceId, workflowId],
+    queryKey: ['device-scan-status', deviceId, scanId],
     queryFn: async () => {
-      if (!workflowId) return null;
+      if (!scanId) return null;
 
-      const result = await getPortScanState({ data: { workflowId } });
+      console.log('[useDeviceScanStatus] Fetching scan state', { deviceId, scanId });
+
+      const result = await getPortScanState({ data: { scanId } });
+
+      console.log('[useDeviceScanStatus] getPortScanState result:', {
+        success: result.success,
+        state: result.state,
+        error: result.error,
+        errorType: result.errorType,
+      });
 
       if (!result.success) {
         // Attach error metadata for polling decision
@@ -31,9 +43,9 @@ export function useDeviceScanStatus(
 
       return result.state;
     },
-    enabled: enabled && !!workflowId,
+    enabled: enabled && !!scanId,
     retry: (failureCount, error: any) => {
-      // Don't retry terminal Temporal errors
+      // Don't retry terminal workflow errors
       if (error?.shouldStopPolling) {
         return false;
       }
@@ -44,18 +56,22 @@ export function useDeviceScanStatus(
       const state = query.state.data;
       const error = query.state.error as any;
 
-      // Stop polling on terminal Temporal errors
+      // Stop polling on terminal workflow errors
       if (error?.shouldStopPolling) {
         return false;
       }
 
+      // Normalize status for comparison (Restate returns uppercase)
+      const normalizedStatus = state?.status?.toLowerCase();
+
       // Stop polling when scan is complete or failed
-      if (state?.status === 'completed' ||
-          state?.status === 'failed' ||
-          state?.status === 'canceled') {
+      if (normalizedStatus === 'completed' ||
+          normalizedStatus === 'failed' ||
+          normalizedStatus === 'canceled' ||
+          normalizedStatus === 'cancelled') {
 
         // Invalidate device queries when scan completes
-        if (state?.status === 'completed') {
+        if (normalizedStatus === 'completed') {
           queryClient.invalidateQueries({ queryKey: ['devices'] });
           queryClient.invalidateQueries({ queryKey: ['scans'] });
         }
@@ -75,6 +91,9 @@ export function useDeviceScanStatus(
   const errorType = errorObj?.errorType;
   const shouldStopPolling = errorObj?.shouldStopPolling;
 
+  // Normalize status for comparison (Restate returns uppercase)
+  const normalizedStatus = data?.status?.toLowerCase();
+
   return {
     scanState: data,
     isLoading,
@@ -82,10 +101,10 @@ export function useDeviceScanStatus(
     error: error?.message || null,
     errorType,
     shouldStopPolling,
-    isScanning: data?.status === 'scanning',
-    isCompleted: data?.status === 'completed',
-    isFailed: data?.status === 'failed' || shouldStopPolling,
-    isCanceled: data?.status === 'canceled',
+    isScanning: normalizedStatus === 'scanning' || normalizedStatus === 'prescanning' || normalizedStatus === 'parsing' || normalizedStatus === 'validating',
+    isCompleted: normalizedStatus === 'completed',
+    isFailed: normalizedStatus === 'failed' || shouldStopPolling,
+    isCanceled: normalizedStatus === 'canceled' || normalizedStatus === 'cancelled',
     progress: (data as any)?.progress || 0,
     progressMessage: (data as any)?.progressMessage,
   };
@@ -174,29 +193,30 @@ export function useDeviceScan(deviceId: string) {
   // Check for active scans in database on load
   const { data: databaseActiveScans = [] } = useActiveDeviceScans(deviceId);
 
-  // Get any active workflow ID from query cache or database
-  let activeWorkflowId = queryClient.getQueryData<string>(['active-scan', deviceId]) || null;
+  // Get any active scanId from query cache or database
+  let activeScanId = queryClient.getQueryData<string>(['active-scan', deviceId]) || null;
 
-  // If no cached workflow ID but database shows active scans, use the first one
-  if (!activeWorkflowId && databaseActiveScans.length > 0) {
-    activeWorkflowId = databaseActiveScans[0];
+  // If no cached scanId but database shows active scans, use the first one
+  if (!activeScanId && databaseActiveScans.length > 0) {
+    activeScanId = databaseActiveScans[0];
+    console.log('[useDeviceScan] Using scanId from database', { activeScanId });
     // Cache it for future use
-    queryClient.setQueryData(['active-scan', deviceId], activeWorkflowId);
+    queryClient.setQueryData(['active-scan', deviceId], activeScanId);
   }
 
   // Monitor scan status
-  const scanStatus = useDeviceScanStatus(deviceId, activeWorkflowId);
+  const scanStatus = useDeviceScanStatus(deviceId, activeScanId);
 
   // Start scan mutation
   const startScan = useStartScanMutation(deviceId);
 
-  // Set active workflow ID when scan starts
+  // Set active scanId when scan starts
   const handleStartScan = async (payload: PortScanInput) => {
     const result = await startScan.mutateAsync(payload);
 
-    if (result.success && result.workflowId) {
-      // Store the workflow ID in query cache
-      queryClient.setQueryData(['active-scan', deviceId], result.workflowId);
+    if (result.success && result.scanId) {
+      // Store the scanId in query cache
+      queryClient.setQueryData(['active-scan', deviceId], result.scanId);
       // Refresh the database active scans list
       queryClient.invalidateQueries({ queryKey: ['active-device-scans', deviceId] });
     }
@@ -204,22 +224,34 @@ export function useDeviceScan(deviceId: string) {
     return result;
   };
 
-  // Clear workflow ID when scan completes and refresh device data
-  if (scanStatus.isCompleted || scanStatus.isFailed || scanStatus.isCanceled) {
-    if (activeWorkflowId) {
+  // Clear scanId when scan completes and refresh device data
+  // Note: We check after the hook runs to avoid modifying state during render
+  if ((scanStatus.isCompleted || scanStatus.isFailed || scanStatus.isCanceled) && activeScanId) {
+    console.log('[useDeviceScan] Scan completed/failed/canceled, clearing scanId and invalidating queries', {
+      deviceId,
+      activeScanId,
+      isCompleted: scanStatus.isCompleted,
+      isFailed: scanStatus.isFailed,
+      isCanceled: scanStatus.isCanceled,
+    });
+
+    // Use effect-like cleanup - schedule for next tick
+    Promise.resolve().then(() => {
+      console.log('[useDeviceScan] Executing cleanup - invalidating queries', { deviceId });
       queryClient.setQueryData(['active-scan', deviceId], null);
       // Refresh all related queries after scan completion
       queryClient.invalidateQueries({ queryKey: ['active-device-scans', deviceId] });
       queryClient.invalidateQueries({ queryKey: ['devices'] }); // Refresh device list
       queryClient.invalidateQueries({ queryKey: ['device-detail', deviceId] }); // Refresh device detail
       queryClient.invalidateQueries({ queryKey: ['scans'] }); // Refresh scans list
-    }
+      console.log('[useDeviceScan] Queries invalidated successfully');
+    });
   }
 
   return {
     ...scanStatus,
     startScan: handleStartScan,
     isStartingScan: startScan.isPending,
-    activeWorkflowId,
+    activeScanId,
   };
 }

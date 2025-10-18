@@ -1,17 +1,21 @@
 /**
- * Discovery Service - Restate Implementation (sec-20)
+ * Discovery Workflow - Restate Implementation (sec-36)
  *
  * Main orchestrator for subdomain and host discovery workflows.
- * Ported from Temporal worker with Restate's durable execution patterns.
+ * Converted from service to workflow for proper state management.
  *
  * Key features:
+ * - Stateful: Uses workflow context (ctx.set/get) instead of in-memory Map
  * - Database-agnostic: Returns results, no persistence
  * - Secure: Input validation, no shell injection
  * - Resilient: Each step is durable via ctx.run()
  * - Observable: State queries via getState handler
+ *
+ * Reference: docs/best-practices/restate.md - Section 'Workflows (Long-running, Stateful)'
  */
 
 import * as restate from '@restatedev/restate-sdk';
+import type { WorkflowContext, WorkflowSharedContext } from '@restatedev/restate-sdk';
 import { validateDiscoveryTarget } from './validation';
 import {
   runDiscoveryTool,
@@ -53,21 +57,26 @@ interface DiscoveryState {
   totalTargets: number;
   processedTargets: number;
   devicesFound: number;
-  devices?: any[]; // Store devices after completion
+  devices?: any[]; // Store full devices after completion
   errors: string[];
   startedAt: string;
   completedAt?: string;
 }
 
-// In-memory state storage (simple approach for now)
-// In production, you might use Restate Virtual Objects or external DB
-const stateStore = new Map<string, DiscoveryState>();
-
-export const discoveryService = restate.service({
+/**
+ * Discovery Workflow
+ *
+ * Uses workflow pattern for durable state management.
+ * State is stored in workflow context (ctx.set/get), not in-memory Map.
+ *
+ * Keyed by scanId - use deterministic key generation:
+ * `discovery-${normalizedTarget}-${timestamp}`
+ */
+export const discoveryService = restate.workflow({
   name: 'Discovery',
   handlers: {
     /**
-     * Main discovery handler
+     * Main discovery handler (workflow run method)
      *
      * Orchestrates the complete discovery workflow:
      * 1. Validate all targets
@@ -76,24 +85,23 @@ export const discoveryService = restate.service({
      * 4. Deduplicate results
      * 5. Return aggregated output
      */
-    discover: async (ctx, input: DiscoveryInput): Promise<DiscoveryOutput> => {
-      const scanId = input.scanId || ctx.rand.uuidv4();
+    run: async (ctx: WorkflowContext, input: DiscoveryInput): Promise<DiscoveryOutput> => {
+      // Use scanId from input (set via workflow key and idempotency-key)
+      // Fall back to workflow key, then random UUID
+      const scanId = input.scanId || ctx.key || ctx.rand.uuidv4();
       const startTime = Date.now();
       const tools = input.tools || ['subfinder']; // Only subfinder enabled for now
 
-      // Initialize state
-      const state: DiscoveryState = {
-        phase: 'VALIDATING',
-        totalTargets: input.targets.length,
-        processedTargets: 0,
-        devicesFound: 0,
-        errors: [],
-        startedAt: new Date().toISOString(),
-      };
-      stateStore.set(scanId, state);
+      // Initialize state in workflow context (durable!)
+      ctx.set('phase', 'VALIDATING');
+      ctx.set('totalTargets', input.targets.length);
+      ctx.set('processedTargets', 0);
+      ctx.set('devicesFound', 0);
+      ctx.set('errors', []);
+      ctx.set('startedAt', new Date().toISOString());
 
       // Step 1: Validate targets
-      const { validTargets, errors } = await ctx.run('validate-targets', async () => {
+      const { validTargets, errors: validationErrors } = await ctx.run('validate-targets', async () => {
         // Don't throw for empty targets - return as validation error
         if (!input.targets || input.targets.length === 0) {
           return {
@@ -121,9 +129,10 @@ export const discoveryService = restate.service({
         return { validTargets: valid, errors: validationErrors };
       });
 
-      state.errors.push(...errors);
-      state.phase = 'DISCOVERING';
-      stateStore.set(scanId, state);
+      // Update state in workflow context
+      const currentErrors = (await ctx.get<string[]>('errors')) || [];
+      ctx.set('errors', [...currentErrors, ...validationErrors]);
+      ctx.set('phase', 'DISCOVERING');
 
       // Step 2: Discover devices for each valid target
       const allDevices: DiscoveredDevice[] = [];
@@ -146,7 +155,8 @@ export const discoveryService = restate.service({
                     error instanceof Error
                       ? `Tool ${tool} failed for ${target.value}: ${error.message}`
                       : `Tool ${tool} failed for ${target.value}`;
-                  state.errors.push(errorMsg);
+                  // Note: We'll add this to errors array after ctx.run completes
+                  discoveredDevices.push({ error: errorMsg } as any);
                 }
               }
 
@@ -170,14 +180,16 @@ export const discoveryService = restate.service({
             allDevices.push(device);
           }
 
-          state.processedTargets++;
-          stateStore.set(scanId, state);
+          // Update processed count in workflow state
+          const processed = (await ctx.get<number>('processedTargets')) || 0;
+          ctx.set('processedTargets', processed + 1);
         } catch (error) {
           const errorMsg =
             error instanceof Error
               ? `Target ${target.value} failed: ${error.message}`
               : `Target ${target.value} failed`;
-          state.errors.push(errorMsg);
+          const currentErrors = (await ctx.get<string[]>('errors')) || [];
+          ctx.set('errors', [...currentErrors, errorMsg]);
         }
       }
 
@@ -199,19 +211,23 @@ export const discoveryService = restate.service({
             : device.discoveredAt, // Already a string from Restate serialization
       })) as any; // Type assertion needed for Date -> string conversion
 
-      state.phase = 'COMPLETED';
-      state.devicesFound = uniqueDevices.length;
-      state.devices = serializedDevices; // Store devices in state for later retrieval
-      state.completedAt = completedAt.toISOString();
-      stateStore.set(scanId, state);
+      // Update final state in workflow context
+      ctx.set('phase', 'COMPLETED');
+      ctx.set('devicesFound', uniqueDevices.length);
+      ctx.set('devices', serializedDevices); // IMPORTANT: Store full devices, not just count!
+      ctx.set('completedAt', completedAt.toISOString());
+
+      const startedAt = await ctx.get<string>('startedAt');
+      const processedTargets = await ctx.get<number>('processedTargets');
+      const errors = await ctx.get<string[]>('errors');
 
       return {
         scanId,
-        startedAt: state.startedAt,
+        startedAt: startedAt || new Date().toISOString(),
         completedAt: completedAt.toISOString(),
         devices: serializedDevices,
-        totalTargetsProcessed: state.processedTargets,
-        errors: state.errors,
+        totalTargetsProcessed: processedTargets || 0,
+        errors: errors || [],
         performance: {
           executionTimeMs,
           devicesPerSecond: uniqueDevices.length > 0 ? (uniqueDevices.length / executionTimeMs) * 1000 : 0,
@@ -220,21 +236,32 @@ export const discoveryService = restate.service({
     },
 
     /**
-     * Get current state of a discovery scan
+     * Get current state of a discovery workflow
      *
-     * Allows clients to query progress during execution
+     * Allows clients to query progress during execution.
+     * Uses WorkflowSharedContext to access state without blocking workflow.
      */
-    getState: async (_ctx, input: { scanId: string }): Promise<DiscoveryState | { error: string }> => {
-      const state = stateStore.get(input.scanId);
+    getState: async (ctx: WorkflowSharedContext): Promise<DiscoveryState> => {
+      // Read state from workflow context
+      const phase = (await ctx.get<DiscoveryState['phase']>('phase')) || 'VALIDATING';
+      const totalTargets = (await ctx.get<number>('totalTargets')) || 0;
+      const processedTargets = (await ctx.get<number>('processedTargets')) || 0;
+      const devicesFound = (await ctx.get<number>('devicesFound')) || 0;
+      const devices = (await ctx.get<any[]>('devices')) || undefined; // Full devices array
+      const errors = (await ctx.get<string[]>('errors')) || [];
+      const startedAt = (await ctx.get<string>('startedAt')) || new Date().toISOString();
+      const completedAt = (await ctx.get<string>('completedAt')) || undefined;
 
-      if (!state) {
-        // Return error gracefully instead of throwing
-        return {
-          error: `No state found for scanId: ${input.scanId}`,
-        } as any;
-      }
-
-      return state;
+      return {
+        phase,
+        totalTargets,
+        processedTargets,
+        devicesFound,
+        devices, // Include full devices for client
+        errors,
+        startedAt,
+        completedAt,
+      };
     },
   },
 });

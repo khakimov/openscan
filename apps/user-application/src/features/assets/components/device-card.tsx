@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { type TransformedDevice } from "@/server/devices";
 import { format } from "date-fns";
@@ -39,7 +39,7 @@ interface DeviceCardProps {
 
 function StatusBadge({
   status,
-  hasBeenScanned
+  hasBeenScanned,
 }: {
   status: string;
   hasBeenScanned?: boolean;
@@ -90,7 +90,7 @@ function ScanStatusBadge({
 
 function RiskLevelBadge({
   riskLevel,
-  hasBeenScanned
+  hasBeenScanned,
 }: {
   riskLevel: string;
   hasBeenScanned?: boolean;
@@ -151,6 +151,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     scanStats?.totalScans ?? device.scanCount ?? (device.isScanned ? 1 : 0);
   const hasScanHistory = totalScans > 0;
   const lastScanAt = scanStats?.lastScanAt ?? device.lastScanned ?? undefined;
+
   const scanCountLabel = hasScanHistory
     ? `${totalScans} ${totalScans === 1 ? "scan" : "scans"} total`
     : null;
@@ -185,7 +186,13 @@ export function DeviceCard({ device }: DeviceCardProps) {
    * Secure scan handler - uses server-side presets
    * All scan configuration (timeout, ports, profiles) is server-controlled
    */
-  const handleStartScan = async (preset: 'QUICK' | 'STANDARD' | 'THOROUGH') => {
+  const handleStartScan = async (preset: "QUICK" | "STANDARD" | "THOROUGH") => {
+    console.log("[handleStartScan] Starting scan", {
+      deviceId: device.id,
+      deviceName: device.name,
+      preset,
+    });
+
     // Determine target from device name or IP
     let target = device.name;
     if (target && target.includes("(")) {
@@ -197,16 +204,22 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }
 
     if (!target) {
+      console.error("[handleStartScan] No valid target found", { device });
       toast.error("No valid target found for scanning");
       return;
     }
 
     const toastId = `scan-${preset}-${device.id}`;
 
-    toast.loading(
-      `Starting ${preset.toLowerCase()} scan for ${target}...`,
-      { id: toastId },
-    );
+    console.log("[handleStartScan] Calling startDeviceScan", {
+      target,
+      preset,
+      deviceId: device.id,
+    });
+
+    toast.loading(`Starting ${preset.toLowerCase()} scan for ${target}...`, {
+      id: toastId,
+    });
 
     try {
       // Call secure server function - client only passes preset choice
@@ -215,32 +228,48 @@ export function DeviceCard({ device }: DeviceCardProps) {
           deviceId: device.id,
           target,
           preset,
-        }
+        },
       });
 
+      console.log("[handleStartScan] Server response:", { result });
+
       if (result.success) {
-        toast.success(
-          `Scan started for ${target}`,
-          {
-            id: toastId,
-            description: result.presetDescription || `Workflow ID: ${result.workflowId}`,
-            action: {
-              label: "Monitor",
-              onClick: () => {
-                console.log("Monitor workflow:", result.workflowId);
-              },
+        // Store Restate scanId (not workflowId) in query cache so useDeviceScan can track status
+        // The scanId is what Restate uses internally to query scan state
+        if (result.scanId) {
+          console.log("[handleStartScan] Storing scanId in query cache", {
+            deviceId: device.id,
+            scanId: result.scanId,
+          });
+
+          queryClient.setQueryData(["active-scan", device.id], result.scanId);
+          queryClient.invalidateQueries({
+            queryKey: ["active-device-scans", device.id],
+          });
+
+          console.log(
+            "[handleStartScan] Query cache updated, triggering refetch",
+          );
+        }
+
+        toast.success(`Scan started for ${target}`, {
+          id: toastId,
+          description: result.presetDescription || `Scan ID: ${result.scanId}`,
+          action: {
+            label: "Monitor",
+            onClick: () => {
+              console.log("Monitor scan:", { scanId: result.scanId });
             },
           },
-        );
+        });
       } else {
-        toast.error(
-          `Failed to start scan: ${result.error}`,
-          {
-            id: toastId,
-          },
-        );
+        console.error("[handleStartScan] Scan failed:", result.error);
+        toast.error(`Failed to start scan: ${result.error}`, {
+          id: toastId,
+        });
       }
     } catch (error) {
+      console.error("[handleStartScan] Exception caught:", error);
       toast.error(`Failed to start port scan`, {
         id: toastId,
         description: error instanceof Error ? error.message : "Unknown error",
@@ -249,7 +278,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
   };
 
   const handleExtendedScan = async () => {
-    await handleStartScan('THOROUGH');
+    await handleStartScan("THOROUGH");
   };
 
   // Verification toggle mutation (with scheduling)
@@ -298,7 +327,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     if (!dateString) return "Never";
     try {
       return format(new Date(dateString), "MMM dd, yyyy");
-    } catch {
+    } catch (error) {
       return "Invalid date";
     }
   };
@@ -334,8 +363,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
           />
         </div>
       </div>
-      <div className="row ">
-        <div className="center-center col flex-1 p-4 py-2 ">
+      <div className="flex">
+        <div className="center-center col flex-1 p-4 py-2">
           <div className="font-medium text-xl font-mono">
             {device.isScanned ? totalOpenPorts : "-"}
           </div>
@@ -343,29 +372,31 @@ export function DeviceCard({ device }: DeviceCardProps) {
             open ports
           </div>
         </div>
-        <div className="center-center col flex-1 p-4 py-2 ">
-          <div className="font-medium text-sm">
-            {hasScanHistory
-              ? lastScanAt
-                ? formatDate(lastScanAt)
-                : "Unknown"
-              : "Not scanned yet"}
+        <div className="flex flex-1">
+          <div className="center-center col flex-1 p-4 py-2">
+            <div className="font-medium text-sm">
+              {hasScanHistory
+                ? lastScanAt
+                  ? formatDate(lastScanAt)
+                  : "Unknown"
+                : "Not scanned yet"}
+            </div>
+            <div className="text-muted-foreground whitespace-nowrap text-sm">
+              {hasScanHistory
+                ? scanCountLabel
+                  ? `last scan (${scanCountLabel})`
+                  : "last scan"
+                : "scan status"}
+            </div>
           </div>
-          <div className="text-muted-foreground whitespace-nowrap text-sm">
-            {hasScanHistory
-              ? scanCountLabel
-                ? `last scan (${scanCountLabel})`
-                : "last scan"
-              : "scan status"}
-          </div>
-        </div>
 
-        <div className="center-center col flex-1 p-4 py-2">
-          <div className="font-medium text-sm">
-            {formatDate(device.discoveredOn)}
-          </div>
-          <div className="text-muted-foreground whitespace-nowrap text-sm">
-            discovered
+          <div className="center-center col flex-1 p-4 py-2">
+            <div className="font-medium text-sm">
+              {formatDate(device.discoveredOn)}
+            </div>
+            <div className="text-muted-foreground whitespace-nowrap text-sm">
+              discovered
+            </div>
           </div>
         </div>
       </div>

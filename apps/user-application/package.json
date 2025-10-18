@@ -33,7 +33,6 @@
     "@repo/contracts": "workspace:^",
     "@repo/data-ops": "workspace:^",
     "@repo/logger": "workspace:^",
-    "@repo/temporal": "workspace:^",
     "@repo/validation": "workspace:^",
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.0.6",

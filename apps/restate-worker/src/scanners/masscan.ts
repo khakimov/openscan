@@ -15,8 +15,8 @@ const logger = createLogger({ name: 'masscan' });
 
 const MASSCAN_FLAG = 'SCANNER_ENABLE_MASSCAN';
 const MASSCAN_BINARY = process.env.MASSCAN_PATH || 'masscan';
-const MASSCAN_DEFAULT_RATE = parseInt(process.env.MASSCAN_RATE || '1000', 10);
-const MASSCAN_DEFAULT_PORTS = process.env.MASSCAN_PORT_RANGE || '1-1024';
+const MASSCAN_DEFAULT_RATE = parseInt(process.env.MASSCAN_RATE || '5000', 10); // Fast scan rate
+const MASSCAN_DEFAULT_PORTS = process.env.MASSCAN_PORT_RANGE || '1-65535'; // All ports
 const MASSCAN_TIMEOUT = parseInt(process.env.MASSCAN_TIMEOUT_MS || '120000', 10);
 
 export interface DiscoveredPort {

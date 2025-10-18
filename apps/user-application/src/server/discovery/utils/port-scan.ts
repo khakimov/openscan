@@ -78,10 +78,10 @@ export function buildScannerInput(params: {
 
   return {
     tenantId,
-    workflowId: scanWorkflowId,
+    scanWorkflowId, // Database FK to scanWorkflows.id (CUID)
     userId,
     scanRunId,
-    scanId: scanRunId,
+    scanId: scanRunId, // FIXME: scanId should be Restate workflow key, not scanRunId
     scanName: `Port scan of ${input.target}`,
     isExtendScan,
     authScanType: 'ANONYMOUS',

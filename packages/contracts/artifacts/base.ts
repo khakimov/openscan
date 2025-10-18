@@ -1,8 +1,5 @@
 /**
  * Base artifact schema shared across all scanner types
- *
- * IMPORTANT: Keep existing field names for compatibility
- * Don't rename scanContext → context or scanMetadata → timing
  */
 
 import { z } from 'zod';
@@ -28,8 +25,8 @@ export const BaseArtifactSchema = z.object({
     isExtendScan: z.boolean(),
     isUptimeScan: z.boolean().optional(),
     authScanType: z.enum(['ANONYMOUS', 'AUTHENTICATED']),
-    workflowId: z.string(),
-    scanId: z.string(),
+    scanWorkflowId: z.string(), // Database FK to scanWorkflows.id (CUID)
+    scanId: z.string(), // Restate workflow key
     scanRunId: z.string(),
     tenantId: z.string(),
     userId: z.string(),
