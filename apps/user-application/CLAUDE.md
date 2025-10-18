@@ -87,3 +87,96 @@ initDatabase(d1db);
 - Devtools are included for both Router and Query in development
 - Routes support loaders, error boundaries, and not-found components
 - File-based routing automatically generates type-safe route definitions
+
+## Monitoring & Observability
+
+### Workers Analytics Engine
+
+The application uses **Workers Analytics Engine** to track postback events from the restate-worker. This provides lightweight metrics for monitoring scan result delivery.
+
+#### Quick Check
+
+```bash
+# Query Analytics Engine for postback metrics
+./scripts/query-analytics.sh
+```
+
+**Output example:**
+```
+Event Type            Count   Avg Latency (ms)
+-----------           -----   ----------------
+postback_success        42       3784
+postback_failure         2       1523
+```
+
+#### Event Types Tracked
+
+| Event Type | scanId | deviceId | Error Details | Use Case |
+|------------|--------|----------|---------------|----------|
+| `postback_success` | ✅ | ✅ | organizationId, port count | Track successful scan deliveries |
+| `postback_auth_failed` | ❌ | ❌ | "Authentication failed" | Detect API key issues |
+| `postback_validation_failed` | ❌ | ❌ | Field + error message | Catch worker payload bugs |
+| `postback_device_not_found` | ✅ | ✅ | "Device not found" | Debug device lookup failures |
+| `postback_failure` | ✅ | ✅ | Exception message | Debug database/processing errors |
+
+#### Common Queries
+
+**View recent failures with details:**
+```bash
+curl -s "https://api.cloudflare.com/client/v4/accounts/b846a37c6228b2869896493f338f17d5/analytics_engine/sql" \
+  -H "Authorization: Bearer YGeh93yMgMl32K_GErNgyl36BeomWrF0ZcvlS2q8" \
+  -d "SELECT blob1 AS scanId, blob2 AS deviceId, blob3 AS error, timestamp
+      FROM postback_events
+      WHERE index1 = 'postback_failure'
+      ORDER BY timestamp DESC
+      LIMIT 10" | jq .
+```
+
+**Success rate over last 24 hours:**
+```bash
+curl -s "https://api.cloudflare.com/client/v4/accounts/b846a37c6228b2869896493f338f17d5/analytics_engine/sql" \
+  -H "Authorization: Bearer YGeh93yMgMl32K_GErNgyl36BeomWrF0ZcvlS2q8" \
+  -d "SELECT
+      index1 AS event_type,
+      count() AS total,
+      avg(double1) AS avg_latency_ms
+      FROM postback_events
+      WHERE timestamp >= NOW() - INTERVAL '24' HOUR
+      GROUP BY event_type" | jq .
+```
+
+**Latency percentiles:**
+```bash
+curl -s "https://api.cloudflare.com/client/v4/accounts/b846a37c6228b2869896493f338f17d5/analytics_engine/sql" \
+  -H "Authorization: Bearer YGeh93yMgMl32K_GErNgyl36BeomWrF0ZcvlS2q8" \
+  -d "SELECT
+      quantile(0.5)(double1) AS p50_ms,
+      quantile(0.95)(double1) AS p95_ms,
+      quantile(0.99)(double1) AS p99_ms
+      FROM postback_events
+      WHERE index1 = 'postback_success'
+      AND timestamp >= NOW() - INTERVAL '24' HOUR" | jq .
+```
+
+#### Dashboard Access
+
+Analytics Engine data is also viewable in the Cloudflare Dashboard:
+1. Go to: https://dash.cloudflare.com
+2. Navigate to: Workers & Pages → sec-rocks → Observability
+3. Look for: Analytics Engine → `postback_events` dataset
+
+#### Implementation Details
+
+- **Location**: `src/server/scan-results-postback.ts`
+- **Binding**: Configured in `wrangler.jsonc` as `analytics_engine_datasets`
+- **Data Points**: Written via `env.ANALYTICS.writeDataPoint()`
+- **Schema**:
+  - `index1`: event_type (used for filtering)
+  - `blob1`: scanId
+  - `blob2`: deviceId
+  - `blob3`: organizationId or error message
+  - `double1`: latency (milliseconds)
+  - `double2`: port count (success events only)
+  - `timestamp`: Auto-populated by Workers runtime
+
+**Note**: The dataset is created automatically on the first `writeDataPoint()` call - no manual setup required.
