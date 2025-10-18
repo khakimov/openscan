@@ -39,7 +39,6 @@ export function OnboardingDiscovery({
   const [domain, setDomain] = useState(initialDomain || "");
   const [domainError, setDomainError] = useState<string | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
   const [selectedSubdomains, setSelectedSubdomains] = useState<Set<string>>(
     new Set(),
   );
@@ -104,32 +103,16 @@ export function OnboardingDiscovery({
       }
     : null;
 
-  const handleStartDiscovery = async () => {
-    // Validate domain
-    const trimmedDomain = domain.trim();
-    const validationError = validateDomain(trimmedDomain);
-
-    if (validationError) {
-      setDomainError(validationError);
-      return;
-    }
-
-    setDomainError(null);
-    setIsStarting(true);
-
-    // Clear previous selections when starting a new discovery
-    setSelectedSubdomains(new Set());
-
-    try {
+  // Optimistic mutation for starting discovery
+  const startDiscoveryMutation = useMutation({
+    mutationFn: async (target: string) => {
       console.log(
         "[OnboardingDiscovery] Starting discovery workflow for domain:",
-        trimmedDomain,
+        target,
       );
-
-      const discoveryResult = await startDiscoveryWorkflow({
-        data: { target: trimmedDomain },
-      });
-
+      return startDiscoveryWorkflow({ data: { target } });
+    },
+    onSuccess: (discoveryResult) => {
       if (discoveryResult.success && discoveryResult.scanId) {
         // Set scanId - useQuery hooks will handle polling automatically
         setScanId(discoveryResult.scanId);
@@ -144,14 +127,31 @@ export function OnboardingDiscovery({
           discoveryResult.error,
         );
       }
-    } catch (err) {
+    },
+    onError: (err) => {
       const errorMessage =
         err instanceof Error ? err.message : "Something went wrong";
       console.error("[OnboardingDiscovery] Error:", err);
       setDomainError(errorMessage);
-    } finally {
-      setIsStarting(false);
+    },
+  });
+
+  const handleStartDiscovery = () => {
+    // Validate domain
+    const trimmedDomain = domain.trim();
+    const validationError = validateDomain(trimmedDomain);
+
+    if (validationError) {
+      setDomainError(validationError);
+      return;
     }
+
+    setDomainError(null);
+    // Clear previous selections when starting a new discovery
+    setSelectedSubdomains(new Set());
+
+    // Optimistic update: mutation.isPending becomes true immediately
+    startDiscoveryMutation.mutate(trimmedDomain);
   };
 
   // Mutation for saving selected devices
@@ -209,16 +209,25 @@ export function OnboardingDiscovery({
     },
   });
 
-  const handleSkip = async () => {
-    // Mark onboarding as complete before navigating
-    if (organizationId) {
-      await completeOnboarding({ data: { organizationId } });
-    }
+  // Optimistic mutation for skipping discovery
+  const skipDiscoveryMutation = useMutation({
+    mutationFn: async () => {
+      // Mark onboarding as complete before navigating
+      if (organizationId) {
+        return completeOnboarding({ data: { organizationId } });
+      }
+    },
+    onSuccess: () => {
+      // Skip discovery and go directly to dashboard (onboarding complete)
+      navigate({
+        to: "/dashboard",
+      });
+    },
+  });
 
-    // Skip discovery and go directly to dashboard (onboarding complete)
-    navigate({
-      to: "/dashboard",
-    });
+  const handleSkip = () => {
+    // Optimistic update: mutation.isPending becomes true immediately
+    skipDiscoveryMutation.mutate();
   };
 
   const handleContinue = () => {
@@ -280,7 +289,7 @@ export function OnboardingDiscovery({
               setDomain(e.target.value);
               setDomainError(null);
             }}
-            disabled={isStarting || isRunning}
+            disabled={startDiscoveryMutation.isPending || isRunning}
             aria-invalid={!!domainError}
           />
           {domainError && <p className="text-sm text-red-600">{domainError}</p>}
@@ -297,17 +306,18 @@ export function OnboardingDiscovery({
               type="button"
               variant="outline"
               onClick={handleSkip}
-              disabled={isStarting}
+              disabled={startDiscoveryMutation.isPending || skipDiscoveryMutation.isPending}
             >
-              Skip Discovery
+              {skipDiscoveryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {skipDiscoveryMutation.isPending ? "Skipping..." : "Skip Discovery"}
             </Button>
             <Button
               type="button"
               onClick={handleStartDiscovery}
-              disabled={isStarting || !domain.trim()}
+              disabled={startDiscoveryMutation.isPending || !domain.trim()}
             >
-              {isStarting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {isStarting ? "Starting..." : "Start Discovery"}
+              {startDiscoveryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {startDiscoveryMutation.isPending ? "Starting..." : "Start Discovery"}
             </Button>
           </div>
         )}

@@ -150,5 +150,8 @@ vite.config.ts.timestamp-*
 .ck/
 
 # Local development tools
-.beads/
+.beads/*.db
+.beads/*.db-shm
+.beads/*.db-wal
+!.beads/issues.jsonl
 .zed/

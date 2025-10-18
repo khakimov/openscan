@@ -39,7 +39,7 @@ describe('Scan Results Postback (Integration)', () => {
     const db = getDb();
 
     testOrgId = createId();
-    const [org] = await db.insert(organization).values({
+    const [_org] = await db.insert(organization).values({
       id: testOrgId,
       name: 'Test Organization Postback',
       slug: `test-org-postback-${Date.now()}`,
@@ -47,7 +47,7 @@ describe('Scan Results Postback (Integration)', () => {
     }).returning();
 
     testUserId = createId();
-    const [user] = await db.insert(auth_user).values({
+    const [_user] = await db.insert(auth_user).values({
       id: testUserId,
       name: 'Test User Postback',
       email: `test-user-postback-${Date.now()}@example.com`,

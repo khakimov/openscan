@@ -1,7 +1,15 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { Sidebar, type SidebarOrganization, type SidebarProject, type SidebarUser } from "@/components/layout/sidebar";
+import {
+  Sidebar,
+  type SidebarOrganization,
+  type SidebarProject,
+  type SidebarUser,
+} from "@/components/layout/sidebar";
 import { getCurrentUser } from "@/server/auth";
-import { getUserOrganizations, getActiveOrganization } from "@/server/organization";
+import {
+  getUserOrganizations,
+  getActiveOrganization,
+} from "@/server/organization";
 import { getOrganizationProjects } from "@/server/projects";
 
 export const Route = createFileRoute("/_auth")({
@@ -23,17 +31,19 @@ export const Route = createFileRoute("/_auth")({
 
     // Fetch organizations
     const organizationsResult = await getUserOrganizations();
-    const organizations: SidebarOrganization[] = organizationsResult.organizations.map((org) => ({
-      id: org.id,
-      name: org.name,
-      slug: "slug" in org && typeof org.slug === "string" ? org.slug : null,
-    }));
+    const organizations: SidebarOrganization[] =
+      organizationsResult.organizations.map((org) => ({
+        id: org.id,
+        name: org.name,
+        slug: "slug" in org && typeof org.slug === "string" ? org.slug : null,
+      }));
 
     // Fetch active organization from session
     const activeOrgResult = await getActiveOrganization();
-    const activeOrganization: SidebarOrganization | null = activeOrgResult.success && activeOrgResult.organization
-      ? activeOrgResult.organization
-      : null;
+    const activeOrganization: SidebarOrganization | null =
+      activeOrgResult.success && activeOrgResult.organization
+        ? activeOrgResult.organization
+        : null;
 
     // Fetch projects for current organization
     let projects: SidebarProject[] = [];
@@ -72,20 +82,20 @@ export const Route = createFileRoute("/_auth")({
 });
 
 function RouteComponent() {
-  const { user, activeOrganization, organizations, projects } = Route.useLoaderData();
+  const { user, activeOrganization, organizations, projects } =
+    Route.useLoaderData();
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen w-full bg-background">
       <Sidebar
-        className="flex-shrink-0"
         user={user}
         activeOrganization={activeOrganization}
         organizations={organizations}
         projects={projects}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-2">
+      <div className="w-full flex flex-col overflow-hidden">
+        <main className="flex-1 overflow-y-auto bg-muted/20 p-2 pt-14 lg:pt-2">
           <div className="max-w-7xl">
             <Outlet />
           </div>

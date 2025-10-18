@@ -831,6 +831,19 @@ export const getDeviceScanHistoryData = createServerFn({ method: 'POST' })
 
     try {
       const history = await getDeviceScanHistory(organizationId, target, limit);
+
+      logger.info('Fetched scan history', {
+        target,
+        count: history.length,
+        sample: history[0] ? {
+          id: history[0].id,
+          createdAt: history[0].createdAt,
+          createdAtType: typeof history[0].createdAt,
+          hasResultSummary: !!history[0].resultSummary,
+          resultSummaryType: typeof history[0].resultSummary,
+        } : null
+      });
+
       return { success: true, history };
     } catch (error) {
       logger.error('Failed to fetch device scan history', {

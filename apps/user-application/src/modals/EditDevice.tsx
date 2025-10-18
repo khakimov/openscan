@@ -168,16 +168,16 @@ export default function EditDevice({
         description: `${response.device.name} has been updated.`,
       });
 
-      console.log('🔄 EditDevice: Starting cache invalidation...');
+      console.log('🔄 EditDevice: Starting cache refresh...');
 
-      // Aggressively refresh all device-related data
+      // Force immediate refetch (ignores staleTime) - devices query has 5min staleTime
       await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ["devices"] }),
+        queryClient.refetchQueries({ queryKey: ["devices"] }),
         queryClient.invalidateQueries({ queryKey: DEVICE_DETAIL_QUERY_KEY(deviceId) }),
         queryClient.invalidateQueries({ queryKey: ["deviceTagSuggestions"] }),
       ]);
 
-      console.log('✅ EditDevice: Cache invalidation complete');
+      console.log('✅ EditDevice: Cache refresh complete');
 
       // Force a complete refresh of the page data
       router.invalidate();

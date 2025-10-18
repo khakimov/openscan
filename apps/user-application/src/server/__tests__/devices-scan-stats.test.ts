@@ -62,21 +62,6 @@ describe('Device Scan Statistics (TDD)', () => {
       createdAt: new Date('2025-10-16T10:00:00Z'),
     };
 
-    const olderScan = {
-      target: 'test-device.example.com',
-      resultSummary: {
-        openPortCount: 5,
-        ports: [
-          { port: 22, state: 'open', service: 'ssh' },
-          { port: 80, state: 'open', service: 'http' },
-          { port: 443, state: 'open', service: 'https' },
-          { port: 3000, state: 'open', service: 'unknown' },
-          { port: 8080, state: 'open', service: 'http-alt' },
-        ],
-      },
-      completedAt: new Date('2025-10-15T10:00:00Z'),
-    };
-
     const newerScan = {
       target: 'test-device.example.com',
       resultSummary: {

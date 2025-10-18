@@ -8,7 +8,7 @@ import {
   getTagBadgeClass,
   getRiskLevelBorderClass,
 } from "@repo/constants";
-import { Card, CardActions, CardActionsItem } from "@/components/shared/card";
+import { CardActions, CardActionsItem } from "@/components/shared/card";
 import {
   Pencil,
   Trash,
@@ -52,10 +52,37 @@ function getScanTarget(device: TransformedDevice): string | null {
 
 export function DeviceCard({ device }: DeviceCardProps) {
   const queryClient = useQueryClient();
-  const { isScanning, isStartingScan, activeScanId } = useDeviceScan(device.id);
+  const { isScanning } = useDeviceScan(device.id);
 
-  // Show scanning state if there's an active scan (from database or workflow)
-  const isActivelyScanning = isScanning || !!activeScanId;
+  // Scan mutation with optimistic UI updates (following TanStack "Via UI" pattern)
+  const scanMutation = useMutation({
+    mutationFn: async (params: { target: string; preset: string }) => {
+      const toastId = `scan-${device.id}`;
+      toast.loading(`Starting scan for ${params.target}...`, { id: toastId });
+      return { toastId, result: await startDeviceScan({ data: { deviceId: device.id, ...params } }) };
+    },
+    onSuccess: ({ toastId, result }) => {
+      if (result.success && result.scanId) {
+        queryClient.invalidateQueries({ queryKey: ["active-device-scans", device.id] });
+        toast.success(`Scan started for ${result.target}`, {
+          id: toastId,
+          description: result.presetDescription || `Scan ID: ${result.scanId}`,
+        });
+      } else {
+        toast.error(`Failed to start scan: ${result.error}`, { id: toastId });
+      }
+    },
+    onError: (error) => {
+      const toastId = `scan-${device.id}`;
+      toast.error("Failed to start port scan", {
+        id: toastId,
+        description: error instanceof Error ? error.message : "Unknown error",
+      });
+    },
+  });
+
+  // Show scanning state: database scan OR optimistic mutation state
+  const isActivelyScanning = isScanning || scanMutation.isPending;
 
   // Simplified stats - trust server data
   const totalOpenPorts = device.scanStats?.openPortCount ?? 0;
@@ -114,40 +141,16 @@ export function DeviceCard({ device }: DeviceCardProps) {
   });
 
   // Handlers
-  const handleScan = async () => {
+  const handleScan = () => {
     const target = getScanTarget(device);
     if (!target) {
       toast.error("No valid target found for scanning");
       return;
     }
 
-    const toastId = `scan-${device.id}`;
-    toast.loading(`Starting scan for ${target}...`, { id: toastId });
-
-    try {
-      const result = await startDeviceScan({
-        data: { deviceId: device.id, target, preset: "THOROUGH" },
-      });
-
-      if (result.success && result.scanId) {
-        queryClient.setQueryData(["active-scan", device.id], result.scanId);
-        queryClient.invalidateQueries({
-          queryKey: ["active-device-scans", device.id],
-        });
-
-        toast.success(`Scan started for ${target}`, {
-          id: toastId,
-          description: result.presetDescription || `Scan ID: ${result.scanId}`,
-        });
-      } else {
-        toast.error(`Failed to start scan: ${result.error}`, { id: toastId });
-      }
-    } catch (error) {
-      toast.error("Failed to start port scan", {
-        id: toastId,
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    }
+    // Optimistic update: scanMutation.isPending immediately becomes true
+    // UI shows "Scanning..." and animated border right away
+    scanMutation.mutate({ target, preset: "THOROUGH" });
   };
 
   return (
@@ -271,14 +274,14 @@ export function DeviceCard({ device }: DeviceCardProps) {
           <button
             type="button"
             onClick={handleScan}
-            disabled={isActivelyScanning || isStartingScan}
+            disabled={isActivelyScanning}
             className={
-              isActivelyScanning || isStartingScan
+              isActivelyScanning
                 ? "opacity-50 cursor-not-allowed"
                 : ""
             }
           >
-            {isStartingScan ? (
+            {scanMutation.isPending ? (
               <Loader2 size={16} className="animate-spin" />
             ) : (
               <Radar size={16} />

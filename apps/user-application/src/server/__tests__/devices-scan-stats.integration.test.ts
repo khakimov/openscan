@@ -41,7 +41,7 @@ describe('Device Scan Statistics (Integration)', () => {
     const db = getDb();
 
     testOrgId = createId();
-    const [org] = await db.insert(organization).values({
+    const [_org] = await db.insert(organization).values({
       id: testOrgId,
       name: 'Test Organization',
       slug: `test-org-${Date.now()}`,
@@ -49,7 +49,7 @@ describe('Device Scan Statistics (Integration)', () => {
     }).returning();
 
     testUserId = createId();
-    const [user] = await db.insert(auth_user).values({
+    const [_user] = await db.insert(auth_user).values({
       id: testUserId,
       name: 'Test User',
       email: `test-user-${Date.now()}@example.com`,
