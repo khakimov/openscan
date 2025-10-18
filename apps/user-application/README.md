@@ -1,6 +1,6 @@
-# TanStack Start on Cloudflare
+# Security Scanning Application
 
-A modern, full-stack React application built with TanStack Start and deployed on Cloudflare Workers. This template showcases server functions, middleware, type-safe data fetching, and seamless integration with Cloudflare's edge computing platform.
+A modern, full-stack security scanning platform built with TanStack Start and deployed on Cloudflare Workers. This application provides device discovery, port scanning, and vulnerability assessment capabilities with real-time monitoring.
 
 ## 🚀 Quick Start
 
@@ -11,6 +11,9 @@ pnpm install
 # Start development server
 pnpm dev
 
+# Run tests
+pnpm test:run
+
 # Build for production
 pnpm build
 
@@ -20,280 +23,246 @@ pnpm deploy
 
 ## 📦 Development Workflow
 
-This project provides a comprehensive development workflow with the following scripts:
-
 - **`pnpm dev`** - Start development server on port 3000
 - **`pnpm build`** - Build the application for production
 - **`pnpm deploy`** - Build and deploy to Cloudflare Workers
 - **`pnpm serve`** - Preview production build locally
+- **`pnpm test`** - Run tests in watch mode
+- **`pnpm test:run`** - Run tests once and exit
+- **`pnpm typecheck`** - Run TypeScript type checking
 - **`pnpm cf-typegen`** - Generate TypeScript types for Cloudflare environment
+
+## 🏗️ Project Structure
+
+```
+apps/user-application/
+├── src/
+│   ├── components/          # Reusable React components
+│   │   └── layout/         # Layout components (sidebar, nav)
+│   ├── features/           # Feature-based modules
+│   │   ├── devices/        # Device management
+│   │   ├── onboarding/     # User onboarding flow
+│   │   └── scans/          # Scan management
+│   ├── routes/             # File-based routing (TanStack Router)
+│   │   ├── __root.tsx      # Root layout
+│   │   ├── index.tsx       # Home page
+│   │   └── _authenticated/ # Protected routes
+│   ├── server/             # Server-side code
+│   │   ├── scan-results-postback.ts  # Webhook handler for scan results
+│   │   ├── discovery/      # Device discovery utilities
+│   │   └── __tests__/      # Integration tests
+│   ├── test/               # Test configuration
+│   │   └── integration-setup.ts  # Shared test setup (Miniflare)
+│   ├── lib/                # Utility functions
+│   ├── hooks/              # Custom React hooks
+│   └── server.ts           # Cloudflare Workers entry point
+├── vitest.config.ts        # Test configuration
+└── wrangler.jsonc          # Cloudflare deployment config
+
+packages/data-ops/          # Shared data layer
+├── src/
+│   ├── database/          # Database setup and connection
+│   ├── schema/            # Drizzle ORM schemas
+│   ├── queries/           # Database query functions
+│   │   ├── devices.ts     # Device-related queries
+│   │   └── scans.ts       # Scan-related queries
+│   └── drizzle/           # Better-auth schema
+└── migrations/            # Database migrations
+```
 
 ## 🌩️ Cloudflare Integration
 
-### Environment Variables & Type Generation
+### D1 Database
 
-This project includes full TypeScript support for Cloudflare Workers environment variables:
+This application uses Cloudflare D1 (SQLite) for data storage with Drizzle ORM:
 
 ```bash
-# Generate types for Cloudflare environment
-pnpm cf-typegen
+# Run migrations locally
+pnpm --filter @repo/data-ops drizzle:migrate
+
+# Run migrations in production
+pnpm --filter @repo/data-ops drizzle:migrate:prod
+
+# Open Drizzle Studio
+pnpm --filter @repo/data-ops drizzle:studio
 ```
 
-This creates type definitions allowing you to safely import and use Cloudflare environment variables:
+### Environment Variables
 
-```typescript
-import { env } from "cloudflare:workers";
-
-// Now env is fully typed with your Wrangler configuration
-console.log(env.MY_VAR); // TypeScript knows this exists
-```
-
-### Wrangler Configuration
-
-The `wrangler.jsonc` file configures your Cloudflare deployment:
+Configure environment variables in `wrangler.jsonc`:
 
 ```jsonc
 {
-  "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "tanstack-start-app",
-  "compatibility_date": "2025-09-02",
-  "compatibility_flags": ["nodejs_compat"],
-  "main": "./src/server.ts",  // Custom server entry point
   "vars": {
-    "MY_VAR": "Hello from Cloudflare"
-  }
+    "WORKER_API_KEY": "your-worker-api-key"
+  },
+  "d1_databases": [{
+    "binding": "DB",
+    "database_name": "sec-db",
+    "database_id": "your-database-id",
+    "preview_database_id": "test-sec-db"
+  }],
+  "analytics_engine_datasets": [{
+    "binding": "ANALYTICS"
+  }]
 }
 ```
 
-### Custom Server Entry (`src/server.ts`)
+## 🧪 Testing
 
-The `src/server.ts` file is your custom Cloudflare Workers entry point where you can add additional Cloudflare features:
+This project uses **Vitest** for comprehensive testing with real database integration:
+
+### Test Structure
+
+```bash
+src/server/__tests__/
+├── devices-scan-stats.test.ts              # Unit tests (mocked DB)
+├── devices-scan-stats.integration.test.ts  # Integration tests (real DB)
+├── scan-results-postback.test.ts           # Unit tests
+└── scan-results-postback.integration.test.ts  # Integration tests
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm test:run
+
+# Run tests in watch mode
+pnpm test
+
+# Run specific test file
+pnpm test:run devices-scan-stats.integration
+```
+
+### Integration Test Features
+
+Integration tests use **Miniflare** to connect to a real local D1 database:
+
+- **Self-contained**: Tests create their own organizations, users, devices, and scans
+- **No hardcoded IDs**: Uses `@paralleldrive/cuid2` to generate unique test data
+- **Proper cleanup**: All test data is deleted after tests complete
+- **Shared database**: Single Miniflare instance across all tests (via `setupFiles`)
+- **Sequential execution**: `fileParallelism: false` prevents SQLite lock conflicts
+
+Example integration test structure:
 
 ```typescript
-import handler from "@tanstack/react-start/server-entry";
+beforeAll(async () => {
+  // Create test organization and user
+  testOrgId = createId();
+  await db.insert(organization).values({
+    id: testOrgId,
+    name: 'Test Organization',
+    slug: `test-org-${Date.now()}`,
+    createdAt: new Date(),
+  });
+});
 
-export default {
-  fetch(request: Request) {
-    return handler.fetch(request, {
-      context: {
-        fromFetch: true,
-      },
-    });
-  },
-
-  // Add other Cloudflare Workers features:
-  // - Queue consumers: queue(batch, env) { ... }
-  // - Scheduled events: scheduled(event, env) { ... }
-  // - Durable Object handlers
-  // - etc.
-};
+afterAll(async () => {
+  // Clean up all test data
+  await db.delete(organization).where(eq(organization.id, testOrgId));
+});
 ```
 
 ## 🎨 Styling & Components
 
 ### Tailwind CSS v4
-This project uses the latest Tailwind CSS v4 with CSS variables for theming:
 
-```bash
-# Tailwind is pre-configured with the @tailwindcss/vite plugin
-# CSS variables are enabled for theme customization
-```
+This project uses the latest Tailwind CSS v4 with CSS variables for theming.
 
 ### Shadcn/UI Components
-Add beautiful, accessible components using Shadcn/UI:
+
+Add beautiful, accessible components:
 
 ```bash
-# Add individual components
 pnpx shadcn@latest add button
 pnpx shadcn@latest add card
 pnpx shadcn@latest add form
-
-# Components use semantic color tokens and CSS variables
-# Perfect for light/dark theme support
 ```
-
-
-
-## 🗂️ File-Based Routing
-
-This project uses [TanStack Router](https://tanstack.com/router/latest) with file-based routing. Routes are automatically generated from files in the `src/routes` directory:
-
-### Adding A Route
-
-To add a new route to your application just add another a new file in the `./src/routes` directory.
-
-TanStack will automatically generate the content of the route file for you.
-
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
-```
-
-Then anywhere in your JSX you can use it like so:
-
-```tsx
-<Link to="/about">About</Link>
-```
-
-This will create a link that will navigate to the `/about` route.
-
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
-
-### Using A Layout
-
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you use the `<Outlet />` component.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { Outlet, createRootRoute } from '@tanstack/react-router'
-import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
-
-import { Link } from "@tanstack/react-router";
-
-export const Route = createRootRoute({
-  component: () => (
-    <>
-      <header>
-        <nav>
-          <Link to="/">Home</Link>
-          <Link to="/about">About</Link>
-        </nav>
-      </header>
-      <Outlet />
-      <TanStackRouterDevtools />
-    </>
-  ),
-})
-```
-
-The `<TanStackRouterDevtools />` component is not required so you can remove it if you don't want it in your layout.
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
 
 ## 🔄 Data Fetching & Server Functions
 
-This template demonstrates modern server-side patterns with TanStack Start's server functions, middleware, and seamless client integration.
+### Server Functions
 
-### Server Functions with Middleware
-
-Server functions run exclusively on the server and maintain type safety across network boundaries:
+Server functions run on Cloudflare Workers and maintain type safety:
 
 ```typescript
-// src/core/middleware/example-middleware.ts
-export const exampleMiddleware = createMiddleware({
-  type: 'function'
-}).server(async ({ next }) => {
-  console.log('Middleware executing on server');
-  return next({
-    context: {
-      data: 'Context from middleware'
-    }
-  });
-});
-
-// src/core/functions/example-functions.ts
-const ExampleInputSchema = z.object({
-  exampleKey: z.string().min(1),
-});
-
-type ExampleInput = z.infer<typeof ExampleInputSchema>;
-
 const baseFunction = createServerFn().middleware([
-  exampleMiddleware,
+  authMiddleware,
 ]);
 
-export const exampleFunction = baseFunction
-  .inputValidator((data: ExampleInput) => ExampleInputSchema.parse(data))
+export const scanDevice = baseFunction
+  .inputValidator((data) => ScanInputSchema.parse(data))
   .handler(async (ctx) => {
-    // Access validated input: ctx.data
-    // Access middleware context: ctx.context
-    // Access Cloudflare env: env.MY_VAR
-    return 'Server response';
+    // Server-side logic
+    return result;
   });
 ```
 
-### Client Integration with TanStack Query
-
-Server functions integrate seamlessly with TanStack Query for optimal UX:
+### Client Integration
 
 ```tsx
 import { useMutation } from '@tanstack/react-query';
-import { exampleFunction } from '@/core/functions/example-functions';
+import { scanDevice } from '@/server/functions';
 
-function MyComponent() {
+function ScanButton() {
   const mutation = useMutation({
-    mutationFn: exampleFunction,
-    onSuccess: (data) => console.log('Success:', data),
-    onError: (error) => console.error('Error:', error),
+    mutationFn: scanDevice,
   });
 
   return (
-    <button
-      onClick={() => mutation.mutate({ exampleKey: 'Hello Server!' })}
-      disabled={mutation.isPending}
-    >
-      {mutation.isPending ? 'Loading...' : 'Call Server Function'}
+    <button onClick={() => mutation.mutate({ deviceId: 'xyz' })}>
+      Scan Device
     </button>
   );
 }
 ```
 
-### Key Benefits
+## 📊 Monitoring & Observability
 
-- **🔒 Type-Safe**: Full TypeScript support with Zod validation
-- **🚀 Server-First**: Secure server-side logic with client convenience
-- **⚡ Edge Computing**: Runs on Cloudflare's global edge network
-- **🔄 Seamless Integration**: Works perfectly with TanStack Query
-- **🧩 Composable**: Middleware chains for auth, logging, validation
+### Analytics Engine
 
-### Interactive Demo
-
-This template includes a live demo showcasing the middleware and server function patterns. Check your server logs when running the demo to see the execution flow!
-
-## 🧪 Testing
-
-This project uses [Vitest](https://vitest.dev/) for fast unit and integration testing:
+The application uses **Cloudflare Analytics Engine** to track scan result postbacks:
 
 ```bash
-# Run tests
-pnpm test
-
-# Test configuration is in vite.config.ts
-# Uses jsdom environment for DOM testing
-# Includes @testing-library/react for component testing
+# Query Analytics Engine
+./scripts/query-analytics.sh
 ```
+
+Event types tracked:
+- `postback_success` - Successful scan result delivery
+- `postback_failure` - Failed scan result processing
+- `postback_auth_failed` - Authentication failures
+- `postback_validation_failed` - Invalid payloads
 
 ## 📋 Tech Stack
 
-This template includes the latest and greatest from the React ecosystem:
-
-### **Core Framework**
+### Core Framework
 - **TanStack Start** - Full-stack React framework with SSR
 - **React 19** - Latest React with concurrent features
 - **TypeScript** - Strict type checking enabled
 
-### **Routing & Data**
+### Routing & Data
 - **TanStack Router** - Type-safe, file-based routing
 - **TanStack Query** - Server state management with SSR integration
 
-### **Styling & UI**
+### Database & ORM
+- **Cloudflare D1** - SQLite at the edge
+- **Drizzle ORM** - Type-safe database queries
+- **Better Auth** - Authentication and session management
+
+### Styling & UI
 - **Tailwind CSS v4** - Utility-first CSS with CSS variables
 - **Shadcn/UI** - Beautiful, accessible component library
 - **Lucide React** - Consistent icon set
 
-### **Development Tools**
+### Development Tools
 - **Vite** - Lightning-fast build tool and dev server
-- **Vitest** - Unit testing with jsdom
-- **TypeScript** - Full type safety across client and server
+- **Vitest** - Unit and integration testing
+- **Miniflare** - Local Cloudflare Workers development
 
-### **Deployment**
+### Deployment
 - **Cloudflare Workers** - Edge computing platform
 - **Wrangler** - Cloudflare deployment and development CLI
 
@@ -303,9 +272,11 @@ This template includes the latest and greatest from the React ecosystem:
 - **[TanStack Router](https://tanstack.com/router)** - Type-safe routing
 - **[TanStack Query](https://tanstack.com/query)** - Server state management
 - **[Cloudflare Workers](https://workers.cloudflare.com/)** - Edge computing platform
+- **[Cloudflare D1](https://developers.cloudflare.com/d1/)** - SQLite database
+- **[Drizzle ORM](https://orm.drizzle.team/)** - TypeScript ORM
 - **[Shadcn/UI](https://ui.shadcn.com/)** - Component library
 - **[Tailwind CSS](https://tailwindcss.com/)** - Utility-first CSS
 
 ## 📄 License
 
-This template is open source and available under the [MIT License](LICENSE).
+This project is open source and available under the [MIT License](LICENSE).
