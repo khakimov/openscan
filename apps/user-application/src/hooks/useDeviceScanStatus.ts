@@ -1,4 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useEffect } from 'react';
 import { QUERY_CONFIG } from '@repo/constants';
 // Import directly from source modules to avoid circular dependencies
 import { getPortScanState } from '@/server/discovery/workflows/port-scan/lifecycle';
@@ -225,18 +226,16 @@ export function useDeviceScan(deviceId: string) {
   };
 
   // Clear scanId when scan completes and refresh device data
-  // Note: We check after the hook runs to avoid modifying state during render
-  if ((scanStatus.isCompleted || scanStatus.isFailed || scanStatus.isCanceled) && activeScanId) {
-    console.log('[useDeviceScan] Scan completed/failed/canceled, clearing scanId and invalidating queries', {
-      deviceId,
-      activeScanId,
-      isCompleted: scanStatus.isCompleted,
-      isFailed: scanStatus.isFailed,
-      isCanceled: scanStatus.isCanceled,
-    });
+  useEffect(() => {
+    if ((scanStatus.isCompleted || scanStatus.isFailed || scanStatus.isCanceled) && activeScanId) {
+      console.log('[useDeviceScan] Scan completed/failed/canceled, clearing scanId and invalidating queries', {
+        deviceId,
+        activeScanId,
+        isCompleted: scanStatus.isCompleted,
+        isFailed: scanStatus.isFailed,
+        isCanceled: scanStatus.isCanceled,
+      });
 
-    // Use effect-like cleanup - schedule for next tick
-    Promise.resolve().then(() => {
       console.log('[useDeviceScan] Executing cleanup - invalidating queries', { deviceId });
       queryClient.setQueryData(['active-scan', deviceId], null);
       // Refresh all related queries after scan completion
@@ -245,8 +244,8 @@ export function useDeviceScan(deviceId: string) {
       queryClient.invalidateQueries({ queryKey: ['device-detail', deviceId] }); // Refresh device detail
       queryClient.invalidateQueries({ queryKey: ['scans'] }); // Refresh scans list
       console.log('[useDeviceScan] Queries invalidated successfully');
-    });
-  }
+    }
+  }, [scanStatus.isCompleted, scanStatus.isFailed, scanStatus.isCanceled, activeScanId, deviceId, queryClient]);
 
   return {
     ...scanStatus,
