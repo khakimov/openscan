@@ -8,7 +8,7 @@ import {
   getTagBadgeClass,
   getRiskLevelBorderClass,
 } from "@repo/constants";
-import { Card, CardActions, CardActionsItem } from "@/components/shared/card";
+import { CardActions, CardActionsItem } from "@/components/shared/card";
 import {
   Pencil,
   Trash,
