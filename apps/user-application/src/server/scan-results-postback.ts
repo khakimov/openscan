@@ -200,6 +200,8 @@ export async function handleScanResultsPostback(
   env?: { ANALYTICS?: AnalyticsEngineDataset }
 ): Promise<Response> {
   const startTime = Date.now();
+  let scanId = 'unknown';
+  let deviceId = 'unknown';
 
   logger.info('Postback request received', {
     method: request.method,
@@ -255,7 +257,10 @@ export async function handleScanResultsPostback(
       );
     }
 
-    const { deviceId, scanId, results } = parseResult.data;
+    const parsedData = parseResult.data;
+    scanId = parsedData.scanId;
+    deviceId = parsedData.deviceId;
+    const { results } = parsedData;
 
     logger.info('Received scan results postback', {
       deviceId,
@@ -320,7 +325,7 @@ export async function handleScanResultsPostback(
     const latency = Date.now() - startTime;
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     env?.ANALYTICS?.writeDataPoint({
-      blobs: ['unknown', 'unknown', errorMessage],
+      blobs: [scanId, deviceId, errorMessage],
       doubles: [latency],
       indexes: ['postback_failure'],
     });
