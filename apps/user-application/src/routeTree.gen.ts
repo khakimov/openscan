@@ -10,7 +10,6 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route'
-import { Route as StaticRouteRouteImport } from './routes/_static/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
@@ -18,14 +17,12 @@ import { Route as OnboardingProjectRouteImport } from './routes/onboarding/proje
 import { Route as AuthScansRouteImport } from './routes/_auth/scans'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
 import { Route as AuthAssetsRouteImport } from './routes/_auth/assets'
-import { Route as StaticDocsIndexRouteImport } from './routes/_static/docs/index'
 import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
 import { Route as OnboardingProjectIdVerifyRouteImport } from './routes/onboarding/$projectId/verify'
 import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding/$projectId/discovery'
 import { Route as OnboardingProjectIdConnectRouteImport } from './routes/onboarding/$projectId/connect'
 import { Route as ApiInternalScanResultsRouteImport } from './routes/api/internal/scan-results'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
-import { Route as StaticDocsNameRouteImport } from './routes/_static/docs/$name'
 import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
 import { Route as AuthAppPolarPortalRouteImport } from './routes/_auth/app/polar/portal'
 import { Route as AuthAppPolarCheckoutSuccessRouteImport } from './routes/_auth/app/polar/checkout.success'
@@ -33,10 +30,6 @@ import { Route as AuthAppPolarCheckoutSuccessRouteImport } from './routes/_auth/
 const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
   id: '/onboarding',
   path: '/onboarding',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const StaticRouteRoute = StaticRouteRouteImport.update({
-  id: '/_static',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -73,11 +66,6 @@ const AuthAssetsRoute = AuthAssetsRouteImport.update({
   path: '/assets',
   getParentRoute: () => AuthRouteRoute,
 } as any)
-const StaticDocsIndexRoute = StaticDocsIndexRouteImport.update({
-  id: '/docs/',
-  path: '/docs/',
-  getParentRoute: () => StaticRouteRoute,
-} as any)
 const AuthAppIndexRoute = AuthAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
@@ -111,11 +99,6 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
-const StaticDocsNameRoute = StaticDocsNameRouteImport.update({
-  id: '/docs/$name',
-  path: '/docs/$name',
-  getParentRoute: () => StaticRouteRoute,
-} as any)
 const AuthAppPolarSubscriptionsRoute =
   AuthAppPolarSubscriptionsRouteImport.update({
     id: '/app/polar/subscriptions',
@@ -142,14 +125,12 @@ export interface FileRoutesByFullPath {
   '/scans': typeof AuthScansRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
-  '/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
   '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
   '/app': typeof AuthAppIndexRoute
-  '/docs': typeof StaticDocsIndexRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
@@ -161,14 +142,12 @@ export interface FileRoutesByTo {
   '/scans': typeof AuthScansRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding': typeof OnboardingIndexRoute
-  '/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
   '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
   '/app': typeof AuthAppIndexRoute
-  '/docs': typeof StaticDocsIndexRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
@@ -177,21 +156,18 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
-  '/_static': typeof StaticRouteRouteWithChildren
   '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/_auth/assets': typeof AuthAssetsRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/scans': typeof AuthScansRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
-  '/_static/docs/$name': typeof StaticDocsNameRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
   '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
   '/_auth/app/': typeof AuthAppIndexRoute
-  '/_static/docs/': typeof StaticDocsIndexRoute
   '/_auth/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/_auth/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/_auth/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
@@ -206,14 +182,12 @@ export interface FileRouteTypes {
     | '/scans'
     | '/onboarding/project'
     | '/onboarding/'
-    | '/docs/$name'
     | '/api/auth/$'
     | '/api/internal/scan-results'
     | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
     | '/onboarding/$projectId/verify'
     | '/app'
-    | '/docs'
     | '/app/polar/portal'
     | '/app/polar/subscriptions'
     | '/app/polar/checkout/success'
@@ -225,14 +199,12 @@ export interface FileRouteTypes {
     | '/scans'
     | '/onboarding/project'
     | '/onboarding'
-    | '/docs/$name'
     | '/api/auth/$'
     | '/api/internal/scan-results'
     | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
     | '/onboarding/$projectId/verify'
     | '/app'
-    | '/docs'
     | '/app/polar/portal'
     | '/app/polar/subscriptions'
     | '/app/polar/checkout/success'
@@ -240,21 +212,18 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_auth'
-    | '/_static'
     | '/onboarding'
     | '/_auth/assets'
     | '/_auth/dashboard'
     | '/_auth/scans'
     | '/onboarding/project'
     | '/onboarding/'
-    | '/_static/docs/$name'
     | '/api/auth/$'
     | '/api/internal/scan-results'
     | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
     | '/onboarding/$projectId/verify'
     | '/_auth/app/'
-    | '/_static/docs/'
     | '/_auth/app/polar/portal'
     | '/_auth/app/polar/subscriptions'
     | '/_auth/app/polar/checkout/success'
@@ -263,7 +232,6 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
-  StaticRouteRoute: typeof StaticRouteRouteWithChildren
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
@@ -276,13 +244,6 @@ declare module '@tanstack/react-router' {
       path: '/onboarding'
       fullPath: '/onboarding'
       preLoaderRoute: typeof OnboardingRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_static': {
-      id: '/_static'
-      path: ''
-      fullPath: ''
-      preLoaderRoute: typeof StaticRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
@@ -334,13 +295,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthAssetsRouteImport
       parentRoute: typeof AuthRouteRoute
     }
-    '/_static/docs/': {
-      id: '/_static/docs/'
-      path: '/docs'
-      fullPath: '/docs'
-      preLoaderRoute: typeof StaticDocsIndexRouteImport
-      parentRoute: typeof StaticRouteRoute
-    }
     '/_auth/app/': {
       id: '/_auth/app/'
       path: '/app'
@@ -382,13 +336,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/auth/$'
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
-    }
-    '/_static/docs/$name': {
-      id: '/_static/docs/$name'
-      path: '/docs/$name'
-      fullPath: '/docs/$name'
-      preLoaderRoute: typeof StaticDocsNameRouteImport
-      parentRoute: typeof StaticRouteRoute
     }
     '/_auth/app/polar/subscriptions': {
       id: '/_auth/app/polar/subscriptions'
@@ -438,20 +385,6 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
-interface StaticRouteRouteChildren {
-  StaticDocsNameRoute: typeof StaticDocsNameRoute
-  StaticDocsIndexRoute: typeof StaticDocsIndexRoute
-}
-
-const StaticRouteRouteChildren: StaticRouteRouteChildren = {
-  StaticDocsNameRoute: StaticDocsNameRoute,
-  StaticDocsIndexRoute: StaticDocsIndexRoute,
-}
-
-const StaticRouteRouteWithChildren = StaticRouteRoute._addFileChildren(
-  StaticRouteRouteChildren,
-)
-
 interface OnboardingRouteRouteChildren {
   OnboardingProjectRoute: typeof OnboardingProjectRoute
   OnboardingIndexRoute: typeof OnboardingIndexRoute
@@ -475,7 +408,6 @@ const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
-  StaticRouteRoute: StaticRouteRouteWithChildren,
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
