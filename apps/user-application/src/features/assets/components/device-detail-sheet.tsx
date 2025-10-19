@@ -34,9 +34,9 @@ export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
 
 function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
   // Each device has its own Sheet with its own data loading using queryOptions
-  const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery(
-    deviceQueries.detail(device.id)
-  );
+  const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery({
+    ...deviceQueries.detail(device.id),
+  });
 
   // Action handlers
   const handleEdit = () => {
@@ -110,7 +110,7 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
 
         <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] px-4">
           <DeviceOpenPorts
-            deviceDetail={deviceDetail}
+            deviceDetail={deviceDetail as TransformedDevice | undefined}
             isLoading={isLoadingDetail}
           />
         </div>
