@@ -317,11 +317,13 @@ export default function AddDiscovery({
                     </tbody>
                   </table>
                 </div>
-                {selectedResults.size > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {selectedResults.size} subdomain{selectedResults.size !== 1 ? 's' : ''} selected
-                  </div>
-                )}
+                <div className="mt-2 h-5 text-xs text-muted-foreground">
+                  {selectedResults.size > 0 ? (
+                    <>{selectedResults.size} subdomain{selectedResults.size !== 1 ? 's' : ''} selected</>
+                  ) : (
+                    <span className="opacity-0">0 subdomains selected</span>
+                  )}
+                </div>
               </div>
             )}
 

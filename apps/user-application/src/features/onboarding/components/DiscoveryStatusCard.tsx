@@ -181,10 +181,7 @@ export function DiscoveryStatusCard({
                               />
                             </th>
                             <th className="h-10 px-4 text-left font-semibold">
-                              Subdomain
-                            </th>
-                            <th className="h-10 px-4 text-left font-semibold">
-                              IP Address
+                              Host
                             </th>
                           </tr>
                         </thead>
@@ -213,14 +210,16 @@ export function DiscoveryStatusCard({
                                     />
                                   </td>
                                   <td className="px-4 py-3">
-                                    <span className="font-mono text-sm">
-                                      {item.subdomain}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="font-mono text-sm text-muted-foreground">
-                                      {item.ip || "-"}
-                                    </span>
+                                    <div className="flex flex-col">
+                                      <span className="font-mono text-sm">
+                                        {item.subdomain}
+                                      </span>
+                                      {item.ip && (
+                                        <span className="font-mono text-xs text-muted-foreground mt-0.5">
+                                          {item.ip}
+                                        </span>
+                                      )}
+                                    </div>
                                   </td>
                                 </tr>
                               );
