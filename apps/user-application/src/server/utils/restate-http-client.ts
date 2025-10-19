@@ -119,11 +119,9 @@ export class RestateHttpClient {
     });
 
     try {
-      const headers = {
-        ...this.getHeaders(),
-        // CRITICAL: For workflows, use idempotency-key to ensure workflow key matches
-        'idempotency-key': scanId,
-      };
+      // For workflows, the scanId in the URL path provides idempotency
+      // Don't send idempotency-key header (Restate will reject it)
+      const headers = this.getHeaders();
 
       const response = await fetch(url, {
         method: 'POST',
