@@ -5,11 +5,7 @@ import { Label } from "@/components/ui/label";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  startDiscoveryWorkflow,
-  getScanWorkflowStatusDB,
-  getScanWorkflowResultsDB,
-} from "@/server/discovery";
+import { startDiscoveryWorkflow } from "@/server/discovery";
 import { createDevicesFromDiscovery } from "@/server/devices";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -17,7 +13,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { DiscoveryLoading } from "@/components/shared/discovery-loading";
-import { QUERY_CONFIG } from "@repo/constants";
+import { discoveryQueries, deviceQueries, scanQueries } from "@/queries";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
@@ -74,8 +70,8 @@ export default function AddDiscovery({
         description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
       });
 
-      // Refresh device list using TanStack Start RC patterns
-      queryClient.removeQueries({ queryKey: ['devices'] });
+      // Refresh device list using query invalidation
+      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
       await router.invalidate();
 
       popModal("AddDiscovery");
@@ -95,7 +91,7 @@ export default function AddDiscovery({
     onSuccess: (result) => {
       if (result.success) {
         // Invalidate scans query in case discovery triggers scans
-        queryClient.invalidateQueries({ queryKey: ['scans'] });
+        queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey });
 
         setError(null);
         setScanId(result.scanId);
@@ -113,27 +109,14 @@ export default function AddDiscovery({
   });
 
   // Database polling for workflow status (postback updates database)
-  const { data: workflowStatus } = useQuery({
-    queryKey: ["workflow-status-db", scanId],
-    queryFn: () => getScanWorkflowStatusDB({ data: { scanId: scanId! } }),
-    enabled: !!scanId,
-    refetchInterval: (query) => {
-      // Stop polling when workflow is complete or failed
-      const data = query.state.data;
-      if (data?.isCompleted || data?.isFailed) {
-        return false;
-      }
-      // Poll every 3 seconds (database polling is fast and efficient)
-      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3;
-    },
-  });
+  const { data: workflowStatus } = useQuery(
+    discoveryQueries.workflowStatus(scanId!)
+  );
 
   // Automatically fetch results from database when workflow completes
-  const { data: workflowResults } = useQuery({
-    queryKey: ["workflow-results-db", scanId],
-    queryFn: () => getScanWorkflowResultsDB({ data: { scanId: scanId! } }),
-    enabled: workflowStatus?.isCompleted === true,
-  });
+  const { data: workflowResults } = useQuery(
+    discoveryQueries.workflowResults(scanId!, workflowStatus?.isCompleted === true)
+  );
 
   // Derive UI state from React Query data
   const isRunning = workflowStatus?.isRunning === true;

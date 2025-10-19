@@ -9,3 +9,4 @@
  */
 export { deviceQueries } from './device-queries';
 export { scanQueries } from './scan-queries';
+export { discoveryQueries } from './discovery-queries';
