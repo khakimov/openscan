@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
-import { useDeviceScan } from "@/hooks/useDeviceScanStatus";
 import { DeviceScanChart } from "@/components/shared/device-scan-chart";
 import {
   verifyDevice,
@@ -28,6 +27,7 @@ import {
 } from "@/server/devices";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { deviceQueries } from "@/queries";
+import { useEffect, useRef } from "react";
 
 interface DeviceCardProps {
   device: TransformedDevice;
@@ -52,7 +52,27 @@ function getScanTarget(device: TransformedDevice): string | null {
 
 export function DeviceCard({ device }: DeviceCardProps) {
   const queryClient = useQueryClient();
-  const { isScanning } = useDeviceScan(device.id);
+
+  // Query active scans directly (auto-polls every 30s while scans exist)
+  const { data: activeScans = [] } = useQuery(deviceQueries.activeScans(device.id));
+  const isScanning = activeScans.length > 0;
+
+  // Side effect: Invalidate device queries when scan completes (transition detection)
+  // This is a legitimate useEffect per TanStack docs - external side effect for cache invalidation
+  const prevActiveScanCount = useRef(activeScans.length);
+  useEffect(() => {
+    const hadScans = prevActiveScanCount.current > 0;
+    const nowHasScans = activeScans.length > 0;
+
+    // Detect completion: had scans → no scans
+    if (hadScans && !nowHasScans) {
+      console.log('🔄 Scan completed - invalidating device queries', { deviceId: device.id });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.detail(device.id).queryKey });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
+    }
+
+    prevActiveScanCount.current = activeScans.length;
+  }, [activeScans.length, device.id, queryClient]);
 
   // Scan mutation with optimistic UI updates (following TanStack "Via UI" pattern)
   const scanMutation = useMutation({
@@ -63,7 +83,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     },
     onSuccess: ({ toastId, result }) => {
       if (result.success && result.scanId) {
-        queryClient.invalidateQueries({ queryKey: ["active-device-scans", device.id] });
+        queryClient.invalidateQueries({ queryKey: deviceQueries.activeScans(device.id).queryKey });
         toast.success(`Scan started for ${result.target}`, {
           id: toastId,
           description: result.presetDescription || `Scan ID: ${result.scanId}`,
@@ -112,7 +132,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
         CANDIDATE: "reset to candidate",
       };
       toast.success(`Device ${labels[variables.status]}`);
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
     },
     onError: (error) => {
       toast.error("Failed to update device", {
@@ -129,7 +149,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }) => toggleDeviceVerification({ data }),
     onSuccess: (result) => {
       toast.success(result.message || "Device verification updated");
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
     },
     onError: (error) => {
       toast.error("Failed to update device", {
