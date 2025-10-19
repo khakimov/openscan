@@ -2,12 +2,11 @@
  * Discovery Postback Handler
  *
  * Handles postback callbacks from restate-worker for discovery workflows.
- * Creates devices from discovery results and updates workflow status.
+ * Stores discovery results in the database for user review and manual device creation.
  */
 
 import { z } from 'zod';
 import {
-  createMultipleDevicesFromDiscovery,
   getScanWorkflowByScanId,
   updateScanRunStatus,
   updateScanWorkflowStatus,
@@ -186,41 +185,19 @@ export class DiscoveryPostbackHandler
       };
     }
 
-    // Step 3: Create devices from discovery results
-    const targets = data.devices.map((device) => ({
-      host: device.hostname,
-      ip: device.ipAddress,
-    }));
-
-    ctx.logger.info('Creating devices from discovery', {
-      targetCount: targets.length,
-      targets: targets.slice(0, 5), // Log first 5 for debugging
+    // Step 3: Store discovery results for user review
+    // Devices will be created when user manually selects them in the UI
+    ctx.logger.info('Storing discovery results for user review', {
+      deviceCount: data.devices.length,
+      target: data.target,
     });
 
-    const createdDevices = await createMultipleDevicesFromDiscovery(
-      targets,
-      organizationId,
-      {
-        projectId: null, // Discovery doesn't create project-scoped devices yet
-        source: 'DISCOVERY',
-        scope: 'EXTERNAL',
-        verificationStatus: 'CANDIDATE',
-      }
-    );
-
-    ctx.logger.info('Devices created from discovery', {
-      requestedCount: targets.length,
-      createdCount: createdDevices.length,
-      skippedCount: targets.length - createdDevices.length,
-    });
-
-    // Step 4: Store results in scan run with discovery metadata
+    // Step 4: Store results in scan run with full device data for UI
     const resultSummary = {
       target: data.target,
       totalSubdomains: data.totalSubdomains,
       discoveredDevices: data.devices.length,
-      createdDevices: createdDevices.length,
-      skippedDevices: targets.length - createdDevices.length,
+      devices: data.devices, // Store full device list for UI to display
       executionTime: data.executionTime,
       tools: data.tools,
       errors: data.errors,
@@ -242,20 +219,20 @@ export class DiscoveryPostbackHandler
     });
     await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
 
-    ctx.logger.info('Discovery results processed successfully', {
+    ctx.logger.info('Discovery results stored successfully', {
       scanId,
       scanRunId: scanRun.id,
-      devicesCreated: createdDevices.length,
+      devicesDiscovered: data.devices.length,
     });
 
     return {
       success: true,
-      message: 'Discovery results processed successfully',
+      message: 'Discovery results stored successfully',
       analytics: buildSuccessAnalytics(AnalyticsEventTypes.DISCOVERY_SUCCESS, {
         scanId,
         entityId: organizationId,
         organizationId,
-        resultCount: createdDevices.length,
+        resultCount: data.devices.length,
       }),
     };
   }
