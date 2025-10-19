@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
-import { sendToRestate, type DiscoveryState } from '../../../utils/restate-client';
+import { sendToRestate } from '../../../utils/restate-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
 import { getCurrentOrganizationId } from '../../utils/auth';
 import {
@@ -34,15 +34,16 @@ export const startDiscoveryWorkflow = createServerFn({
     }
     return result.data;
   })
-  .handler(async ({ data, context }) => {
+  .handler(async ({ data }) => {
     const { target } = data;
 
     try {
       // Get organization ID from session
       const organizationId = await getCurrentOrganizationId();
 
-      // Get user ID from context/session for audit trail
-      const userId = context?.session?.user?.id || 'system';
+      // Get user ID from session for audit trail (context doesn't have session in TanStack Start)
+      // TODO: Get actual user ID from session/auth helper
+      const userId = 'system';
 
       logger.info('Starting discovery workflow', {
         target,
@@ -141,140 +142,6 @@ export const startDiscoveryWorkflow = createServerFn({
         success: false,
         error: friendlyMessage,
         target,
-      };
-    }
-  });
-
-export const getWorkflowStatus = createServerFn({
-  method: 'POST',
-})
-  .inputValidator((data: { scanId: string }) => {
-    if (!data?.scanId) {
-      throw new Error('Scan ID is required');
-    }
-    return data;
-  })
-  .handler(async ({ data }) => {
-    const { scanId } = data;
-
-    try {
-      // Query workflow state using getState handler
-      const state = await sendToRestate<DiscoveryState>({
-        service: 'Discovery',
-        key: scanId,
-        method: 'getState',
-      });
-
-      // Map Restate phases to status
-      const statusMap: Record<string, string> = {
-        VALIDATING: 'RUNNING',
-        DISCOVERING: 'RUNNING',
-        COMPLETED: 'COMPLETED',
-        FAILED: 'FAILED',
-      };
-
-      const status = statusMap[state.phase] || 'RUNNING';
-
-      return {
-        scanId,
-        status,
-        phase: state.phase,
-        isRunning: status === 'RUNNING',
-        isCompleted: status === 'COMPLETED',
-        isFailed: status === 'FAILED',
-        processedTargets: state.processedTargets,
-        devicesFound: state.devicesFound,
-      };
-    } catch (error) {
-      logger.error('Failed to get workflow status', { scanId, error });
-      return {
-        scanId,
-        status: 'UNKNOWN',
-        error: error instanceof Error ? error.message : String(error),
-      };
-    }
-  });
-
-export const getWorkflowResult = createServerFn({
-  method: 'POST',
-})
-  .inputValidator((data: { scanId: string }) => {
-    if (!data?.scanId) {
-      throw new Error('Scan ID is required');
-    }
-    return data;
-  })
-  .handler(async ({ data }) => {
-    const { scanId } = data;
-
-    try {
-      // Query workflow state to get final results
-      const state = await sendToRestate<DiscoveryState>({
-        service: 'Discovery',
-        key: scanId,
-        method: 'getState',
-      });
-
-      // Extract devices and build result format
-      const devices = state.devices || [];
-      const subdomains = devices
-        .filter((d: any) => d.hostname && d.hostname.length > 0)
-        .map((d: any) => d.hostname);
-
-      const results = devices.map((device: any) => ({
-        host: device.hostname,
-        ip: device.ipAddress || '',
-      }));
-
-      const target = devices[0]?.metadata?.originalDomain || 'unknown';
-
-      logger.info('Retrieved discovery workflow result', {
-        scanId,
-        totalDevices: devices.length,
-        uniqueSubdomains: subdomains.length,
-      });
-
-      return {
-        success: true,
-        result: {
-          request: {
-            target,
-            scanType: 'basic',
-            tools: ['subfinder'],
-          },
-          results: [
-            {
-              target,
-              subdomains,
-              results,
-              tool: 'restate-scanner',
-              timestamp: state.completedAt || new Date().toISOString(),
-              success: state.errors.length === 0,
-              errors: state.errors.length > 0 ? state.errors : undefined,
-            },
-          ],
-          totalSubdomains: results.length,
-          uniqueSubdomains: results.map((entry: { host: string; ip: string }) => ({
-            subdomain: entry.host,
-            ip: entry.ip,
-          })),
-          executionTime: state.completedAt && state.startedAt
-            ? new Date(state.completedAt).getTime() - new Date(state.startedAt).getTime()
-            : 0,
-          errors: state.errors.length > 0 ? state.errors : undefined,
-        },
-      };
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-
-      logger.error('Failed to get workflow result', {
-        scanId,
-        error: errorMessage,
-      });
-
-      return {
-        success: false,
-        error: errorMessage,
       };
     }
   });

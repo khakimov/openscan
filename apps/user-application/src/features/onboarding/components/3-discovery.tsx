@@ -6,8 +6,8 @@ import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import {
   startDiscoveryWorkflow,
-  getWorkflowStatus,
-  getWorkflowResult,
+  getScanWorkflowStatusDB,
+  getScanWorkflowResultsDB,
 } from "@/server/discovery";
 import { createDevicesFromDiscovery } from "@/server/devices";
 import { completeOnboarding } from "@/server/organization";
@@ -43,11 +43,11 @@ export function OnboardingDiscovery({
     new Set(),
   );
 
-  // Smart polling for workflow status (reduced frequency with postback architecture)
+  // Smart polling for workflow status (database-first architecture)
   const { data: workflowStatus } = useQuery({
     queryKey: ["workflow-status", scanId],
     queryFn: () =>
-      getWorkflowStatus({
+      getScanWorkflowStatusDB({
         data: { scanId: scanId! },
       }),
     enabled: !!scanId,
@@ -57,8 +57,8 @@ export function OnboardingDiscovery({
       if (data?.isCompleted || data?.isFailed) {
         return false;
       }
-      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
-      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
+      // Poll every 3 seconds (database updates are fast with postback)
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3;
     },
   });
 
@@ -66,7 +66,7 @@ export function OnboardingDiscovery({
   const { data: workflowResults } = useQuery({
     queryKey: ["workflow-results", scanId],
     queryFn: () =>
-      getWorkflowResult({
+      getScanWorkflowResultsDB({
         data: { scanId: scanId! },
       }),
     enabled: workflowStatus?.isCompleted === true,

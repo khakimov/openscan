@@ -6,7 +6,7 @@
  */
 
 import type { z } from 'zod';
-import type { Logger } from '@repo/logger';
+import type { ILogger } from '@repo/logger';
 import type { BasePostback } from '../types';
 
 /**
@@ -21,7 +21,7 @@ export interface HandlerContext {
   };
 
   /** Logger instance for structured logging */
-  logger: Logger;
+  logger: ILogger;
 
   /** Timestamp when postback processing started (for latency tracking) */
   startTime: number;

@@ -93,6 +93,7 @@ export class PortScanService {
       callbackUrl,
       deviceId: input.deviceId,
       scanId: scanId, // Restate workflow key
+      organizationId: tenantId, // Required for postback handler to find workflow
     });
 
     logger.info('Port scan workflow started in Restate', {

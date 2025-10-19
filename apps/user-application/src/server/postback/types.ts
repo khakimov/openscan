@@ -68,9 +68,9 @@ export interface PortScanPostback extends BasePostback {
 
     /** Scan timing metadata */
     timing?: {
-      start: number;
-      end: number;
-      elapsed: number;
+      start?: number;
+      end?: number;
+      elapsed?: number;
     };
 
     /** Scanner metadata */

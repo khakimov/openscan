@@ -246,7 +246,7 @@ export const discoveryService = restate.workflow({
             callbackUrl: input.callbackUrl!,
             data: {
               target: input.targets[0]?.value || 'unknown', // Primary target
-              devices: serializedDevices.map(d => ({
+              devices: serializedDevices.map((d: any) => ({
                 hostname: d.hostname,
                 ipAddress: d.ipAddress,
                 metadata: d.metadata,

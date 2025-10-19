@@ -60,6 +60,7 @@ export const portScanner = restate.service({
       callbackUrl?: string;
       deviceId?: string;
       scanId?: string; // Restate workflow key (optional)
+      organizationId?: string; // Required for postback handler to find workflow
     }) => {
       // Use scanId from input if provided (set via idempotency-key),
       // otherwise generate a new UUID (services don't have ctx.key like workflows do)
@@ -311,6 +312,7 @@ export const portScanner = restate.service({
             callbackUrl: input.callbackUrl!,
             deviceId: input.deviceId!,
             scanId: scanId, // Restate workflow key (generated or from input)
+            organizationId: input.organizationId, // Pass through from user-application
             results: {
               target: input.target,
               ports: portsWithServices,

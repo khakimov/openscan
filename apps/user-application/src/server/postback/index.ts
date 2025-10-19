@@ -27,15 +27,26 @@
  */
 
 import { createLogger } from '@repo/logger';
+import { z } from 'zod';
 import { authenticateRequest } from './auth';
 import {
   trackPostbackAnalytics,
   AnalyticsEventTypes,
-  buildFailureAnalytics,
 } from './analytics';
 import { postbackRegistry } from './handlers/registry';
 
 const logger = createLogger({ name: 'postback-router' });
+
+/**
+ * Base schema for initial request parsing
+ *
+ * This validates just enough to route the request to the correct handler.
+ * Full validation happens in the handler's schema.
+ */
+const BasePostbackRequestSchema = z.object({
+  type: z.string(),
+  scanId: z.string().optional(),
+}).passthrough(); // Allow additional fields for handler validation
 
 /**
  * Universal Postback Handler
@@ -79,23 +90,18 @@ export async function handleUniversalPostback(
       return Response.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Step 2: Parse JSON body
-    const body = await request.json();
+    // Step 2: Parse and validate base request structure
+    const rawBody = await request.json();
+    const baseParseResult = BasePostbackRequestSchema.safeParse(rawBody);
 
-    logger.info('Postback payload received', {
-      bodyKeys: Object.keys(body),
-      type: body.type,
-      status: body.status,
-    });
+    if (!baseParseResult.success) {
+      const firstError = baseParseResult.error.issues[0];
+      const errorMessage = `Invalid request: ${firstError.path.join('.')} - ${firstError.message}`;
 
-    // Step 3: Validate 'type' field exists
-    postbackType = body.type;
-
-    if (!postbackType || typeof postbackType !== 'string') {
-      logger.warn('Missing or invalid postback type field', {
-        type: postbackType,
-        typeOfType: typeof postbackType,
-        body,
+      logger.warn('Base request validation failed', {
+        error: firstError.message,
+        path: firstError.path.join('.'),
+        body: rawBody,
       });
 
       trackPostbackAnalytics(
@@ -103,18 +109,26 @@ export async function handleUniversalPostback(
         AnalyticsEventTypes.VALIDATION_FAILED,
         startTime,
         {
-          blobs: ['unknown', 'unknown', 'Missing or invalid type field'],
+          blobs: ['unknown', 'unknown', errorMessage],
         }
       );
 
       return Response.json(
-        { error: 'Missing or invalid "type" field in payload' },
+        { error: errorMessage },
         { status: 400 }
       );
     }
 
-    // Extract scanId for logging/analytics (if available)
+    // Now we have type-safe access to body
+    const body = baseParseResult.data;
+    postbackType = body.type;
     scanId = body.scanId || 'unknown';
+
+    logger.info('Postback payload received', {
+      bodyKeys: Object.keys(body),
+      type: body.type,
+      scanId,
+    });
 
     // Step 4: Look up handler in registry
     const handler = postbackRegistry.get(postbackType);

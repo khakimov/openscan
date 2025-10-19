@@ -38,7 +38,7 @@ const DiscoveryPostbackSchema = z.object({
       z.object({
         hostname: z.string(),
         ipAddress: z.string().optional(),
-        metadata: z.record(z.any()).optional(),
+        metadata: z.record(z.string(), z.any()).optional(),
       })
     ),
     totalSubdomains: z.number(),

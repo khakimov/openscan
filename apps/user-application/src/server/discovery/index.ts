@@ -1,8 +1,6 @@
 export {
   startDiscoveryWorkflow,
-  getWorkflowStatus,
-  getWorkflowResult,
-  // Database polling (preferred - used by UI)
+  // Database polling (replaces deprecated Restate polling)
   getScanWorkflowStatusDB,
   getScanWorkflowResultsDB,
 } from './workflows/discovery-handler';

@@ -210,6 +210,7 @@ export class RestateHttpClient {
     callbackUrl?: string;
     deviceId?: string;
     scanId?: string; // Restate workflow key (optional - will be generated if not provided)
+    organizationId?: string; // Required for postback handler
   }): Promise<{
     scanId: string;
     target: string;

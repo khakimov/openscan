@@ -7,7 +7,6 @@
 
 import { z } from 'zod';
 import {
-  getDeviceByIdGlobal,
   updateDevice,
   getScanWorkflowByScanId,
   updateScanRunStatus,
@@ -52,7 +51,6 @@ const PortScanPostbackSchema = z.object({
         accuracy: z.number().optional(),
         cpe: z.array(z.string()).optional(),
       })
-      .nullable()
       .optional(),
     timing: z
       .object({
