@@ -6,7 +6,9 @@ import { OrDivider } from "@/components/ui/or-divider";
 import { GoogleOAuthButton } from "@/features/auth/components/google-oauth-button";
 import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
 import { useState } from "react";
+import { LogOut, CheckCircle, AlertCircle } from "lucide-react";
 import type { OnboardingStatus } from "@/server/types/onboarding";
+import { authClient } from "@/lib/auth-client";
 
 type OnboardingWelcomeProps = {
   onboarding: OnboardingStatus;
@@ -14,6 +16,7 @@ type OnboardingWelcomeProps = {
 
 export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
   const navigate = useNavigate();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -28,9 +31,105 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
     navigate({ to: "/onboarding/project" });
   };
 
-  const showSummary = onboarding.success && onboarding.step > 1;
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await authClient.signOut();
+      // Reload to clear session and show registration form
+      window.location.reload();
+    } catch (error) {
+      console.error("Logout failed:", error);
+      setIsLoggingOut(false);
+    }
+  };
 
-  if (showSummary) {
+  const isAuthenticated = Boolean(onboarding.user);
+  const showFullSummary = onboarding.success && onboarding.step > 1;
+  const showSimpleAuth = isAuthenticated && !showFullSummary;
+
+  // Simple authenticated view (user is logged in but hasn't progressed past step 1)
+  if (showSimpleAuth) {
+    const account = onboarding.user;
+    const emailVerified = account?.emailVerified;
+
+    return (
+      <OnboardingContentLayout
+        title="Welcome back!"
+        description={
+          <OnboardingDescription>
+            You're signed in and ready to continue setting up your security monitoring.
+          </OnboardingDescription>
+        }
+        className="max-w-md"
+      >
+        <div className="space-y-6">
+          {/* User Account Card */}
+          <div className="rounded-xl border border-border/60 bg-background/80 p-6 shadow-sm shadow-black/5">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4 flex-1">
+                {/* Avatar Placeholder */}
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground text-lg font-semibold">
+                  {account?.name?.charAt(0)?.toUpperCase() ?? account?.email?.charAt(0)?.toUpperCase() ?? "U"}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <h3 className="text-lg font-semibold truncate">
+                    {account?.name ?? "User"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground truncate">
+                    {account?.email}
+                  </p>
+                  <div className="mt-2 flex items-center gap-2 text-sm">
+                    {emailVerified ? (
+                      <>
+                        <CheckCircle className="h-4 w-4 text-emerald-600" />
+                        <span className="text-emerald-600">Email verified</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-4 w-4 text-amber-600" />
+                        <span className="text-amber-600">Email pending verification</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Info box for wrong account */}
+          <div className="rounded-lg border border-border/40 bg-muted/30 p-4">
+            <p className="text-sm text-muted-foreground">
+              Signed in with the wrong account? You can{" "}
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="font-medium text-foreground hover:underline disabled:opacity-50"
+              >
+                {isLoggingOut ? "Logging out..." : "log out"}
+              </button>{" "}
+              and sign in with a different account.
+            </p>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex flex-col gap-3">
+            <Button
+              type="button"
+              size="lg"
+              onClick={() => navigate({ to: "/onboarding/project" })}
+              className="w-full"
+            >
+              Continue to workspace setup
+            </Button>
+          </div>
+        </div>
+      </OnboardingContentLayout>
+    );
+  }
+
+  // Full summary view (user has progressed past step 1)
+  if (showFullSummary) {
     const account = onboarding.user;
     const organizations = onboarding.organizations ?? [];
     const primaryOrganization =
@@ -127,10 +226,22 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
             )}
           </div>
 
-          <div className="flex flex-col items-start justify-between gap-4 md:flex-row">
-            <div className="text-sm text-muted-foreground">
+          {/* Info box for wrong account */}
+          <div className="rounded-lg border border-border/40 bg-muted/30 p-4">
+            <p className="text-sm text-muted-foreground">
               Need to make changes? You can revisit any step using the flow on the left.
-            </div>
+              {" "}Signed in with the wrong account?{" "}
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="font-medium text-foreground hover:underline disabled:opacity-50"
+              >
+                {isLoggingOut ? "Logging out..." : "Log out"}
+              </button>
+            </p>
+          </div>
+
+          <div className="flex justify-end">
             <Button
               type="button"
               onClick={() => navigate(continueTarget as never)}
