@@ -41,14 +41,9 @@ export const startDiscoveryWorkflow = createServerFn({
       // Get organization ID from session
       const organizationId = await getCurrentOrganizationId();
 
-      // Get user ID from session for audit trail (context doesn't have session in TanStack Start)
-      // TODO: Get actual user ID from session/auth helper
-      const userId = 'system';
-
       logger.info('Starting discovery workflow', {
         target,
         organizationId,
-        userId,
         engine: 'Restate',
       });
 
@@ -69,12 +64,13 @@ export const startDiscoveryWorkflow = createServerFn({
       });
 
       // Step 2: Create scan run record for tracking
+      // Note: requestedById is optional - we'll add user tracking in future
       const scanRun = await createScanRun({
         scanWorkflowId: workflow.id,
         organizationId,
         scanType: 'DISCOVERY',
         scope: 'EXTERNAL',
-        requestedById: userId,
+        requestedById: undefined, // Will be populated when we add user session tracking
         target,
       });
 
