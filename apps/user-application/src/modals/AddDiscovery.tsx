@@ -9,11 +9,12 @@ import { startDiscoveryWorkflow } from "@/server/discovery";
 import { createDevicesFromDiscovery } from "@/server/devices";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
 import { useRouter } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { DiscoveryLoading } from "@/components/shared/discovery-loading";
 import { discoveryQueries, deviceQueries, scanQueries } from "@/queries";
+import { DiscoveryResultsTable } from "@/components/discovery/discovery-results-table";
+import type { DiscoveryResultItem } from "@/components/discovery/discovery-results-table";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
@@ -49,14 +50,14 @@ export default function AddDiscovery({
         throw new Error("Please select at least one target");
       }
 
-      // Extract hostname and IP data from discovery results
+      // Extract hostname and IP data from normalized discovery items
       const targetsData = selectedTargets.map(host => {
-        const result = results?.results?.[0]?.results?.find((r: any) => r.host === host);
+        const item = discoveryItems.find((item) => item.host === host);
         const targetData = {
           host,
-          ip: result?.ip // Include IP if resolved during discovery
+          ip: item?.ip // Include IP if resolved during discovery
         };
-        console.log('Processing target:', { host, foundResult: !!result, ip: result?.ip });
+        console.log('Processing target:', { host, foundItem: !!item, ip: item?.ip });
         return targetData;
       });
 
@@ -123,6 +124,18 @@ export default function AddDiscovery({
   const isCompleted = workflowStatus?.isCompleted === true;
   const isFailed = workflowStatus?.isFailed === true;
   const results = workflowResults?.success ? workflowResults.result : null;
+
+  // Get discovery items (either from results array or uniqueSubdomains), filter out items without IP
+  const discoveryItems: DiscoveryResultItem[] = results
+    ? (results.results?.[0]?.results?.filter((r: any) => r.ip).map((r: any) => ({
+          host: r.host,
+          ip: r.ip,
+        })) ||
+        results.uniqueSubdomains.filter((s: any) => s.ip).map((s: any) => ({
+          host: s.subdomain,
+          ip: s.ip,
+        })))
+    : [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -240,92 +253,14 @@ export default function AddDiscovery({
           </div>
         )}
 
-        {results && (
+        {results && discoveryItems.length > 0 && (
           <div className="space-y-4">
-            {(results.results?.[0]?.results?.length > 0 ||
-              results.uniqueSubdomains.length > 0) && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">
-                  {results.request.target} ({results.results?.[0]?.results?.length || results.uniqueSubdomains.length} subdomains discovered)
-                </div>
-                <div className="max-h-96 overflow-y-auto border rounded">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-black text-white">
-                      <tr>
-                        <th className="h-8 px-4 text-left">
-                          <Checkbox
-                            id="select-all"
-                            checked={
-                              selectedResults.size ===
-                              (results.results?.[0]?.results?.length ||
-                                results.uniqueSubdomains.length)
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                const allHosts =
-                                  results.results?.[0]?.results?.map((r: { host: string; ip: string }) => r.host) ||
-                                  results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => s.subdomain);
-                                setSelectedResults(new Set(allHosts));
-                              } else {
-                                setSelectedResults(new Set());
-                              }
-                            }}
-                          />
-                        </th>
-                        <th className="h-8 px-4 text-left font-semibold">Host</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(
-                        results.results?.[0]?.results ||
-                        results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => ({ host: s.subdomain, ip: s.ip || '' }))
-                      ).map((item: any, index: number) => {
-                        const host = typeof item === "string" ? item : (item.host || item.subdomain);
-                        const ip = typeof item === "object" ? (item.ip || '') : '';
-                        const isSelected = selectedResults.has(host);
-
-                        return (
-                          <tr key={index} className="border-t border-slate-700 hover:bg-slate-700/50">
-                            <td className="px-4 py-3">
-                              <Checkbox
-                                id={`result-${index}`}
-                                checked={isSelected}
-                                onCheckedChange={(checked) => {
-                                  const newSelected = new Set(selectedResults);
-                                  if (checked) {
-                                    newSelected.add(host);
-                                  } else {
-                                    newSelected.delete(host);
-                                  }
-                                  setSelectedResults(newSelected);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-col">
-                                <span className="font-mono text-slate-100">{host}</span>
-                                {ip && (
-                                  <span className="font-mono text-xs text-slate-400 mt-0.5">
-                                    {ip}
-                                  </span>
-                                )}
-                              </div>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                <div className="mt-2 h-5 text-xs text-muted-foreground">
-                  {selectedResults.size > 0 ? (
-                    <>{selectedResults.size} subdomain{selectedResults.size !== 1 ? 's' : ''} selected</>
-                  ) : (
-                    <span className="opacity-0">0 subdomains selected</span>
-                  )}
-                </div>
-              </div>
-            )}
+            <DiscoveryResultsTable
+              items={discoveryItems}
+              selectedHosts={selectedResults}
+              onSelectionChange={setSelectedResults}
+              targetDomain={results.request.target}
+            />
 
             <div className="p-3 text-sm text-blue-400 bg-blue-950/20 border border-blue-900/20 rounded-md">
               Selected targets will be created as devices in your inventory with "discovery" and "subdomain" tags.
