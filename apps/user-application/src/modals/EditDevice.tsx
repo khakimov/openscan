@@ -170,9 +170,9 @@ export default function EditDevice({
 
       console.log('🔄 EditDevice: Starting cache refresh...');
 
-      // Force immediate refetch (ignores staleTime) - devices query has 5min staleTime
+      // Invalidate all device-related queries
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: deviceQueries.list().queryKey }),
+        queryClient.invalidateQueries({ queryKey: ['devices'] }), // Matches all device list queries
         queryClient.invalidateQueries({ queryKey: deviceQueries.detail(deviceId).queryKey }),
         queryClient.invalidateQueries({ queryKey: ["deviceTagSuggestions"] }),
       ]);

@@ -68,7 +68,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     if (hadScans && !nowHasScans) {
       console.log('🔄 Scan completed - invalidating device queries', { deviceId: device.id });
       queryClient.invalidateQueries({ queryKey: deviceQueries.detail(device.id).queryKey });
-      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
     }
 
     prevActiveScanCount.current = activeScans.length;
@@ -132,7 +132,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
         CANDIDATE: "reset to candidate",
       };
       toast.success(`Device ${labels[variables.status]}`);
-      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
     },
     onError: (error) => {
       toast.error("Failed to update device", {
@@ -149,7 +149,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
     }) => toggleDeviceVerification({ data }),
     onSuccess: (result) => {
       toast.success(result.message || "Device verification updated");
-      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
     },
     onError: (error) => {
       toast.error("Failed to update device", {

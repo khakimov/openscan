@@ -35,8 +35,8 @@ export default function DeleteDeviceConfirm({
         description: `${deviceName} has been removed from your inventory.`,
       });
 
-      // TanStack Start RC pattern: remove stale data and invalidate route
-      queryClient.removeQueries({ queryKey: ['devices'] });
+      // Invalidate all device queries to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
 
       // Force route refresh
       await router.invalidate();
