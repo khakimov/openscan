@@ -4,7 +4,7 @@ import { createLogger } from '@repo/logger';
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
 import { sendToRestate } from '../../../utils/restate-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
-import { getCurrentOrganizationId } from '../../utils/auth';
+import { getCurrentOrganizationId, getCurrentUser } from '../../utils/auth';
 import {
   createScanWorkflow,
   createScanRun,
@@ -38,12 +38,14 @@ export const startDiscoveryWorkflow = createServerFn({
     const { target } = data;
 
     try {
-      // Get organization ID from session
+      // Get organization and user from session
       const organizationId = await getCurrentOrganizationId();
+      const currentUser = await getCurrentUser();
 
       logger.info('Starting discovery workflow', {
         target,
         organizationId,
+        userId: currentUser.id,
         engine: 'Restate',
       });
 
@@ -64,13 +66,12 @@ export const startDiscoveryWorkflow = createServerFn({
       });
 
       // Step 2: Create scan run record for tracking
-      // Note: requestedById is optional - we'll add user tracking in future
       const scanRun = await createScanRun({
         scanWorkflowId: workflow.id,
         organizationId,
         scanType: 'DISCOVERY',
         scope: 'EXTERNAL',
-        requestedById: undefined, // Will be populated when we add user session tracking
+        requestedById: currentUser.id,
         target,
       });
 
