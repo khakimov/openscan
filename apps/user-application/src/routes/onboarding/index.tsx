@@ -18,6 +18,7 @@ function OnboardingIndex() {
       currentStep={1}
       maxStep={onboarding.step}
       projectId={onboarding.projectId}
+      isAuthenticated={!!onboarding.user}
     >
       <OnboardingWelcome onboarding={onboarding} />
     </OnboardingLayout>

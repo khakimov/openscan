@@ -1,8 +1,18 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingCreateProject } from "@/features/onboarding";
 import { getOnboardingStatus } from "@/server/organization";
 
 export const Route = createFileRoute("/onboarding/project")({
+  // Guard: Require authentication before accessing step 2
+  beforeLoad: async () => {
+    const status = await getOnboardingStatus();
+
+    // Redirect to step 1 if not authenticated
+    if (!status.user) {
+      console.log("[OnboardingProject] No authenticated user, redirecting to step 1");
+      throw redirect({ to: "/onboarding" });
+    }
+  },
   // Fetch organization data in loader (authentication handled in server function)
   loader: async () => {
     console.log("[OnboardingProject] Loader executing");
@@ -47,6 +57,7 @@ function OnboardingProjectPage() {
       currentStep={2}
       maxStep={onboarding.step}
       projectId={onboarding.projectId}
+      isAuthenticated={true}
     >
       <OnboardingCreateProject
         hasOrganization={hasOrganization}

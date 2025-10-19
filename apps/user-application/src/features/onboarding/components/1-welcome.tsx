@@ -150,11 +150,11 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
       description={
         <OnboardingDescription>
           Let's start with creating your account. By creating an account you accept the{" "}
-          <Link to="/" className="font-semibold underline hover:text-foreground">
+          <Link to="/terms" target="_blank" className="font-semibold underline hover:text-foreground">
             Terms of Service
           </Link>{" "}
           and{" "}
-          <Link to="/" className="font-semibold underline hover:text-foreground">
+          <Link to="/privacy" target="_blank" className="font-semibold underline hover:text-foreground">
             Privacy Policy
           </Link>
           .

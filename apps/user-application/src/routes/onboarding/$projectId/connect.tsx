@@ -3,6 +3,16 @@ import { OnboardingConnect, OnboardingLayout } from "@/features/onboarding";
 import { getOnboardingStatus } from "@/server/organization";
 
 export const Route = createFileRoute("/onboarding/$projectId/connect")({
+  // Guard: Require authentication before accessing step 4
+  beforeLoad: async () => {
+    const status = await getOnboardingStatus();
+
+    // Redirect to step 1 if not authenticated
+    if (!status.user) {
+      console.log("[OnboardingConnect] No authenticated user, redirecting to step 1");
+      throw redirect({ to: "/onboarding" });
+    }
+  },
   loader: async ({ params }) => {
     const status = await getOnboardingStatus();
 
@@ -37,6 +47,7 @@ function OnboardingConnectPage() {
       currentStep={4}
       maxStep={onboarding.step}
       projectId={onboarding.projectId}
+      isAuthenticated={true}
     >
       <OnboardingConnect projectId={projectId} />
     </OnboardingLayout>

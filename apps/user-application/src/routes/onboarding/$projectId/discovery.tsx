@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingDiscovery } from "@/features/onboarding";
 import { getOnboardingStatus } from "@/server/organization";
 import { getDiscoveryDevices } from "@/server/devices";
@@ -12,6 +12,16 @@ const discoverySearchSchema = z.object({
 
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
   validateSearch: zodValidator(discoverySearchSchema),
+  // Guard: Require authentication before accessing step 3
+  beforeLoad: async () => {
+    const status = await getOnboardingStatus();
+
+    // Redirect to step 1 if not authenticated
+    if (!status.user) {
+      console.log("[OnboardingDiscovery] No authenticated user, redirecting to step 1");
+      throw redirect({ to: "/onboarding" });
+    }
+  },
   loader: async () => {
     console.log("[OnboardingDiscovery] Loader executing");
     const status = await getOnboardingStatus();
@@ -61,6 +71,7 @@ function OnboardingDiscoveryPage() {
       currentStep={3}
       maxStep={onboarding.step}
       projectId={onboarding.projectId}
+      isAuthenticated={true}
     >
       <OnboardingDiscovery
         projectId={projectId}

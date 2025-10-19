@@ -8,6 +8,7 @@ interface OnboardingLayoutProps {
   maxStep?: number;
   projectId?: string | null;
   className?: string;
+  isAuthenticated?: boolean;
 }
 
 export function OnboardingLayout({
@@ -16,6 +17,7 @@ export function OnboardingLayout({
   maxStep,
   projectId,
   className,
+  isAuthenticated = true,
 }: OnboardingLayoutProps) {
   return (
     <div className="relative min-h-screen bg-background">
@@ -33,7 +35,12 @@ export function OnboardingLayout({
               </p>
               <p className="text-4xl font-bold">SECROCKS</p>
             </div>
-            <OnboardingSteps currentStep={currentStep} maxStep={maxStep} projectId={projectId} />
+            <OnboardingSteps
+              currentStep={currentStep}
+              maxStep={maxStep}
+              projectId={projectId}
+              isAuthenticated={isAuthenticated}
+            />
           </div>
         </aside>
 

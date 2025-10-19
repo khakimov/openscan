@@ -31,6 +31,7 @@ interface StepsProps {
   maxStep?: number;
   projectId?: string | null;
   className?: string;
+  isAuthenticated?: boolean;
 }
 
 const STEP_DEFINITIONS: StepDefinition[] = [
@@ -69,6 +70,7 @@ export function OnboardingSteps({
   maxStep,
   projectId,
   className,
+  isAuthenticated = true,
 }: StepsProps) {
   const navigate = useNavigate();
   const highestUnlocked = Math.max(maxStep ?? currentStep, currentStep);
@@ -109,7 +111,9 @@ export function OnboardingSteps({
           const allowNextStep = step.number === currentStep + 1;
           const baseEnabled = step.number <= highestUnlocked || allowNextStep;
           const hasRequiredProject = !step.requiresProjectId || !!projectId;
-          const isEnabled = baseEnabled && hasRequiredProject;
+          // Require authentication for steps 2+
+          const hasRequiredAuth = step.number === 1 || isAuthenticated;
+          const isEnabled = baseEnabled && hasRequiredProject && hasRequiredAuth;
 
           return (
             <button
