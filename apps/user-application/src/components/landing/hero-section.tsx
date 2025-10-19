@@ -11,9 +11,9 @@ export function HeroSection() {
         </h1>
 
         <p className="mt-8 mb-4 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
-          We discover, monitor, and help fix your internet facing apps, servers
-          — so exposed services and misconfigurations aren’t exploited by
-          attackers.
+          We discover, monitor, and help you fix exposed internet-facing
+          services, known vulnerabilities, and misconfigurations across your
+          apps, websites, and servers — before attackers exploit them.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
