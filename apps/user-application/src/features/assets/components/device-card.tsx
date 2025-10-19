@@ -19,15 +19,15 @@ import {
 } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
-import { useDeviceScan } from "@/hooks/useDeviceScanStatus";
 import { DeviceScanChart } from "@/components/shared/device-scan-chart";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getDeviceScanHistoryData,
-  verifyDevice,
-  toggleDeviceVerification,
-  startDeviceScan,
-} from "@/server/devices";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+  deviceQueries,
+  useVerifyDeviceMutation,
+  useToggleDeviceVerificationMutation,
+  useStartDeviceScanMutation,
+} from "@/queries/device-queries";
+import { useEffect, useRef } from "react";
 
 interface DeviceCardProps {
   device: TransformedDevice;
@@ -52,34 +52,30 @@ function getScanTarget(device: TransformedDevice): string | null {
 
 export function DeviceCard({ device }: DeviceCardProps) {
   const queryClient = useQueryClient();
-  const { isScanning } = useDeviceScan(device.id);
 
-  // Scan mutation with optimistic UI updates (following TanStack "Via UI" pattern)
-  const scanMutation = useMutation({
-    mutationFn: async (params: { target: string; preset: string }) => {
-      const toastId = `scan-${device.id}`;
-      toast.loading(`Starting scan for ${params.target}...`, { id: toastId });
-      return { toastId, result: await startDeviceScan({ data: { deviceId: device.id, ...params } }) };
-    },
-    onSuccess: ({ toastId, result }) => {
-      if (result.success && result.scanId) {
-        queryClient.invalidateQueries({ queryKey: ["active-device-scans", device.id] });
-        toast.success(`Scan started for ${result.target}`, {
-          id: toastId,
-          description: result.presetDescription || `Scan ID: ${result.scanId}`,
-        });
-      } else {
-        toast.error(`Failed to start scan: ${result.error}`, { id: toastId });
-      }
-    },
-    onError: (error) => {
-      const toastId = `scan-${device.id}`;
-      toast.error("Failed to start port scan", {
-        id: toastId,
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    },
-  });
+  // Query active scans directly (auto-polls every 30s while scans exist)
+  const { data: activeScans = [] } = useQuery(deviceQueries.activeScans(device.id));
+  const isScanning = activeScans.length > 0;
+
+  // Side effect: Invalidate device queries when scan completes (transition detection)
+  // This is a legitimate useEffect per TanStack docs - external side effect for cache invalidation
+  const prevActiveScanCount = useRef(activeScans.length);
+  useEffect(() => {
+    const hadScans = prevActiveScanCount.current > 0;
+    const nowHasScans = activeScans.length > 0;
+
+    // Detect completion: had scans → no scans
+    if (hadScans && !nowHasScans) {
+      console.log('🔄 Scan completed - invalidating device queries', { deviceId: device.id });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.detail(device.id).queryKey });
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    }
+
+    prevActiveScanCount.current = activeScans.length;
+  }, [activeScans.length, device.id, queryClient]);
+
+  // Scan mutation (using centralized hook)
+  const scanMutation = useStartDeviceScanMutation(device.id);
 
   // Show scanning state: database scan OR optimistic mutation state
   const isActivelyScanning = isScanning || scanMutation.isPending;
@@ -90,55 +86,17 @@ export function DeviceCard({ device }: DeviceCardProps) {
   const lastScanAt = device.scanStats?.lastScanAt;
   const hasScanHistory = totalScans > 0;
 
-  // Fetch scan history for chart
+  // Fetch scan history for chart using queryOptions
   const { data: scanHistoryData } = useQuery({
-    queryKey: ["device-scan-history", device.name],
-    queryFn: () =>
-      getDeviceScanHistoryData({ data: { target: device.name, limit: 10 } }),
-    enabled: totalScans > 1,
+    ...deviceQueries.scanHistory(device.name, 10),
+    enabled: totalScans > 1, // Only fetch if device has scan history
   });
 
   const scanHistory = scanHistoryData?.history || [];
 
-  // Mutations
-  const verificationMutation = useMutation({
-    mutationFn: (data: {
-      deviceId: string;
-      status: "VERIFIED" | "EXCLUDED" | "CANDIDATE";
-      note?: string;
-    }) => verifyDevice({ data }),
-    onSuccess: (_result, variables) => {
-      const labels = {
-        VERIFIED: "verified",
-        EXCLUDED: "excluded",
-        CANDIDATE: "reset to candidate",
-      };
-      toast.success(`Device ${labels[variables.status]}`);
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
-    },
-    onError: (error) => {
-      toast.error("Failed to update device", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    },
-  });
-
-  const verificationToggleMutation = useMutation({
-    mutationFn: (data: {
-      deviceId: string;
-      verify: boolean;
-      interval?: string;
-    }) => toggleDeviceVerification({ data }),
-    onSuccess: (result) => {
-      toast.success(result.message || "Device verification updated");
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
-    },
-    onError: (error) => {
-      toast.error("Failed to update device", {
-        description: error instanceof Error ? error.message : "Unknown error",
-      });
-    },
-  });
+  // Mutations (using centralized hooks)
+  const verificationMutation = useVerifyDeviceMutation();
+  const verificationToggleMutation = useToggleDeviceVerificationMutation();
 
   // Handlers
   const handleScan = () => {
@@ -150,7 +108,30 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
     // Optimistic update: scanMutation.isPending immediately becomes true
     // UI shows "Scanning..." and animated border right away
-    scanMutation.mutate({ target, preset: "THOROUGH" });
+    const toastId = `scan-${device.id}`;
+    toast.loading(`Starting scan for ${target}...`, { id: toastId });
+
+    scanMutation.mutate(
+      { deviceId: device.id, target, preset: "THOROUGH" },
+      {
+        onSuccess: (result) => {
+          if (result.success && result.scanId) {
+            toast.success(`Scan started for ${result.target}`, {
+              id: toastId,
+              description: result.presetDescription || `Scan ID: ${result.scanId}`,
+            });
+          } else {
+            toast.error(`Failed to start scan: ${result.error}`, { id: toastId });
+          }
+        },
+        onError: (error) => {
+          toast.error("Failed to start port scan", {
+            id: toastId,
+            description: error instanceof Error ? error.message : "Unknown error",
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -307,11 +288,23 @@ export function DeviceCard({ device }: DeviceCardProps) {
             <button
               type="button"
               onClick={() =>
-                verificationToggleMutation.mutate({
-                  deviceId: device.id,
-                  verify: true,
-                  interval: "1h",
-                })
+                verificationToggleMutation.mutate(
+                  {
+                    deviceId: device.id,
+                    verify: true,
+                    interval: "1h",
+                  },
+                  {
+                    onSuccess: (result) => {
+                      toast.success(result.message || "Device verification updated");
+                    },
+                    onError: (error) => {
+                      toast.error("Failed to update device", {
+                        description: error instanceof Error ? error.message : "Unknown error",
+                      });
+                    },
+                  }
+                )
               }
               disabled={verificationToggleMutation.isPending}
             >
@@ -326,10 +319,22 @@ export function DeviceCard({ device }: DeviceCardProps) {
             <button
               type="button"
               onClick={() =>
-                verificationToggleMutation.mutate({
-                  deviceId: device.id,
-                  verify: false,
-                })
+                verificationToggleMutation.mutate(
+                  {
+                    deviceId: device.id,
+                    verify: false,
+                  },
+                  {
+                    onSuccess: (result) => {
+                      toast.success(result.message || "Device verification updated");
+                    },
+                    onError: (error) => {
+                      toast.error("Failed to update device", {
+                        description: error instanceof Error ? error.message : "Unknown error",
+                      });
+                    },
+                  }
+                )
               }
               disabled={verificationToggleMutation.isPending}
             >
@@ -344,11 +349,28 @@ export function DeviceCard({ device }: DeviceCardProps) {
             <button
               type="button"
               onClick={() =>
-                verificationMutation.mutate({
-                  deviceId: device.id,
-                  status: "EXCLUDED",
-                  note: "Manually excluded",
-                })
+                verificationMutation.mutate(
+                  {
+                    deviceId: device.id,
+                    status: "EXCLUDED",
+                    note: "Manually excluded",
+                  },
+                  {
+                    onSuccess: (_result, variables) => {
+                      const labels = {
+                        VERIFIED: "verified",
+                        EXCLUDED: "excluded",
+                        CANDIDATE: "reset to candidate",
+                      };
+                      toast.success(`Device ${labels[variables.status]}`);
+                    },
+                    onError: (error) => {
+                      toast.error("Failed to update device", {
+                        description: error instanceof Error ? error.message : "Unknown error",
+                      });
+                    },
+                  }
+                )
               }
               disabled={verificationMutation.isPending}
             >

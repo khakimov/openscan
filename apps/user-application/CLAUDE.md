@@ -90,34 +90,37 @@ initDatabase(d1db);
 
 ## Monitoring & Observability
 
-### Workers Analytics Engine
+### Universal Postback Architecture
 
-The application uses **Workers Analytics Engine** to track postback events from the restate-worker. This provides lightweight metrics for monitoring scan result delivery.
+The application uses a **type-safe, extensible postback system** for handling HTTP callbacks from the restate-worker. It supports multiple workflow types (port scans, discovery, etc.) through type discrimination.
 
-#### Quick Check
+#### Architecture Overview
 
-```bash
-# Query Analytics Engine for postback metrics
-./scripts/query-analytics.sh
+```
+Restate Worker → Universal Router → Handler Registry → Database + Analytics
+                  (type: PORT_SCAN     (PortScanHandler,   (workflow status
+                   or DISCOVERY)        DiscoveryHandler)    + results)
 ```
 
-**Output example:**
-```
-Event Type            Count   Avg Latency (ms)
------------           -----   ----------------
-postback_success        42       3784
-postback_failure         2       1523
-```
+**Key Features:**
+- Type-safe discriminated unions for payload validation
+- Handler registry pattern for extensibility
+- Database-first architecture (UI polls database, not Restate)
+- Unified analytics tracking in Workers Analytics Engine
+- Add new workflow types in 3 simple steps
 
-#### Event Types Tracked
+**Documentation:** See [docs/postback-architecture.md](../../../docs/postback-architecture.md) for complete guide
 
-| Event Type | scanId | deviceId | Error Details | Use Case |
-|------------|--------|----------|---------------|----------|
-| `postback_success` | ✅ | ✅ | organizationId, port count | Track successful scan deliveries |
-| `postback_auth_failed` | ❌ | ❌ | "Authentication failed" | Detect API key issues |
-| `postback_validation_failed` | ❌ | ❌ | Field + error message | Catch worker payload bugs |
-| `postback_device_not_found` | ✅ | ✅ | "Device not found" | Debug device lookup failures |
-| `postback_failure` | ✅ | ✅ | Exception message | Debug database/processing errors |
+#### Analytics Event Types
+
+| Event Type | When | Blobs[2] | Doubles[1] |
+|------------|------|----------|------------|
+| `postback_portscan_success` | Port scan completes | organizationId | Port count |
+| `postback_portscan_failure` | Port scan fails | Error message | - |
+| `postback_discovery_success` | Discovery completes | organizationId | Device count |
+| `postback_discovery_failure` | Discovery fails | Error message | - |
+| `postback_auth_failed` | Invalid API key | "Authentication failed" | - |
+| `postback_validation_failed` | Payload validation fails | Validation error | - |
 
 #### Common Queries
 
@@ -167,16 +170,19 @@ Analytics Engine data is also viewable in the Cloudflare Dashboard:
 
 #### Implementation Details
 
-- **Location**: `src/server/scan-results-postback.ts`
+- **Location**: `src/server/postback/` (universal architecture)
+- **API Route**: `/api/internal/scan-results` (single endpoint for all types)
 - **Binding**: Configured in `wrangler.jsonc` as `analytics_engine_datasets`
 - **Data Points**: Written via `env.ANALYTICS.writeDataPoint()`
 - **Schema**:
-  - `index1`: event_type (used for filtering)
-  - `blob1`: scanId
-  - `blob2`: deviceId
-  - `blob3`: organizationId or error message
-  - `double1`: latency (milliseconds)
-  - `double2`: port count (success events only)
+  - `indexes[0]`: event_type (e.g., 'postback_portscan_success')
+  - `blobs[0]`: scanId
+  - `blobs[1]`: entityId (deviceId for port scan, organizationId for discovery)
+  - `blobs[2]`: organizationId or error message
+  - `doubles[0]`: latency (milliseconds)
+  - `doubles[1]`: result count (ports/devices/etc.)
   - `timestamp`: Auto-populated by Workers runtime
 
 **Note**: The dataset is created automatically on the first `writeDataPoint()` call - no manual setup required.
+
+**Adding New Postback Types**: See [postback architecture docs](../../../docs/postback-architecture.md#adding-a-new-postback-type) for step-by-step guide.

@@ -1,7 +1,8 @@
 import { TableSkeleton } from "@/components/ui/table";
 import { FullPageEmptyState } from "@/components/shared/full-page-empty-state";
 import { GanttChartIcon, Loader2Icon } from "lucide-react";
-import { useScansTableQuery } from "@/hooks/useScansTableQuery";
+import { useQuery } from "@tanstack/react-query";
+import { scanQueries } from "@/queries/scan-queries";
 
 import { ScansDataTable } from "./scans-data-table";
 import { useColumns } from "./columns";
@@ -141,17 +142,9 @@ export type Scan = {
   scanCount?: number;
 };
 
-type ScansResponse = {
-  success: boolean;
-  data: Scan[];
-  error?: string;
-};
+interface ScansTableProps {}
 
-interface ScansTableProps {
-  initialData?: ScansResponse;
-}
-
-export const ScansTable = ({ initialData }: ScansTableProps) => {
+export const ScansTable = ({}: ScansTableProps) => {
   const columns = useColumns();
 
   const {
@@ -159,13 +152,13 @@ export const ScansTable = ({ initialData }: ScansTableProps) => {
     isLoading,
     error,
     isRefetching,
-  } = useScansTableQuery(initialData) as { data: ScansResponse | undefined; isLoading: boolean; error: unknown; isRefetching: boolean };
+  } = useQuery(scanQueries.table());
 
   const hasServerData =
     response?.success &&
     Array.isArray(response.data) &&
     response.data.length > 0;
-  const data: Scan[] = hasServerData ? (response.data as Scan[]) : [];
+  const data: Scan[] = hasServerData ? response.data as unknown as Scan[] : [];
 
 
   if (isLoading) {

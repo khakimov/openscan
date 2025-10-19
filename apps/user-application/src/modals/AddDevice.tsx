@@ -6,10 +6,10 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createDevicesFromDiscovery } from "@/server/devices";
+import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 
 // Form validation schema
 const AddDeviceSchema = z.object({
@@ -31,8 +31,6 @@ const AddDeviceSchema = z.object({
 type AddDeviceFormData = z.infer<typeof AddDeviceSchema>;
 
 export default function AddDevice() {
-  const queryClient = useQueryClient();
-
   const {
     register,
     handleSubmit,
@@ -42,39 +40,39 @@ export default function AddDevice() {
     resolver: zodResolver<AddDeviceFormData, any, AddDeviceFormData>(AddDeviceSchema),
   });
 
-  // Create device mutation
-  const createDeviceMutation = useMutation({
-    mutationFn: async (formData: AddDeviceFormData) => {
-      // Parse targets from textarea (one per line)
-      const targets = formData.targets
-        .split('\n')
-        .map(t => t.trim())
-        .filter(t => t.length > 0)
-        .map(host => ({ host }));
+  const queryClient = useQueryClient();
 
-      return await createDevicesFromDiscovery({
-        data: { targets },
-      });
-    },
-    onSuccess: (response) => {
-      toast.success("Devices added successfully", {
-        description: `${response.devices.length} device(s) created and scans initiated.`,
-      });
+  // Create device mutation (using centralized hook)
+  const createDeviceMutation = useCreateDevicesFromDiscoveryMutation();
 
-      // Refresh devices list
-      queryClient.invalidateQueries({ queryKey: ["devices"] });
+  const onSubmit = async (data: AddDeviceFormData) => {
+    // Parse targets from textarea (one per line)
+    const targets = data.targets
+      .split('\n')
+      .map(t => t.trim())
+      .filter(t => t.length > 0)
+      .map(host => ({ host }));
 
-      popModal("AddDevice");
-    },
-    onError: (error: any) => {
-      toast.error("Failed to add devices", {
-        description: error.message || "Please try again",
-      });
-    },
-  });
+    createDeviceMutation.mutate(
+      { targets },
+      {
+        onSuccess: async (response) => {
+          // Wait for device list to refetch before closing modal
+          // This ensures user sees devices immediately when modal closes
+          await queryClient.refetchQueries({ queryKey: ['devices'] });
 
-  const onSubmit = (data: AddDeviceFormData) => {
-    createDeviceMutation.mutate(data);
+          toast.success("Devices added successfully", {
+            description: `${response.devices.length} device(s) created and scans initiated.`,
+          });
+          popModal("AddDevice");
+        },
+        onError: (error: any) => {
+          toast.error("Failed to add devices", {
+            description: error instanceof Error ? error.message : "Please try again",
+          });
+        },
+      }
+    );
   };
 
   return (

@@ -5,22 +5,20 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import {
-  startDiscoveryWorkflow,
-  getWorkflowStatus,
-  getWorkflowResult,
-} from "@/server/discovery";
-import { createDevicesFromDiscovery } from "@/server/devices";
-import { completeOnboarding } from "@/server/organization";
-import {
   OnboardingContentLayout,
   OnboardingDescription,
 } from "@/components/onboarding/onboarding-layout";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import type { DiscoveryStatus } from "../types/discovery-status";
 import { validateDomain } from "../utils/validators";
 import { DiscoveryStatusCard } from "./DiscoveryStatusCard";
 import { toast } from "sonner";
-import { QUERY_CONFIG } from "@repo/constants";
+import {
+  discoveryQueries,
+  useStartDiscoveryMutation,
+} from "@/queries/discovery-queries";
+import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
+import { useCompleteOnboardingMutation } from "@/queries/organization-queries";
 
 interface OnboardingDiscoveryProps {
   projectId: string;
@@ -43,34 +41,15 @@ export function OnboardingDiscovery({
     new Set(),
   );
 
-  // Smart polling for workflow status (reduced frequency with postback architecture)
-  const { data: workflowStatus } = useQuery({
-    queryKey: ["workflow-status", scanId],
-    queryFn: () =>
-      getWorkflowStatus({
-        data: { scanId: scanId! },
-      }),
-    enabled: !!scanId,
-    refetchInterval: (query) => {
-      // Stop polling when workflow is complete or failed
-      const data = query.state.data;
-      if (data?.isCompleted || data?.isFailed) {
-        return false;
-      }
-      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
-      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
-    },
-  });
+  // Smart polling for workflow status (database-first architecture)
+  const { data: workflowStatus } = useQuery(
+    discoveryQueries.workflowStatus(scanId!)
+  );
 
   // Automatically fetch results when workflow completes
-  const { data: workflowResults } = useQuery({
-    queryKey: ["workflow-results", scanId],
-    queryFn: () =>
-      getWorkflowResult({
-        data: { scanId: scanId! },
-      }),
-    enabled: workflowStatus?.isCompleted === true,
-  });
+  const { data: workflowResults } = useQuery(
+    discoveryQueries.workflowResults(scanId!, workflowStatus?.isCompleted === true)
+  );
 
   // Derive UI state from React Query data
   const isRunning = workflowStatus?.isRunning === true;
@@ -103,38 +82,8 @@ export function OnboardingDiscovery({
       }
     : null;
 
-  // Optimistic mutation for starting discovery
-  const startDiscoveryMutation = useMutation({
-    mutationFn: async (target: string) => {
-      console.log(
-        "[OnboardingDiscovery] Starting discovery workflow for domain:",
-        target,
-      );
-      return startDiscoveryWorkflow({ data: { target } });
-    },
-    onSuccess: (discoveryResult) => {
-      if (discoveryResult.success && discoveryResult.scanId) {
-        // Set scanId - useQuery hooks will handle polling automatically
-        setScanId(discoveryResult.scanId);
-        console.log("[OnboardingDiscovery] Discovery started:", {
-          scanId: discoveryResult.scanId,
-        });
-      } else {
-        // Discovery failed to start
-        setDomainError(discoveryResult.error || "Failed to start discovery");
-        console.error(
-          "[OnboardingDiscovery] Discovery failed to start:",
-          discoveryResult.error,
-        );
-      }
-    },
-    onError: (err) => {
-      const errorMessage =
-        err instanceof Error ? err.message : "Something went wrong";
-      console.error("[OnboardingDiscovery] Error:", err);
-      setDomainError(errorMessage);
-    },
-  });
+  // Mutation for starting discovery (using centralized hook)
+  const startDiscoveryMutation = useStartDiscoveryMutation();
 
   const handleStartDiscovery = () => {
     // Validate domain
@@ -151,88 +100,115 @@ export function OnboardingDiscovery({
     setSelectedSubdomains(new Set());
 
     // Optimistic update: mutation.isPending becomes true immediately
-    startDiscoveryMutation.mutate(trimmedDomain);
+    startDiscoveryMutation.mutate(
+      { target: trimmedDomain },
+      {
+        onSuccess: (discoveryResult) => {
+          if (discoveryResult.success && discoveryResult.scanId) {
+            // Set scanId - useQuery hooks will handle polling automatically
+            setScanId(discoveryResult.scanId);
+            console.log("[OnboardingDiscovery] Discovery started:", {
+              scanId: discoveryResult.scanId,
+            });
+          } else {
+            // Discovery failed to start
+            setDomainError(discoveryResult.error || "Failed to start discovery");
+            console.error(
+              "[OnboardingDiscovery] Discovery failed to start:",
+              discoveryResult.error,
+            );
+          }
+        },
+        onError: (err) => {
+          const errorMessage =
+            err instanceof Error ? err.message : "Something went wrong";
+          console.error("[OnboardingDiscovery] Error:", err);
+          setDomainError(errorMessage);
+        },
+      }
+    );
   };
 
-  // Mutation for saving selected devices
-  const saveDevicesMutation = useMutation({
-    mutationFn: async () => {
-      const selectedTargets = Array.from(selectedSubdomains);
+  // Mutation for saving selected devices (using centralized hook)
+  const saveDevicesMutation = useCreateDevicesFromDiscoveryMutation();
 
-      if (selectedTargets.length === 0) {
-        throw new Error("Please select at least one subdomain");
-      }
-
-      // Extract hostname and IP data from typed discovery results
-      const targetsData = selectedTargets.map((host) => {
-        const subdomain = results?.uniqueSubdomains?.find(
-          (s: { subdomain: string; ip: string }) => s.subdomain === host,
-        );
-        return {
-          host,
-          ip: subdomain?.ip, // Include IP if resolved during discovery
-        };
-      });
-
-      return createDevicesFromDiscovery({
-        data: {
-          targets: targetsData,
-          organizationId: organizationId || undefined,
-          projectId,
-          options: {
-            source: "DISCOVERY",
-            scope: "EXTERNAL",
-            verificationStatus: "VERIFIED", // Simple approach - treat onboarding devices as verified
-          },
-        },
-      });
-    },
-    onSuccess: async (response) => {
-      toast.success("Assets added to inventory", {
-        description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
-      });
-
-      // Mark onboarding as complete
-      if (organizationId) {
-        await completeOnboarding({ data: { organizationId } });
-      }
-
-      // Navigate to dashboard (onboarding complete)
-      navigate({
-        to: "/dashboard",
-      });
-    },
-    onError: (error: any) => {
-      toast.error("Failed to add assets", {
-        description: error.message || "Please try again",
-      });
-    },
-  });
-
-  // Optimistic mutation for skipping discovery
-  const skipDiscoveryMutation = useMutation({
-    mutationFn: async () => {
-      // Mark onboarding as complete before navigating
-      if (organizationId) {
-        return completeOnboarding({ data: { organizationId } });
-      }
-    },
-    onSuccess: () => {
-      // Skip discovery and go directly to dashboard (onboarding complete)
-      navigate({
-        to: "/dashboard",
-      });
-    },
-  });
+  // Mutation for completing onboarding (using centralized hook)
+  const completeOnboardingMutation = useCompleteOnboardingMutation();
 
   const handleSkip = () => {
-    // Optimistic update: mutation.isPending becomes true immediately
-    skipDiscoveryMutation.mutate();
+    // Mark onboarding as complete and navigate
+    if (!organizationId) {
+      toast.error("No organization found");
+      return;
+    }
+
+    completeOnboardingMutation.mutate(
+      { organizationId },
+      {
+        onSuccess: () => {
+          // Skip discovery and go directly to dashboard
+          navigate({ to: "/dashboard" });
+        },
+        onError: (error) => {
+          toast.error("Failed to complete onboarding", {
+            description: error instanceof Error ? error.message : "Please try again",
+          });
+        },
+      }
+    );
   };
 
   const handleContinue = () => {
-    // Save selected devices before continuing
-    saveDevicesMutation.mutate();
+    const selectedTargets = Array.from(selectedSubdomains);
+
+    if (selectedTargets.length === 0) {
+      toast.error("Please select at least one subdomain");
+      return;
+    }
+
+    // Extract hostname and IP data from typed discovery results
+    const targetsData = selectedTargets.map((host) => {
+      const subdomain = results?.uniqueSubdomains?.find(
+        (s: { subdomain: string; ip: string }) => s.subdomain === host,
+      );
+      return {
+        host,
+        ip: subdomain?.ip, // Include IP if resolved during discovery
+      };
+    });
+
+    saveDevicesMutation.mutate(
+      {
+        targets: targetsData,
+        organizationId: organizationId || undefined,
+        projectId,
+        options: {
+          source: "DISCOVERY",
+          scope: "EXTERNAL",
+          verificationStatus: "VERIFIED", // Simple approach - treat onboarding devices as verified
+        },
+      },
+      {
+        onSuccess: async (response) => {
+          toast.success("Assets added to inventory", {
+            description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
+          });
+
+          // Mark onboarding as complete
+          if (organizationId) {
+            await completeOnboardingMutation.mutateAsync({ organizationId });
+          }
+
+          // Navigate to dashboard (onboarding complete)
+          navigate({ to: "/dashboard" });
+        },
+        onError: (error: any) => {
+          toast.error("Failed to add assets", {
+            description: error instanceof Error ? error.message : "Please try again",
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -306,10 +282,10 @@ export function OnboardingDiscovery({
               type="button"
               variant="outline"
               onClick={handleSkip}
-              disabled={startDiscoveryMutation.isPending || skipDiscoveryMutation.isPending}
+              disabled={startDiscoveryMutation.isPending || completeOnboardingMutation.isPending}
             >
-              {skipDiscoveryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {skipDiscoveryMutation.isPending ? "Skipping..." : "Skip Discovery"}
+              {completeOnboardingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {completeOnboardingMutation.isPending ? "Skipping..." : "Skip Discovery"}
             </Button>
             <Button
               type="button"

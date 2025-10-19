@@ -1,12 +1,10 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { deleteDevice } from "@/server/devices";
 import { useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useDeleteDeviceMutation } from "@/queries/device-queries";
 
 interface DeleteDeviceConfirmProps {
   deviceId: string;
@@ -19,36 +17,31 @@ export default function DeleteDeviceConfirm({
   deviceName,
   onSuccess,
 }: DeleteDeviceConfirmProps) {
-  const [isDeleting, setIsDeleting] = useState(false);
   const router = useRouter();
-  const queryClient = useQueryClient();
+  const deleteMutation = useDeleteDeviceMutation();
 
   const handleDelete = async () => {
-    setIsDeleting(true);
+    deleteMutation.mutate(
+      { deviceId },
+      {
+        onSuccess: async () => {
+          toast.success("Device deleted", {
+            description: `${deviceName} has been removed from your inventory.`,
+          });
 
-    try {
-      await deleteDevice({
-        data: { deviceId }
-      });
+          // Force route refresh
+          await router.invalidate();
 
-      toast.success("Device deleted", {
-        description: `${deviceName} has been removed from your inventory.`,
-      });
-
-      // TanStack Start RC pattern: remove stale data and invalidate route
-      queryClient.removeQueries({ queryKey: ['devices'] });
-
-      // Force route refresh
-      await router.invalidate();
-
-      onSuccess?.();
-      popModal("DeleteDeviceConfirm");
-    } catch (error) {
-      toast.error("Failed to delete device", {
-        description: error instanceof Error ? error.message : "Please try again",
-      });
-      setIsDeleting(false);
-    }
+          onSuccess?.();
+          popModal("DeleteDeviceConfirm");
+        },
+        onError: (error: any) => {
+          toast.error("Failed to delete device", {
+            description: error instanceof Error ? error.message : "Please try again",
+          });
+        },
+      }
+    );
   };
 
   const handleCancel = () => {
@@ -87,7 +80,7 @@ export default function DeleteDeviceConfirm({
           type="button"
           variant="outline"
           onClick={handleCancel}
-          disabled={isDeleting}
+          disabled={deleteMutation.isPending}
           className="flex-1"
         >
           Cancel
@@ -96,10 +89,10 @@ export default function DeleteDeviceConfirm({
           type="button"
           variant="destructive"
           onClick={handleDelete}
-          disabled={isDeleting}
+          disabled={deleteMutation.isPending}
           className="flex-1"
         >
-          {isDeleting ? "Deleting..." : "Delete Device"}
+          {deleteMutation.isPending ? "Deleting..." : "Delete Device"}
         </Button>
       </div>
     </ModalContent>

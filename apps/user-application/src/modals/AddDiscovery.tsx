@@ -4,20 +4,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import {
-  startDiscoveryWorkflow,
-  getWorkflowStatus,
-  getWorkflowResult,
-} from "@/server/discovery";
-import { createDevicesFromDiscovery } from "@/server/devices";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Checkbox } from "@/components/ui/checkbox";
-import { useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { DiscoveryLoading } from "@/components/shared/discovery-loading";
-import { QUERY_CONFIG } from "@repo/constants";
+import {
+  discoveryQueries,
+  useStartDiscoveryMutation,
+} from "@/queries/discovery-queries";
+import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
+import { DiscoveryResultsTable } from "@/components/discovery/discovery-results-table";
+import type { DiscoveryResultItem } from "@/components/discovery/discovery-results-table";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
@@ -39,107 +36,41 @@ export default function AddDiscovery({
     new Set(),
   );
 
-  const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Mutation for adding discovered targets as devices
-  const addDevicesMutation = useMutation({
-    mutationFn: async () => {
-      const selectedTargets = Array.from(selectedResults);
-      console.log('addDevicesMutation called with selected targets:', selectedTargets);
+  // Mutation for adding discovered targets as devices (using centralized hook)
+  const addDevicesMutation = useCreateDevicesFromDiscoveryMutation();
 
-      if (selectedTargets.length === 0) {
-        console.error('No targets selected for device creation');
-        throw new Error("Please select at least one target");
-      }
+  // Mutation for starting discovery workflow (using centralized hook)
+  const startDiscoveryMutation = useStartDiscoveryMutation();
 
-      // Extract hostname and IP data from discovery results
-      const targetsData = selectedTargets.map(host => {
-        const result = results?.results?.[0]?.results?.find((r: any) => r.host === host);
-        const targetData = {
-          host,
-          ip: result?.ip // Include IP if resolved during discovery
-        };
-        console.log('Processing target:', { host, foundResult: !!result, ip: result?.ip });
-        return targetData;
-      });
+  // Database polling for workflow status (postback updates database)
+  const { data: workflowStatus } = useQuery(
+    discoveryQueries.workflowStatus(scanId!)
+  );
 
-      console.log('Final targets data for creation:', targetsData);
-      console.log('Calling createDevicesFromDiscovery with data:', { targets: targetsData });
-
-      return createDevicesFromDiscovery({ data: { targets: targetsData } });
-    },
-    onSuccess: async (response) => {
-      toast.success("Devices created successfully", {
-        description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
-      });
-
-      // Refresh device list using TanStack Start RC patterns
-      queryClient.removeQueries({ queryKey: ['devices'] });
-      await router.invalidate();
-
-      popModal("AddDiscovery");
-    },
-    onError: (error: any) => {
-      toast.error("Failed to create devices", {
-        description: error.message || "Please try again",
-      });
-    },
-  });
-
-  // Mutation for starting discovery workflow
-  const startDiscoveryMutation = useMutation({
-    mutationFn: async (target: string) => {
-      return startDiscoveryWorkflow({ data: { target } });
-    },
-    onSuccess: (result) => {
-      if (result.success) {
-        // Invalidate scans query in case discovery triggers scans
-        queryClient.invalidateQueries({ queryKey: ['scans'] });
-
-        setError(null);
-        setScanId(result.scanId);
-        toast.success(`Discovery started for ${target}`, {
-          description: "You will be notified when results are ready",
-        });
-        onConfirm?.(target);
-      } else {
-        setError(result.error || "Failed to start discovery");
-      }
-    },
-    onError: (error: any) => {
-      setError(error.message || "Failed to start discovery");
-    },
-  });
-
-  // Smart polling for workflow status (reduced frequency with postback architecture)
-  const { data: workflowStatus } = useQuery({
-    queryKey: ["workflow-status", scanId],
-    queryFn: () => getWorkflowStatus({ data: { scanId: scanId! } }),
-    enabled: !!scanId,
-    refetchInterval: (query) => {
-      // Stop polling when workflow is complete or failed
-      const data = query.state.data;
-      if (data?.isCompleted || data?.isFailed) {
-        return false;
-      }
-      // Poll every 15 seconds (postback notifies server immediately, this is just UI sync)
-      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_15;
-    },
-  });
-
-  // Automatically fetch results when workflow completes
-  const { data: workflowResults } = useQuery({
-    queryKey: ["workflow-results", scanId],
-    queryFn: () => getWorkflowResult({ data: { scanId: scanId! } }),
-    enabled: workflowStatus?.isCompleted === true,
-  });
+  // Automatically fetch results from database when workflow completes
+  const { data: workflowResults } = useQuery(
+    discoveryQueries.workflowResults(scanId!, workflowStatus?.isCompleted === true)
+  );
 
   // Derive UI state from React Query data
   const isRunning = workflowStatus?.isRunning === true;
   const isCompleted = workflowStatus?.isCompleted === true;
   const isFailed = workflowStatus?.isFailed === true;
   const results = workflowResults?.success ? workflowResults.result : null;
+
+  // Get discovery items (either from results array or uniqueSubdomains), filter out items without IP
+  const discoveryItems: DiscoveryResultItem[] = results
+    ? (results.results?.[0]?.results?.filter((r: any) => r.ip).map((r: any) => ({
+          host: r.host,
+          ip: r.ip,
+        })) ||
+        results.uniqueSubdomains.filter((s: any) => s.ip).map((s: any) => ({
+          host: s.subdomain,
+          ip: s.ip,
+        })))
+    : [];
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -202,11 +133,69 @@ export default function AddDiscovery({
     }
 
     setError(null);
-    startDiscoveryMutation.mutate(trimmedTarget);
+    startDiscoveryMutation.mutate(
+      { target: trimmedTarget },
+      {
+        onSuccess: (result) => {
+          if (result.success) {
+            setError(null);
+            setScanId(result.scanId);
+            toast.success(`Discovery started for ${trimmedTarget}`, {
+              description: "You will be notified when results are ready",
+            });
+            onConfirm?.(trimmedTarget);
+          } else {
+            setError(result.error || "Failed to start discovery");
+          }
+        },
+        onError: (error: any) => {
+          setError(error instanceof Error ? error.message : "Failed to start discovery");
+        },
+      }
+    );
   };
 
   const handleCancel = () => {
     popModal("AddDiscovery");
+  };
+
+  const handleAddDevices = () => {
+    const selectedTargets = Array.from(selectedResults);
+
+    if (selectedTargets.length === 0) {
+      toast.error("Please select at least one target");
+      return;
+    }
+
+    // Extract hostname and IP data from normalized discovery items
+    const targetsData = selectedTargets.map(host => {
+      const item = discoveryItems.find((item) => item.host === host);
+      return {
+        host,
+        ip: item?.ip // Include IP if resolved during discovery
+      };
+    });
+
+    addDevicesMutation.mutate(
+      { targets: targetsData },
+      {
+        onSuccess: async (response) => {
+          // Wait for device list to refetch before closing modal
+          // This ensures user sees devices immediately when modal closes
+          await queryClient.refetchQueries({ queryKey: ['devices'] });
+
+          toast.success("Devices created successfully", {
+            description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
+          });
+          popModal("AddDiscovery");
+        },
+        onError: (error: any) => {
+          toast.error("Failed to create devices", {
+            description: error instanceof Error ? error.message : "Please try again",
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -257,89 +246,14 @@ export default function AddDiscovery({
           </div>
         )}
 
-        {results && (
+        {results && discoveryItems.length > 0 && (
           <div className="space-y-4">
-            {(results.results?.[0]?.results?.length > 0 ||
-              results.uniqueSubdomains.length > 0) && (
-              <div>
-                <div className="text-sm font-medium text-muted-foreground mb-2">
-                  {results.request.target} ({results.results?.[0]?.results?.length || results.uniqueSubdomains.length} subdomains discovered)
-                </div>
-                <div className="max-h-96 overflow-y-auto border rounded">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 z-10 bg-black text-white">
-                      <tr>
-                        <th className="h-8 px-4 text-left">
-                          <Checkbox
-                            id="select-all"
-                            checked={
-                              selectedResults.size ===
-                              (results.results?.[0]?.results?.length ||
-                                results.uniqueSubdomains.length)
-                            }
-                            onCheckedChange={(checked) => {
-                              if (checked) {
-                                const allHosts =
-                                  results.results?.[0]?.results?.map((r: { host: string; ip: string }) => r.host) ||
-                                  results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => s.subdomain);
-                                setSelectedResults(new Set(allHosts));
-                              } else {
-                                setSelectedResults(new Set());
-                              }
-                            }}
-                          />
-                        </th>
-                        <th className="h-8 px-4 text-left font-semibold">Subdomain</th>
-                        <th className="h-8 px-4 text-left font-semibold">IP Address</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(
-                        results.results?.[0]?.results ||
-                        results.uniqueSubdomains.map((s: { subdomain: string; ip: string }) => ({ host: s.subdomain, ip: s.ip || '' }))
-                      ).map((item: any, index: number) => {
-                        const host = typeof item === "string" ? item : (item.host || item.subdomain);
-                        const ip = typeof item === "object" ? (item.ip || '') : '';
-                        const isSelected = selectedResults.has(host);
-
-                        return (
-                          <tr key={index} className="border-t border-slate-700 hover:bg-slate-700/50">
-                            <td className="px-4 py-3">
-                              <Checkbox
-                                id={`result-${index}`}
-                                checked={isSelected}
-                                onCheckedChange={(checked) => {
-                                  const newSelected = new Set(selectedResults);
-                                  if (checked) {
-                                    newSelected.add(host);
-                                  } else {
-                                    newSelected.delete(host);
-                                  }
-                                  setSelectedResults(newSelected);
-                                }}
-                              />
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="font-mono text-slate-100">{host}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="font-mono text-slate-400">
-                                {ip || '-'}
-                              </span>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-                {selectedResults.size > 0 && (
-                  <div className="mt-2 text-xs text-muted-foreground">
-                    {selectedResults.size} subdomain{selectedResults.size !== 1 ? 's' : ''} selected
-                  </div>
-                )}
-              </div>
-            )}
+            <DiscoveryResultsTable
+              items={discoveryItems}
+              selectedHosts={selectedResults}
+              onSelectionChange={setSelectedResults}
+              targetDomain={results.request.target}
+            />
 
             <div className="p-3 text-sm text-blue-400 bg-blue-950/20 border border-blue-900/20 rounded-md">
               Selected targets will be created as devices in your inventory with "discovery" and "subdomain" tags.
@@ -360,7 +274,7 @@ export default function AddDiscovery({
           {isCompleted && results ? (
             <Button
               type="button"
-              onClick={() => addDevicesMutation.mutate()}
+              onClick={handleAddDevices}
               disabled={
                 addDevicesMutation.isPending ||
                 selectedResults.size === 0

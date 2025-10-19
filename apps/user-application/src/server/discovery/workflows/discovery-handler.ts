@@ -2,8 +2,17 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
-import { sendToRestate, type DiscoveryState } from '../../../utils/restate-client';
+import { getRestateHttpClient } from '../../utils/restate-http-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
+import { getCurrentOrganizationId, getCurrentUser } from '../../utils/auth';
+import {
+  createScanWorkflow,
+  createScanRun,
+  getScanWorkflowByScanId,
+  getDb,
+  scanRuns,
+  eq,
+} from '@repo/data-ops';
 
 const logger = createLogger({ name: 'discovery-handler' });
 
@@ -29,36 +38,80 @@ export const startDiscoveryWorkflow = createServerFn({
     const { target } = data;
 
     try {
+      // Get organization and user from session
+      const organizationId = await getCurrentOrganizationId();
+      const currentUser = await getCurrentUser();
+
       logger.info('Starting discovery workflow', {
         target,
+        organizationId,
+        userId: currentUser.id,
         engine: 'Restate',
       });
 
       // Generate scanId for workflow key (deterministic pattern)
       const scanId = generateWorkflowId('discovery', target);
 
-      // Call Discovery workflow's run handler (async)
-      await sendToRestate({
-        service: 'Discovery',
-        key: scanId,
-        method: 'run',
-        data: {
-          targets: [
-            {
-              type: 'DOMAIN',
-              value: target,
-              scope: 'EXTERNAL',
-            },
-          ],
-          tools: ['subfinder'],
-          scanId,
-        },
-        async: true, // Fire and forget - don't wait for completion
+      // Step 1: Create scan workflow record in database
+      const workflow = await createScanWorkflow({
+        organizationId,
+        scanId,
+        kind: 'DISCOVERY',
+      });
+
+      logger.info('Created scan workflow record', {
+        scanId,
+        workflowId: workflow.id,
+        organizationId,
+      });
+
+      // Step 2: Create scan run record for tracking
+      const scanRun = await createScanRun({
+        scanWorkflowId: workflow.id,
+        organizationId,
+        scanType: 'DISCOVERY',
+        scope: 'EXTERNAL',
+        requestedById: currentUser.id,
+        target,
+      });
+
+      logger.info('Created scan run record', {
+        scanId,
+        scanRunId: scanRun.id,
+        target,
+      });
+
+      // Step 3: Build callback URL for postback
+      const baseUrl = process.env.APP_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000';
+      const callbackUrl = `${baseUrl}/api/internal/scan-results`;
+
+      logger.info('Generated callback URL for discovery postback', {
+        callbackUrl,
+        scanId,
+        organizationId,
+      });
+
+      // Step 4: Call Discovery workflow's run handler (async with auth)
+      const client = getRestateHttpClient();
+      await client.startDiscovery({
+        scanId,
+        targets: [
+          {
+            type: 'DOMAIN',
+            value: target,
+            scope: 'EXTERNAL',
+          },
+        ],
+        tools: ['subfinder'],
+        callbackUrl,
+        organizationId,
       });
 
       return {
         success: true,
-        scanId, // Single ID following Restate pattern
+        scanId, // Restate workflow key
+        scanWorkflowId: workflow.id, // Database ID (CUID)
+        scanRunId: scanRun.id,
         target,
         message: `Discovery started for ${target}`,
       };
@@ -85,7 +138,14 @@ export const startDiscoveryWorkflow = createServerFn({
     }
   });
 
-export const getWorkflowStatus = createServerFn({
+/**
+ * Get scan workflow status from database (replaces Restate polling)
+ *
+ * This is the new database-first approach. The UI polls this endpoint
+ * instead of polling Restate directly. The postback handler updates
+ * the database when results are ready.
+ */
+export const getScanWorkflowStatusDB = createServerFn({
   method: 'POST',
 })
   .inputValidator((data: { scanId: string }) => {
@@ -98,35 +158,61 @@ export const getWorkflowStatus = createServerFn({
     const { scanId } = data;
 
     try {
-      // Query workflow state using getState handler
-      const state = await sendToRestate<DiscoveryState>({
-        service: 'Discovery',
-        key: scanId,
-        method: 'getState',
+      const organizationId = await getCurrentOrganizationId();
+
+      // Get workflow from database
+      const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+
+      if (!workflow) {
+        logger.warn('Workflow not found in database', { scanId, organizationId });
+        return {
+          scanId,
+          status: 'UNKNOWN',
+          error: 'Workflow not found',
+        };
+      }
+
+      // Get scan run for progress/device count
+      const db = getDb();
+      const [scanRun] = await db
+        .select()
+        .from(scanRuns)
+        .where(eq(scanRuns.scanWorkflowId, workflow.id))
+        .limit(1);
+
+      const resultSummary = scanRun?.resultSummary as any;
+
+      logger.info('Retrieved workflow status from database', {
+        scanId,
+        workflowStatus: workflow.status,
+        scanRunStatus: scanRun?.status,
+        devicesFound: resultSummary?.createdDevices || 0,
       });
 
-      // Map Restate phases to status
+      // Map database status to UI status
       const statusMap: Record<string, string> = {
-        VALIDATING: 'RUNNING',
-        DISCOVERING: 'RUNNING',
-        COMPLETED: 'COMPLETED',
+        PENDING: 'RUNNING',
+        RUNNING: 'RUNNING',
+        SUCCEEDED: 'COMPLETED',
         FAILED: 'FAILED',
+        CANCELED: 'FAILED',
+        TIMEOUT: 'FAILED',
       };
 
-      const status = statusMap[state.phase] || 'RUNNING';
+      const status = statusMap[workflow.status] || 'RUNNING';
 
       return {
         scanId,
         status,
-        phase: state.phase,
+        workflowStatus: workflow.status,
         isRunning: status === 'RUNNING',
         isCompleted: status === 'COMPLETED',
         isFailed: status === 'FAILED',
-        processedTargets: state.processedTargets,
-        devicesFound: state.devicesFound,
+        devicesFound: resultSummary?.createdDevices || resultSummary?.discoveredDevices || 0,
+        processedTargets: resultSummary?.target ? 1 : 0,
       };
     } catch (error) {
-      logger.error('Failed to get workflow status', { scanId, error });
+      logger.error('Failed to get workflow status from database', { scanId, error });
       return {
         scanId,
         status: 'UNKNOWN',
@@ -135,7 +221,13 @@ export const getWorkflowStatus = createServerFn({
     }
   });
 
-export const getWorkflowResult = createServerFn({
+/**
+ * Get scan workflow results from database (replaces Restate result fetching)
+ *
+ * This fetches the final results from the database scan run's resultSummary
+ * field, which is populated by the postback handler when discovery completes.
+ */
+export const getScanWorkflowResultsDB = createServerFn({
   method: 'POST',
 })
   .inputValidator((data: { scanId: string }) => {
@@ -148,31 +240,56 @@ export const getWorkflowResult = createServerFn({
     const { scanId } = data;
 
     try {
-      // Query workflow state to get final results
-      const state = await sendToRestate<DiscoveryState>({
-        service: 'Discovery',
-        key: scanId,
-        method: 'getState',
+      const organizationId = await getCurrentOrganizationId();
+
+      // Get workflow from database
+      const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+
+      if (!workflow) {
+        return {
+          success: false,
+          error: 'Workflow not found',
+        };
+      }
+
+      // Get scan run with results
+      const db = getDb();
+      const [scanRun] = await db
+        .select()
+        .from(scanRuns)
+        .where(eq(scanRuns.scanWorkflowId, workflow.id))
+        .limit(1);
+
+      if (!scanRun) {
+        return {
+          success: false,
+          error: 'Scan run not found',
+        };
+      }
+
+      // Extract devices from result summary (populated by postback handler)
+      const resultSummary = scanRun.resultSummary as any;
+      const target = resultSummary?.target || scanRun.target || 'unknown';
+
+      // The postback handler stores devices in this format:
+      // { target, totalSubdomains, discoveredDevices, createdDevices, devices: [...] }
+      const devices = resultSummary?.devices || [];
+
+      logger.info('Retrieved discovery workflow results from database', {
+        scanId,
+        totalDevices: devices.length,
+        target,
       });
 
-      // Extract devices and build result format
-      const devices = state.devices || [];
-      const subdomains = devices
-        .filter((d: any) => d.hostname && d.hostname.length > 0)
-        .map((d: any) => d.hostname);
-
+      // Map to the format expected by the UI (matches Restate format)
       const results = devices.map((device: any) => ({
         host: device.hostname,
         ip: device.ipAddress || '',
       }));
 
-      const target = devices[0]?.metadata?.originalDomain || 'unknown';
-
-      logger.info('Retrieved discovery workflow result', {
-        scanId,
-        totalDevices: devices.length,
-        uniqueSubdomains: subdomains.length,
-      });
+      const subdomains = devices
+        .filter((d: any) => d.hostname && d.hostname.length > 0)
+        .map((d: any) => d.hostname);
 
       return {
         success: true,
@@ -180,7 +297,7 @@ export const getWorkflowResult = createServerFn({
           request: {
             target,
             scanType: 'basic',
-            tools: ['subfinder'],
+            tools: resultSummary?.tools || ['subfinder'],
           },
           results: [
             {
@@ -188,9 +305,9 @@ export const getWorkflowResult = createServerFn({
               subdomains,
               results,
               tool: 'restate-scanner',
-              timestamp: state.completedAt || new Date().toISOString(),
-              success: state.errors.length === 0,
-              errors: state.errors.length > 0 ? state.errors : undefined,
+              timestamp: resultSummary?.completedAt || new Date().toISOString(),
+              success: !resultSummary?.errors || resultSummary.errors.length === 0,
+              errors: resultSummary?.errors || undefined,
             },
           ],
           totalSubdomains: results.length,
@@ -198,16 +315,14 @@ export const getWorkflowResult = createServerFn({
             subdomain: entry.host,
             ip: entry.ip,
           })),
-          executionTime: state.completedAt && state.startedAt
-            ? new Date(state.completedAt).getTime() - new Date(state.startedAt).getTime()
-            : 0,
-          errors: state.errors.length > 0 ? state.errors : undefined,
+          executionTime: resultSummary?.executionTime || 0,
+          errors: resultSummary?.errors || undefined,
         },
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
 
-      logger.error('Failed to get workflow result', {
+      logger.error('Failed to get workflow results from database', {
         scanId,
         error: errorMessage,
       });

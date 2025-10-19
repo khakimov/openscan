@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, Search, XCircle } from "lucide-react";
 import type { DiscoveryStatus } from "../types/discovery-status";
+import { DiscoveryResultsTable } from "@/components/discovery/discovery-results-table";
+import type { DiscoveryResultItem } from "@/components/discovery/discovery-results-table";
 
 interface DiscoveryStatusCardProps {
   /**
@@ -43,32 +44,13 @@ export function DiscoveryStatusCard({
   onSkip,
   showSkipButton = false,
 }: DiscoveryStatusCardProps) {
-  const handleSelectAll = (checked: boolean | "indeterminate") => {
-    if (checked === true && discoveryStatus.result) {
-      const allSubdomains = discoveryStatus.result.uniqueSubdomains.map(
-        (s) => s.subdomain,
-      );
-      onSubdomainSelectionChange(new Set(allSubdomains));
-    } else {
-      onSubdomainSelectionChange(new Set());
-    }
-  };
-
-  const handleToggleSubdomain = (subdomain: string, checked: boolean) => {
-    const newSelected = new Set(selectedSubdomains);
-    if (checked) {
-      newSelected.add(subdomain);
-    } else {
-      newSelected.delete(subdomain);
-    }
-    onSubdomainSelectionChange(newSelected);
-  };
-
-  const isAllSelected =
-    discoveryStatus.result &&
-    selectedSubdomains.size ===
-      discoveryStatus.result.uniqueSubdomains.length &&
-    selectedSubdomains.size > 0;
+  // Get discovery items from result, filter out items without IP
+  const discoveryItems: DiscoveryResultItem[] = discoveryStatus.result
+    ? discoveryStatus.result.uniqueSubdomains.filter((s: any) => s.ip).map((s: any) => ({
+        host: s.subdomain,
+        ip: s.ip,
+      }))
+    : [];
 
   return (
     <div className="rounded-xl border border-border/60 bg-background/80 p-6 shadow-sm">
@@ -163,82 +145,17 @@ export function DiscoveryStatusCard({
                 </div>
 
                 {/* Subdomains Table */}
-                {discoveryStatus.result.uniqueSubdomains.length > 0 && (
+                {discoveryItems.length > 0 && (
                   <div className="space-y-2">
                     <p className="text-sm font-medium">
                       Discovered Subdomains:
                     </p>
-                    <div className="max-h-64 overflow-y-auto border rounded">
-                      <table className="w-full text-sm">
-                        <thead className="sticky top-0 z-10 bg-background border-b">
-                          <tr>
-                            <th className="h-10 px-4 text-left w-12">
-                              <Checkbox
-                                id="select-all"
-                                checked={isAllSelected}
-                                onCheckedChange={handleSelectAll}
-                                className="ring-offset-0 focus-visible:ring-0"
-                              />
-                            </th>
-                            <th className="h-10 px-4 text-left font-semibold">
-                              Subdomain
-                            </th>
-                            <th className="h-10 px-4 text-left font-semibold">
-                              IP Address
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {discoveryStatus.result.uniqueSubdomains.map(
-                            (item, idx) => {
-                              const isSelected = selectedSubdomains.has(
-                                item.subdomain,
-                              );
-                              return (
-                                <tr
-                                  key={idx}
-                                  className="border-t hover:bg-muted/50 h-12"
-                                >
-                                  <td className="px-4 py-3">
-                                    <Checkbox
-                                      id={`subdomain-${idx}`}
-                                      checked={isSelected}
-                                      onCheckedChange={(checked) =>
-                                        handleToggleSubdomain(
-                                          item.subdomain,
-                                          checked === true,
-                                        )
-                                      }
-                                      className="ring-offset-0 focus-visible:ring-0"
-                                    />
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="font-mono text-sm">
-                                      {item.subdomain}
-                                    </span>
-                                  </td>
-                                  <td className="px-4 py-3">
-                                    <span className="font-mono text-sm text-muted-foreground">
-                                      {item.ip || "-"}
-                                    </span>
-                                  </td>
-                                </tr>
-                              );
-                            },
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="text-xs text-muted-foreground h-5">
-                      {selectedSubdomains.size > 0 ? (
-                        <>
-                          {selectedSubdomains.size} subdomain
-                          {selectedSubdomains.size !== 1 ? "s" : ""} selected
-                        </>
-                      ) : (
-                        <span className="opacity-0">0 subdomains selected</span>
-                      )}
-                    </div>
+                    <DiscoveryResultsTable
+                      items={discoveryItems}
+                      selectedHosts={selectedSubdomains}
+                      onSelectionChange={onSubdomainSelectionChange}
+                      maxHeight="max-h-64"
+                    />
                   </div>
                 )}
 

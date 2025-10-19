@@ -18,6 +18,8 @@ export interface RestateDiscoveryInput {
   tools?: Array<'subfinder' | 'amass' | 'assetfinder'>;
   enablePingSweep?: boolean;
   scanId?: string;
+  callbackUrl?: string;
+  organizationId?: string;
 }
 
 export interface RestateDiscoveryOutput {
@@ -117,11 +119,9 @@ export class RestateHttpClient {
     });
 
     try {
-      const headers = {
-        ...this.getHeaders(),
-        // CRITICAL: For workflows, use idempotency-key to ensure workflow key matches
-        'idempotency-key': scanId,
-      };
+      // For workflows, the scanId in the URL path provides idempotency
+      // Don't send idempotency-key header (Restate will reject it)
+      const headers = this.getHeaders();
 
       const response = await fetch(url, {
         method: 'POST',
@@ -210,6 +210,7 @@ export class RestateHttpClient {
     callbackUrl?: string;
     deviceId?: string;
     scanId?: string; // Restate workflow key (optional - will be generated if not provided)
+    organizationId?: string; // Required for postback handler
   }): Promise<{
     scanId: string;
     target: string;

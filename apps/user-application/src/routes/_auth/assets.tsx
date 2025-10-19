@@ -8,10 +8,10 @@ import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { pushModal } from "@/modals";
-import { getDevicesData } from "@/server/devices";
-import { useDevicesQuery } from "@/hooks/useDevicesQuery";
+import { deviceQueries } from "@/queries/device-queries";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
+import { useSuspenseQuery } from "@tanstack/react-query";
 
 // Search params schema with proper validation
 const assetsSearchSchema = z.object({
@@ -21,30 +21,27 @@ const assetsSearchSchema = z.object({
 export const Route = createFileRoute("/_auth/assets")({
   validateSearch: zodValidator(assetsSearchSchema),
   loaderDeps: ({ search }) => ({ tab: search.tab }),
-  loader: async ({ deps: { tab } }) => {
+  loader: async ({ context: { queryClient }, deps: { tab } }) => {
     // Map tab to verification status from validated search params
     const verificationStatus =
       tab === "verified"
         ? "VERIFIED"
         : (["CANDIDATE", "EXCLUDED"] as ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[]);
 
-    // Fetch devices using server function
-    const devicesResponse = await getDevicesData({
-      data: { verificationStatus },
-    });
-
-    return devicesResponse;
+    // Populate query cache using queryOptions
+    // This ensures SSR data is available in cache for useSuspenseQuery
+    return queryClient.ensureQueryData(
+      deviceQueries.list({ verificationStatus })
+    );
   },
   component: Assets,
 });
 
 function Assets() {
   const { tab } = Route.useSearch();
-  const initialData = Route.useLoaderData();
 
   const handleDiscoveryCreated = (target: string) => {
     console.log('Discovery started for target:', target);
-    // TODO: Implement actual discovery logic
   };
 
   // Map tab to verification status for query
@@ -53,14 +50,14 @@ function Assets() {
       ? "VERIFIED"
       : (["CANDIDATE", "EXCLUDED"] as ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[]);
 
-  // Use query with SSR initial data - this will auto-refetch when invalidated
-  const { data: devicesResponse } = useDevicesQuery({
-    verificationStatus,
-    initialData, // Pass SSR data as initialData to avoid double-fetch
-  });
+  // Use suspense query with same queryOptions as loader
+  // Data is guaranteed to exist (populated by loader)
+  const { data: devicesResponse } = useSuspenseQuery(
+    deviceQueries.list({ verificationStatus })
+  );
 
-  // Query will use initialData first, then fresh data after any invalidation
-  const devices = devicesResponse?.items || [];
+  // No nullability check needed - useSuspenseQuery guarantees data exists
+  const devices = devicesResponse.items;
 
   return (
     <Padding>

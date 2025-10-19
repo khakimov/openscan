@@ -12,10 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { DeviceCard } from "./device-card";
 import { DeviceOpenPorts } from "./device-open-ports";
-import { useDeviceDetailQuery } from "@/hooks/useDeviceDetailQuery";
 import { pushModal } from "@/modals";
 import { Pencil, Trash2, Scan } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { deviceQueries } from "@/queries/device-queries";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
@@ -32,9 +33,10 @@ export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
 }
 
 function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
-  // Each device has its own Sheet with its own data loading
-  const { data: deviceDetail, isLoading: isLoadingDetail } =
-    useDeviceDetailQuery(device.id);
+  // Each device has its own Sheet with its own data loading using queryOptions
+  const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery({
+    ...deviceQueries.detail(device.id),
+  });
 
   // Action handlers
   const handleEdit = () => {
@@ -64,7 +66,7 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
         </div>
       </SheetTrigger>
       <SheetContent
-        className="w-[95vw] max-w-[1200px] min-w-[800px]"
+        className="w-full sm:w-[90vw] sm:min-w-[640px] lg:w-[80vw] lg:min-w-[800px] max-w-[1200px]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <SheetHeader className="mb-6">
@@ -108,7 +110,7 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
 
         <div className="space-y-6 overflow-y-auto max-h-[calc(100vh-200px)] px-4">
           <DeviceOpenPorts
-            deviceDetail={deviceDetail}
+            deviceDetail={deviceDetail as TransformedDevice | undefined}
             isLoading={isLoadingDetail}
           />
         </div>

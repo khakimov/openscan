@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { ArrowRight, Mail } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 
 export function HeroSection() {
@@ -22,13 +22,6 @@ export function HeroSection() {
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Button>
           </Link>
-
-          <Button variant="outline" size="lg" asChild>
-            <a href="mailto:hey@sec.rocks" className="inline-flex items-center">
-              <Mail className="mr-2 h-4 w-4" />
-              Contact
-            </a>
-          </Button>
         </div>
       </div>
 

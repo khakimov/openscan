@@ -16,12 +16,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  updateDeviceData,
-  getDeviceTagSuggestionsData,
-} from "@/server/devices";
-import { DEVICE_DETAIL_QUERY_KEY } from "@/hooks/useDeviceDetailQuery";
+import { useQuery } from "@tanstack/react-query";
+import { getDeviceTagSuggestionsData } from "@/server/devices";
+import { useUpdateDeviceMutation } from "@/queries/device-queries";
 import { Loader2, X, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
@@ -67,7 +64,6 @@ export default function EditDevice({
 }: EditDeviceProps) {
   const [newTag, setNewTag] = useState("");
   const router = useRouter();
-  const queryClient = useQueryClient();
 
   // Form setup
   const {
@@ -105,95 +101,8 @@ export default function EditDevice({
     ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
   });
 
-  // Update device mutation
-  const updateDeviceMutation = useMutation({
-    mutationFn: async (formData: EditDeviceFormData) => {
-      console.log('🚀 EditDevice: Starting mutation', {
-        deviceId,
-        formData,
-        updatePayload: {
-          name: formData.name,
-          ip: formData.ip || undefined,
-          // riskLevel is calculated by server
-          state: formData.state,
-          scope: formData.scope,
-          source: formData.source,
-          isScanned: formData.isScanned,
-          respondsToPing: formData.respondsToPing,
-          tags: formData.tags,
-          notes: formData.notes,
-        }
-      });
-
-      try {
-        const result = await updateDeviceData({
-          data: {
-            deviceId,
-            updates: {
-              name: formData.name,
-              ip: formData.ip || undefined,
-              // riskLevel is calculated by server
-              state: formData.state,
-              scope: formData.scope,
-              source: formData.source,
-              isScanned: formData.isScanned,
-              respondsToPing: formData.respondsToPing,
-              tags: formData.tags,
-              notes: formData.notes,
-            },
-          },
-        });
-        console.log('✅ EditDevice: Server response', result);
-        return result;
-      } catch (error) {
-        console.error('❌ EditDevice: Server error', error);
-        throw error;
-      }
-    },
-    onSuccess: async (response) => {
-      console.log('🎉 EditDevice: Mutation success', {
-        deviceId,
-        updatedDevice: {
-          id: response.device.id,
-          name: response.device.name,
-          ip: response.device.ip,
-          tags: response.device.tags,
-          scope: response.device.scope,
-          notes: response.device.notes,
-        },
-        fullResponse: response
-      });
-
-      toast.success("Device updated successfully", {
-        description: `${response.device.name} has been updated.`,
-      });
-
-      console.log('🔄 EditDevice: Starting cache refresh...');
-
-      // Force immediate refetch (ignores staleTime) - devices query has 5min staleTime
-      await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["devices"] }),
-        queryClient.invalidateQueries({ queryKey: DEVICE_DETAIL_QUERY_KEY(deviceId) }),
-        queryClient.invalidateQueries({ queryKey: ["deviceTagSuggestions"] }),
-      ]);
-
-      console.log('✅ EditDevice: Cache refresh complete');
-
-      // Force a complete refresh of the page data
-      router.invalidate();
-
-      console.log('🔄 EditDevice: Router invalidation complete');
-
-      onSuccess?.();
-      popModal("EditDevice");
-    },
-    onError: (error: any) => {
-      console.error('💥 EditDevice: Mutation error', error);
-      toast.error("Failed to update device", {
-        description: error.message || "Please try again",
-      });
-    },
-  });
+  // Update device mutation (using centralized hook)
+  const updateDeviceMutation = useUpdateDeviceMutation(deviceId);
 
   // Debug logging for button state (after mutation is defined)
   console.log('🔍 EditDevice: Component state', {
@@ -215,7 +124,44 @@ export default function EditDevice({
       isUnsaved,
       isPending: updateDeviceMutation.isPending
     });
-    updateDeviceMutation.mutate(data);
+
+    updateDeviceMutation.mutate(
+      {
+        deviceId,
+        updates: {
+          name: data.name,
+          ip: data.ip || undefined,
+          state: data.state,
+          scope: data.scope,
+          source: data.source,
+          isScanned: data.isScanned,
+          respondsToPing: data.respondsToPing,
+          tags: data.tags,
+          notes: data.notes,
+        },
+      },
+      {
+        onSuccess: async (response) => {
+          console.log('🎉 EditDevice: Mutation success', response);
+
+          toast.success("Device updated successfully", {
+            description: `${response.device.name} has been updated.`,
+          });
+
+          // Force route refresh
+          await router.invalidate();
+
+          onSuccess?.();
+          popModal("EditDevice");
+        },
+        onError: (error: any) => {
+          console.error('💥 EditDevice: Mutation error', error);
+          toast.error("Failed to update device", {
+            description: error.message || "Please try again",
+          });
+        },
+      }
+    );
   };
 
   // Handle form validation errors

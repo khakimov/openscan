@@ -1,1 +1,1 @@
-export { NavigationBar } from './navigation-bar'
+export { PageTabs, PageTabsLink } from './page-tabs'

@@ -2,7 +2,7 @@
  * Postback helper for posting scan results to server
  *
  * Used by Restate services to POST results back to TanStack Start API
- * when scans complete.
+ * when scans complete. Supports universal postback format with type discrimination.
  */
 
 import { createLogger } from '@repo/logger';
@@ -10,29 +10,36 @@ import { createLogger } from '@repo/logger';
 const logger = createLogger({ name: 'restate-postback' });
 
 /**
- * Payload for postback
- * Generic to support different result types (portscan, discovery, etc.)
+ * Universal Postback Payload (Type-Safe)
+ * Format with type discrimination for routing to appropriate handlers
  */
-export interface PostbackPayload {
+export interface UniversalPostbackPayload {
+  type: 'PORT_SCAN' | 'DISCOVERY';
+  scanId: string;
+  organizationId: string;
+  timestamp: string;
+  status: 'SUCCESS' | 'FAILURE';
   callbackUrl: string;
-  deviceId: string;
-  scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
-  results: any; // Generic - can be PortScanResult, DiscoveryResult, etc.
+  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY)
+  deviceId?: string; // Only for PORT_SCAN
+  error?: string; // Only for FAILURE status
 }
 
 /**
- * Posts scan results to server callback URL
+ * Posts results using universal postback format
+ * Supports type discrimination for PORT_SCAN, DISCOVERY, etc.
  * Uses WORKER_API_KEY for authentication
  * Throws on failure (caller should handle retries)
  */
-export async function postbackScanResults(payload: PostbackPayload): Promise<void> {
+export async function postUniversalPostback(payload: UniversalPostbackPayload): Promise<void> {
   const { callbackUrl, ...data } = payload;
 
-  logger.info('Posting scan results to server', {
+  logger.info('Posting results to server (universal format)', {
     callbackUrl,
-    deviceId: data.deviceId,
+    type: data.type,
     scanId: data.scanId,
-    resultsType: data.results?.constructor?.name || typeof data.results,
+    status: data.status,
+    organizationId: data.organizationId,
   });
 
   const apiKey = process.env.WORKER_API_KEY;
