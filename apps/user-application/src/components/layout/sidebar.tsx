@@ -168,7 +168,7 @@ export function Sidebar({
             )}
           >
             {!isCollapsed && (
-              <AccountDialog>
+              <AccountDialog user={user}>
                 <Button
                   variant="ghost"
                   className="flex items-center gap-2 px-3 w-full justify-start"
@@ -292,7 +292,7 @@ export function Sidebar({
         {/* User Profile */}
         <div className="border-t border-border p-4">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50">
-            <AccountDialog>
+            <AccountDialog user={user}>
               <Button
                 variant="ghost"
                 className="flex items-center gap-2 px-3 w-full justify-start"

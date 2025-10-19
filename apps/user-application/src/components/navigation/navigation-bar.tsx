@@ -133,7 +133,7 @@ export function NavigationBar() {
           {/* Auth Button - Desktop */}
           <div className="hidden lg:block">
             {session ? (
-              <AccountDialog>
+              <AccountDialog user={user || null}>
                 <Button
                   variant="ghost"
                   className="flex items-center gap-2 px-3"

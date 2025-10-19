@@ -11,22 +11,27 @@ import { authClient } from "@/lib/auth-client";
 import { LogOut, Palette } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
-interface AccountDialogProps {
-  children: React.ReactNode;
+export interface AccountDialogUser {
+  id: string;
+  name?: string | null;
+  email?: string | null;
+  image?: string | null;
 }
 
-export function AccountDialog({ children }: AccountDialogProps) {
-  const { data: session } = authClient.useSession();
+interface AccountDialogProps {
+  children: React.ReactNode;
+  user: AccountDialogUser | null;
+}
 
+export function AccountDialog({ children, user }: AccountDialogProps) {
   const signOut = async () => {
     await authClient.signOut();
   };
 
-  if (!session) {
+  if (!user) {
     return null;
   }
 
-  const user = session.user;
   const fallbackText = user.name
     ? user.name.charAt(0).toUpperCase()
     : user.email?.charAt(0).toUpperCase() || "U";
