@@ -71,8 +71,8 @@ export default function AddDiscovery({
         description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
       });
 
-      // Refresh device list using query invalidation
-      queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey });
+      // Refresh all device list queries (matches any verificationStatus)
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
       await router.invalidate();
 
       popModal("AddDiscovery");
