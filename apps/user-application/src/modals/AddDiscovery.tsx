@@ -289,8 +289,7 @@ export default function AddDiscovery({
                             }}
                           />
                         </th>
-                        <th className="h-8 px-4 text-left font-semibold">Subdomain</th>
-                        <th className="h-8 px-4 text-left font-semibold">IP Address</th>
+                        <th className="h-8 px-4 text-left font-semibold">Host</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -320,12 +319,14 @@ export default function AddDiscovery({
                               />
                             </td>
                             <td className="px-4 py-3">
-                              <span className="font-mono text-slate-100">{host}</span>
-                            </td>
-                            <td className="px-4 py-3">
-                              <span className="font-mono text-slate-400">
-                                {ip || '-'}
-                              </span>
+                              <div className="flex flex-col">
+                                <span className="font-mono text-slate-100">{host}</span>
+                                {ip && (
+                                  <span className="font-mono text-xs text-slate-400 mt-0.5">
+                                    {ip}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           </tr>
                         );
