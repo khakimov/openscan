@@ -12,10 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { DeviceCard } from "./device-card";
 import { DeviceOpenPorts } from "./device-open-ports";
-import { useDeviceDetailQuery } from "@/hooks/useDeviceDetailQuery";
 import { pushModal } from "@/modals";
 import { Pencil, Trash2, Scan } from "lucide-react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { deviceQueries } from "@/queries";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
@@ -32,9 +33,10 @@ export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
 }
 
 function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
-  // Each device has its own Sheet with its own data loading
-  const { data: deviceDetail, isLoading: isLoadingDetail } =
-    useDeviceDetailQuery(device.id);
+  // Each device has its own Sheet with its own data loading using queryOptions
+  const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery(
+    deviceQueries.detail(device.id)
+  );
 
   // Action handlers
   const handleEdit = () => {

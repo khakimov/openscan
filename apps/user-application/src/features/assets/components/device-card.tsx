@@ -22,12 +22,12 @@ import { toast } from "sonner";
 import { useDeviceScan } from "@/hooks/useDeviceScanStatus";
 import { DeviceScanChart } from "@/components/shared/device-scan-chart";
 import {
-  getDeviceScanHistoryData,
   verifyDevice,
   toggleDeviceVerification,
   startDeviceScan,
 } from "@/server/devices";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { deviceQueries } from "@/queries";
 
 interface DeviceCardProps {
   device: TransformedDevice;
@@ -90,13 +90,10 @@ export function DeviceCard({ device }: DeviceCardProps) {
   const lastScanAt = device.scanStats?.lastScanAt;
   const hasScanHistory = totalScans > 0;
 
-  // Fetch scan history for chart
-  const { data: scanHistoryData } = useQuery({
-    queryKey: ["device-scan-history", device.name],
-    queryFn: () =>
-      getDeviceScanHistoryData({ data: { target: device.name, limit: 10 } }),
-    enabled: totalScans > 1,
-  });
+  // Fetch scan history for chart using queryOptions
+  const { data: scanHistoryData } = useQuery(
+    deviceQueries.scanHistory(device.name, 10)
+  );
 
   const scanHistory = scanHistoryData?.history || [];
 
