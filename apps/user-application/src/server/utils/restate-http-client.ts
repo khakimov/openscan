@@ -18,6 +18,8 @@ export interface RestateDiscoveryInput {
   tools?: Array<'subfinder' | 'amass' | 'assetfinder'>;
   enablePingSweep?: boolean;
   scanId?: string;
+  callbackUrl?: string;
+  organizationId?: string;
 }
 
 export interface RestateDiscoveryOutput {

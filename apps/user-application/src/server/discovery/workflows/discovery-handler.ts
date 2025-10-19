@@ -2,7 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
-import { sendToRestate } from '../../../utils/restate-client';
+import { getRestateHttpClient } from '../../utils/restate-http-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
 import { getCurrentOrganizationId, getCurrentUser } from '../../utils/auth';
 import {
@@ -91,25 +91,20 @@ export const startDiscoveryWorkflow = createServerFn({
         organizationId,
       });
 
-      // Step 4: Call Discovery workflow's run handler (async)
-      await sendToRestate({
-        service: 'Discovery',
-        key: scanId,
-        method: 'run',
-        data: {
-          targets: [
-            {
-              type: 'DOMAIN',
-              value: target,
-              scope: 'EXTERNAL',
-            },
-          ],
-          tools: ['subfinder'],
-          scanId,
-          callbackUrl,
-          organizationId,
-        },
-        async: true, // Fire and forget - don't wait for completion
+      // Step 4: Call Discovery workflow's run handler (async with auth)
+      const client = getRestateHttpClient();
+      await client.startDiscovery({
+        scanId,
+        targets: [
+          {
+            type: 'DOMAIN',
+            value: target,
+            scope: 'EXTERNAL',
+          },
+        ],
+        tools: ['subfinder'],
+        callbackUrl,
+        organizationId,
       });
 
       return {
