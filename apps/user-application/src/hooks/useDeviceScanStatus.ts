@@ -1,3 +1,4 @@
+import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import { startPortScanWorkflow } from '@/server/discovery/workflows/port-scan/start';
@@ -65,8 +66,12 @@ export function useStartScanMutation(_deviceId: string) {
 /**
  * Hook to check for active scans in database
  * Stops polling automatically when no active scans are found
+ * Invalidates device queries when scan completes
  */
 export function useActiveDeviceScans(deviceId: string) {
+  const queryClient = useQueryClient();
+  const previousActiveScansRef = React.useRef<string[]>([]);
+
   return useQuery({
     queryKey: ['active-device-scans', deviceId],
     queryFn: async () => {
@@ -74,7 +79,23 @@ export function useActiveDeviceScans(deviceId: string) {
       if (!result.success) {
         throw new Error(result.error || 'Failed to get active scans');
       }
-      return result.activeScans;
+
+      const activeScans = result.activeScans || [];
+      const previousActiveScans = previousActiveScansRef.current;
+
+      // Detect scan completion: had active scans before, now has none
+      if (previousActiveScans.length > 0 && activeScans.length === 0) {
+        console.log('🔄 Scan completed - invalidating device queries', { deviceId });
+
+        // Invalidate device queries to refetch with updated port data
+        queryClient.invalidateQueries({ queryKey: ['device-detail', deviceId] });
+        queryClient.invalidateQueries({ queryKey: ['devices'] });
+      }
+
+      // Update ref for next poll
+      previousActiveScansRef.current = activeScans;
+
+      return activeScans;
     },
     staleTime: QUERY_CONFIG.STALE_TIME.SECONDS_30,
     refetchInterval: (query) => {
