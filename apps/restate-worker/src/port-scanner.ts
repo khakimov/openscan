@@ -2,7 +2,7 @@ import * as restate from '@restatedev/restate-sdk';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
-import { postbackScanResults } from './postback';
+import { postUniversalPostback } from './postback';
 import { parseNmapXml } from './xml-parser';
 import { runMasscan } from './scanners/masscan';
 import { runRustscan } from './scanners/rustscan';
@@ -308,12 +308,15 @@ export const portScanner = restate.service({
             deviceId: input.deviceId,
           });
 
-          await postbackScanResults({
+          await postUniversalPostback({
+            type: 'PORT_SCAN',
+            scanId: scanId,
+            organizationId: input.organizationId!,
+            timestamp: new Date().toISOString(),
+            status: 'SUCCESS',
             callbackUrl: input.callbackUrl!,
-            deviceId: input.deviceId!,
-            scanId: scanId, // Restate workflow key (generated or from input)
-            organizationId: input.organizationId, // Pass through from user-application
-            results: {
+            deviceId: input.deviceId,
+            data: {
               target: input.target,
               ports: portsWithServices,
               timing: {
