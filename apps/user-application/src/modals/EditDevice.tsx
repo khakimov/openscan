@@ -21,7 +21,7 @@ import {
   updateDeviceData,
   getDeviceTagSuggestionsData,
 } from "@/server/devices";
-import { DEVICE_DETAIL_QUERY_KEY } from "@/hooks/useDeviceDetailQuery";
+import { deviceQueries } from "@/queries";
 import { Loader2, X, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
 import { useRouter } from "@tanstack/react-router";
@@ -172,8 +172,8 @@ export default function EditDevice({
 
       // Force immediate refetch (ignores staleTime) - devices query has 5min staleTime
       await Promise.all([
-        queryClient.refetchQueries({ queryKey: ["devices"] }),
-        queryClient.invalidateQueries({ queryKey: DEVICE_DETAIL_QUERY_KEY(deviceId) }),
+        queryClient.refetchQueries({ queryKey: deviceQueries.list().queryKey }),
+        queryClient.invalidateQueries({ queryKey: deviceQueries.detail(deviceId).queryKey }),
         queryClient.invalidateQueries({ queryKey: ["deviceTagSuggestions"] }),
       ]);
 
