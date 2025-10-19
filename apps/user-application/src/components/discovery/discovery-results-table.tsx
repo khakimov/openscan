@@ -51,12 +51,12 @@ export function DiscoveryResultsTable({
     }
   };
 
-  const handleToggleHost = (host: string, checked: boolean) => {
+  const handleToggleHost = (host: string) => {
     const newSelected = new Set(selectedHosts);
-    if (checked) {
-      newSelected.add(host);
-    } else {
+    if (newSelected.has(host)) {
       newSelected.delete(host);
+    } else {
+      newSelected.add(host);
     }
     onSelectionChange(newSelected);
   };
@@ -89,15 +89,14 @@ export function DiscoveryResultsTable({
               return (
                 <tr
                   key={index}
-                  className="border-t border-slate-700 hover:bg-slate-700/50"
+                  onClick={() => handleToggleHost(item.host)}
+                  className="border-t border-slate-700 hover:bg-slate-700/50 cursor-pointer select-none transition-colors"
                 >
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
                       id={`result-${index}`}
                       checked={isSelected}
-                      onCheckedChange={(checked) =>
-                        handleToggleHost(item.host, checked === true)
-                      }
+                      onCheckedChange={() => handleToggleHost(item.host)}
                     />
                   </td>
                   <td className="px-4 py-3">

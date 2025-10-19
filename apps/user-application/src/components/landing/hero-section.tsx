@@ -11,8 +11,8 @@ export function HeroSection() {
         </h1>
 
         <p className="mt-8 mb-4 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
-          Know what’s exposed across your servers and web apps - and close them
-          before attackers do.
+          We show you what’s accidentally public on your apps and servers, and
+          how to lock it down - before attackers find and use it.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">

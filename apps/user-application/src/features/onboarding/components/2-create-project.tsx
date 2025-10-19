@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   Select,
   SelectContent,
@@ -16,7 +16,6 @@ import {
   OnboardingDescription,
 } from "@/components/onboarding/onboarding-layout";
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
 import { validateDomain } from "../utils/validators";
 import { useOrganizationLifecycle } from "../hooks/use-organization-lifecycle";
 
@@ -39,6 +38,7 @@ export function OnboardingCreateProject({
   initialValues,
 }: OnboardingCreateProjectProps) {
   const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Organization lifecycle hook
   const {
@@ -86,51 +86,6 @@ export function OnboardingCreateProject({
     return timezoneList[0] ?? "UTC";
   }, [initialValues.timezone, timezoneList]);
 
-  // Optimistic mutation for creating project
-  const createProjectMutation = useMutation({
-    mutationFn: async (formData: {
-      organizationName: string;
-      timezone: string;
-      projectName: string;
-      domain: string;
-    }) => {
-      return setupOrganizationAndProject(formData);
-    },
-    onSuccess: (setupResult, variables) => {
-      if (!setupResult.success || !setupResult.projectId) {
-        throw new Error(
-          setupResult.error || "Failed to set up organization and project",
-        );
-      }
-
-      console.log("[OnboardingCreateProject] Project created:", {
-        projectId: setupResult.projectId,
-        domain: variables.domain,
-      });
-
-      // Navigate to step 3 (discovery) with projectId and domain
-      if (variables.domain) {
-        navigate({
-          to: "/onboarding/$projectId/discovery",
-          params: { projectId: setupResult.projectId },
-          search: { domain: variables.domain },
-        });
-      } else {
-        // Skip discovery, go directly to step 4 (connect)
-        navigate({
-          to: "/onboarding/$projectId/connect",
-          params: { projectId: setupResult.projectId },
-        });
-      }
-    },
-    onError: (err) => {
-      const errorMessage =
-        err instanceof Error ? err.message : "Something went wrong";
-      console.error("[OnboardingCreateProject] Error:", err);
-      setError(errorMessage);
-    },
-  });
-
   const form = useForm({
     defaultValues: {
       organizationName: initialValues.organizationName ?? "",
@@ -140,8 +95,44 @@ export function OnboardingCreateProject({
     },
     onSubmit: async ({ value }) => {
       setError(null);
-      // Optimistic update: mutation.isPending becomes true immediately
-      createProjectMutation.mutate(value);
+      setIsSubmitting(true);
+
+      try {
+        const setupResult = await setupOrganizationAndProject(value);
+
+        if (!setupResult.success || !setupResult.projectId) {
+          throw new Error(
+            setupResult.error || "Failed to set up organization and project",
+          );
+        }
+
+        console.log("[OnboardingCreateProject] Project created:", {
+          projectId: setupResult.projectId,
+          domain: value.domain,
+        });
+
+        // Navigate to step 3 (discovery) with projectId and domain
+        if (value.domain) {
+          navigate({
+            to: "/onboarding/$projectId/discovery",
+            params: { projectId: setupResult.projectId },
+            search: { domain: value.domain },
+          });
+        } else {
+          // Skip discovery, go directly to step 4 (connect)
+          navigate({
+            to: "/onboarding/$projectId/connect",
+            params: { projectId: setupResult.projectId },
+          });
+        }
+      } catch (err) {
+        const errorMessage =
+          err instanceof Error ? err.message : "Something went wrong";
+        console.error("[OnboardingCreateProject] Error:", err);
+        setError(errorMessage);
+      } finally {
+        setIsSubmitting(false);
+      }
     },
   });
 
@@ -308,13 +299,13 @@ export function OnboardingCreateProject({
             type="button"
             variant="outline"
             onClick={() => navigate({ to: "/onboarding" })}
-            disabled={createProjectMutation.isPending}
+            disabled={isSubmitting}
           >
             Back
           </Button>
-          <Button type="submit" disabled={createProjectMutation.isPending}>
-            {createProjectMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {createProjectMutation.isPending ? "Creating..." : "Continue"}
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isSubmitting ? "Creating..." : "Continue"}
           </Button>
         </div>
       </form>
