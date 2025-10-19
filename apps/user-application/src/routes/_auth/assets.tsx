@@ -8,7 +8,7 @@ import { Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PlusIcon } from "lucide-react";
 import { pushModal } from "@/modals";
-import { deviceQueries } from "@/queries";
+import { deviceQueries } from "@/queries/device-queries";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useSuspenseQuery } from "@tanstack/react-query";

@@ -2,7 +2,7 @@ import { TableSkeleton } from "@/components/ui/table";
 import { FullPageEmptyState } from "@/components/shared/full-page-empty-state";
 import { GanttChartIcon, Loader2Icon } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-import { scanQueries } from "@/queries";
+import { scanQueries } from "@/queries/scan-queries";
 
 import { ScansDataTable } from "./scans-data-table";
 import { useColumns } from "./columns";

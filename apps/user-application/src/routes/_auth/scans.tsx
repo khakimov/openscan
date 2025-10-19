@@ -4,7 +4,7 @@ import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
 import { ScansTable } from "@/features/scans";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { scanQueries } from "@/queries";
+import { scanQueries } from "@/queries/scan-queries";
 
 // Search params schema with proper validation
 const scansSearchSchema = z.object({

@@ -4,15 +4,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { startDiscoveryWorkflow } from "@/server/discovery";
-import { createDevicesFromDiscovery } from "@/server/devices";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
 import { DiscoveryLoading } from "@/components/shared/discovery-loading";
-import { discoveryQueries, deviceQueries, scanQueries } from "@/queries";
+import {
+  discoveryQueries,
+  useStartDiscoveryMutation,
+} from "@/queries/discovery-queries";
+import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
 import { DiscoveryResultsTable } from "@/components/discovery/discovery-results-table";
 import type { DiscoveryResultItem } from "@/components/discovery/discovery-results-table";
 
@@ -36,78 +36,13 @@ export default function AddDiscovery({
     new Set(),
   );
 
-  const router = useRouter();
   const queryClient = useQueryClient();
 
-  // Mutation for adding discovered targets as devices
-  const addDevicesMutation = useMutation({
-    mutationFn: async () => {
-      const selectedTargets = Array.from(selectedResults);
-      console.log('addDevicesMutation called with selected targets:', selectedTargets);
+  // Mutation for adding discovered targets as devices (using centralized hook)
+  const addDevicesMutation = useCreateDevicesFromDiscoveryMutation();
 
-      if (selectedTargets.length === 0) {
-        console.error('No targets selected for device creation');
-        throw new Error("Please select at least one target");
-      }
-
-      // Extract hostname and IP data from normalized discovery items
-      const targetsData = selectedTargets.map(host => {
-        const item = discoveryItems.find((item) => item.host === host);
-        const targetData = {
-          host,
-          ip: item?.ip // Include IP if resolved during discovery
-        };
-        console.log('Processing target:', { host, foundItem: !!item, ip: item?.ip });
-        return targetData;
-      });
-
-      console.log('Final targets data for creation:', targetsData);
-      console.log('Calling createDevicesFromDiscovery with data:', { targets: targetsData });
-
-      return createDevicesFromDiscovery({ data: { targets: targetsData } });
-    },
-    onSuccess: async (response) => {
-      toast.success("Devices created successfully", {
-        description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
-      });
-
-      // Refresh all device list queries (matches any verificationStatus)
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
-      await router.invalidate();
-
-      popModal("AddDiscovery");
-    },
-    onError: (error: any) => {
-      toast.error("Failed to create devices", {
-        description: error.message || "Please try again",
-      });
-    },
-  });
-
-  // Mutation for starting discovery workflow
-  const startDiscoveryMutation = useMutation({
-    mutationFn: async (target: string) => {
-      return startDiscoveryWorkflow({ data: { target } });
-    },
-    onSuccess: (result) => {
-      if (result.success) {
-        // Invalidate scans query in case discovery triggers scans
-        queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey });
-
-        setError(null);
-        setScanId(result.scanId);
-        toast.success(`Discovery started for ${target}`, {
-          description: "You will be notified when results are ready",
-        });
-        onConfirm?.(target);
-      } else {
-        setError(result.error || "Failed to start discovery");
-      }
-    },
-    onError: (error: any) => {
-      setError(error.message || "Failed to start discovery");
-    },
-  });
+  // Mutation for starting discovery workflow (using centralized hook)
+  const startDiscoveryMutation = useStartDiscoveryMutation();
 
   // Database polling for workflow status (postback updates database)
   const { data: workflowStatus } = useQuery(
@@ -198,11 +133,69 @@ export default function AddDiscovery({
     }
 
     setError(null);
-    startDiscoveryMutation.mutate(trimmedTarget);
+    startDiscoveryMutation.mutate(
+      { target: trimmedTarget },
+      {
+        onSuccess: (result) => {
+          if (result.success) {
+            setError(null);
+            setScanId(result.scanId);
+            toast.success(`Discovery started for ${trimmedTarget}`, {
+              description: "You will be notified when results are ready",
+            });
+            onConfirm?.(trimmedTarget);
+          } else {
+            setError(result.error || "Failed to start discovery");
+          }
+        },
+        onError: (error: any) => {
+          setError(error instanceof Error ? error.message : "Failed to start discovery");
+        },
+      }
+    );
   };
 
   const handleCancel = () => {
     popModal("AddDiscovery");
+  };
+
+  const handleAddDevices = () => {
+    const selectedTargets = Array.from(selectedResults);
+
+    if (selectedTargets.length === 0) {
+      toast.error("Please select at least one target");
+      return;
+    }
+
+    // Extract hostname and IP data from normalized discovery items
+    const targetsData = selectedTargets.map(host => {
+      const item = discoveryItems.find((item) => item.host === host);
+      return {
+        host,
+        ip: item?.ip // Include IP if resolved during discovery
+      };
+    });
+
+    addDevicesMutation.mutate(
+      { targets: targetsData },
+      {
+        onSuccess: async (response) => {
+          // Wait for device list to refetch before closing modal
+          // This ensures user sees devices immediately when modal closes
+          await queryClient.refetchQueries({ queryKey: ['devices'] });
+
+          toast.success("Devices created successfully", {
+            description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
+          });
+          popModal("AddDiscovery");
+        },
+        onError: (error: any) => {
+          toast.error("Failed to create devices", {
+            description: error instanceof Error ? error.message : "Please try again",
+          });
+        },
+      }
+    );
   };
 
   return (
@@ -281,7 +274,7 @@ export default function AddDiscovery({
           {isCompleted && results ? (
             <Button
               type="button"
-              onClick={() => addDevicesMutation.mutate()}
+              onClick={handleAddDevices}
               disabled={
                 addDevicesMutation.isPending ||
                 selectedResults.size === 0

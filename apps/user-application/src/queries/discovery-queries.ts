@@ -1,9 +1,11 @@
-import { queryOptions } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getScanWorkflowStatusDB,
   getScanWorkflowResultsDB,
+  startDiscoveryWorkflow,
 } from '@/server/discovery';
+import { scanQueries } from './scan-queries';
 
 export const discoveryQueries = {
   // Workflow status (polls database for postback updates)
@@ -32,4 +34,30 @@ export const discoveryQueries = {
       enabled, // Only fetch when workflow is completed
       staleTime: Infinity, // Results don't change once fetched
     }),
+};
+
+/**
+ * Discovery mutation hooks (following TanStack Router best practice)
+ *
+ * Benefits:
+ * - Centralized invalidation logic
+ * - Reusable across components
+ * - Type-safe
+ * - Follows official TanStack pattern from kitchen-sink-react-query example
+ *
+ * Usage in components:
+ * const startDiscoveryMutation = useStartDiscoveryMutation();
+ * startDiscoveryMutation.mutate({ target: 'example.com' });
+ */
+
+export const useStartDiscoveryMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['discovery', 'start'],
+    mutationFn: (data: { target: string }) => startDiscoveryWorkflow({ data }),
+    onSuccess: () => {
+      // Invalidate scans query in case discovery triggers scans
+      queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey });
+    },
+  });
 };

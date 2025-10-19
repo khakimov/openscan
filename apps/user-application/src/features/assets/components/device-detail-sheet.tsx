@@ -16,7 +16,7 @@ import { pushModal } from "@/modals";
 import { Pencil, Trash2, Scan } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { deviceQueries } from "@/queries";
+import { deviceQueries } from "@/queries/device-queries";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
@@ -66,7 +66,7 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
         </div>
       </SheetTrigger>
       <SheetContent
-        className="w-[95vw] max-w-[1200px] min-w-[800px]"
+        className="w-full sm:w-[90vw] sm:min-w-[640px] lg:w-[80vw] lg:min-w-[800px] max-w-[1200px]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <SheetHeader className="mb-6">

@@ -1,12 +1,19 @@
-import { queryOptions } from '@tanstack/react-query';
+import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getDeviceDetailData,
   getDevicesData,
   getDeviceScanHistoryData,
   getDeviceVulnerabilitiesData,
+  deleteDevice,
+  updateDeviceData,
+  verifyDevice,
+  toggleDeviceVerification,
+  createDevicesFromDiscovery,
+  startDeviceScan,
 } from '@/server/devices';
 import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
+import { createOptimisticDeleteHandlers } from '@/lib/optimistic-updates';
 
 /**
  * Centralized device query definitions using queryOptions()
@@ -150,4 +157,127 @@ export const deviceQueries = {
       },
       refetchIntervalInBackground: false,
     }),
+};
+
+/**
+ * Device mutation hooks (following TanStack Router best practice)
+ *
+ * Benefits:
+ * - Centralized invalidation logic
+ * - Reusable across components
+ * - Type-safe
+ * - Follows official TanStack pattern from kitchen-sink-react-query example
+ *
+ * Usage in components:
+ * const deleteMutation = useDeleteDeviceMutation();
+ * deleteMutation.mutate({ deviceId: '123' });
+ */
+
+export const useDeleteDeviceMutation = () => {
+  const queryClient = useQueryClient();
+
+  // Optimistic delete: Update UI immediately, rollback on error
+  const optimistic = createOptimisticDeleteHandlers([
+    ['devices'], // Update all device list queries
+  ]);
+
+  return useMutation({
+    mutationKey: ['devices', 'delete'],
+    mutationFn: (data: { deviceId: string }) => deleteDevice({ data }),
+    onMutate: (variables) => optimistic.onMutate(variables, queryClient),
+    onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
+    onSettled: () => optimistic.onSettled(queryClient),
+  });
+};
+
+export const useUpdateDeviceMutation = (deviceId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['devices', 'update', deviceId],
+    mutationFn: (data: {
+      deviceId: string;
+      updates: {
+        name?: string;
+        ip?: string;
+        state?: string;
+        scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
+        source?: string;
+        isScanned?: boolean;
+        respondsToPing?: boolean;
+        tags?: string[];
+        notes?: string;
+      };
+    }) => updateDeviceData({ data }),
+    onSuccess: () => {
+      // Invalidate all device queries
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.detail(deviceId).queryKey });
+      queryClient.invalidateQueries({ queryKey: ['deviceTagSuggestions'] });
+    },
+  });
+};
+
+export const useVerifyDeviceMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['devices', 'verify'],
+    mutationFn: (data: {
+      deviceId: string;
+      status: 'VERIFIED' | 'EXCLUDED' | 'CANDIDATE';
+      note?: string;
+    }) => verifyDevice({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+  });
+};
+
+export const useToggleDeviceVerificationMutation = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['devices', 'toggle-verification'],
+    mutationFn: (data: {
+      deviceId: string;
+      verify: boolean;
+      interval?: string;
+    }) => toggleDeviceVerification({ data }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+  });
+};
+
+export const useStartDeviceScanMutation = (deviceId: string) => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationKey: ['devices', 'scan', deviceId],
+    mutationFn: (data: { deviceId: string; target: string; preset: string }) =>
+      startDeviceScan({ data }),
+    onSuccess: () => {
+      // Invalidate active scans to trigger re-poll
+      queryClient.invalidateQueries({ queryKey: deviceQueries.activeScans(deviceId).queryKey });
+    },
+  });
+};
+
+export const useCreateDevicesFromDiscoveryMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationKey: ['devices', 'create-from-discovery'],
+    mutationFn: (data: {
+      targets: Array<{ host: string; ip?: string }>;
+      organizationId?: string;
+      projectId?: string;
+      options?: {
+        source?: string;
+        scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
+        verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
+      };
+    }) => createDevicesFromDiscovery({ data }),
+    onSuccess: () => {
+      // Invalidate all device list queries after server confirms creation
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    },
+  });
 };
