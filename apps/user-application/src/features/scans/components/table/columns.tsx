@@ -22,12 +22,6 @@ function formatDate(value?: Date | string | null) {
   return format(date, "MMM d, yyyy HH:mm");
 }
 
-function getPortScanArtifact(scan: Scan) {
-  return scan.artifacts?.find(
-    (artifact) => artifact.artifactType === "port_scan",
-  )?.data;
-}
-
 type BadgeVariant = "default" | "destructive" | "outline" | "secondary";
 
 function getStatusDisplay(scan: Scan): {
@@ -143,26 +137,18 @@ export function useColumns(): ColumnDef<Scan>[] {
         ),
         size: 200,
         cell: ({ row }) => {
-          const artifactData = getPortScanArtifact(row.original);
           const scan = row.original;
-
-          // Try to get target from multiple sources
-          const target =
-            scan.target || // Primary target from scan run
-            artifactData?.scanContext?.target ||
-            artifactData?.deviceInfo?.ipAddress ||
-            "—";
-          const scope = scan.scope;
+          const target = scan.target || scan.resultSummary?.target || "—";
 
           return (
             <div className="flex flex-col">
               <span className="font-mono text-sm font-medium">{target}</span>
               <div className="flex items-center gap-2">
                 <Badge variant="outline" className="text-xs">
-                  {scope}
+                  {scan.scope}
                 </Badge>
                 <span className="text-xs text-muted-foreground uppercase tracking-wide">
-                  {row.original.scanType}
+                  {scan.scanType}
                 </span>
               </div>
             </div>
@@ -179,13 +165,10 @@ export function useColumns(): ColumnDef<Scan>[] {
         ),
         size: 180,
         cell: ({ row }) => {
-          const artifactData = getPortScanArtifact(row.original);
-          const ports = artifactData?.ports || [];
-          const statistics = artifactData?.statistics;
           const scan = row.original;
+          const ports = scan.resultSummary?.ports || [];
 
           if (ports.length === 0) {
-            // Show different messages based on scan status
             if (scan.status === "RUNNING" || scan.status === "PENDING") {
               return (
                 <div className="flex items-center gap-1 text-muted-foreground">
@@ -201,7 +184,6 @@ export function useColumns(): ColumnDef<Scan>[] {
           }
 
           const openPorts = ports.filter((p) => p.state === "open").length;
-          const totalPorts = statistics?.totalPorts || ports.length;
 
           return (
             <div className="flex flex-col gap-1">
@@ -210,7 +192,7 @@ export function useColumns(): ColumnDef<Scan>[] {
                   {openPorts}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  / {totalPorts} total
+                  / {ports.length} total
                 </span>
               </div>
               <div className="flex flex-wrap gap-1">
@@ -243,12 +225,10 @@ export function useColumns(): ColumnDef<Scan>[] {
         ),
         size: 200,
         cell: ({ row }) => {
-          const artifactData = getPortScanArtifact(row.original);
-          const osInfo = artifactData?.osInfo;
           const scan = row.original;
+          const osInfo = scan.resultSummary?.osInfo;
 
-          if (!osInfo?.matches || osInfo.matches.length === 0) {
-            // Show different messages based on scan status
+          if (!osInfo?.name) {
             if (scan.status === "RUNNING" || scan.status === "PENDING") {
               return (
                 <div className="flex items-center gap-1 text-muted-foreground">
@@ -262,24 +242,20 @@ export function useColumns(): ColumnDef<Scan>[] {
             );
           }
 
-          const topMatch = osInfo.matches[0];
-          const totalMatches = osInfo.matches.length;
-
           return (
             <div className="flex flex-col gap-1">
               <div className="flex items-center gap-2">
-                <span className="font-medium text-sm">{topMatch.family}</span>
-                <Badge variant="outline" className="text-xs">
-                  {topMatch.accuracy}%
-                </Badge>
+                <span className="font-medium text-sm">{osInfo.name}</span>
+                {osInfo.accuracy && (
+                  <Badge variant="outline" className="text-xs">
+                    {osInfo.accuracy}%
+                  </Badge>
+                )}
               </div>
-              <div className="text-xs text-muted-foreground">
-                {topMatch.name}
-              </div>
-              {totalMatches > 1 && (
-                <span className="text-xs text-muted-foreground">
-                  +{totalMatches - 1} more matches
-                </span>
+              {osInfo.version && (
+                <div className="text-xs text-muted-foreground">
+                  {osInfo.version}
+                </div>
               )}
             </div>
           );
@@ -297,19 +273,11 @@ export function useColumns(): ColumnDef<Scan>[] {
         cell: ({ row }) => {
           const completedAt =
             row.original.completedAt || row.original.startedAt;
-          const scanCount = row.original.scanCount ?? 1;
 
           return (
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="font-mono text-sm font-semibold">
-                  {formatDate(completedAt)}
-                </span>
-                <Badge variant="outline" className="text-[10px]">
-                  {scanCount} {scanCount === 1 ? "scan" : "scans"}
-                </Badge>
-              </div>
-            </div>
+            <span className="font-mono text-sm font-semibold">
+              {formatDate(completedAt)}
+            </span>
           );
         },
       },

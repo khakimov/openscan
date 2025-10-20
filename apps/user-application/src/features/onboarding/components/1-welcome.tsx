@@ -6,7 +6,7 @@ import { OrDivider } from "@/components/ui/or-divider";
 import { GoogleOAuthButton } from "@/features/auth/components/google-oauth-button";
 import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
 import { useState } from "react";
-import { LogOut, CheckCircle, AlertCircle } from "lucide-react";
+import { CheckCircle, AlertCircle } from "lucide-react";
 import type { OnboardingStatus } from "@/server/types/onboarding";
 import { authClient } from "@/lib/auth-client";
 

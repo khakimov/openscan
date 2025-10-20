@@ -279,7 +279,9 @@ describe('Universal Postback Router', () => {
               port: 80,
               protocol: 'tcp',
               state: 'open',
-              service: 'http',
+              service: {
+                name: 'http',
+              },
             },
           ],
         },

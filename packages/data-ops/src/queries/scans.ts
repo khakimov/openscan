@@ -4,17 +4,17 @@ import { scanRuns, scanWorkflows, scanRunDevices } from '../schema/orchestration
 import type { ScanRun, ScanWorkflow, ScanScope } from '../types';
 
 /**
- * Get all scan runs for an organization
- * Simplified version without artifacts until findings schema is migrated
+ * Get all scan runs for an organization with workflow information
  */
 export async function getScanRunsWithArtifacts(
   organizationId: string
-): Promise<Array<ScanRun & { artifacts: any[] }>> {
+): Promise<Array<ScanRun & { scanId: string }>> {
   const db = getDb();
 
-  const runs = await db
+  const results = await db
     .select()
     .from(scanRuns)
+    .innerJoin(scanWorkflows, eq(scanRuns.scanWorkflowId, scanWorkflows.id))
     .where(eq(scanRuns.organizationId, organizationId))
     .orderBy(
       desc(scanRuns.completedAt),
@@ -22,11 +22,9 @@ export async function getScanRunsWithArtifacts(
       desc(scanRuns.requestedAt)
     );
 
-  // Return with empty artifacts array for now
-  // TODO: Add artifacts when findings schema is migrated
-  return runs.map((run: any) => ({
-    ...run,
-    artifacts: [],
+  return results.map((result: any) => ({
+    ...result.scan_runs,
+    scanId: result.scan_workflows.scanId, // Add Restate workflow key
   }));
 }
 

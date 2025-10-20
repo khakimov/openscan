@@ -54,7 +54,14 @@ export interface PortScanPostback extends BasePostback {
       port: number;
       protocol: 'tcp' | 'udp';
       state: 'open' | 'closed' | 'filtered';
-      service?: string;
+      service?: {
+        name?: string;
+        product?: string | null;
+        version?: string | null;
+        extraInfo?: string | null;
+        method?: string;
+        confidence?: number;
+      };
       version?: string;
     }>;
 

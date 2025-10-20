@@ -7,124 +7,52 @@ import { scanQueries } from "@/queries/scan-queries";
 import { ScansDataTable } from "./scans-data-table";
 import { useColumns } from "./columns";
 
-// Enhanced types based on our actual orchestration data
-type ScanArtifact = {
-  id: string;
-  runId: string;
-  organizationId: string;
-  artifactType: string;
-  data: {
-    // Port scan results
-    ports?: Array<{
-      port: number;
-      protocol: string;
-      state: string;
-      service?: {
-        name?: string;
-        product?: string;
-        version?: string;
-        extraInfo?: string;
-      };
-      lastSeen?: number;
-    }>;
-
-    // OS Detection results
-    osInfo?: {
-      matches: Array<{
-        name: string;
-        type: string;
-        family: string;
-        vendor: string;
-        accuracy: number;
-        generation: string;
-      }>;
-      fingerprints?: any[];
+// Port scan result summary stored in scanRuns.resultSummary
+export type PortScanResult = {
+  target: string;
+  openPortCount: number;
+  ports: Array<{
+    port: number;
+    protocol: string;
+    state: string;
+    service?: {
+      name?: string;
+      product?: string | null;
+      version?: string | null;
+      extraInfo?: string | null;
+      method?: string;
+      confidence?: number;
     };
-
-    // Enhanced timing and statistics from runStats
-    runStats?: {
-      finished: {
-        time: number;
-        timeStr: string;
-        summary: string;
-        elapsed: number;
-        exit: string;
-      };
-      hosts: {
-        up: number;
-        down: number;
-        total: number;
-      };
-    };
-
-    // Quality metrics
-    quality?: {
-      hasRetries: boolean;
-      isRealTime: boolean;
-      hasTimeouts: boolean;
-      scanReliability: number;
-      dataCompleteness: number;
-      hasFilteredPorts: boolean;
-    };
-
-    // Statistics breakdown
-    statistics?: {
-      tcpPorts: number;
-      udpPorts: number;
-      openPorts: number;
-      totalPorts: number;
-      closedPorts: number;
-      filteredPorts: number;
-      servicesIdentified: number;
-      servicesWithVersion: number;
-    };
-
-    // Device information
-    deviceInfo?: {
-      scope: string;
-      hostnames: string[];
-      ipAddress: string;
-      isNewDevice: boolean;
-    };
-
-    // Scan context for traceability
-    scanContext?: {
-      target: string;
-      scanId: string; // Restate workflow key
-      userId: string;
-      tenantId: string;
-      scanRunId: string;
-      scanWorkflowId: string; // Database FK to scanWorkflows.id (CUID)
-      authScanType: string;
-      isExtendScan: boolean;
-    };
-
-    // Scan metadata
-    scanMetadata?: {
-      command: string;
-      endTime: number;
-      scanner: string;
-      version: string;
-      duration: number;
-      startTime: number;
-    };
-
-    // Additional fields for extensibility
-    [key: string]: unknown;
+  }>;
+  osInfo?: {
+    name?: string;
+    version?: string;
+    accuracy?: number;
+    cpe?: string[];
   };
-  metadata?: Record<string, unknown> | null;
-  storageUrl?: string | null;
-  checksum?: string | null;
-  createdAt: Date;
+  timing?: {
+    start?: number;
+    end?: number;
+    elapsed?: number;
+  };
+  scanMetadata?: {
+    scanner?: string;
+    version?: string;
+    arguments?: string;
+    duration?: number;
+    resolvedTarget?: string;
+  };
+  completedAt: string;
 };
 
 export type Scan = {
-  id: string; // Database CUID (scanWorkflows.id)
+  id: string; // Database CUID (scanRuns.id)
   scanId: string; // Restate workflow key (scanWorkflows.scanId)
+  scanWorkflowId: string; // Database CUID (scanWorkflows.id)
   organizationId: string;
   scope: "INTERNAL" | "EXTERNAL" | "HYBRID";
   scanType: "DISCOVERY" | "PORT" | "WEB" | "ADVANCED";
-  target?: string | null; // Primary target being scanned
+  target?: string | null;
   status:
     | "PENDING"
     | "RUNNING"
@@ -137,9 +65,7 @@ export type Scan = {
   requestedAt: Date;
   startedAt?: Date | null;
   completedAt?: Date | null;
-  resultSummary?: Record<string, unknown> | null;
-  artifacts: ScanArtifact[];
-  scanCount?: number;
+  resultSummary?: PortScanResult | null; // Actual scan results
 };
 
 interface ScansTableProps {}
