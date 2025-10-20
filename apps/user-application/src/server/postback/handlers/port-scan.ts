@@ -40,13 +40,14 @@ const PortScanPostbackSchema = z.object({
         port: z.number(),
         protocol: z.enum(['tcp', 'udp']),
         state: z.enum(['open', 'closed', 'filtered']),
-        service: z.union([z.string(), z.object({ name: z.string().optional() }).passthrough()]).optional().transform((val) => {
-          // Normalize service to string: if object, use name property; if string, use as-is
-          if (typeof val === 'object' && val !== null) {
-            return (val as any).name || undefined;
-          }
-          return val;
-        }),
+        service: z.object({
+          name: z.string().optional(),
+          product: z.string().optional().nullable(),
+          version: z.string().optional().nullable(),
+          extraInfo: z.string().optional().nullable(),
+          method: z.string().optional(),
+          confidence: z.number().optional(),
+        }).passthrough().optional(), // Keep all service fields from Restate worker
         version: z.string().optional(),
       }).passthrough() // Allow extra fields like discoveredBy, firstSeen, lastSeen
     ),
