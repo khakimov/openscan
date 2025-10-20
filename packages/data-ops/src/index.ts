@@ -40,3 +40,29 @@ export * from './queries/projects';
 
 // Explicitly re-export getDeviceByIdGlobal (internal use only)
 export { getDeviceByIdGlobal } from './queries/devices';
+
+// Export CVE enrichment types
+export type {
+  CVESeverity,
+  CVEDetail,
+  OSVulnerabilities,
+  ApplicationVulnerabilities,
+  CVESummary,
+  CVEEnrichment,
+  PortScanService,
+  PortScanPort,
+  PortScanOSInfo,
+  PortScanTiming,
+  PortScanMetadata,
+  EnrichedScanResultSummary,
+  CVEEnrichmentSizeGuards,
+} from './types/cve-enrichment';
+
+export {
+  DEFAULT_SIZE_GUARDS,
+  calculateSeverity,
+  truncateDescription,
+  calculateEnrichmentSize,
+  applySizeGuards,
+  validateEnrichmentSize,
+} from './types/cve-enrichment';

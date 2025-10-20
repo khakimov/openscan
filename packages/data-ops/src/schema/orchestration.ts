@@ -4,6 +4,7 @@ import { cuidText, now } from './utils';
 import { organization } from './identity';
 import { auth_user } from '../drizzle/auth-schema';
 import { devices } from './inventory';
+import type { EnrichedScanResultSummary } from '../types/cve-enrichment';
 
 export const scanWorkflows = sqliteTable('scan_workflows', {
   id: cuidText().primaryKey(),
@@ -33,7 +34,7 @@ export const scanRuns = sqliteTable('scan_runs', {
   startedAt: integer('started_at', { mode: 'timestamp_ms' }),
   completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
   status: text('status').notNull().default('PENDING'), // 'PENDING', 'RUNNING', 'PARTIAL', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
-  resultSummary: text('result_summary', { mode: 'json' }).$type<Record<string, any>>(),
+  resultSummary: text('result_summary', { mode: 'json' }).$type<EnrichedScanResultSummary | null>(),
 }, (t) => ({
   orgStatusIdx: index('scan_runs_org_status_idx').on(t.organizationId, t.status),
   scanWorkflowIdx: index('scan_runs_scan_workflow_idx').on(t.scanWorkflowId),
