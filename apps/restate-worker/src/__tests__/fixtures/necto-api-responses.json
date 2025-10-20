@@ -1,0 +1,58 @@
+{
+  "portScanRealData": {
+    "description": "Real port scan data from remote database (grpc.necto.sec.rocks)",
+    "data": {
+      "target": "grpc.necto.sec.rocks",
+      "openPortCount": 5,
+      "ports": [
+        {
+          "port": 22,
+          "protocol": "tcp",
+          "state": "open",
+          "service": {
+            "name": "ssh",
+            "product": "OpenSSH",
+            "version": "9.6p1 Ubuntu 3ubuntu13.11",
+            "extraInfo": "Ubuntu Linux; protocol 2.0",
+            "method": "probed",
+            "confidence": 10
+          }
+        },
+        {
+          "port": 80,
+          "protocol": "tcp",
+          "state": "open",
+          "service": {
+            "name": "http",
+            "product": "nginx",
+            "version": "1.28.0",
+            "method": "probed",
+            "confidence": 10
+          }
+        },
+        {
+          "port": 443,
+          "protocol": "tcp",
+          "state": "open",
+          "service": {
+            "name": "https",
+            "product": "nginx",
+            "version": "1.28.0",
+            "method": "probed",
+            "confidence": 10
+          }
+        }
+      ],
+      "osInfo": {
+        "name": "Ubuntu",
+        "version": "24.04",
+        "accuracy": 95
+      },
+      "timing": {
+        "start": 1760945735541,
+        "end": 1760945823963,
+        "elapsed": 88422
+      }
+    }
+  }
+}
