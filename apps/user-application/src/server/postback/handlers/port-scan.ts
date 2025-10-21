@@ -17,11 +17,41 @@ import {
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
+import type { CVEEnrichment } from '@repo/data-ops';
 import {
   AnalyticsEventTypes,
   buildSuccessAnalytics,
   buildFailureAnalytics,
 } from '../analytics';
+import {
+  createNectoAPIClient,
+  type NectoAPIClient,
+} from '@/server/discovery/services/necto-api-client';
+
+/**
+ * Necto API client singleton
+ * Reused across postback requests for efficiency
+ */
+let nectoClientInstance: NectoAPIClient | null = null;
+
+function getNectoAPIClient(): NectoAPIClient {
+  if (!nectoClientInstance) {
+    nectoClientInstance = createNectoAPIClient({
+      baseUrl: process.env.NECTO_API_URL || 'http://127.0.0.1:5020',
+      timeout: 30000,
+      retries: 2, // Lower retries in postback to avoid blocking too long
+    });
+  }
+  return nectoClientInstance;
+}
+
+/**
+ * Reset Necto client singleton (for testing)
+ * @internal
+ */
+export function resetNectoClientForTesting(): void {
+  nectoClientInstance = null;
+}
 
 /**
  * Zod schema for port scan postback validation
@@ -221,7 +251,55 @@ export class PortScanPostbackHandler
     const portCount = data.ports?.length || 0;
     const timestamp = new Date().toISOString();
 
-    // Step 3: Store results in scan run with port details
+    // Step 3: CVE Enrichment (synchronous, always-on)
+    let cveEnrichment: CVEEnrichment | undefined;
+
+    // Only enrich if we have data to enrich (open ports OR OS detected)
+    const hasOpenPorts = data.ports?.some((p) => p.state === 'open') ?? false;
+    const hasOSInfo = !!data.osInfo?.name;
+
+    if (hasOpenPorts || hasOSInfo) {
+      try {
+        ctx.logger.info('Starting CVE enrichment', {
+          scanId,
+          hasOpenPorts,
+          hasOSInfo,
+          portCount: data.ports?.length ?? 0,
+        });
+
+        const nectoClient = getNectoAPIClient();
+        cveEnrichment = await nectoClient.enrichScanResults(
+          data.ports ?? [],
+          data.osInfo
+        );
+
+        ctx.logger.info('CVE enrichment completed', {
+          scanId,
+          totalCves: cveEnrichment.summary.totalCves,
+          criticalCount: cveEnrichment.summary.totalCritical,
+          highCount: cveEnrichment.summary.totalHigh,
+        });
+      } catch (error) {
+        // Don't fail scan if enrichment fails
+        ctx.logger.error(
+          'CVE enrichment failed, continuing without enrichment',
+          {
+            scanId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            errorStack: error instanceof Error ? error.stack : undefined,
+          }
+        );
+        // cveEnrichment remains undefined
+      }
+    } else {
+      ctx.logger.info('Skipping CVE enrichment - no open ports or OS detected', {
+        scanId,
+        hasOpenPorts,
+        hasOSInfo,
+      });
+    }
+
+    // Step 4: Store results in scan run with port details and CVE enrichment
     const resultSummary = {
       target: data.target,
       openPortCount: portCount,
@@ -230,6 +308,7 @@ export class PortScanPostbackHandler
       scanMetadata: data.scanMetadata,
       osInfo: data.osInfo,
       completedAt: timestamp,
+      cveEnrichment, // Add enrichment data (undefined if failed/skipped)
     };
 
     ctx.logger.info('Storing result summary', {
@@ -237,6 +316,7 @@ export class PortScanPostbackHandler
       resultSummaryKeys: Object.keys(resultSummary),
       portCount,
       portsLength: data.ports?.length,
+      hasCveEnrichment: !!cveEnrichment,
     });
 
     await updateScanRunStatus(scanRun.id, 'SUCCEEDED', resultSummary);
@@ -267,15 +347,29 @@ export class PortScanPostbackHandler
       portCount,
     });
 
-    return {
-      success: true,
-      message: 'Port scan results stored successfully',
-      analytics: buildSuccessAnalytics(AnalyticsEventTypes.PORTSCAN_SUCCESS, {
+    // Build analytics with CVE count
+    const analytics = buildSuccessAnalytics(
+      AnalyticsEventTypes.PORTSCAN_SUCCESS,
+      {
         scanId,
         entityId: deviceId,
         organizationId,
         resultCount: portCount,
-      }),
+      }
+    );
+
+    // Add CVE count as additional metric (doubles[1])
+    if (cveEnrichment) {
+      analytics.doubles = [
+        ...(analytics.doubles || []),
+        cveEnrichment.summary.totalCves,
+      ];
+    }
+
+    return {
+      success: true,
+      message: 'Port scan results stored successfully',
+      analytics,
     };
   }
 

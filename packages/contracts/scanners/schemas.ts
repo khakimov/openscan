@@ -38,7 +38,7 @@ export const ScanTargetSchema = z.object({
   scope: ScanScopeEnum.optional(),
   id: z.string().optional(),
   label: z.string().optional(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 /**

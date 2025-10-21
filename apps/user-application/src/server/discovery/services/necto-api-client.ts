@@ -16,87 +16,99 @@ import type {
 } from '@repo/data-ops';
 
 /**
- * Necto API request payload
+ * Necto API vulnerability mapping request payload
  */
-export interface NectoAPIRequest {
-  /** Operating system information from port scan */
+export interface NectoVulnMappingRequest {
+  /** Operating system information */
   os?: {
-    name?: string;
-    version?: string;
-    cpe?: string[];
+    id: number;
+    product_type: 'os';
+    product_name: string;
+    product_version: string;
+    extra: Record<string, unknown>;
   };
-  /** List of detected services with ports */
-  services?: Array<{
-    name?: string;
-    product?: string;
-    version?: string;
-    port: number;
+  /** List of detected applications/services */
+  applications?: Array<{
+    id: number;
+    product_type: 'application';
+    product_name: string;
+    product_version: string;
+    extra: Record<string, unknown>;
   }>;
 }
 
 /**
- * Necto API CVE response structure
+ * Necto vulnerability mapping response (Step 1: Get CVE IDs)
  */
-interface NectoAPICVE {
-  cve_id: string;
-  cvss_score: number;
-  published_date: string;
-  last_modified_date?: string;
-  description?: string;
-  cpe23_uri?: string;
-  vector_string?: string;
+interface NectoVulnMappingResponse {
+  os?: {
+    id: number;
+    product_type: string;
+    product_name: string;
+    product_version: string;
+    extra: Record<string, unknown>;
+    cpe: string;
+    cve_list: string[];
+  };
+  applications?: Array<{
+    id: number;
+    product_type: string;
+    product_name: string;
+    product_version: string;
+    extra: Record<string, unknown>;
+    cpe: string;
+    cve_list: string[];
+  }>;
 }
 
 /**
- * Necto API OS vulnerabilities response
+ * Necto CVE details response (Step 2: Enrich CVE IDs)
  */
-interface NectoAPIOSResponse {
-  name: string;
-  version?: string;
-  cpe: string;
-  vulnerabilities: NectoAPICVE[];
-}
-
-/**
- * Necto API application vulnerabilities response
- */
-interface NectoAPIAppResponse {
-  name: string;
-  version: string;
-  port: number;
-  cpe: string;
-  vulnerabilities: NectoAPICVE[];
-}
-
-/**
- * Necto API summary response
- */
-interface NectoAPISummary {
-  total_cves: number;
-  critical_count: number;
-  high_count: number;
-  medium_count: number;
-  low_count: number;
-  affected_services: number;
-  max_cvss_score: number;
-}
-
-/**
- * Complete Necto API response
- */
-interface NectoAPIResponse {
-  os?: NectoAPIOSResponse;
-  applications?: NectoAPIAppResponse[];
-  summary: NectoAPISummary;
+interface NectoCVEDetail {
+  cve: string;
+  docType: string;
+  lastModifiedData: string;
+  publishedDate: string;
+  campaign: number;
+  state: string;
+  impact: {
+    baseMetricV3?: {
+      cvssV3?: {
+        baseScore: number;
+        baseSeverity: string;
+        vectorString: string;
+        attackVector: string;
+        attackComplexity: string;
+        privilegesRequired: string;
+        userInteraction: string;
+        scope: string;
+        confidentialityImpact: string;
+        integrityImpact: string;
+        availabilityImpact: string;
+      };
+    };
+  };
+  isWeaponized: boolean;
+  isExploitable: boolean;
+  cveData: {
+    description?: {
+      descriptionData?: Array<{
+        lang: string;
+        value: string;
+      }>;
+    };
+  };
+  source: string;
 }
 
 /**
  * Necto API error response
  */
 interface NectoAPIError {
-  error: string;
+  error?: string;
+  detail?: string; // FastAPI uses 'detail' field
   details?: string;
-  status: number;
+  status?: number;
   retryAfter?: number;
 }
 
@@ -106,6 +118,8 @@ interface NectoAPIError {
 export interface NectoAPIConfig {
   /** Base URL for Necto API (default: http://127.0.0.1:5020) */
   baseUrl?: string;
+  /** API key for authentication (default: process.env.WORKER_API_KEY) */
+  apiKey?: string;
   /** Request timeout in milliseconds (default: 30000) */
   timeout?: number;
   /** Number of retry attempts for failed requests (default: 3) */
@@ -134,60 +148,96 @@ export class NectoAPIClientError extends Error {
  */
 export class NectoAPIClient {
   private readonly baseUrl: string;
+  private readonly apiKey?: string;
   private readonly timeout: number;
   private readonly retries: number;
   private readonly retryDelay: number;
 
   constructor(config: NectoAPIConfig = {}) {
     this.baseUrl = config.baseUrl || 'http://127.0.0.1:5020';
+    this.apiKey = config.apiKey || process.env.WORKER_API_KEY;
     this.timeout = config.timeout || 30000;
     this.retries = config.retries || 3;
     this.retryDelay = config.retryDelay || 1000;
   }
 
   /**
-   * Build request payload from port scan data
+   * Get headers with optional API key authentication
    */
-  buildRequest(ports: PortScanPort[], osInfo?: PortScanOSInfo): NectoAPIRequest {
-    const request: NectoAPIRequest = {};
+  private getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
 
-    // Add OS information if available
-    if (osInfo?.name) {
-      request.os = {
-        name: osInfo.name,
-        version: osInfo.version,
-        cpe: osInfo.cpe,
-      };
+    if (this.apiKey) {
+      headers['Authorization'] = `Bearer ${this.apiKey}`;
     }
 
-    // Add service information from open ports
+    return headers;
+  }
+
+  /**
+   * Build vulnerability mapping request from port scan data
+   */
+  buildRequest(ports: PortScanPort[], osInfo?: PortScanOSInfo): NectoVulnMappingRequest {
+    const request: NectoVulnMappingRequest = {};
+
+    // Always include OS field (Necto API requires it)
+    // Use detected OS info if available, otherwise provide minimal default
+    request.os = {
+      id: 0,
+      product_type: 'os',
+      product_name: osInfo?.name || 'unknown',
+      product_version: osInfo?.version || '',
+      extra: {},
+    };
+
+    // Add application information from open ports
     const openPorts = ports.filter((p) => p.state === 'open' && p.service);
     if (openPorts.length > 0) {
-      request.services = openPorts.map((p) => ({
-        name: p.service?.name,
-        product: p.service?.product || undefined,
-        version: p.service?.version || undefined,
-        port: p.port,
+      request.applications = openPorts.map((p, idx) => ({
+        id: idx + 1,
+        product_type: 'application',
+        product_name: p.service?.product || p.service?.name || 'unknown',
+        product_version: p.service?.version || '',
+        extra: { port: p.port },
       }));
     }
+
+    console.log('[NectoAPIClient] Built request:', {
+      hasOS: !!request.os,
+      osName: request.os?.product_name,
+      applicationCount: request.applications?.length || 0,
+      applications: request.applications?.map(a => ({
+        name: a.product_name,
+        version: a.product_version,
+        port: a.extra.port
+      })),
+      openPortsTotal: openPorts.length,
+      portsWithService: openPorts.filter(p => p.service).length
+    });
 
     return request;
   }
 
   /**
-   * Map Necto API CVE to our CVEDetail type
+   * Map Necto CVE detail to our CVEDetail type
    */
-  private mapCVE(cve: NectoAPICVE): CVEDetail {
-    const severity = this.calculateSeverity(cve.cvss_score);
+  private mapCVE(cve: NectoCVEDetail): CVEDetail {
+    const cvssScore = cve.impact?.baseMetricV3?.cvssV3?.baseScore || 0;
+    const severity = this.calculateSeverity(cvssScore);
+    const description =
+      cve.cveData?.description?.descriptionData?.[0]?.value || undefined;
+
     return {
-      cveId: cve.cve_id,
-      cvssScore: cve.cvss_score,
+      cveId: cve.cve,
+      cvssScore,
       severity,
-      publishedDate: cve.published_date,
-      lastModifiedDate: cve.last_modified_date,
-      description: cve.description,
-      cpe23Uri: cve.cpe23_uri,
-      vectorString: cve.vector_string,
+      publishedDate: cve.publishedDate,
+      lastModifiedDate: cve.lastModifiedData || undefined,
+      description,
+      cpe23Uri: undefined, // Not available in current API response
+      vectorString: cve.impact?.baseMetricV3?.cvssV3?.vectorString,
     };
   }
 
@@ -202,64 +252,167 @@ export class NectoAPIClient {
   }
 
   /**
-   * Transform Necto API response to CVE enrichment format
+   * Transform CVE details to enrichment format
    */
-  transformResponse(response: NectoAPIResponse): CVEEnrichment {
+  private transformToEnrichment(
+    vulnMapping: NectoVulnMappingResponse,
+    cveDetails: NectoCVEDetail[]
+  ): CVEEnrichment {
+    // Create a map of CVE ID to details for quick lookup
+    const cveMap = new Map<string, NectoCVEDetail>();
+    for (const cve of cveDetails) {
+      cveMap.set(cve.cve, cve);
+    }
+
+    // Calculate summary statistics
+    let totalCves = 0;
+    let criticalCount = 0;
+    let highCount = 0;
+    let mediumCount = 0;
+    let lowCount = 0;
+    let maxCvssScore = 0;
+    const affectedComponents = new Set<string>();
+
     const enrichment: CVEEnrichment = {
       enrichedAt: new Date().toISOString(),
-      nectoVersion: '1.0.0', // TODO: Get from API response header
+      nectoVersion: '1.51.2',
       summary: {
-        totalCves: response.summary.total_cves,
-        totalCritical: response.summary.critical_count,
-        totalHigh: response.summary.high_count,
-        totalMedium: response.summary.medium_count,
-        totalLow: response.summary.low_count,
-        affectedServices: response.summary.affected_services,
-        maxCvssScore: response.summary.max_cvss_score,
+        totalCves: 0,
+        totalCritical: 0,
+        totalHigh: 0,
+        totalMedium: 0,
+        totalLow: 0,
+        affectedServices: 0,
+        maxCvssScore: 0,
       },
     };
 
-    // Transform OS vulnerabilities
-    if (response.os) {
-      const osCves = response.os.vulnerabilities.map((cve) => this.mapCVE(cve));
-      const criticalCount = osCves.filter((c) => c.severity === 'CRITICAL').length;
-      const highCount = osCves.filter((c) => c.severity === 'HIGH').length;
+    // Process OS vulnerabilities
+    if (vulnMapping.os && vulnMapping.os.cve_list.length > 0) {
+      const osCves = vulnMapping.os.cve_list
+        .map((cveId) => cveMap.get(cveId))
+        .filter((cve): cve is NectoCVEDetail => cve !== undefined)
+        .map((cve) => this.mapCVE(cve));
 
       enrichment.os = {
-        product: `${response.os.name}${response.os.version ? ` ${response.os.version}` : ''}`,
+        product: `${vulnMapping.os.product_name} ${vulnMapping.os.product_version}`.trim(),
         cveCount: osCves.length,
-        criticalCount,
-        highCount,
+        criticalCount: osCves.filter((c) => c.severity === 'CRITICAL').length,
+        highCount: osCves.filter((c) => c.severity === 'HIGH').length,
         cves: osCves,
       };
+
+      totalCves += osCves.length;
+      criticalCount += enrichment.os.criticalCount;
+      highCount += enrichment.os.highCount;
+      mediumCount += osCves.filter((c) => c.severity === 'MEDIUM').length;
+      lowCount += osCves.filter((c) => c.severity === 'LOW').length;
+      affectedComponents.add('os');
+
+      for (const cve of osCves) {
+        if (cve.cvssScore > maxCvssScore) maxCvssScore = cve.cvssScore;
+      }
     }
 
-    // Transform application vulnerabilities
-    if (response.applications && response.applications.length > 0) {
-      enrichment.applications = response.applications.map((app) => {
-        const appCves = app.vulnerabilities.map((cve) => this.mapCVE(cve));
-        const criticalCount = appCves.filter((c) => c.severity === 'CRITICAL').length;
-        const highCount = appCves.filter((c) => c.severity === 'HIGH').length;
+    // Process application vulnerabilities
+    if (vulnMapping.applications && vulnMapping.applications.length > 0) {
+      enrichment.applications = vulnMapping.applications
+        .filter((app) => app.cve_list.length > 0)
+        .map((app) => {
+          const appCves = app.cve_list
+            .map((cveId) => cveMap.get(cveId))
+            .filter((cve): cve is NectoCVEDetail => cve !== undefined)
+            .map((cve) => this.mapCVE(cve));
 
-        return {
-          name: app.name,
-          version: app.version,
-          port: app.port,
-          cveCount: appCves.length,
-          criticalCount,
-          highCount,
-          cves: appCves,
-        };
-      });
+          const port = (app.extra.port as number) || 0;
+
+          totalCves += appCves.length;
+          const appCriticalCount = appCves.filter((c) => c.severity === 'CRITICAL').length;
+          const appHighCount = appCves.filter((c) => c.severity === 'HIGH').length;
+          criticalCount += appCriticalCount;
+          highCount += appHighCount;
+          mediumCount += appCves.filter((c) => c.severity === 'MEDIUM').length;
+          lowCount += appCves.filter((c) => c.severity === 'LOW').length;
+          affectedComponents.add(`${app.product_name}:${port}`);
+
+          for (const cve of appCves) {
+            if (cve.cvssScore > maxCvssScore) maxCvssScore = cve.cvssScore;
+          }
+
+          return {
+            name: app.product_name,
+            version: app.product_version,
+            port,
+            cveCount: appCves.length,
+            criticalCount: appCriticalCount,
+            highCount: appHighCount,
+            cves: appCves,
+          };
+        });
     }
+
+    // Update summary
+    enrichment.summary = {
+      totalCves,
+      totalCritical: criticalCount,
+      totalHigh: highCount,
+      totalMedium: mediumCount,
+      totalLow: lowCount,
+      affectedServices: affectedComponents.size,
+      maxCvssScore,
+    };
 
     return enrichment;
   }
 
   /**
-   * Fetch CVE enrichment data from Necto API
+   * Fetch CVE enrichment data from Necto API (two-step workflow)
    */
-  async fetchCVEEnrichment(request: NectoAPIRequest): Promise<CVEEnrichment> {
+  async fetchCVEEnrichment(request: NectoVulnMappingRequest): Promise<CVEEnrichment> {
+    // Step 1: Get CVE IDs from vulnerability mapping
+    const vulnMapping = await this.fetchVulnerabilityMapping(request);
+
+    // Collect all unique CVE IDs
+    const allCveIds = new Set<string>();
+    if (vulnMapping.os) {
+      vulnMapping.os.cve_list.forEach((id) => allCveIds.add(id));
+    }
+    if (vulnMapping.applications) {
+      vulnMapping.applications.forEach((app) => {
+        app.cve_list.forEach((id) => allCveIds.add(id));
+      });
+    }
+
+    // If no CVEs found, return empty enrichment
+    if (allCveIds.size === 0) {
+      return {
+        enrichedAt: new Date().toISOString(),
+        nectoVersion: '1.51.2',
+        summary: {
+          totalCves: 0,
+          totalCritical: 0,
+          totalHigh: 0,
+          totalMedium: 0,
+          totalLow: 0,
+          affectedServices: 0,
+          maxCvssScore: 0,
+        },
+      };
+    }
+
+    // Step 2: Enrich CVE IDs with full details
+    const cveDetails = await this.fetchCVEDetails(Array.from(allCveIds));
+
+    // Step 3: Transform to enrichment format
+    return this.transformToEnrichment(vulnMapping, cveDetails);
+  }
+
+  /**
+   * Step 1: Fetch vulnerability mapping (CVE IDs)
+   */
+  private async fetchVulnerabilityMapping(
+    request: NectoVulnMappingRequest
+  ): Promise<NectoVulnMappingResponse> {
     let lastError: Error | null = null;
 
     for (let attempt = 0; attempt < this.retries; attempt++) {
@@ -267,35 +420,65 @@ export class NectoAPIClient {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), this.timeout);
 
-        const response = await fetch(`${this.baseUrl}/api/v1/vulnerabilities`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(request),
-          signal: controller.signal,
-        });
+        // TODO: Auto-detect OS type (linux/windows/macos) from request.os.product_name
+        // For now, default to linux
+        const osType = 'linux';
+
+        const response = await fetch(
+          `${this.baseUrl}/vulnerability-mapping/${osType}/`,
+          {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(request),
+            signal: controller.signal,
+          }
+        );
 
         clearTimeout(timeoutId);
 
-        // Handle error responses
         if (!response.ok) {
-          const errorData = (await response.json()) as NectoAPIError;
+          let errorMessage = `HTTP ${response.status}`;
+          let errorDetails: string | undefined;
+          let fullErrorData: any;
+
+          try {
+            const errorData = (await response.json()) as NectoAPIError;
+            fullErrorData = errorData;
+            errorMessage = errorData.error || errorData.detail || errorMessage;
+            errorDetails = errorData.details;
+          } catch {
+            // If response is not JSON, try to read as text
+            try {
+              const errorText = await response.text();
+              if (errorText) {
+                errorMessage = `${errorMessage}: ${errorText}`;
+              }
+            } catch {
+              // Ignore text parsing errors
+            }
+          }
+
+          console.error('[NectoAPIClient] Vulnerability mapping failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorMessage,
+            errorDetails,
+            fullErrorResponse: fullErrorData,
+            requestPayload: request
+          });
+
           throw new NectoAPIClientError(
-            errorData.error || `HTTP ${response.status}`,
-            errorData.status || response.status,
-            errorData.retryAfter,
-            errorData.details
+            errorMessage,
+            response.status,
+            undefined,
+            errorDetails
           );
         }
 
-        // Parse and transform successful response
-        const data = (await response.json()) as NectoAPIResponse;
-        return this.transformResponse(data);
+        return (await response.json()) as NectoVulnMappingResponse;
       } catch (error) {
         lastError = error as Error;
 
-        // Don't retry on client errors (4xx) or abort errors
         if (error instanceof NectoAPIClientError) {
           if (error.status && error.status >= 400 && error.status < 500) {
             throw error;
@@ -306,16 +489,106 @@ export class NectoAPIClient {
           throw new NectoAPIClientError('Request timeout', 408);
         }
 
-        // Wait before retrying (exponential backoff)
         if (attempt < this.retries - 1) {
-          await new Promise((resolve) => setTimeout(resolve, this.retryDelay * Math.pow(2, attempt)));
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.retryDelay * Math.pow(2, attempt))
+          );
         }
       }
     }
 
-    // All retries exhausted
     throw new NectoAPIClientError(
-      `Failed after ${this.retries} attempts: ${lastError?.message}`,
+      `Vulnerability mapping failed after ${this.retries} attempts: ${lastError?.message}`,
+      500,
+      undefined,
+      lastError?.message
+    );
+  }
+
+  /**
+   * Step 2: Fetch CVE details (enrichment)
+   */
+  private async fetchCVEDetails(cveIds: string[]): Promise<NectoCVEDetail[]> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt < this.retries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), this.timeout);
+
+        const response = await fetch(`${this.baseUrl}/cve-details/`, {
+          method: 'POST',
+          headers: this.getHeaders(),
+          body: JSON.stringify({ cve_list: cveIds }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          let errorMessage = `HTTP ${response.status}`;
+          let errorDetails: string | undefined;
+          let fullErrorData: any;
+
+          try {
+            const errorData = (await response.json()) as NectoAPIError;
+            fullErrorData = errorData;
+            errorMessage = errorData.error || errorData.detail || errorMessage;
+            errorDetails = errorData.details;
+          } catch {
+            // If response is not JSON, try to read as text
+            try {
+              const errorText = await response.text();
+              if (errorText) {
+                errorMessage = `${errorMessage}: ${errorText}`;
+              }
+            } catch {
+              // Ignore text parsing errors
+            }
+          }
+
+          console.error('[NectoAPIClient] CVE details fetch failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            errorMessage,
+            errorDetails,
+            fullErrorResponse: fullErrorData,
+            cveIdsRequested: cveIds.length,
+            cveIdsSample: cveIds.slice(0, 5)
+          });
+
+          throw new NectoAPIClientError(
+            errorMessage,
+            response.status,
+            undefined,
+            errorDetails
+          );
+        }
+
+        return (await response.json()) as NectoCVEDetail[];
+      } catch (error) {
+        lastError = error as Error;
+
+        if (error instanceof NectoAPIClientError) {
+          if (error.status && error.status >= 400 && error.status < 500) {
+            throw error;
+          }
+        }
+
+        if ((error as Error).name === 'AbortError') {
+          throw new NectoAPIClientError('Request timeout', 408);
+        }
+
+        if (attempt < this.retries - 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, this.retryDelay * Math.pow(2, attempt))
+          );
+        }
+      }
+    }
+
+    throw new NectoAPIClientError(
+      `CVE details fetch failed after ${this.retries} attempts: ${lastError?.message}`,
       500,
       undefined,
       lastError?.message

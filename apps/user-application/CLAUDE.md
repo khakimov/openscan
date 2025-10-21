@@ -113,14 +113,14 @@ Restate Worker → Universal Router → Handler Registry → Database + Analytic
 
 #### Analytics Event Types
 
-| Event Type | When | Blobs[2] | Doubles[1] |
-|------------|------|----------|------------|
-| `postback_portscan_success` | Port scan completes | organizationId | Port count |
-| `postback_portscan_failure` | Port scan fails | Error message | - |
-| `postback_discovery_success` | Discovery completes | organizationId | Device count |
-| `postback_discovery_failure` | Discovery fails | Error message | - |
-| `postback_auth_failed` | Invalid API key | "Authentication failed" | - |
-| `postback_validation_failed` | Payload validation fails | Validation error | - |
+| Event Type | When | Blobs[2] | Doubles[1] | Doubles[2] |
+|------------|------|----------|------------|------------|
+| `postback_portscan_success` | Port scan completes | organizationId | Port count | CVE count |
+| `postback_portscan_failure` | Port scan fails | Error message | - | - |
+| `postback_discovery_success` | Discovery completes | organizationId | Device count | - |
+| `postback_discovery_failure` | Discovery fails | Error message | - | - |
+| `postback_auth_failed` | Invalid API key | "Authentication failed" | - | - |
+| `postback_validation_failed` | Payload validation fails | Validation error | - | - |
 
 #### Common Queries
 
@@ -181,8 +181,127 @@ Analytics Engine data is also viewable in the Cloudflare Dashboard:
   - `blobs[2]`: organizationId or error message
   - `doubles[0]`: latency (milliseconds)
   - `doubles[1]`: result count (ports/devices/etc.)
+  - `doubles[2]`: CVE count (port scans only)
   - `timestamp`: Auto-populated by Workers runtime
 
 **Note**: The dataset is created automatically on the first `writeDataPoint()` call - no manual setup required.
 
 **Adding New Postback Types**: See [postback architecture docs](../../../docs/postback-architecture.md#adding-a-new-postback-type) for step-by-step guide.
+
+---
+
+### CVE Enrichment
+
+Port scan results are automatically enriched with CVE vulnerability data from the Necto API. This integration happens synchronously during the postback flow, providing immediate vulnerability insights when scans complete.
+
+#### How It Works
+
+1. **Trigger**: Automatically runs after port scan completes (in postback handler)
+2. **Condition**: Only enriches if scan has **open ports OR detected OS**
+   - Skips enrichment for scans with no useful data (all closed ports, no OS detection)
+3. **Process**:
+   - Calls Necto API using 2-step workflow:
+     - Step 1: `/vulnerability-mapping/linux/` - Maps products to CVE IDs
+     - Step 2: `/cve-details/` - Enriches CVE IDs with CVSS scores, descriptions
+   - Appends `cveEnrichment` object to `scanRuns.resultSummary`
+4. **Failure Handling**: If enrichment fails (Necto API down, timeout, error), scan results are still saved without CVE data
+   - Enrichment failures are logged but don't block scan completion
+   - `cveEnrichment` field will be `undefined` in result summary
+
+#### Configuration
+
+- **Environment Variable**: `NECTO_API_URL`
+  - Local dev: `http://127.0.0.1:5020` (default)
+  - Production: `https://necto.sec.rocks` (configured in wrangler.jsonc)
+- **Timeout**: 30 seconds per API call
+- **Retries**: 2 attempts with exponential backoff
+
+#### Database Storage
+
+CVE data is stored in `scanRuns.resultSummary.cveEnrichment`:
+
+```typescript
+{
+  enrichedAt: string;              // ISO 8601 timestamp
+  nectoVersion?: string;           // Necto API version (e.g., "1.51.2")
+  os?: {                           // OS vulnerabilities
+    product: string;
+    cveCount: number;
+    criticalCount: number;
+    highCount: number;
+    cves: CVEDetail[];
+  };
+  applications?: Array<{           // Service/application vulnerabilities
+    name: string;
+    version: string;
+    port: number;
+    cveCount: number;
+    criticalCount: number;
+    highCount: number;
+    cves: CVEDetail[];
+  }>;
+  summary: {                       // Aggregated statistics
+    totalCves: number;
+    totalCritical: number;
+    totalHigh: number;
+    totalMedium: number;
+    totalLow: number;
+    affectedServices: number;
+    maxCvssScore: number;
+  };
+}
+```
+
+**Size Guards**:
+- Max CVEs per OS: 100 (configurable)
+- Max CVEs per application: 50 (configurable)
+- Max description length: 500 characters
+- Warning threshold: 200 KB
+- Hard limit: 800 KB (prevents database column overflow)
+
+#### Monitoring
+
+**Analytics Tracking**:
+- CVE count is tracked in `doubles[2]` for port scan success events
+- Query CVE enrichment metrics:
+  ```bash
+  curl -s "https://api.cloudflare.com/client/v4/accounts/.../analytics_engine/sql" \
+    -H "Authorization: Bearer ..." \
+    -d "SELECT
+        blob1 AS scanId,
+        double2 AS cve_count,
+        double3 AS port_count,
+        timestamp
+        FROM postback_events
+        WHERE index1 = 'postback_portscan_success'
+        AND double2 > 0
+        ORDER BY timestamp DESC
+        LIMIT 10" | jq .
+  ```
+
+**Logs**: Search for "CVE enrichment" in application logs to monitor:
+- Enrichment timing and performance
+- Error rates and failure reasons
+- Skipped enrichments (no data to enrich)
+
+#### Implementation Details
+
+- **Location**: `src/server/postback/handlers/port-scan.ts`
+- **Client**: `src/server/discovery/services/necto-api-client.ts`
+- **Integration Point**: `PortScanPostbackHandler.handleSuccess()` method (line ~246-292)
+- **Singleton Pattern**: Necto client is created once and reused across postback requests
+- **Error Handling**: Try/catch wrapper ensures enrichment failures don't propagate
+
+#### Testing
+
+Comprehensive test coverage in `src/server/postback/handlers/__tests__/port-scan-postback.test.ts`:
+- ✅ Enrichment with open ports
+- ✅ Enrichment with OS detection only
+- ✅ Skip enrichment when no useful data
+- ✅ Graceful failure handling
+- ✅ Result summary validation
+
+Run tests:
+```bash
+pnpm test src/server/postback/handlers/__tests__/port-scan-postback.test.ts
+```

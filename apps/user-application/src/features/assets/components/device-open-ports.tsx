@@ -21,6 +21,7 @@ import { toast } from "sonner";
 interface DeviceOpenPortsProps {
   deviceDetail: TransformedDevice | undefined;
   isLoading: boolean;
+  cveEnrichment?: any; // CVE enrichment data from scan results
 }
 
 type PortDetail = {
@@ -170,8 +171,17 @@ function formatRelativeTime(date: Date): string {
 export function DeviceOpenPorts({
   deviceDetail,
   isLoading,
+  cveEnrichment,
 }: DeviceOpenPortsProps) {
   const [expandedPorts, setExpandedPorts] = useState<Set<string>>(new Set());
+
+  // Helper function to get CVEs for a specific port
+  const getCVEsForPort = (portNumber: number) => {
+    if (!cveEnrichment?.applications) return null;
+
+    const app = cveEnrichment.applications.find((a: any) => a.port === portNumber);
+    return app || null;
+  };
 
   const scanPortDetails = Array.isArray(deviceDetail?.scanStats?.ports)
     ? (deviceDetail?.scanStats?.ports as PortDetail[])
@@ -239,12 +249,14 @@ export function DeviceOpenPorts({
               const isExpanded = expandedPorts.has(portKey);
               const serviceInfo = formatServiceInfo(port.service);
               const lastSeen = parseLastSeenTimestamp(port.lastSeen ?? null);
+              const portCVEs = getCVEsForPort(port.port);
               const hasDetails =
                 port.service &&
                 (port.service.confidence !== null ||
                   port.service.method ||
                   port.service.cpe ||
-                  port.service.fingerprintMatches?.length);
+                  port.service.fingerprintMatches?.length ||
+                  portCVEs);
 
               return (
                 <>
@@ -285,6 +297,14 @@ export function DeviceOpenPorts({
                         {port.service?.tunnel && (
                           <Badge variant="outline" className="text-xs">
                             {port.service.tunnel}
+                          </Badge>
+                        )}
+                        {portCVEs && portCVEs.cveCount > 0 && (
+                          <Badge
+                            variant={portCVEs.criticalCount > 0 ? "destructive" : portCVEs.highCount > 0 ? "default" : "secondary"}
+                            className="text-xs"
+                          >
+                            {portCVEs.cveCount} CVE{portCVEs.cveCount !== 1 ? 's' : ''}
                           </Badge>
                         )}
                       </div>
@@ -425,6 +445,32 @@ export function DeviceOpenPorts({
                                     </div>
                                   </div>
                                 )}
+
+                              {/* CVE Enrichment Section */}
+                              {portCVEs && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <Badge
+                                      variant="outline"
+                                      className="text-xs"
+                                    >
+                                      CVE Vulnerabilities
+                                    </Badge>
+                                    <span className="text-xs text-muted-foreground">
+                                      ({portCVEs.cveCount} total
+                                      {portCVEs.criticalCount > 0 && `, ${portCVEs.criticalCount} critical`}
+                                      {portCVEs.highCount > 0 && `, ${portCVEs.highCount} high`})
+                                    </span>
+                                  </div>
+
+                                  {/* Raw CVE Data */}
+                                  <div className="space-y-2">
+                                    <pre className="text-xs bg-muted/50 p-3 rounded-md border overflow-auto max-h-64">
+                                      {JSON.stringify(portCVEs, null, 2)}
+                                    </pre>
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           </Collapsible.Content>
                         </Collapsible.Root>

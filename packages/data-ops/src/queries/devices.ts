@@ -558,7 +558,7 @@ export async function getDeviceTagSuggestions(organizationId: string) {
  */
 export async function getDeviceScanHistory(
   organizationId: string,
-  target: string,
+  deviceId: string,
   limit: number = 10
 ) {
   const db = getDb();
@@ -570,9 +570,10 @@ export async function getDeviceScanHistory(
       resultSummary: scanRuns.resultSummary,
     })
     .from(scanRuns)
+    .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
     .where(and(
       eq(scanRuns.organizationId, organizationId),
-      eq(scanRuns.target, target),
+      eq(scanRunDevices.deviceId, deviceId),
       eq(scanRuns.status, 'SUCCEEDED')
     ))
     .orderBy(desc(scanRuns.requestedAt))

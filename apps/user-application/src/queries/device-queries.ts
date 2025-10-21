@@ -55,10 +55,10 @@ export const deviceQueries = {
   /**
    * Device scan history query
    */
-  scanHistory: (target: string, limit = 10) =>
+  scanHistory: (deviceId: string, limit = 10) =>
     queryOptions({
-      queryKey: ['device-scan-history', target, limit],
-      queryFn: () => getDeviceScanHistoryData({ data: { target, limit } }),
+      queryKey: ['device-scan-history', deviceId, limit],
+      queryFn: () => getDeviceScanHistoryData({ data: { deviceId, limit } }),
       ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
     }),
 

@@ -819,26 +819,26 @@ export const verifyDevice = createServerFn({
  * Get scan history for a device
  */
 const GetDeviceScanHistorySchema = z.object({
-  target: z.string().min(1, 'Target is required'),
+  deviceId: z.string().min(1, 'Device ID is required'),
   limit: z.number().optional().default(10)
 });
 
 export const getDeviceScanHistoryData = createServerFn({ method: 'POST' })
   .inputValidator(GetDeviceScanHistorySchema.parse)
   .handler(async ({ data }) => {
-    const { target, limit } = data;
+    const { deviceId, limit } = data;
     const organizationId = await getCurrentOrganizationId();
 
     try {
-      const history = await getDeviceScanHistory(organizationId, target, limit);
+      const history = await getDeviceScanHistory(organizationId, deviceId, limit);
 
       logger.info('Fetched scan history', {
-        target,
+        deviceId,
         count: history.length,
         sample: history[0] ? {
           id: history[0].id,
-          createdAt: history[0].createdAt,
-          createdAtType: typeof history[0].createdAt,
+          requestedAt: history[0].requestedAt,
+          requestedAtType: typeof history[0].requestedAt,
           hasResultSummary: !!history[0].resultSummary,
           resultSummaryType: typeof history[0].resultSummary,
         } : null
@@ -848,7 +848,7 @@ export const getDeviceScanHistoryData = createServerFn({ method: 'POST' })
     } catch (error) {
       logger.error('Failed to fetch device scan history', {
         error: error instanceof Error ? error.message : error,
-        target,
+        deviceId,
       });
       return { success: false, history: [] };
     }
