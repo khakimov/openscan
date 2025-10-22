@@ -28,7 +28,6 @@ export function SignInEmailForm() {
     any,
     z.output<typeof validator>
   >({
-    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers
     resolver: zodResolver(validator),
   });
 

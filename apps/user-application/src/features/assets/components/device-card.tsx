@@ -88,7 +88,7 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
   // Fetch scan history for chart using queryOptions
   const { data: scanHistoryData } = useQuery({
-    ...deviceQueries.scanHistory(device.name, 10),
+    ...deviceQueries.scanHistory(device.id, 10),
     enabled: totalScans > 1, // Only fetch if device has scan history
   });
 

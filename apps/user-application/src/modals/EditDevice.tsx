@@ -75,7 +75,6 @@ export default function EditDevice({
     getValues,
     formState: { errors, isDirty },
   } = useForm<EditDeviceFormData>({
-    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers due to multiple Zod versions in dependency tree
     resolver: zodResolver<EditDeviceFormData, any, EditDeviceFormData>(EditDeviceSchema),
     defaultValues: {
       name: device?.name || "",

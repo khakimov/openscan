@@ -3,7 +3,7 @@ import { z } from "zod";
 const googleOAuthConfigSchema = z.object({
   clientId: z.string().min(1, "GOOGLE_CLIENT_ID is required"),
   clientSecret: z.string().min(1, "GOOGLE_CLIENT_SECRET is required"),
-  redirectUri: z.url("GOOGLE_REDIRECT_URI must be a valid URL"),
+  redirectUri: z.string().url("GOOGLE_REDIRECT_URI must be a valid URL"),
 });
 
 export type GoogleOAuthConfig = z.infer<typeof googleOAuthConfigSchema>;

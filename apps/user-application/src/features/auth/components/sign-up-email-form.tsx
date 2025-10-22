@@ -30,7 +30,6 @@ export function SignUpEmailForm() {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<IForm>({
-    // @ts-expect-error - Zod v4 type mismatch with @hookform/resolvers
     resolver: zodResolver(validator),
   });
 
