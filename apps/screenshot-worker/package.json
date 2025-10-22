@@ -1,0 +1,27 @@
+{
+  "name": "@repo/screenshot-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:staging": "wrangler deploy --env staging",
+    "build": "tsc --noEmit",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@cloudflare/puppeteer": "latest",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241022.0",
+    "@types/node": "^22.8.6",
+    "typescript": "^5.6.3",
+    "vitest": "^2.1.4",
+    "wrangler": "^4.39.0"
+  }
+}

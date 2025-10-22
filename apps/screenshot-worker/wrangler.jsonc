@@ -1,0 +1,50 @@
+{
+  "name": "screenshot-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2024-10-01",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // Browser Rendering API binding
+  "browser": {
+    "binding": "BROWSER"
+  },
+
+  // R2 storage binding
+  "r2_buckets": [
+    {
+      "binding": "SCREENSHOTS",
+      "bucket_name": "openscan-screenshots",
+      "preview_bucket_name": "openscan-screenshots-dev"
+    }
+  ],
+
+  // Public environment variables
+  "vars": {
+    "ENVIRONMENT": "production",
+    "VERSION": "1.0.0",
+    "MAX_SCREENSHOT_TIMEOUT_MS": "30000",
+    "MAX_CONCURRENT_SCREENSHOTS": "5"
+  },
+
+  // Secrets (set via: wrangler secret put SECRET_NAME)
+  // - WORKER_API_KEY: Validates incoming requests from queue consumer
+  // - USER_APP_API_KEY: Authenticates postback requests to user-application
+
+  // Staging environment
+  "env": {
+    "staging": {
+      "name": "screenshot-worker-staging",
+      "r2_buckets": [
+        {
+          "binding": "SCREENSHOTS",
+          "bucket_name": "openscan-screenshots-staging",
+          "preview_bucket_name": "openscan-screenshots-dev"
+        }
+      ],
+      "vars": {
+        "ENVIRONMENT": "staging",
+        "VERSION": "1.0.0-staging"
+      }
+    }
+  }
+}
