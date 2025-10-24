@@ -8,12 +8,9 @@
 import { z } from 'zod';
 import {
   updateDevice,
-  getScanWorkflowByScanId,
+  getScanRunByRestateWorkflowId,
   updateScanRunStatus,
   updateScanWorkflowStatus,
-  getDb,
-  scanRuns,
-  eq,
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
@@ -196,49 +193,20 @@ export class PortScanPostbackHandler
       portCount: data.ports?.length || 0,
     });
 
-    // Step 1: Find the scan workflow by scanId (Restate workflow key)
-    const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+    // Step 1: Find the scan run by Restate workflow ID (workflow data is now embedded)
+    const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
-    if (!workflow) {
-      ctx.logger.warn('Scan workflow not found for postback', {
+    if (!scanRun) {
+      ctx.logger.warn('Scan run not found for postback', {
         scanId,
         organizationId,
       });
 
       return {
         success: false,
-        message: `Scan workflow not found: ${scanId}`,
+        message: `Scan run not found: ${scanId}`,
         analytics: buildFailureAnalytics(
           AnalyticsEventTypes.PORTSCAN_DEVICE_NOT_FOUND,
-          {
-            scanId,
-            entityId: deviceId,
-            error: 'Workflow not found',
-          }
-        ),
-      };
-    }
-
-    // Step 2: Get the scan run for this workflow
-    // For port scans, there should be exactly one run per workflow
-    const db = getDb();
-
-    const [scanRun] = await db
-      .select()
-      .from(scanRuns)
-      .where(eq(scanRuns.scanWorkflowId, workflow.id))
-      .limit(1);
-
-    if (!scanRun) {
-      ctx.logger.warn('No scan run found for workflow', {
-        scanWorkflowId: workflow.id,
-      });
-
-      return {
-        success: false,
-        message: `No scan run found for workflow: ${workflow.id}`,
-        analytics: buildFailureAnalytics(
-          AnalyticsEventTypes.PORTSCAN_FAILURE,
           {
             scanId,
             entityId: deviceId,
@@ -248,28 +216,63 @@ export class PortScanPostbackHandler
       };
     }
 
-    const portCount = data.ports?.length || 0;
+    // Universal filtering: only store ports with service information
+    const allOpenPorts = data.ports?.filter((p) => p.state === 'open') || [];
+    const portsWithService = allOpenPorts.filter((p) => p.service?.name || p.service?.product);
+    const portsWithoutService = allOpenPorts.length - portsWithService.length;
+
+    // Calculate detection rate for metadata
+    const serviceDetectionRate = allOpenPorts.length > 0
+      ? (portsWithService.length / allOpenPorts.length) * 100
+      : 0;
+
+    // Detect suspicious pattern (for metadata/logging only)
+    const suspiciousAllPortsOpen = allOpenPorts.length > 1000 && serviceDetectionRate < 1;
+
+    // Minimal logging - only important cases
+    if (suspiciousAllPortsOpen) {
+      ctx.logger.warn('Suspicious scan pattern detected', {
+        scanId,
+        openPorts: allOpenPorts.length,
+        servicesDetected: portsWithService.length,
+        pattern: 'Possible WAF/Proxy',
+      });
+    } else if (portsWithoutService > 10) {
+      ctx.logger.info('Filtered ports without service info', {
+        scanId,
+        filtered: portsWithoutService,
+        stored: portsWithService.length,
+      });
+    }
+
+    // Store only ports with services
+    let openPorts = portsWithService;
+
+    // Safety cap at 1000 ports
+    const MAX_PORTS = 1000;
+    if (openPorts.length > MAX_PORTS) {
+      ctx.logger.warn('Storage limit applied', {
+        scanId,
+        servicesFound: openPorts.length,
+        storingFirst: MAX_PORTS,
+      });
+      openPorts = openPorts.slice(0, MAX_PORTS);
+    }
+
     const timestamp = new Date().toISOString();
 
     // Step 3: CVE Enrichment (synchronous, always-on)
     let cveEnrichment: CVEEnrichment | undefined;
 
-    // Only enrich if we have data to enrich (open ports OR OS detected)
-    const hasOpenPorts = data.ports?.some((p) => p.state === 'open') ?? false;
+    // Natural behavior - skip if no ports to enrich
+    const hasOpenPorts = openPorts.length > 0;
     const hasOSInfo = !!data.osInfo?.name;
 
     if (hasOpenPorts || hasOSInfo) {
       try {
-        ctx.logger.info('Starting CVE enrichment', {
-          scanId,
-          hasOpenPorts,
-          hasOSInfo,
-          portCount: data.ports?.length ?? 0,
-        });
-
         const nectoClient = getNectoAPIClient();
         cveEnrichment = await nectoClient.enrichScanResults(
-          data.ports ?? [],
+          openPorts,
           data.osInfo
         );
 
@@ -285,66 +288,120 @@ export class PortScanPostbackHandler
           'CVE enrichment failed, continuing without enrichment',
           {
             scanId,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: error instanceof Error ? error.message : String(error),
+            errorDetails: error instanceof Error && (error as any).details ? (error as any).details : undefined,
+            errorResponse: error instanceof Error && (error as any).response ? JSON.stringify((error as any).response) : undefined,
             errorStack: error instanceof Error ? error.stack : undefined,
+            errorType: error?.constructor?.name,
           }
         );
         // cveEnrichment remains undefined
       }
     } else {
-      ctx.logger.info('Skipping CVE enrichment - no open ports or OS detected', {
+      ctx.logger.info('Skipped CVE enrichment - no services detected', {
         scanId,
-        hasOpenPorts,
-        hasOSInfo,
+        openPortsTotal: allOpenPorts.length,
       });
     }
 
     // Step 4: Store results in scan run with port details and CVE enrichment
     const resultSummary = {
       target: data.target,
-      openPortCount: portCount,
-      ports: data.ports,
+
+      // Port statistics
+      openPortCount: allOpenPorts.length,
+      portsStoredCount: openPorts.length,
+      portsFilteredCount: portsWithoutService,
+      ports: openPorts, // Only ports with services
+
+      // Detection metadata for UI
+      serviceDetectionRate,
+      suspiciousAllPortsOpen,
+      scanPattern: suspiciousAllPortsOpen ? 'WAF/Proxy' : 'Normal',
+
+      // Standard fields
       timing: data.timing,
       scanMetadata: data.scanMetadata,
       osInfo: data.osInfo,
       completedAt: timestamp,
-      cveEnrichment, // Add enrichment data (undefined if failed/skipped)
+      cveEnrichment,
     };
+
+    // Validate result summary size before storing
+    const resultSummaryJson = JSON.stringify(resultSummary);
+    const resultSizeMB = resultSummaryJson.length / 1024 / 1024;
 
     ctx.logger.info('Storing result summary', {
       scanRunId: scanRun.id,
-      resultSummaryKeys: Object.keys(resultSummary),
-      portCount,
-      portsLength: data.ports?.length,
-      hasCveEnrichment: !!cveEnrichment,
+      portsStored: openPorts.length,
+      resultSizeMB: resultSizeMB.toFixed(2),
     });
 
-    await updateScanRunStatus(scanRun.id, 'SUCCEEDED', resultSummary);
+    // Warn if result summary is approaching size limits (D1 has practical limits)
+    if (resultSizeMB > 0.5) {
+      ctx.logger.warn('Large result summary detected', {
+        scanId,
+        resultSizeMB: resultSizeMB.toFixed(2),
+        portsStored: openPorts.length,
+      });
+    }
 
-    // Step 4: Update workflow status
+    // Store results with error handling
+    try {
+      await updateScanRunStatus(scanRun.id, 'SUCCEEDED', resultSummary);
+    } catch (error) {
+      ctx.logger.error('Failed to store scan run status', {
+        scanId,
+        scanRunId: scanRun.id,
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        resultSizeMB: resultSizeMB.toFixed(2),
+      });
+      throw error; // Re-throw to trigger postback retry
+    }
+
+    // Step 5: Update workflow status
     ctx.logger.info('Updating workflow status to SUCCEEDED', {
-      scanWorkflowId: workflow.id, // Database ID (CUID)
-      scanId: workflow.scanId, // Restate workflow key
+      scanRunId: scanRun.id,
+      restateWorkflowId: scanRun.restateWorkflowId,
       organizationId,
     });
-    await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
+    try {
+      await updateScanWorkflowStatus(scanRun.id, 'SUCCEEDED');
+    } catch (error) {
+      ctx.logger.error('Failed to update workflow status', {
+        scanId,
+        scanRunId: scanRun.id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error; // Re-throw to trigger postback retry
+    }
 
-    // Step 5: Update device with scan metadata
+    // Step 6: Update device with scan metadata
     // Note: lastSeenAt is not in DeviceUpdateData, so we skip it for now
     // The device was already discovered, we just mark it as scanned
-    await updateDevice(
-      deviceId,
-      {
-        isScanned: true,
-      },
-      organizationId
-    );
+    try {
+      await updateDevice(
+        deviceId,
+        {
+          isScanned: true,
+        },
+        organizationId
+      );
+    } catch (error) {
+      // Log but don't fail - device update is not critical
+      ctx.logger.warn('Failed to update device isScanned flag', {
+        scanId,
+        deviceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
 
     ctx.logger.info('Scan results stored successfully', {
       deviceId,
       scanId,
       scanRunId: scanRun.id,
-      portCount,
+      portsStored: openPorts.length,
     });
 
     // Build analytics with CVE count
@@ -354,7 +411,7 @@ export class PortScanPostbackHandler
         scanId,
         entityId: deviceId,
         organizationId,
-        resultCount: portCount,
+        resultCount: openPorts.length,
       }
     );
 
@@ -394,48 +451,39 @@ export class PortScanPostbackHandler
       error,
     });
 
-    // Find workflow and mark it as failed
-    const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+    // Find scan run and mark it as failed (workflow data is now embedded)
+    const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
-    if (!workflow) {
-      ctx.logger.warn('Scan workflow not found for failure postback', {
+    if (!scanRun) {
+      ctx.logger.warn('Scan run not found for failure postback', {
         scanId,
         organizationId,
       });
 
       return {
-        success: true, // We processed the postback successfully even though workflow wasn't found
-        message: 'Workflow not found for failed scan',
+        success: true, // We processed the postback successfully even though scan run wasn't found
+        message: 'Scan run not found for failed scan',
         analytics: buildFailureAnalytics(
           AnalyticsEventTypes.PORTSCAN_DEVICE_NOT_FOUND,
           {
             scanId,
             entityId: deviceId,
-            error: 'Workflow not found',
+            error: 'Scan run not found',
           }
         ),
       };
     }
 
     // Update workflow status to FAILED
-    await updateScanWorkflowStatus(workflow.id, 'FAILED');
+    await updateScanWorkflowStatus(scanRun.id, 'FAILED');
 
-    // Update scan run status if it exists
-    const db = getDb();
-    const [scanRun] = await db
-      .select()
-      .from(scanRuns)
-      .where(eq(scanRuns.scanWorkflowId, workflow.id))
-      .limit(1);
-
-    if (scanRun) {
-      await updateScanRunStatus(scanRun.id, 'FAILED', { error });
-    }
+    // Update scan run status with error details
+    await updateScanRunStatus(scanRun.id, 'FAILED', { error });
 
     ctx.logger.info('Port scan failure processed', {
       scanId,
       deviceId,
-      scanWorkflowId: workflow.id,
+      scanRunId: scanRun.id,
     });
 
     return {

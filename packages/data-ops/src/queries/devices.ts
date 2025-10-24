@@ -181,6 +181,11 @@ export async function getDevicesForTenant(
         openPortCount,
         totalPortCount: openPortCount,
         ports,
+        // Smart metadata for UI (port filtering, WAF/proxy detection)
+        portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
+        scanPattern: resultSummary?.scanPattern,
+        suspiciousAllPortsOpen: resultSummary?.suspiciousAllPortsOpen ?? false,
+        serviceDetectionRate: resultSummary?.serviceDetectionRate,
       });
     }
   }
@@ -279,6 +284,11 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
       openPortCount,
       totalPortCount: openPortCount,
       ports,
+      // Smart metadata for UI (port filtering, WAF/proxy detection)
+      portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
+      scanPattern: resultSummary?.scanPattern,
+      suspiciousAllPortsOpen: resultSummary?.suspiciousAllPortsOpen ?? false,
+      serviceDetectionRate: resultSummary?.serviceDetectionRate,
     };
   }
 

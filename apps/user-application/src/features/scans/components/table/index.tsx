@@ -1,7 +1,6 @@
-import { TableSkeleton } from "@/components/ui/table";
 import { FullPageEmptyState } from "@/components/shared/full-page-empty-state";
 import { GanttChartIcon, Loader2Icon } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { scanQueries } from "@/queries/scan-queries";
 
 import { ScansDataTable } from "./scans-data-table";
@@ -47,8 +46,7 @@ export type PortScanResult = {
 
 export type Scan = {
   id: string; // Database CUID (scanRuns.id)
-  scanId: string; // Restate workflow key (scanWorkflows.scanId)
-  scanWorkflowId: string; // Database CUID (scanWorkflows.id)
+  restateWorkflowId: string; // Restate workflow key
   organizationId: string;
   scope: "INTERNAL" | "EXTERNAL" | "HYBRID";
   scanType: "DISCOVERY" | "PORT" | "WEB" | "ADVANCED";
@@ -73,31 +71,18 @@ interface ScansTableProps {}
 export const ScansTable = ({}: ScansTableProps) => {
   const columns = useColumns();
 
+  // useSuspenseQuery uses data from loader (no loading state needed)
+  // Data is guaranteed to exist because loader pre-populated cache
   const {
     data: response,
-    isLoading,
-    error,
     isRefetching,
-  } = useQuery(scanQueries.table());
+  } = useSuspenseQuery(scanQueries.table());
 
   const hasServerData =
     response?.success &&
     Array.isArray(response.data) &&
     response.data.length > 0;
   const data: Scan[] = hasServerData ? response.data as unknown as Scan[] : [];
-
-
-  if (isLoading) {
-    return <TableSkeleton />;
-  }
-
-  if (error) {
-    return (
-      <FullPageEmptyState title="Error loading scans" icon={GanttChartIcon}>
-        <p>Failed to load scan data. Please try again.</p>
-      </FullPageEmptyState>
-    );
-  }
 
   if (data.length === 0) {
     return (
@@ -109,6 +94,7 @@ export const ScansTable = ({}: ScansTableProps) => {
 
   return (
     <div className="relative">
+      {/* Show subtle indicator during background refetch (polling) */}
       {isRefetching && (
         <div className="absolute top-4 right-4 z-10">
           <div className="flex items-center justify-center w-8 h-8 rounded border bg-background">

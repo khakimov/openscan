@@ -36,17 +36,12 @@ export class PortScanService {
     // Generate scanId (Restate workflow key) for tracking
     const scanId = generateScanId('portscan', input.target);
 
-    // Step 1: Create database records for tracking
-    const scanWorkflow = await scanRecorder.createWorkflow({
-      tenantId,
-      scanId: scanId,
-      kind: 'DISCOVERY',
-    });
-
+    // Step 1: Create database record with embedded workflow tracking
     const scope = determineScanScope(input.target);
     const scanRun = await scanRecorder.createRun({
-      scanWorkflowId: scanWorkflow.id, // FK to scanWorkflows.id (CUID)
       tenantId,
+      restateWorkflowId: scanId,
+      workflowKind: 'DISCOVERY',
       scanType: 'PORT',
       scope,
       requestedById: userId,
@@ -54,9 +49,8 @@ export class PortScanService {
       targets: [input.target],
     });
 
-    logger.info('Port scan database records created', {
+    logger.info('Port scan database record created', {
       scanId,
-      scanWorkflowId: scanWorkflow.id,
       scanRunId: scanRun.id,
       target: input.target,
     });
@@ -73,7 +67,7 @@ export class PortScanService {
 
     // Step 3: Update scan status to running (before starting scan to avoid race condition)
     await scanRecorder.markRunRunning(scanRun.id);
-    await scanRecorder.updateWorkflowStatus(scanWorkflow.id, 'RUNNING');
+    await scanRecorder.updateWorkflowStatus(scanRun.id, 'RUNNING');
 
     // Step 4: Start Restate port scan with postback (async - returns immediately)
     const client = getRestateHttpClient();
@@ -105,7 +99,6 @@ export class PortScanService {
     return {
       success: true,
       scanId: scanResult.scanId, // Restate workflow key
-      scanWorkflowId: scanWorkflow.id, // Database ID
       scanRunId: scanRun.id,
       target: scanResult.target,
       // Ports will come via postback - don't include here
@@ -127,11 +120,7 @@ export class PortScanService {
     // Update database if we have scanRunId
     if (scanRunId) {
       await scanRecorder.markRunCanceled(scanRunId, reason);
-
-      const runWithWorkflow = await scanRecorder.fetchRunWithWorkflow(scanRunId);
-      if (runWithWorkflow) {
-        await scanRecorder.updateWorkflowStatus(runWithWorkflow.workflow.id, 'CANCELED');
-      }
+      await scanRecorder.updateWorkflowStatus(scanRunId, 'CANCELED');
     }
 
     logger.info('Port scan canceled', { scanId, scanRunId });

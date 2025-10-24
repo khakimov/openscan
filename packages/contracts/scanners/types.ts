@@ -30,7 +30,6 @@ export interface ScannerInputTarget extends ScanTarget {
 
 export interface ScannerInput {
   tenantId: string;
-  scanWorkflowId: string; // Database FK to scanWorkflows.id (CUID)
   userId: string;
   scanRunId: string;
   scanId: string; // Restate workflow key
@@ -59,7 +58,6 @@ export interface ScannerOutput {
   devices: DiscoveredDevice[];
   tenantId: string;
   scanId: string; // Restate workflow key
-  scanWorkflowId: string; // Database FK to scanWorkflows.id
   scanRunId: string;
   executedAt: Date;
   executionTimeMs: number;
@@ -124,7 +122,6 @@ export interface DiscoveryConfig {
 export interface DiscoveryOutput {
   devices: DiscoveredDevice[];
   scanId: string; // Restate workflow key
-  scanWorkflowId: string; // Database FK to scanWorkflows.id
   executedAt: Date;
   executionTimeMs: number;
   errors?: string[];

@@ -148,6 +148,7 @@
     /* Custom animations */
     --animate-ping-slow: ping-slow 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
     --animate-rotate-border: border-rotate 3s linear infinite;
+    --animate-new-device-border: border-rotate 1s linear 3;
 
     @keyframes border-rotate {
         to {

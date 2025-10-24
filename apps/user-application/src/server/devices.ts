@@ -77,6 +77,11 @@ export type TransformedDevice = {
     lastScanAt: string | null;
     openPortCount?: number;
     totalPortCount?: number;
+    // Smart metadata for UI (port filtering, WAF/proxy detection)
+    portsStoredCount?: number;
+    scanPattern?: 'WAF/Proxy' | 'Normal';
+    suspiciousAllPortsOpen?: boolean;
+    serviceDetectionRate?: number;
     ports?: Array<{
       port: number;
       protocol: string;

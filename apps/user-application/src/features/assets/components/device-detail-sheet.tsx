@@ -21,19 +21,30 @@ import { useMemo } from "react";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
+  newlyAddedIds?: Set<string>; // Track newly added devices for animation
 }
 
-export function DeviceDetailSheet({ devices }: DeviceDetailSheetProps) {
+export function DeviceDetailSheet({ devices, newlyAddedIds }: DeviceDetailSheetProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {devices.map((device) => (
-        <DeviceDetailSheetItem key={device.id} device={device} />
+        <DeviceDetailSheetItem
+          key={device.id}
+          device={device}
+          isNewlyAdded={newlyAddedIds?.has(device.id)}
+        />
       ))}
     </div>
   );
 }
 
-function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
+function DeviceDetailSheetItem({
+  device,
+  isNewlyAdded = false
+}: {
+  device: TransformedDevice;
+  isNewlyAdded?: boolean;
+}) {
   // Each device has its own Sheet with its own data loading using queryOptions
   const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery({
     ...deviceQueries.detail(device.id),
@@ -80,7 +91,7 @@ function DeviceDetailSheetItem({ device }: { device: TransformedDevice }) {
     <Sheet>
       <SheetTrigger asChild>
         <div className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg transition-colors">
-          <DeviceCard device={device} />
+          <DeviceCard device={device} isNewlyAdded={isNewlyAdded} />
         </div>
       </SheetTrigger>
       <SheetContent

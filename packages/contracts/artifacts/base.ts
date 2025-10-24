@@ -25,7 +25,6 @@ export const BaseArtifactSchema = z.object({
     isExtendScan: z.boolean(),
     isUptimeScan: z.boolean().optional(),
     authScanType: z.enum(['ANONYMOUS', 'AUTHENTICATED']),
-    scanWorkflowId: z.string(), // Database FK to scanWorkflows.id (CUID)
     scanId: z.string(), // Restate workflow key
     scanRunId: z.string(),
     tenantId: z.string(),

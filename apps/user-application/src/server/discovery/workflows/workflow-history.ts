@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
-import { getDb, scanWorkflows, eq } from '@repo/data-ops';
+import { getDb, scanRuns, eq } from '@repo/data-ops';
 
 import { getCurrentOrganizationId } from '../../utils/auth';
 import { extractErrorMessage } from '../utils/workflow-helpers';
@@ -15,22 +15,22 @@ export const getCompletedScans = createServerFn({
       const organizationId = await getCurrentOrganizationId();
       const db = getDb();
 
-      // Query completed discovery workflows from database
-      const workflows = await db
+      // Query completed scan runs from database (workflow data is now embedded)
+      const runs = await db
         .select()
-        .from(scanWorkflows)
-        .where(eq(scanWorkflows.organizationId, organizationId));
+        .from(scanRuns)
+        .where(eq(scanRuns.organizationId, organizationId));
 
-      const payload = workflows
-        .filter((w: typeof workflows[number]) => w.status === 'SUCCEEDED' || w.status === 'FAILED')
-        .map((workflow: typeof workflows[number]) => ({
-          scanId: workflow.scanId, // Restate workflow key
-          workflowType: workflow.kind,
-          scanType: workflow.kind,
-          status: workflow.status.toLowerCase(),
-          startTime: workflow.startedAt?.toISOString(),
-          closeTime: workflow.finishedAt?.toISOString(),
-          runId: workflow.scanId, // Same as scanId for now
+      const payload = runs
+        .filter((r: any) => r.workflowStatus === 'SUCCEEDED' || r.workflowStatus === 'FAILED')
+        .map((run: any) => ({
+          scanId: run.restateWorkflowId, // Restate workflow key
+          workflowType: run.workflowKind,
+          scanType: run.workflowKind,
+          status: run.workflowStatus.toLowerCase(),
+          startTime: run.workflowStartedAt?.toISOString(),
+          closeTime: run.workflowFinishedAt?.toISOString(),
+          runId: run.restateWorkflowId, // Same as scanId
           result: null, // Result would need to be fetched separately if needed
         }));
 

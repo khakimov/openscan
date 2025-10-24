@@ -1,20 +1,19 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { scanRuns, scanWorkflows, scanRunDevices } from '../schema/orchestration';
-import type { ScanRun, ScanWorkflow, ScanScope } from '../types';
+import { scanRuns, scanRunDevices } from '../schema/orchestration';
+import type { ScanRun, ScanScope } from '../types';
 
 /**
- * Get all scan runs for an organization with workflow information
+ * Get all scan runs for an organization (workflow data is now embedded)
  */
 export async function getScanRunsWithArtifacts(
   organizationId: string
-): Promise<Array<ScanRun & { scanId: string }>> {
+): Promise<Array<ScanRun>> {
   const db = getDb();
 
   const results = await db
     .select()
     .from(scanRuns)
-    .innerJoin(scanWorkflows, eq(scanRuns.scanWorkflowId, scanWorkflows.id))
     .where(eq(scanRuns.organizationId, organizationId))
     .orderBy(
       desc(scanRuns.completedAt),
@@ -22,59 +21,38 @@ export async function getScanRunsWithArtifacts(
       desc(scanRuns.requestedAt)
     );
 
-  return results.map((result: any) => ({
-    ...result.scan_runs,
-    scanId: result.scan_workflows.scanId, // Add Restate workflow key
-  }));
+  return results;
 }
 
 /**
- * Create a new scan workflow record to track Restate workflow
- */
-export async function createScanWorkflow(params: {
-  organizationId: string;
-  scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
-  kind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
-}): Promise<ScanWorkflow> {
-  const db = getDb();
-
-  const [workflow] = await db
-    .insert(scanWorkflows)
-    .values({
-      organizationId: params.organizationId,
-      scanId: params.scanId,
-      kind: params.kind,
-      status: 'PENDING',
-    })
-    .returning();
-
-  return workflow;
-}
-
-/**
- * Create a new scan run record for a specific scan execution
+ * Create a new scan run with embedded workflow tracking
  */
 export async function createScanRun(params: {
-  scanWorkflowId: string; // Foreign key to scanWorkflows.id (CUID)
   organizationId: string;
+  restateWorkflowId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
+  workflowKind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
   scanType: 'DISCOVERY' | 'PORT' | 'WEB' | 'ADVANCED';
   scope: ScanScope;
   requestedById: string;
   target?: string;
+  workflowMetadata?: Record<string, any>;
 }): Promise<ScanRun> {
   const db = getDb();
 
   const [run] = await db
     .insert(scanRuns)
     .values({
-      scanWorkflowId: params.scanWorkflowId,
       organizationId: params.organizationId,
+      restateWorkflowId: params.restateWorkflowId,
+      workflowKind: params.workflowKind,
+      workflowStatus: 'PENDING',
+      workflowMetadata: params.workflowMetadata,
       scanType: params.scanType,
       scope: params.scope,
       target: params.target,
       requestedById: params.requestedById,
       status: 'PENDING',
-      resultSummary: {},
+      resultSummary: null,
     })
     .returning();
 
@@ -82,30 +60,30 @@ export async function createScanRun(params: {
 }
 
 /**
- * Update scan workflow status
+ * Update scan workflow status (now part of scan run)
  */
 export async function updateScanWorkflowStatus(
-  scanWorkflowId: string, // Database ID (CUID) not scanId
+  scanRunId: string,
   status: 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'CANCELED' | 'TIMEOUT'
 ): Promise<void> {
   const db = getDb();
 
   const updates: any = {
-    status,
+    workflowStatus: status,
   };
 
   // Set timestamps based on status
   if (status === 'RUNNING') {
-    updates.startedAt = new Date();
+    updates.workflowStartedAt = new Date();
   }
   if (['SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'].includes(status)) {
-    updates.finishedAt = new Date();
+    updates.workflowFinishedAt = new Date();
   }
 
   await db
-    .update(scanWorkflows)
+    .update(scanRuns)
     .set(updates)
-    .where(eq(scanWorkflows.id, scanWorkflowId));
+    .where(eq(scanRuns.id, scanRunId));
 }
 
 /**
@@ -158,45 +136,39 @@ export async function updateScanRunStatus(
 }
 
 /**
- * Get scan workflow by scanId (Restate workflow key)
+ * Get scan run by Restate workflow ID
  */
-export async function getScanWorkflowByScanId(
+export async function getScanRunByRestateWorkflowId(
   organizationId: string,
-  scanId: string
-): Promise<ScanWorkflow | null> {
+  restateWorkflowId: string
+): Promise<ScanRun | null> {
   const db = getDb();
 
-  const [workflow] = await db
+  const [scanRun] = await db
     .select()
-    .from(scanWorkflows)
+    .from(scanRuns)
     .where(and(
-      eq(scanWorkflows.organizationId, organizationId),
-      eq(scanWorkflows.scanId, scanId)
+      eq(scanRuns.organizationId, organizationId),
+      eq(scanRuns.restateWorkflowId, restateWorkflowId)
     ));
 
-  return workflow || null;
+  return scanRun || null;
 }
 
 /**
- * Get scan run with its workflow
+ * Get scan run by ID (workflow data is now embedded)
  */
-export async function getScanRunWithWorkflow(
+export async function getScanRunById(
   scanRunId: string
-): Promise<(ScanRun & { workflow: ScanWorkflow }) | null> {
+): Promise<ScanRun | null> {
   const db = getDb();
 
-  const [result] = await db
+  const [scanRun] = await db
     .select()
     .from(scanRuns)
-    .innerJoin(scanWorkflows, eq(scanRuns.scanWorkflowId, scanWorkflows.id))
     .where(eq(scanRuns.id, scanRunId));
 
-  if (!result) return null;
-
-  return {
-    ...result.scan_runs,
-    workflow: result.scan_workflows,
-  };
+  return scanRun || null;
 }
 
 /**
@@ -229,22 +201,20 @@ export async function addDeviceToScanRun(params: {
 export async function getActiveScansForDevice(
   organizationId: string,
   deviceId: string
-): Promise<Array<{ scanRun: ScanRun; workflow: ScanWorkflow }>> {
+): Promise<Array<{ scanRun: ScanRun }>> {
   const db = getDb();
 
   const results = await db
     .select()
     .from(scanRuns)
-    .innerJoin(scanWorkflows, eq(scanRuns.scanWorkflowId, scanWorkflows.id))
     .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
     .where(and(
       eq(scanRunDevices.deviceId, deviceId),
       eq(scanRunDevices.organizationId, organizationId),
-      eq(scanWorkflows.status, 'RUNNING')
+      eq(scanRuns.workflowStatus, 'RUNNING')
     ));
 
   return results.map((result: any) => ({
     scanRun: result.scan_runs,
-    workflow: result.scan_workflows,
   }));
 }

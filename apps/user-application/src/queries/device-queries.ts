@@ -253,16 +253,56 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
     mutationKey: ['devices', 'scan', deviceId],
     mutationFn: (data: { deviceId: string; target: string; preset: string }) =>
       startDeviceScan({ data }),
+
+    // Optimistic update: Add temporary scan immediately
+    onMutate: async (variables) => {
+      // 1. Cancel any outgoing refetches to prevent race conditions
+      await queryClient.cancelQueries({
+        queryKey: deviceQueries.activeScans(deviceId).queryKey
+      });
+
+      // 2. Snapshot previous value for rollback
+      const previousScans = queryClient.getQueryData(
+        deviceQueries.activeScans(deviceId).queryKey
+      );
+
+      // 3. Optimistically update cache with temporary scan
+      queryClient.setQueryData(
+        deviceQueries.activeScans(deviceId).queryKey,
+        (old: any[] = []) => [
+          ...old,
+          {
+            id: `temp-${Date.now()}`, // Temporary ID
+            deviceId: variables.deviceId,
+            target: variables.target,
+            status: 'PENDING',
+            startedAt: new Date().toISOString(),
+          }
+        ]
+      );
+
+      // 4. Return context for rollback
+      return { previousScans };
+    },
+
+    onError: (_err, _variables, context) => {
+      // Rollback on error
+      if (context?.previousScans) {
+        queryClient.setQueryData(
+          deviceQueries.activeScans(deviceId).queryKey,
+          context.previousScans
+        );
+      }
+    },
+
     onSuccess: () => {
-      // Invalidate active scans to trigger re-poll
+      // Invalidate to sync with real database scan
       queryClient.invalidateQueries({ queryKey: deviceQueries.activeScans(deviceId).queryKey });
     },
   });
 };
 
 export const useCreateDevicesFromDiscoveryMutation = () => {
-  const queryClient = useQueryClient();
-
   return useMutation({
     mutationKey: ['devices', 'create-from-discovery'],
     mutationFn: (data: {
@@ -275,9 +315,6 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
         verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
       };
     }) => createDevicesFromDiscovery({ data }),
-    onSuccess: () => {
-      // Invalidate all device list queries after server confirms creation
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
-    },
+    // No invalidation needed - AddDiscovery modal handles cache update directly
   });
 };

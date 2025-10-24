@@ -7,12 +7,9 @@
 
 import { z } from 'zod';
 import {
-  getScanWorkflowByScanId,
+  getScanRunByRestateWorkflowId,
   updateScanRunStatus,
   updateScanWorkflowStatus,
-  getDb,
-  scanRuns,
-  eq,
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { DiscoveryPostback } from '../types';
@@ -134,46 +131,18 @@ export class DiscoveryPostbackHandler
       target: data.target,
     });
 
-    // Step 1: Find the scan workflow by scanId
-    const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+    // Step 1: Find the scan run by Restate workflow ID (workflow data is now embedded)
+    const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
-    if (!workflow) {
-      ctx.logger.warn('Discovery workflow not found for postback', {
+    if (!scanRun) {
+      ctx.logger.warn('Discovery scan run not found for postback', {
         scanId,
         organizationId,
       });
 
       return {
         success: false,
-        message: `Discovery workflow not found: ${scanId}`,
-        analytics: buildFailureAnalytics(
-          AnalyticsEventTypes.DISCOVERY_FAILURE,
-          {
-            scanId,
-            entityId: organizationId,
-            error: 'Workflow not found',
-          }
-        ),
-      };
-    }
-
-    // Step 2: Get the scan run for this workflow
-    const db = getDb();
-
-    const [scanRun] = await db
-      .select()
-      .from(scanRuns)
-      .where(eq(scanRuns.scanWorkflowId, workflow.id))
-      .limit(1);
-
-    if (!scanRun) {
-      ctx.logger.warn('No scan run found for discovery workflow', {
-        scanWorkflowId: workflow.id,
-      });
-
-      return {
-        success: false,
-        message: `No scan run found for workflow: ${workflow.id}`,
+        message: `Discovery scan run not found: ${scanId}`,
         analytics: buildFailureAnalytics(
           AnalyticsEventTypes.DISCOVERY_FAILURE,
           {
@@ -213,11 +182,11 @@ export class DiscoveryPostbackHandler
 
     // Step 5: Update workflow status
     ctx.logger.info('Updating workflow status to SUCCEEDED', {
-      scanWorkflowId: workflow.id,
-      scanId: workflow.scanId,
+      scanRunId: scanRun.id,
+      restateWorkflowId: scanRun.restateWorkflowId,
       organizationId,
     });
-    await updateScanWorkflowStatus(workflow.id, 'SUCCEEDED');
+    await updateScanWorkflowStatus(scanRun.id, 'SUCCEEDED');
 
     ctx.logger.info('Discovery results stored successfully', {
       scanId,
@@ -256,47 +225,38 @@ export class DiscoveryPostbackHandler
       error,
     });
 
-    // Find workflow and mark it as failed
-    const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+    // Find scan run and mark it as failed (workflow data is now embedded)
+    const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
-    if (!workflow) {
-      ctx.logger.warn('Discovery workflow not found for failure postback', {
+    if (!scanRun) {
+      ctx.logger.warn('Discovery scan run not found for failure postback', {
         scanId,
         organizationId,
       });
 
       return {
-        success: true, // We processed the postback successfully even though workflow wasn't found
-        message: 'Workflow not found for failed discovery',
+        success: true, // We processed the postback successfully even though scan run wasn't found
+        message: 'Scan run not found for failed discovery',
         analytics: buildFailureAnalytics(
           AnalyticsEventTypes.DISCOVERY_FAILURE,
           {
             scanId,
             entityId: organizationId,
-            error: 'Workflow not found',
+            error: 'Scan run not found',
           }
         ),
       };
     }
 
     // Update workflow status to FAILED
-    await updateScanWorkflowStatus(workflow.id, 'FAILED');
+    await updateScanWorkflowStatus(scanRun.id, 'FAILED');
 
-    // Update scan run status if it exists
-    const db = getDb();
-    const [scanRun] = await db
-      .select()
-      .from(scanRuns)
-      .where(eq(scanRuns.scanWorkflowId, workflow.id))
-      .limit(1);
-
-    if (scanRun) {
-      await updateScanRunStatus(scanRun.id, 'FAILED', { error });
-    }
+    // Update scan run status with error details
+    await updateScanRunStatus(scanRun.id, 'FAILED', { error });
 
     ctx.logger.info('Discovery failure processed', {
       scanId,
-      scanWorkflowId: workflow.id,
+      scanRunId: scanRun.id,
     });
 
     return {

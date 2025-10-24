@@ -33,7 +33,6 @@ describe('buildScannerInput', () => {
         userId: 'user-1',
         input,
         scope: 'INTERNAL',
-        scanWorkflowId: 'workflow-1',
         scanRunId: 'run-1',
       });
 
@@ -54,7 +53,6 @@ describe('buildScannerInput', () => {
         userId: 'user-1',
         input,
         scope: 'INTERNAL',
-        scanWorkflowId: 'workflow-1',
         scanRunId: 'run-1',
       });
 
@@ -77,7 +75,6 @@ describe('buildScannerInput', () => {
         userId: 'user-1',
         input,
         scope: 'INTERNAL',
-        scanWorkflowId: 'workflow-1',
         scanRunId: 'run-1',
       });
 
@@ -99,7 +96,6 @@ describe('buildScannerInput', () => {
         userId: 'user-1',
         input,
         scope: 'INTERNAL',
-        scanWorkflowId: 'workflow-1',
         scanRunId: 'run-1',
       });
 
@@ -123,7 +119,6 @@ describe('buildScannerInput', () => {
         userId: 'user-1',
         input,
         scope: 'INTERNAL',
-        scanWorkflowId: 'workflow-1',
         scanRunId: 'run-1',
       });
 
@@ -144,12 +139,10 @@ describe('buildScannerInput', () => {
         userId: 'user-1',
         input,
         scope: 'EXTERNAL',
-        scanWorkflowId: 'workflow-1',
         scanRunId: 'run-1',
       });
 
       expect(result.tenantId).toBe('tenant-1');
-      expect(result.scanWorkflowId).toBe('workflow-1'); // Database FK to scanWorkflows.id (CUID)
       expect(result.scanRunId).toBe('run-1');
       expect(result.targets).toHaveLength(1);
       expect(result.targets[0].value).toBe('example.com');

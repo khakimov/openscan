@@ -6,26 +6,20 @@ import { auth_user } from '../drizzle/auth-schema';
 import { devices } from './inventory';
 import type { EnrichedScanResultSummary } from '../types/cve-enrichment';
 
-export const scanWorkflows = sqliteTable('scan_workflows', {
-  id: cuidText().primaryKey(),
-  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  kind: text('kind').notNull(), // 'EXTEND_SCAN', 'RESCAN', 'DISCOVERY', 'BULK_IMPORT', 'SYNC_QUALYS'
-  status: text('status').notNull().default('PENDING'), // 'PENDING', 'RUNNING', 'PAUSED', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
-  scanId: text('scan_id').notNull(), // Restate workflow key (e.g., "portscan-0-0-0-0-123456" or "discovery-123456")
-  startedAt: integer('started_at', { mode: 'timestamp_ms' }),
-  finishedAt: integer('finished_at', { mode: 'timestamp_ms' }),
-  cancelRequestedAt: integer('cancel_requested_at', { mode: 'timestamp_ms' }),
-  metadata: text('metadata', { mode: 'json' }).$type<Record<string, any>>(),
-}, (t) => ({
-  orgStatusIdx: index('scan_workflows_org_status_idx').on(t.organizationId, t.status),
-  statusStartedIdx: index('scan_workflows_status_started_idx').on(t.status, t.startedAt),
-  orgScanIdUq: uniqueIndex('scan_workflows_org_scan_id_uq').on(t.organizationId, t.scanId),
-}));
-
 export const scanRuns = sqliteTable('scan_runs', {
   id: cuidText().primaryKey(),
-  scanWorkflowId: text('scan_workflow_id').notNull().references(() => scanWorkflows.id, { onDelete: 'cascade' }), // Foreign key to scanWorkflows.id (CUID)
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+
+  // Restate workflow info (merged from scan_workflows)
+  restateWorkflowId: text('restate_workflow_id').notNull(), // e.g., "portscan-0-0-0-0-123456"
+  workflowKind: text('workflow_kind').notNull(), // 'EXTEND_SCAN', 'RESCAN', 'DISCOVERY', 'BULK_IMPORT', 'SYNC_QUALYS'
+  workflowStatus: text('workflow_status').notNull().default('PENDING'), // 'PENDING', 'RUNNING', 'PAUSED', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
+  workflowStartedAt: integer('workflow_started_at', { mode: 'timestamp_ms' }),
+  workflowFinishedAt: integer('workflow_finished_at', { mode: 'timestamp_ms' }),
+  workflowCancelRequestedAt: integer('workflow_cancel_requested_at', { mode: 'timestamp_ms' }),
+  workflowMetadata: text('workflow_metadata', { mode: 'json' }).$type<Record<string, any>>(),
+
+  // Scan execution info
   scope: text('scope').notNull(), // 'INTERNAL', 'EXTERNAL', 'HYBRID'
   scanType: text('scan_type').notNull(), // 'DISCOVERY', 'PORT', 'WEB', 'ADVANCED'
   target: text('target'), // Primary target being scanned
@@ -33,11 +27,11 @@ export const scanRuns = sqliteTable('scan_runs', {
   requestedAt: now(),
   startedAt: integer('started_at', { mode: 'timestamp_ms' }),
   completedAt: integer('completed_at', { mode: 'timestamp_ms' }),
-  status: text('status').notNull().default('PENDING'), // 'PENDING', 'RUNNING', 'PARTIAL', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
+  status: text('status').notNull().default('PENDING'), // Execution result: 'PENDING', 'RUNNING', 'PARTIAL', 'SUCCEEDED', 'FAILED', 'CANCELED', 'TIMEOUT'
   resultSummary: text('result_summary', { mode: 'json' }).$type<EnrichedScanResultSummary | null>(),
 }, (t) => ({
   orgStatusIdx: index('scan_runs_org_status_idx').on(t.organizationId, t.status),
-  scanWorkflowIdx: index('scan_runs_scan_workflow_idx').on(t.scanWorkflowId),
+  restateWorkflowIdUq: uniqueIndex('scan_runs_org_restate_workflow_id_uq').on(t.organizationId, t.restateWorkflowId),
 }));
 
 export const scanRunDevices = sqliteTable('scan_run_devices', {
@@ -66,19 +60,7 @@ export const scanSchedules = sqliteTable('scan_schedules', {
 }));
 
 // Relations
-export const scanWorkflowsRelations = relations(scanWorkflows, ({ one, many }) => ({
-  organization: one(organization, {
-    fields: [scanWorkflows.organizationId],
-    references: [organization.id],
-  }),
-  scanRuns: many(scanRuns),
-}));
-
 export const scanRunsRelations = relations(scanRuns, ({ one, many }) => ({
-  workflow: one(scanWorkflows, {
-    fields: [scanRuns.scanWorkflowId],
-    references: [scanWorkflows.id],
-  }),
   organization: one(organization, {
     fields: [scanRuns.organizationId],
     references: [organization.id],

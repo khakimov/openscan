@@ -12,6 +12,9 @@ import { deviceQueries } from "@/queries/device-queries";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { Spinner } from "@/components/ui/spinner";
+import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 
 // Search params schema with proper validation
 const assetsSearchSchema = z.object({
@@ -34,14 +37,33 @@ export const Route = createFileRoute("/_auth/assets")({
       deviceQueries.list({ verificationStatus })
     );
   },
+  // Show spinner during slow navigation (only visible if loader takes >1s)
+  pendingComponent: () => (
+    <div className="flex items-center justify-center h-64">
+      <Spinner size="lg" />
+    </div>
+  ),
   component: Assets,
 });
 
 function Assets() {
   const { tab } = Route.useSearch();
 
+  // Track newly added device IDs for animation (TanStack pattern - UI state in component)
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
+
   const handleDiscoveryCreated = (target: string) => {
     console.log('Discovery started for target:', target);
+  };
+
+  // Callback when devices are added - triggers animation
+  const handleDevicesAdded = (deviceIds: string[]) => {
+    setNewlyAddedIds(new Set(deviceIds));
+
+    // Clear animation after 3 seconds
+    setTimeout(() => {
+      setNewlyAddedIds(new Set());
+    }, 3000);
   };
 
   // Map tab to verification status for query
@@ -62,14 +84,18 @@ function Assets() {
   return (
     <Padding>
       <div className="mb-4 flex items-center justify-between">
-        <PageTabs>
-          <PageTabsLink href={"/assets?tab=discovery"} isActive={tab === "discovery"}>
-            Discovery
-          </PageTabsLink>
-          <PageTabsLink href={"/assets?tab=verified"} isActive={tab === "verified"}>
-            Verified
-          </PageTabsLink>
-        </PageTabs>
+        <div className="flex items-center gap-3">
+          <PageTabs>
+            <PageTabsLink href={"/assets?tab=discovery"} isActive={tab === "discovery"}>
+              Discovery
+            </PageTabsLink>
+            <PageTabsLink href={"/assets?tab=verified"} isActive={tab === "verified"}>
+              Verified
+            </PageTabsLink>
+          </PageTabs>
+          {/* Hidden on mobile (shows in sidebar instead) */}
+          <InlineRouterSpinner className="hidden lg:inline-flex" />
+        </div>
         <div className="flex gap-2">
           <Button
             onClick={() => {
@@ -81,7 +107,10 @@ function Assets() {
           </Button>
           <Button
             onClick={() => {
-              pushModal("AddDiscovery", { onConfirm: handleDiscoveryCreated });
+              pushModal("AddDiscovery", {
+                onConfirm: handleDiscoveryCreated,
+                onDevicesAdded: handleDevicesAdded,
+              });
             }}
           >
             <PlusIcon />
@@ -108,7 +137,7 @@ function Assets() {
             </p>
           </div>
         ) : (
-          <DeviceDetailSheet devices={devices} />
+          <DeviceDetailSheet devices={devices} newlyAddedIds={newlyAddedIds} />
         )}
 
         {devicesResponse && devicesResponse.totalPages > 1 && (

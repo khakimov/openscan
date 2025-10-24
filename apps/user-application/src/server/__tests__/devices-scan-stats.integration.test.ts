@@ -15,7 +15,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { getDevicesForTenant } from '@repo/data-ops/queries/devices';
 import { getDb } from '@repo/data-ops/database/setup';
-import { scanRuns, scanWorkflows, devices, scanRunDevices } from '@repo/data-ops/schema';
+import { scanRuns, devices, scanRunDevices } from '@repo/data-ops/schema';
 import { auth_user, organization } from '@repo/data-ops/drizzle/auth-schema';
 import { eq } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
@@ -27,7 +27,6 @@ describe('Device Scan Statistics (Integration)', () => {
 
   // Test data IDs for cleanup
   const testDataIds = {
-    workflows: [] as string[],
     scanRuns: [] as string[],
     devices: [] as string[],
     scanRunDevices: [] as string[],
@@ -74,19 +73,13 @@ describe('Device Scan Statistics (Integration)', () => {
     testDataIds.devices.push(device1.id);
 
     // First scan (older) - 2 ports
-    const [workflow1a] = await db.insert(scanWorkflows).values({
-      organizationId: testOrgId,
-      scanId: 'portscan-test-1a',
-      kind: 'PORT',
-      status: 'SUCCEEDED',
-      startedAt: new Date('2025-01-15T09:00:00Z'),
-      finishedAt: new Date('2025-01-15T09:05:00Z'),
-    }).returning();
-    testDataIds.workflows.push(workflow1a.id);
-
     const [scanRun1a] = await db.insert(scanRuns).values({
-      scanWorkflowId: workflow1a.id,
       organizationId: testOrgId,
+      restateWorkflowId: 'portscan-test-1a',
+      workflowKind: 'DISCOVERY',
+      workflowStatus: 'SUCCEEDED',
+      workflowStartedAt: new Date('2025-01-15T09:00:00Z'),
+      workflowFinishedAt: new Date('2025-01-15T09:05:00Z'),
       scanType: 'PORT',
       scope: 'EXTERNAL',
       target: 'test-device-multiple-scans',
@@ -114,19 +107,13 @@ describe('Device Scan Statistics (Integration)', () => {
     });
 
     // Second scan (latest) - 5 ports
-    const [workflow1b] = await db.insert(scanWorkflows).values({
-      organizationId: testOrgId,
-      scanId: 'portscan-test-1b',
-      kind: 'PORT',
-      status: 'SUCCEEDED',
-      startedAt: new Date('2025-01-15T10:00:00Z'),
-      finishedAt: new Date('2025-01-15T10:05:00Z'),
-    }).returning();
-    testDataIds.workflows.push(workflow1b.id);
-
     const [scanRun1b] = await db.insert(scanRuns).values({
-      scanWorkflowId: workflow1b.id,
       organizationId: testOrgId,
+      restateWorkflowId: 'portscan-test-1b',
+      workflowKind: 'DISCOVERY',
+      workflowStatus: 'SUCCEEDED',
+      workflowStartedAt: new Date('2025-01-15T10:00:00Z'),
+      workflowFinishedAt: new Date('2025-01-15T10:05:00Z'),
       scanType: 'PORT',
       scope: 'EXTERNAL',
       target: 'test-device-multiple-scans',
@@ -167,19 +154,13 @@ describe('Device Scan Statistics (Integration)', () => {
     }).returning();
     testDataIds.devices.push(device2.id);
 
-    const [workflow2] = await db.insert(scanWorkflows).values({
-      organizationId: testOrgId,
-      scanId: 'portscan-test-2',
-      kind: 'PORT',
-      status: 'SUCCEEDED',
-      startedAt: new Date('2025-01-15T11:00:00Z'),
-      finishedAt: new Date('2025-01-15T11:05:00Z'),
-    }).returning();
-    testDataIds.workflows.push(workflow2.id);
-
     const [scanRun2] = await db.insert(scanRuns).values({
-      scanWorkflowId: workflow2.id,
       organizationId: testOrgId,
+      restateWorkflowId: 'portscan-test-2',
+      workflowKind: 'DISCOVERY',
+      workflowStatus: 'SUCCEEDED',
+      workflowStartedAt: new Date('2025-01-15T11:00:00Z'),
+      workflowFinishedAt: new Date('2025-01-15T11:05:00Z'),
       scanType: 'PORT',
       scope: 'EXTERNAL',
       target: 'test-device-no-ports',
@@ -214,18 +195,12 @@ describe('Device Scan Statistics (Integration)', () => {
     }).returning();
     testDataIds.devices.push(device3.id);
 
-    const [workflow3] = await db.insert(scanWorkflows).values({
-      organizationId: testOrgId,
-      scanId: 'portscan-test-3',
-      kind: 'PORT',
-      status: 'SUCCEEDED',
-      startedAt: new Date('2025-01-15T12:00:00Z'),
-      finishedAt: new Date('2025-01-15T12:05:00Z'),
-    }).returning();
-    testDataIds.workflows.push(workflow3.id);
-
     const [scanRun3] = await db.insert(scanRuns).values({
-      scanWorkflowId: workflow3.id,
+      restateWorkflowId: 'portscan-test-3',
+      workflowKind: 'DISCOVERY',
+      workflowStatus: 'SUCCEEDED',
+      workflowStartedAt: new Date('2025-01-15T12:00:00Z'),
+      workflowFinishedAt: new Date('2025-01-15T12:05:00Z'),
       organizationId: testOrgId,
       scanType: 'PORT',
       scope: 'EXTERNAL',
@@ -265,7 +240,6 @@ describe('Device Scan Statistics (Integration)', () => {
 
     console.log('📝 Inserted test data:');
     console.log(`   Devices: ${testDataIds.devices.length}`);
-    console.log(`   Workflows: ${testDataIds.workflows.length}`);
     console.log(`   Scan Runs: ${testDataIds.scanRuns.length}`);
   });
 
@@ -281,11 +255,6 @@ describe('Device Scan Statistics (Integration)', () => {
       await db.delete(scanRuns).where(eq(scanRuns.id as any, id));
     }
 
-    // Delete workflows
-    for (const id of testDataIds.workflows) {
-      await db.delete(scanWorkflows).where(eq(scanWorkflows.id as any, id));
-    }
-
     // Delete devices
     for (const id of testDataIds.devices) {
       await db.delete(devices).where(eq(devices.id as any, id));
@@ -298,7 +267,6 @@ describe('Device Scan Statistics (Integration)', () => {
     console.log('🧹 Cleaned up test data');
     console.log(`   Deleted junction table entries`);
     console.log(`   Deleted ${testDataIds.scanRuns.length} scan runs`);
-    console.log(`   Deleted ${testDataIds.workflows.length} workflows`);
     console.log(`   Deleted ${testDataIds.devices.length} devices`);
     console.log(`   Deleted test user and organization`);
   });
