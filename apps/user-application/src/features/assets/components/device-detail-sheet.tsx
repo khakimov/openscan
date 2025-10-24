@@ -8,16 +8,18 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  SheetFooter,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { DeviceCard } from "./device-card";
 import { DeviceOpenPorts } from "./device-open-ports";
 import { pushModal } from "@/modals";
-import { Pencil, Trash2, Scan } from "lucide-react";
+import { Pencil, Trash2, Scan, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { deviceQueries } from "@/queries/device-queries";
 import { useMemo } from "react";
+import { Link, useParams } from "@tanstack/react-router";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
@@ -45,6 +47,9 @@ function DeviceDetailSheetItem({
   device: TransformedDevice;
   isNewlyAdded?: boolean;
 }) {
+  // Get organizationId from route params
+  const params = useParams({ strict: false });
+  const organizationId = 'organizationId' in params ? params.organizationId as string : null;
   // Each device has its own Sheet with its own data loading using queryOptions
   const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery({
     ...deviceQueries.detail(device.id),
@@ -189,6 +194,18 @@ function DeviceDetailSheetItem({
             </div>
           )}
         </div>
+
+        {/* Footer with link to full device page */}
+        {organizationId && (
+          <SheetFooter className="border-t pt-4 px-4">
+            <Link to={`/${organizationId}/${device.id}` as any}>
+              <Button variant="outline" className="w-full gap-2">
+                <ExternalLink className="h-4 w-4" />
+                View Full Device Details
+              </Button>
+            </Link>
+          </SheetFooter>
+        )}
       </SheetContent>
     </Sheet>
   );

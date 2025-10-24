@@ -14,7 +14,7 @@ import {
 } from "@/server/organization";
 import { getOrganizationProjects } from "@/server/projects";
 
-export const Route = createFileRoute("/_auth")({
+export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
     const user = await getCurrentUser();
     if (!user) {
@@ -80,16 +80,16 @@ export const Route = createFileRoute("/_auth")({
       projects,
     };
   },
-  component: RouteComponent,
+  component: AppLayout,
 });
 
-function RouteComponent() {
+function AppLayout() {
   const { user, activeOrganization, organizations, projects } =
     Route.useLoaderData();
 
   return (
     <div className="flex h-screen w-full bg-background">
-      {/* Sidebar renders immediately when _auth loader completes */}
+      {/* Sidebar renders immediately when _app loader completes */}
       <Sidebar
         user={user}
         activeOrganization={activeOrganization}

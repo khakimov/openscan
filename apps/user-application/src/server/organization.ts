@@ -5,7 +5,7 @@ import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth
 import { getRequest } from "@tanstack/react-start/server";
 import { getDb } from "@repo/data-ops/database/setup";
 import { organization, projects } from "@repo/data-ops/schema";
-import { and, eq } from "@repo/data-ops";
+import { and, eq, or } from "@repo/data-ops";
 import { createProject, updateProject } from "@repo/data-ops";
 import { getCurrentUser } from "./utils/auth";
 import type {
@@ -603,3 +603,73 @@ export const getOnboardingStatus = createServerFn({
     } satisfies OnboardingStatus;
   }
 });
+
+/**
+ * Get organization by slug or ID and validate user has access
+ * Follows OpenPanel pattern: accepts slug (preferred) or ID as fallback
+ */
+export const getOrganizationById = createServerFn({
+  method: "GET",
+})
+  .inputValidator((organizationIdentifier: string) => {
+    if (!organizationIdentifier) {
+      throw new Error("Organization identifier is required");
+    }
+    return organizationIdentifier;
+  })
+  .handler(async ({ data: organizationIdentifier }) => {
+    try {
+      const user = await getCurrentUser();
+      const db = getDb();
+
+      // Query organization by slug OR id (OpenPanel pattern)
+      // Try slug first (cleaner URLs), fallback to ID
+      const [org] = await db
+        .select({
+          id: organization.id,
+          name: organization.name,
+          slug: organization.slug,
+          metadata: organization.metadata,
+        })
+        .from(organization)
+        .where(
+          or(
+            eq(organization.slug, organizationIdentifier),
+            eq(organization.id, organizationIdentifier)
+          )
+        )
+        .limit(1);
+
+      if (!org) {
+        throw new Error("Organization not found");
+      }
+
+      // TODO: Add membership check once we have member/role tables
+      // For now, assume user has access if organization exists
+
+      logger.info("Organization accessed", {
+        organizationId: org.id,
+        organizationSlug: org.slug,
+        accessedVia: organizationIdentifier,
+        userId: user.id,
+      });
+
+      return {
+        success: true,
+        organization: {
+          id: org.id,
+          name: org.name ?? null,
+          slug: org.slug ?? null,
+          metadata: org.metadata ? JSON.parse(org.metadata) : null,
+        },
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Failed to get organization", {
+        error: errorMessage,
+        identifier: organizationIdentifier,
+      });
+
+      throw error; // Re-throw to trigger 404
+    }
+  });

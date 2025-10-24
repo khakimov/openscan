@@ -16,23 +16,35 @@ interface NavigationItem {
   badge?: string | number;
 }
 
-const navigationItems: NavigationItem[] = [
-  {
-    name: "Dashboard",
-    icon: Home,
-    href: "/dashboard",
-  },
-  {
-    name: "Assets",
-    icon: Shield,
-    href: "/assets",
-  },
-  {
-    name: "Scans",
-    icon: ScanLine,
-    href: "/scans",
-  },
-];
+/**
+ * Build navigation items with organization slug (or ID as fallback)
+ */
+function getNavigationItems(organization: SidebarOrganization | null): NavigationItem[] {
+  if (!organization) {
+    return [];
+  }
+
+  // Prefer slug over ID for cleaner URLs (OpenPanel pattern)
+  const orgIdentifier = organization.slug || organization.id;
+
+  return [
+    {
+      name: "Dashboard",
+      icon: Home,
+      href: `/${orgIdentifier}`,
+    },
+    {
+      name: "Assets",
+      icon: Shield,
+      href: `/${orgIdentifier}/assets`,
+    },
+    {
+      name: "Scans",
+      icon: ScanLine,
+      href: `/${orgIdentifier}/scans`,
+    },
+  ];
+}
 
 export interface SidebarOrganization {
   id: string;
@@ -80,6 +92,9 @@ export function Sidebar({
     ? user.name.charAt(0).toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "U";
 
+  // Build navigation items based on active organization (uses slug for cleaner URLs)
+  const navigationItems = getNavigationItems(activeOrganization);
+
   // Auto-close mobile menu on navigation using router.subscribe (proper TanStack Router pattern)
   useEffect(() => {
     const unsubscribe = router.subscribe("onResolved", () => {
@@ -126,10 +141,12 @@ export function Sidebar({
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              const isActive =
-                currentPath === item.href ||
-                (item.href !== "/dashboard" &&
-                  currentPath.startsWith(item.href));
+              // Dashboard (org root) should only match exactly
+              // Other routes can match by prefix (with trailing slash to avoid partial matches)
+              const isDashboard = item.name === "Dashboard";
+              const isActive = isDashboard
+                ? currentPath === item.href
+                : currentPath === item.href || currentPath.startsWith(item.href + "/");
 
               return (
                 <Button
@@ -266,10 +283,12 @@ export function Sidebar({
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              const isActive =
-                currentPath === item.href ||
-                (item.href !== "/dashboard" &&
-                  currentPath.startsWith(item.href));
+              // Dashboard (org root) should only match exactly
+              // Other routes can match by prefix (with trailing slash to avoid partial matches)
+              const isDashboard = item.name === "Dashboard";
+              const isActive = isDashboard
+                ? currentPath === item.href
+                : currentPath === item.href || currentPath.startsWith(item.href + "/");
 
               return (
                 <Button

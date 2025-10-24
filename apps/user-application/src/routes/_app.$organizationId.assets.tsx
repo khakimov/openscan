@@ -21,7 +21,7 @@ const assetsSearchSchema = z.object({
   tab: fallback(z.enum(["discovery", "verified"]), "discovery").default("discovery"),
 });
 
-export const Route = createFileRoute("/_auth/assets")({
+export const Route = createFileRoute("/_app/$organizationId/assets")({
   validateSearch: zodValidator(assetsSearchSchema),
   loaderDeps: ({ search }) => ({ tab: search.tab }),
   loader: async ({ context: { queryClient }, deps: { tab } }) => {
@@ -43,6 +43,7 @@ export const Route = createFileRoute("/_auth/assets")({
 
 function Assets() {
   const { tab } = Route.useSearch();
+  const { organizationId } = Route.useParams();
 
   // Track newly added device IDs for animation (TanStack pattern - UI state in component)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
@@ -67,10 +68,10 @@ function Assets() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <PageTabs>
-            <PageTabsLink href={"/assets?tab=discovery"} isActive={tab === "discovery"}>
+            <PageTabsLink href={`/${organizationId}/assets?tab=discovery`} isActive={tab === "discovery"}>
               Discovery
             </PageTabsLink>
-            <PageTabsLink href={"/assets?tab=verified"} isActive={tab === "verified"}>
+            <PageTabsLink href={`/${organizationId}/assets?tab=verified`} isActive={tab === "verified"}>
               Verified
             </PageTabsLink>
           </PageTabs>

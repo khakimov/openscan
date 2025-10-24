@@ -13,9 +13,9 @@ export const Route = createFileRoute("/onboarding")({
 
     // Check if user has already completed onboarding
     const status = await getOnboardingStatus();
-    if (status.onboardingCompleted) {
-      // Redirect completed users to dashboard
-      throw redirect({ to: "/dashboard" });
+    if (status.onboardingCompleted && status.organizationId) {
+      // Redirect completed users to organization dashboard
+      throw redirect({ to: `/${status.organizationId}` as any });
     }
 
     // Allow users to continue through onboarding flow

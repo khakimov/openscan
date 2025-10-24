@@ -14,7 +14,7 @@ const scansSearchSchema = z.object({
   tab: fallback(z.enum(["all"]), "all").default("all"),
 });
 
-export const Route = createFileRoute("/_auth/scans")({
+export const Route = createFileRoute("/_app/$organizationId/scans")({
   validateSearch: zodValidator(scansSearchSchema),
   loader: async ({ context: { queryClient } }) => {
     // Populate query cache for SSR - table() uses auto-polling
