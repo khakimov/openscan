@@ -12,7 +12,7 @@ import { deviceQueries } from "@/queries/device-queries";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 
@@ -37,12 +37,7 @@ export const Route = createFileRoute("/_auth/assets")({
       deviceQueries.list({ verificationStatus })
     );
   },
-  // Show spinner during slow navigation (only visible if loader takes >1s)
-  pendingComponent: () => (
-    <div className="flex items-center justify-center h-64">
-      <Spinner size="lg" />
-    </div>
-  ),
+  // No pendingComponent - render page shell immediately, suspend only data component
   component: Assets,
 });
 
@@ -66,23 +61,9 @@ function Assets() {
     }, 3000);
   };
 
-  // Map tab to verification status for query
-  const verificationStatus =
-    tab === "verified"
-      ? "VERIFIED"
-      : (["CANDIDATE", "EXCLUDED"] as ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[]);
-
-  // Use suspense query with same queryOptions as loader
-  // Data is guaranteed to exist (populated by loader)
-  const { data: devicesResponse } = useSuspenseQuery(
-    deviceQueries.list({ verificationStatus })
-  );
-
-  // No nullability check needed - useSuspenseQuery guarantees data exists
-  const devices = devicesResponse.items;
-
   return (
     <Padding>
+      {/* Page shell - renders immediately, no data needed */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <PageTabs>
@@ -119,34 +100,71 @@ function Assets() {
         </div>
       </div>
 
-      <div className="relative">
-        <TableButtons>
-          <OverviewRange />
-        </TableButtons>
-
-        {devices.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Shield className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              {tab === "verified" ? "No verified devices" : "No discovered devices"}
-            </h3>
-            <p className="text-muted-foreground">
-              {tab === "verified"
-                ? "Manually added or verified devices will appear here."
-                : "Devices will appear here once they are discovered by the scanner."}
-            </p>
+      {/* Data component - only this suspends, page shell stays visible */}
+      <Suspense
+        fallback={
+          <div className="flex items-center justify-center h-64">
+            <Spinner size="lg" />
           </div>
-        ) : (
-          <DeviceDetailSheet devices={devices} newlyAddedIds={newlyAddedIds} />
-        )}
-
-        {devicesResponse && devicesResponse.totalPages > 1 && (
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            Page {devicesResponse.page} of {devicesResponse.totalPages} (
-            {devicesResponse.totalCount} total devices)
-          </div>
-        )}
-      </div>
+        }
+      >
+        <DevicesContent tab={tab} newlyAddedIds={newlyAddedIds} />
+      </Suspense>
     </Padding>
+  );
+}
+
+// Data-dependent component - suspends during loading
+function DevicesContent({
+  tab,
+  newlyAddedIds
+}: {
+  tab: "discovery" | "verified";
+  newlyAddedIds: Set<string>;
+}) {
+  // Map tab to verification status for query
+  const verificationStatus =
+    tab === "verified"
+      ? "VERIFIED"
+      : (["CANDIDATE", "EXCLUDED"] as ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[]);
+
+  // Use suspense query with same queryOptions as loader
+  // Data is guaranteed to exist (populated by loader)
+  const { data: devicesResponse } = useSuspenseQuery(
+    deviceQueries.list({ verificationStatus })
+  );
+
+  // No nullability check needed - useSuspenseQuery guarantees data exists
+  const devices = devicesResponse.items;
+
+  return (
+    <div className="relative">
+      <TableButtons>
+        <OverviewRange />
+      </TableButtons>
+
+      {devices.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 text-center">
+          <Shield className="h-12 w-12 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">
+            {tab === "verified" ? "No verified devices" : "No discovered devices"}
+          </h3>
+          <p className="text-muted-foreground">
+            {tab === "verified"
+              ? "Manually added or verified devices will appear here."
+              : "Devices will appear here once they are discovered by the scanner."}
+          </p>
+        </div>
+      ) : (
+        <DeviceDetailSheet devices={devices} newlyAddedIds={newlyAddedIds} />
+      )}
+
+      {devicesResponse && devicesResponse.totalPages > 1 && (
+        <div className="mt-6 text-center text-sm text-muted-foreground">
+          Page {devicesResponse.page} of {devicesResponse.totalPages} (
+          {devicesResponse.totalCount} total devices)
+        </div>
+      )}
+    </div>
   );
 }

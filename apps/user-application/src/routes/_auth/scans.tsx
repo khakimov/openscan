@@ -7,6 +7,7 @@ import { z } from "zod";
 import { scanQueries } from "@/queries/scan-queries";
 import { Spinner } from "@/components/ui/spinner";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
+import { Suspense } from "react";
 
 // Search params schema with proper validation
 const scansSearchSchema = z.object({
@@ -19,12 +20,7 @@ export const Route = createFileRoute("/_auth/scans")({
     // Populate query cache for SSR - table() uses auto-polling
     await queryClient.ensureQueryData(scanQueries.table());
   },
-  // Show spinner during slow navigation (only visible if loader takes >1s)
-  pendingComponent: () => (
-    <div className="flex items-center justify-center h-64">
-      <Spinner size="lg" />
-    </div>
-  ),
+  // No pendingComponent - render page shell immediately, suspend only data component
   component: Scans,
 });
 
@@ -33,6 +29,7 @@ function Scans() {
 
   return (
     <Padding>
+      {/* Page shell - renders immediately, no data needed */}
       <div className="mb-4 flex items-center gap-3">
         <PageTabs>
           <PageTabsLink href={"?tab=all"} isActive={tab === "all"}>
@@ -43,9 +40,18 @@ function Scans() {
         <InlineRouterSpinner className="hidden lg:inline-flex" />
       </div>
 
+      {/* Data component - only this suspends, page shell stays visible */}
       <div className="grid grid-cols-6 gap-4  pt-0">
         <div className="col-span-6">
-          <ScansTable />
+          <Suspense
+            fallback={
+              <div className="flex items-center justify-center h-64">
+                <Spinner size="lg" />
+              </div>
+            }
+          >
+            <ScansTable />
+          </Suspense>
         </div>
       </div>
     </Padding>
