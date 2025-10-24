@@ -147,7 +147,7 @@ export function OnboardingDiscovery({
       {
         onSuccess: () => {
           // Skip discovery and go directly to dashboard
-          navigate({ to: "/dashboard" });
+          navigate({ to: `/${organizationId}` as any });
         },
         onError: (error) => {
           toast.error("Failed to complete onboarding", {
@@ -200,7 +200,7 @@ export function OnboardingDiscovery({
           }
 
           // Navigate to dashboard (onboarding complete)
-          navigate({ to: "/dashboard" });
+          navigate({ to: `/${organizationId}` as any });
         },
         onError: (error: any) => {
           toast.error("Failed to add assets", {

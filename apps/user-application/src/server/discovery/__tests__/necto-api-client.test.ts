@@ -518,9 +518,72 @@ describe('NectoAPIClient', () => {
 
   describe('enrichScanResults', () => {
     it('should build request and fetch enrichment', async () => {
+      // Mock 2-step API workflow
+      // Step 1: vulnerability-mapping returns CVE IDs
       fetchMock.mockResolvedValueOnce({
         ok: true,
-        json: async () => linuxResponse,
+        json: async () => ({
+          os: {
+            id: 0,
+            product_type: 'os',
+            product_name: 'Ubuntu',
+            product_version: '24.04',
+            extra: {},
+            cpe: 'cpe:2.3:o:canonical:ubuntu_linux:24.04:*:*:*:lts:*:*:*',
+            cve_list: ['CVE-2024-6387', 'CVE-2024-5535'],
+          },
+          applications: [
+            {
+              id: 1,
+              product_type: 'application',
+              product_name: 'OpenSSH',
+              product_version: '9.6p1',
+              extra: { port: 22 },
+              cpe: 'cpe:2.3:a:openbsd:openssh:9.6p1:*:*:*:*:*:*:*',
+              cve_list: ['CVE-2024-6387'],
+            },
+          ],
+        }),
+      });
+      // Step 2: cve-details returns array of CVE details
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            cve: 'CVE-2024-6387',
+            docType: 'cve',
+            lastModifiedData: '2024-07-15T00:00:00Z',
+            publishedDate: '2024-07-01T00:00:00Z',
+            campaign: 0,
+            state: 'PUBLIC',
+            impact: {
+              baseMetricV3: {
+                cvssV3: {
+                  baseScore: 9.8,
+                  vectorString: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+                },
+              },
+            },
+            description: 'OpenSSH vulnerability',
+          },
+          {
+            cve: 'CVE-2024-5535',
+            docType: 'cve',
+            lastModifiedData: '2024-07-10T00:00:00Z',
+            publishedDate: '2024-06-27T00:00:00Z',
+            campaign: 0,
+            state: 'PUBLIC',
+            impact: {
+              baseMetricV3: {
+                cvssV3: {
+                  baseScore: 9.1,
+                  vectorString: 'CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:N',
+                },
+              },
+            },
+            description: 'OpenSSL vulnerability',
+          },
+        ],
       });
 
       const ports: PortScanPort[] = [
@@ -543,18 +606,57 @@ describe('NectoAPIClient', () => {
 
       const enrichment = await client.enrichScanResults(ports, osInfo);
 
-      expect(enrichment.summary.totalCves).toBe(13);
+      // Total CVEs: 2 in OS + 1 in application = 3 (CVE-2024-6387 appears in both OS and app)
+      expect(enrichment.summary.totalCves).toBe(3);
+      // All 3 CVEs are critical (CVE-2024-6387: 9.8, CVE-2024-5535: 9.1, CVE-2024-6387 in app: 9.8)
+      expect(enrichment.summary.totalCritical).toBe(3);
+      expect(enrichment.summary.totalHigh).toBe(0);
       expect(enrichment.os?.product).toBe('Ubuntu 24.04');
+      expect(enrichment.os?.cveCount).toBe(2);
       expect(enrichment.applications).toBeDefined();
+      expect(enrichment.applications?.[0].name).toBe('OpenSSH');
+      expect(enrichment.applications?.[0].cveCount).toBe(1);
     });
 
     it('should work with just ports (no OS info)', async () => {
+      // Mock 2-step API workflow
       fetchMock.mockResolvedValueOnce({
         ok: true,
         json: async () => ({
-          applications: linuxResponse.applications,
-          summary: linuxResponse.summary,
+          applications: [
+            {
+              id: 1,
+              product_type: 'application',
+              product_name: 'ssh',
+              product_version: '',
+              extra: { port: 22 },
+              cpe: 'cpe:2.3:a:*:ssh:*:*:*:*:*:*:*:*',
+              cve_list: ['CVE-2024-6387'],
+            },
+          ],
         }),
+      });
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            cve: 'CVE-2024-6387',
+            docType: 'cve',
+            lastModifiedData: '2024-07-15T00:00:00Z',
+            publishedDate: '2024-07-01T00:00:00Z',
+            campaign: 0,
+            state: 'PUBLIC',
+            impact: {
+              baseMetricV3: {
+                cvssV3: {
+                  baseScore: 9.8,
+                  vectorString: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H',
+                },
+              },
+            },
+            description: 'SSH vulnerability',
+          },
+        ],
       });
 
       const ports: PortScanPort[] = [
@@ -572,6 +674,219 @@ describe('NectoAPIClient', () => {
 
       expect(enrichment.os).toBeUndefined();
       expect(enrichment.applications).toBeDefined();
+      expect(enrichment.applications?.[0].name).toBe('ssh');
+      expect(enrichment.summary.totalCves).toBe(1);
+    });
+
+    it('should skip enrichment when OS name is unknown', async () => {
+      const osInfo: PortScanOSInfo = {
+        name: 'unknown',
+        version: '',
+      };
+
+      const ports: PortScanPort[] = [];
+
+      const enrichment = await client.enrichScanResults(ports, osInfo);
+
+      // Should not call API
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // Should return empty enrichment
+      expect(enrichment.summary.totalCves).toBe(0);
+      expect(enrichment.summary.totalCritical).toBe(0);
+      expect(enrichment.summary.affectedServices).toBe(0);
+    });
+
+    it('should filter out applications with unknown names', async () => {
+      const ports: PortScanPort[] = [
+        {
+          port: 22,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'ssh',
+            product: 'OpenSSH',
+            version: '9.6p1',
+          },
+        },
+        {
+          port: 80,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'http',
+            product: 'unknown', // Should be filtered
+          },
+        },
+      ];
+
+      const osInfo: PortScanOSInfo = {
+        name: 'Ubuntu',
+        version: '24.04',
+      };
+
+      const request = client.buildRequest(ports, osInfo);
+
+      // Should only include OpenSSH, not the unknown service
+      expect(request.applications).toHaveLength(1);
+      expect(request.applications?.[0].product_name).toBe('OpenSSH');
+    });
+
+    it('should skip enrichment when no valid OS and no valid applications', async () => {
+      const osInfo: PortScanOSInfo = {
+        name: 'unknown',
+        version: '',
+      };
+
+      const ports: PortScanPort[] = [
+        {
+          port: 80,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'http',
+            product: 'unknown',
+          },
+        },
+      ];
+
+      const enrichment = await client.enrichScanResults(ports, osInfo);
+
+      // Should not call API
+      expect(fetchMock).not.toHaveBeenCalled();
+
+      // Should return empty enrichment
+      expect(enrichment.summary.totalCves).toBe(0);
+    });
+
+    it('should enrich with valid applications even when OS is unknown', async () => {
+      // Mock 2-step API workflow
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({
+          applications: [
+            {
+              id: 1,
+              product_type: 'application',
+              product_name: 'nginx',
+              product_version: '1.24.0',
+              extra: { port: 80 },
+              cpe: 'cpe:2.3:a:nginx:nginx:1.24.0:*:*:*:*:*:*:*',
+              cve_list: ['CVE-2024-7347', 'CVE-2024-35200'],
+            },
+          ],
+        }),
+      });
+      fetchMock.mockResolvedValueOnce({
+        ok: true,
+        json: async () => [
+          {
+            cve: 'CVE-2024-7347',
+            docType: 'cve',
+            lastModifiedData: '2024-08-28T00:00:00Z',
+            publishedDate: '2024-08-14T00:00:00Z',
+            campaign: 0,
+            state: 'PUBLIC',
+            impact: {
+              baseMetricV3: {
+                cvssV3: {
+                  baseScore: 7.5,
+                  vectorString: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H',
+                },
+              },
+            },
+            description: 'NGINX vulnerability',
+          },
+          {
+            cve: 'CVE-2024-35200',
+            docType: 'cve',
+            lastModifiedData: '2024-06-15T00:00:00Z',
+            publishedDate: '2024-05-29T00:00:00Z',
+            campaign: 0,
+            state: 'PUBLIC',
+            impact: {
+              baseMetricV3: {
+                cvssV3: {
+                  baseScore: 4.3,
+                  vectorString: 'CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:L',
+                },
+              },
+            },
+            description: 'NGINX Plus vulnerability',
+          },
+        ],
+      });
+
+      const osInfo: PortScanOSInfo = {
+        name: 'unknown',
+        version: '',
+      };
+
+      const ports: PortScanPort[] = [
+        {
+          port: 80,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'http',
+            product: 'nginx',
+            version: '1.24.0',
+          },
+        },
+      ];
+
+      const enrichment = await client.enrichScanResults(ports, osInfo);
+
+      // Should call API (has valid application)
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+
+      // Should return enrichment with applications only
+      expect(enrichment.os).toBeUndefined();
+      expect(enrichment.applications).toBeDefined();
+      expect(enrichment.applications?.[0].name).toBe('nginx');
+      expect(enrichment.applications?.[0].cveCount).toBe(2);
+      expect(enrichment.summary.totalCves).toBe(2);
+    });
+
+    it('should handle mix of valid and unknown applications', async () => {
+      const ports: PortScanPort[] = [
+        {
+          port: 22,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'ssh',
+            product: 'OpenSSH',
+            version: '9.6p1',
+          },
+        },
+        {
+          port: 80,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'http',
+            product: 'unknown',
+          },
+        },
+        {
+          port: 443,
+          protocol: 'tcp',
+          state: 'open',
+          service: {
+            name: 'https',
+            product: 'nginx',
+            version: '1.24.0',
+          },
+        },
+      ];
+
+      const request = client.buildRequest(ports);
+
+      // Should filter out 'unknown', keep OpenSSH and nginx
+      expect(request.applications).toHaveLength(2);
+      expect(request.applications?.[0].product_name).toBe('OpenSSH');
+      expect(request.applications?.[1].product_name).toBe('nginx');
     });
   });
 

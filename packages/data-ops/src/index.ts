@@ -15,8 +15,6 @@ export type {
   Application,
   Scanner,
   NewScanner,
-  ScanWorkflow,
-  NewScanWorkflow,
   ScanRun,
   NewScanRun,
   ScanRunDevice,

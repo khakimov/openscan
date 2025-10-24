@@ -29,7 +29,7 @@ export const getActiveDeviceScans = createServerFn({
         activeScansCount: activeScans.length,
       });
 
-      const scanIds = activeScans.map((scan) => scan.workflow.scanId);
+      const scanIds = activeScans.map((scan) => scan.scanRun.restateWorkflowId);
 
       return {
         success: true,

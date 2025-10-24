@@ -18,12 +18,14 @@ import type { DiscoveryResultItem } from "@/components/discovery/discovery-resul
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
+  onDevicesAdded?: (deviceIds: string[]) => void; // Callback with newly created device IDs
   scanId?: string;
   target?: string;
 }
 
 export default function AddDiscovery({
   onConfirm,
+  onDevicesAdded,
   scanId: propScanId,
   target: propTarget,
 }: AddDiscoveryProps) {
@@ -36,6 +38,7 @@ export default function AddDiscovery({
     new Set(),
   );
 
+  // Query client for cache updates
   const queryClient = useQueryClient();
 
   // Mutation for adding discovered targets as devices (using centralized hook)
@@ -50,7 +53,7 @@ export default function AddDiscovery({
   );
 
   // Automatically fetch results from database when workflow completes
-  const { data: workflowResults } = useQuery(
+  const { data: workflowResults, isFetching: isFetchingResults } = useQuery(
     discoveryQueries.workflowResults(scanId!, workflowStatus?.isCompleted === true)
   );
 
@@ -59,6 +62,11 @@ export default function AddDiscovery({
   const isCompleted = workflowStatus?.isCompleted === true;
   const isFailed = workflowStatus?.isFailed === true;
   const results = workflowResults?.success ? workflowResults.result : null;
+
+  // Derived state: Show as running if we have a scanId but it's not completed/failed yet
+  // This bridges the gap between mutation completing and polling picking up status
+  // Also show as running while fetching results (eliminates lag between completion and table render)
+  const showAsRunning = isRunning || (scanId !== null && !isCompleted && !isFailed) || isFetchingResults;
 
   // Get discovery items (either from results array or uniqueSubdomains), filter out items without IP
   const discoveryItems: DiscoveryResultItem[] = results
@@ -139,7 +147,7 @@ export default function AddDiscovery({
         onSuccess: (result) => {
           if (result.success) {
             setError(null);
-            setScanId(result.scanId);
+            setScanId(result.scanId); // This triggers showAsRunning immediately
             toast.success(`Discovery started for ${trimmedTarget}`, {
               description: "You will be notified when results are ready",
             });
@@ -179,15 +187,34 @@ export default function AddDiscovery({
     addDevicesMutation.mutate(
       { targets: targetsData },
       {
-        onSuccess: async (response) => {
-          // Wait for device list to refetch before closing modal
-          // This ensures user sees devices immediately when modal closes
-          await queryClient.refetchQueries({ queryKey: ['devices'] });
+        onSuccess: (response) => {
+          // 1. Append new devices to Discovery tab cache (instant display)
+          queryClient.setQueryData(
+            ['devices', ['CANDIDATE', 'EXCLUDED']], // Discovery tab query key
+            (old: any) => {
+              if (!old?.items) return old;
 
+              return {
+                ...old,
+                items: [...response.devices, ...old.items], // Prepend new devices
+                totalItems: old.totalItems + response.devices.length,
+              };
+            }
+          );
+
+          // 2. Notify parent of newly added device IDs (for animation)
+          if (onDevicesAdded && response.devices) {
+            const deviceIds = response.devices.map((d: any) => d.id);
+            onDevicesAdded(deviceIds);
+          }
+
+          // 3. Close modal (devices already visible in cache)
+          popModal("AddDiscovery");
+
+          // 4. Show success toast
           toast.success("Devices created successfully", {
             description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
           });
-          popModal("AddDiscovery");
         },
         onError: (error: any) => {
           toast.error("Failed to create devices", {
@@ -205,7 +232,7 @@ export default function AddDiscovery({
     >
       <ModalHeader
         title={
-          isRunning
+          showAsRunning
             ? "Discovery Running..."
             : isCompleted && results
               ? "Select Discovery Results"
@@ -222,13 +249,13 @@ export default function AddDiscovery({
             placeholder="example.com or subdomain.example.com"
             value={target}
             onChange={(e) => setTarget(e.target.value)}
-            disabled={isRunning || startDiscoveryMutation.isPending}
+            disabled={showAsRunning || startDiscoveryMutation.isPending}
             autoFocus
           />
         </div>
 
         {/* Show loading component when workflow is running */}
-        {isRunning && (
+        {showAsRunning && (
           <div className="py-8">
             <DiscoveryLoading size="md" />
           </div>
@@ -294,7 +321,7 @@ export default function AddDiscovery({
             <Button
               type="submit"
               disabled={
-                startDiscoveryMutation.isPending || isRunning
+                startDiscoveryMutation.isPending || showAsRunning
               }
               className="flex-1"
             >
@@ -303,7 +330,7 @@ export default function AddDiscovery({
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Starting...
                 </>
-              ) : isRunning ? (
+              ) : showAsRunning ? (
                 "Running Discovery..."
               ) : (
                 "Start Discovery"

@@ -1,10 +1,12 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { Suspense } from "react";
 import {
   Sidebar,
   type SidebarOrganization,
   type SidebarProject,
   type SidebarUser,
 } from "@/components/layout/sidebar";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { getCurrentUser } from "@/server/auth";
 import {
   getUserOrganizations,
@@ -12,7 +14,7 @@ import {
 } from "@/server/organization";
 import { getOrganizationProjects } from "@/server/projects";
 
-export const Route = createFileRoute("/_auth")({
+export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
     const user = await getCurrentUser();
     if (!user) {
@@ -78,15 +80,16 @@ export const Route = createFileRoute("/_auth")({
       projects,
     };
   },
-  component: RouteComponent,
+  component: AppLayout,
 });
 
-function RouteComponent() {
+function AppLayout() {
   const { user, activeOrganization, organizations, projects } =
     Route.useLoaderData();
 
   return (
     <div className="flex h-screen w-full bg-background">
+      {/* Sidebar renders immediately when _app loader completes */}
       <Sidebar
         user={user}
         activeOrganization={activeOrganization}
@@ -97,7 +100,10 @@ function RouteComponent() {
       <div className="w-full flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto bg-muted/20 p-2 pt-14 lg:pt-2">
           <div className="max-w-7xl">
-            <Outlet />
+            {/* Suspense allows sidebar to render while child route loads */}
+            <Suspense fallback={<PageLoadingFallback />}>
+              <Outlet />
+            </Suspense>
           </div>
         </main>
       </div>

@@ -19,8 +19,7 @@ export type Scanner = typeof schema.scanners.$inferSelect;
 export type NewScanner = typeof schema.scanners.$inferInsert;
 
 // Scan types
-export type ScanWorkflow = typeof schema.scanWorkflows.$inferSelect;
-export type NewScanWorkflow = typeof schema.scanWorkflows.$inferInsert;
+// ScanWorkflow types removed - workflow data is now embedded in ScanRun
 export type ScanRun = typeof schema.scanRuns.$inferSelect;
 export type NewScanRun = typeof schema.scanRuns.$inferInsert;
 export type ScanRunDevice = typeof schema.scanRunDevices.$inferSelect;

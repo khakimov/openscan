@@ -16,6 +16,7 @@ import {
   Loader2,
   CheckCircle2,
   XCircle,
+  Shield,
 } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
@@ -31,6 +32,7 @@ import { useEffect, useRef } from "react";
 
 interface DeviceCardProps {
   device: TransformedDevice;
+  isNewlyAdded?: boolean; // Visual indicator for newly added devices
 }
 
 // Helper to get scan target from device
@@ -50,7 +52,7 @@ function getScanTarget(device: TransformedDevice): string | null {
   return target || null;
 }
 
-export function DeviceCard({ device }: DeviceCardProps) {
+export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
   const queryClient = useQueryClient();
 
   // Query active scans directly (auto-polls every 30s while scans exist)
@@ -81,7 +83,8 @@ export function DeviceCard({ device }: DeviceCardProps) {
   const isActivelyScanning = isScanning || scanMutation.isPending;
 
   // Simplified stats - trust server data
-  const totalOpenPorts = device.scanStats?.openPortCount ?? 0;
+  // Show services detected (with actual service info) instead of raw port count
+  const servicesDetected = device.scanStats?.portsStoredCount ?? 0;
   const totalScans = device.scanStats?.totalScans ?? 0;
   const lastScanAt = device.scanStats?.lastScanAt;
   const hasScanHistory = totalScans > 0;
@@ -136,17 +139,27 @@ export function DeviceCard({ device }: DeviceCardProps) {
 
   return (
     <div
-      className={isActivelyScanning ? "animate-rotate-border rounded-lg p-px w-full" : "w-full"}
+      className={
+        isActivelyScanning
+          ? "animate-rotate-border rounded-lg p-px w-full"
+          : isNewlyAdded
+            ? "animate-new-device-border rounded-lg p-px w-full"
+            : "w-full"
+      }
       style={
         isActivelyScanning
           ? {
               background: `conic-gradient(from var(--border-angle), transparent 0%, rgb(59 130 246) 50%, transparent 100%)`
             }
-          : undefined
+          : isNewlyAdded
+            ? {
+                background: `conic-gradient(from var(--border-angle), transparent 0%, rgb(34 197 94) 50%, transparent 100%)`
+              }
+            : undefined
       }
     >
       <div
-        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 border ${!isActivelyScanning ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'}`}
+        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 border ${!isActivelyScanning && !isNewlyAdded ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'}`}
         style={{
           backgroundColor: '#262626'
         }}
@@ -191,19 +204,27 @@ export function DeviceCard({ device }: DeviceCardProps) {
               </span>
             </>
           )}
+
+          {/* WAF/Proxy Pattern Badge */}
+          {device.scanStats?.scanPattern === 'WAF/Proxy' && (
+            <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1">
+              <Shield className="w-3 h-3" />
+              WAF/Proxy
+            </span>
+          )}
         </div>
       </div>
 
       {/* Stats Grid */}
       <div className="grid grid-cols-3 items-start gap-x-6 gap-y-1 p-4 sm:p-6">
-        <div className="text-sm text-muted-foreground">open ports</div>
+        <div className="text-sm text-muted-foreground">services</div>
         <div className="text-sm text-muted-foreground">
           {hasScanHistory ? "last scan" : "scan status"}
         </div>
         <div className="text-sm text-muted-foreground">discovered</div>
 
         <div className="font-mono text-xl px-2">
-          {device.isScanned ? totalOpenPorts : "-"}
+          {device.isScanned ? servicesDetected : "-"}
         </div>
         <div className="text-sm whitespace-nowrap">
           {hasScanHistory && lastScanAt

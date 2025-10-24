@@ -15,6 +15,7 @@ import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
 import { ModalProvider } from "@/modals";
 import appCss from "@/styles.css?url";
 import { seo } from "@/utils/seo";
+import { Toaster } from "sonner";
 
 const themeConfig = {
   attribute: "class" as const,
@@ -106,6 +107,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body className="font-[family-name:var(--font-family-regular)]" suppressHydrationWarning>
         {children}
+        <Toaster position="bottom-right" richColors />
         <TanStackRouterDevtools position="bottom-right" />
         <ReactQueryDevtools buttonPosition="bottom-left" />
         <Scripts />

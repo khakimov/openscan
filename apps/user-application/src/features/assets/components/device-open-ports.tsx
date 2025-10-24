@@ -205,8 +205,9 @@ export function DeviceOpenPorts({
 
   const openPorts =
     scanPortDetails.length > 0 ? scanPortDetails : fallbackDetails;
+  // Use portsStoredCount (services detected) for accurate count
   const openPortCount =
-    deviceDetail?.scanStats?.openPortCount ?? openPorts.length;
+    deviceDetail?.scanStats?.portsStoredCount ?? openPorts.length;
 
   const togglePortExpanded = (portKey: string) => {
     setExpandedPorts((prev) => {

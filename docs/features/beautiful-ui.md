@@ -5,12 +5,13 @@ This document provides patterns and solutions for creating a smooth, responsive 
 ## Table of Contents
 
 1. [Core Principles](#core-principles)
-2. [Current Problems & Solutions](#current-problems--solutions)
-3. [Optimistic UI Patterns](#optimistic-ui-patterns)
-4. [SSR & Navigation](#ssr--navigation)
-5. [Loading States & Transitions](#loading-states--transitions)
-6. [Universal Solutions](#universal-solutions)
-7. [Implementation Checklist](#implementation-checklist)
+2. [Temporary UI States vs Data Optimism](#temporary-ui-states-vs-data-optimism) ⭐ NEW
+3. [Current Problems & Solutions](#current-problems--solutions)
+4. [Optimistic UI Patterns](#optimistic-ui-patterns)
+5. [SSR & Navigation](#ssr--navigation)
+6. [Loading States & Transitions](#loading-states--transitions)
+7. [Universal Solutions](#universal-solutions)
+8. [Implementation Checklist](#implementation-checklist)
 
 ---
 
@@ -34,6 +35,217 @@ const router = createRouter({
 ```
 
 **What we're missing:** Optimistic updates in mutations.
+
+---
+
+## Temporary UI States vs Data Optimism
+
+### ⚠️ Critical Distinction
+
+**DO NOT confuse these two patterns:**
+
+| Concern | Where to Store | Lifetime | Example |
+|---------|---------------|----------|---------|
+| **Data Optimism** | React Query cache | Until server confirms | Creating a new device |
+| **UI Effects** | Component state | Fixed duration (e.g., 3s) | Highlighting newly added items |
+
+### ❌ Wrong Pattern: UI State in Cache
+
+```typescript
+// ❌ WRONG - Polluting cache with UI metadata
+queryClient.setQueryData(['devices'], (old) => ({
+  ...old,
+  items: [
+    {
+      id: 'temp-123',
+      name: 'New Device',
+      _optimistic: true,  // ⬅️ UI state doesn't belong in data!
+    },
+    ...old.items
+  ]
+}));
+```
+
+**Problems:**
+- Cache is for data, not UI state
+- Requires complex cleanup logic
+- Mixes concerns (data vs presentation)
+- Type pollution (`_optimistic` in data types)
+
+### ✅ Correct Pattern: Component State for UI
+
+```typescript
+// ✅ CORRECT - UI state in component
+function DeviceList() {
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
+
+  const mutation = useCreateDevicesMutation();
+
+  const handleAdd = () => {
+    mutation.mutate(data, {
+      onSuccess: (response) => {
+        // Track IDs for animation
+        setNewlyAddedIds(new Set(response.devices.map(d => d.id)));
+
+        // Auto-clear after animation
+        setTimeout(() => setNewlyAddedIds(new Set()), 3000);
+      }
+    });
+  };
+
+  return devices.map(device => (
+    <DeviceCard
+      device={device}
+      isNewlyAdded={newlyAddedIds.has(device.id)}  // ⬅️ Prop, not data
+    />
+  ));
+}
+```
+
+### When to Use Each Pattern
+
+**Use React Query Cache (Data Optimism):**
+- ✅ Creating/updating/deleting data
+- ✅ Temporary IDs until server responds
+- ✅ Bridging the gap before server confirmation
+- ✅ Data that affects queries and filters
+
+**Use Component State (UI Effects):**
+- ✅ Animations and transitions
+- ✅ Highlighting newly added items
+- ✅ Temporary visual indicators
+- ✅ Time-based effects (fade out, pulse, etc.)
+
+### Real Example: TanStack Trellaux
+
+**How they handle "newly added" state:**
+
+```typescript
+// From: start-trellaux/src/components/Board.tsx
+const newColumnAddedRef = useRef(false);  // ⬅️ Component state!
+
+const columnRef = useCallback((node: HTMLElement | null) => {
+  if (scrollContainerRef.current && newColumnAddedRef.current) {
+    newColumnAddedRef.current = false;
+    scrollContainerRef.current.scrollLeft = scrollContainerRef.current.scrollWidth;
+  }
+}, []);
+
+// Mutation only updates data, not UI state
+<NewColumn
+  onNewColumnAdded={() => {
+    newColumnAddedRef.current = true;  // ⬅️ UI flag set via callback
+  }}
+/>
+```
+
+**Key insights:**
+- Cache has data only
+- `newColumnAddedRef` tracks UI state
+- Ref callback handles scroll effect
+- No `_optimistic` or `_isNew` in cache data
+
+### Implementation: Newly Added Device Animation
+
+**Step 1: Parent component tracks animation state**
+
+```typescript
+// apps/user-application/src/routes/_auth/assets.tsx
+function Assets() {
+  const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
+
+  const handleDevicesAdded = (deviceIds: string[]) => {
+    setNewlyAddedIds(new Set(deviceIds));
+    setTimeout(() => setNewlyAddedIds(new Set()), 3000);
+  };
+
+  return (
+    <DeviceDetailSheet
+      devices={devices}
+      newlyAddedIds={newlyAddedIds}  // ⬅️ Pass down
+    />
+  );
+}
+```
+
+**Step 2: Modal calls callback with device IDs**
+
+```typescript
+// apps/user-application/src/modals/AddDiscovery.tsx
+interface AddDiscoveryProps {
+  onDevicesAdded?: (deviceIds: string[]) => void;
+}
+
+const handleAddDevices = () => {
+  addDevicesMutation.mutate({ targets }, {
+    onSuccess: (response) => {
+      popModal("AddDiscovery");
+
+      // Notify parent of new device IDs
+      if (onDevicesAdded && response.devices) {
+        onDevicesAdded(response.devices.map(d => d.id));
+      }
+    }
+  });
+};
+```
+
+**Step 3: Components receive animation prop**
+
+```typescript
+// apps/user-application/src/features/assets/components/device-card.tsx
+interface DeviceCardProps {
+  device: TransformedDevice;
+  isNewlyAdded?: boolean;  // ⬅️ Prop, not data field
+}
+
+export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
+  return (
+    <div className={isNewlyAdded ? "animate-new-device-border" : ""}>
+      {/* Card content */}
+    </div>
+  );
+}
+```
+
+**Step 4: Mutation stays clean (data only)**
+
+```typescript
+// apps/user-application/src/queries/device-queries.ts
+export const useCreateDevicesFromDiscoveryMutation = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createDevicesFromDiscovery,
+
+    onMutate: async (variables) => {
+      // Only data, no UI metadata!
+      queryClient.setQueryData(['devices'], (old) => ({
+        ...old,
+        items: [
+          ...variables.targets.map(t => ({
+            id: `temp-${Date.now()}`,
+            name: t.host,
+            // ... data fields only, no _optimistic!
+          })),
+          ...old.items
+        ]
+      }));
+    },
+
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    }
+  });
+};
+```
+
+### Summary: The Golden Rule
+
+**Cache = Source of truth for DATA**
+**State = Source of truth for TEMPORARY UI EFFECTS**
+
+Never mix these concerns!
 
 ---
 
@@ -130,7 +342,7 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
 
 ### Problem 2: Add Discovery Modal Has Lag
 
-**Location:** `apps/user-application/src/modals/AddDiscovery.tsx` (lines 162-199)
+**Location:** `apps/user-application/src/modals/AddDiscovery.tsx`
 
 **Current Flow:**
 ```
@@ -147,7 +359,7 @@ Device list re-renders
 
 **The Problem:** User waits for refetch to complete (~500-1000ms) before modal closes.
 
-#### Solution: Close Immediately + Optimistic Updates
+#### Solution: Close Immediately + Optimistic Updates (Data Only!)
 
 **File:** `apps/user-application/src/queries/device-queries.ts`
 
@@ -159,51 +371,41 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
     mutationKey: ['devices', 'create-from-discovery'],
     mutationFn: (data: {
       targets: Array<{ host: string; ip?: string }>;
-      // ... other fields
     }) => createDevicesFromDiscovery({ data }),
 
-    // NEW: Optimistic update
+    // Optimistic update - DATA ONLY (no UI metadata)
     onMutate: async (variables) => {
-      // 1. Cancel outgoing refetches
       await queryClient.cancelQueries({ queryKey: ['devices'] });
-
-      // 2. Snapshot previous value
       const previousDevices = queryClient.getQueryData(['devices']);
 
-      // 3. Optimistically add devices to cache
-      queryClient.setQueryData(
-        ['devices', undefined], // Default list query key
-        (old: any) => {
-          if (!old?.items) return old;
+      queryClient.setQueryData(['devices', undefined], (old: any) => {
+        if (!old?.items) return old;
 
-          // Create temporary device objects
-          const tempDevices = variables.targets.map((target, index) => ({
-            id: `temp-${Date.now()}-${index}`,
-            name: target.host,
-            ip: target.ip || 'Resolving...',
-            status: 'UNKNOWN',
-            riskLevel: 'UNKNOWN',
-            verificationStatus: 'CANDIDATE',
-            tags: ['discovery', 'subdomain'],
-            isScanned: false,
-            discoveredOn: new Date().toISOString(),
-            // ... other required fields
-            _optimistic: true, // Flag for UI
-          }));
+        // Create temporary device objects (data fields only!)
+        const tempDevices = variables.targets.map((target, index) => ({
+          id: `temp-${Date.now()}-${index}`,
+          name: target.host,
+          ip: target.ip || 'Resolving...',
+          status: 'offline',
+          riskLevel: 'UNKNOWN',
+          verificationStatus: 'CANDIDATE',
+          tags: ['discovery', 'subdomain'],
+          isScanned: false,
+          discoveredOn: new Date().toISOString(),
+          // ✅ NO _optimistic flag - that's UI state, not data!
+        }));
 
-          return {
-            ...old,
-            items: [...tempDevices, ...old.items],
-            totalItems: old.totalItems + tempDevices.length,
-          };
-        }
-      );
+        return {
+          ...old,
+          items: [...tempDevices, ...old.items],
+          totalItems: old.totalItems + tempDevices.length,
+        };
+      });
 
       return { previousDevices };
     },
 
-    onError: (err, variables, context) => {
-      // Rollback on error
+    onError: (_err, _variables, context) => {
       if (context?.previousDevices) {
         queryClient.setQueryData(['devices'], context.previousDevices);
       }
@@ -217,50 +419,42 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
 };
 ```
 
-**File:** `apps/user-application/src/modals/AddDiscovery.tsx` (update handleAddDevices)
+**File:** `apps/user-application/src/modals/AddDiscovery.tsx`
 
 ```typescript
+interface AddDiscoveryProps {
+  onDevicesAdded?: (deviceIds: string[]) => void; // ⬅️ Callback for UI state
+}
+
 const handleAddDevices = () => {
-  const selectedTargets = Array.from(selectedResults);
-
-  if (selectedTargets.length === 0) {
-    toast.error("Please select at least one target");
-    return;
-  }
-
-  const targetsData = selectedTargets.map(host => {
-    const item = discoveryItems.find((item) => item.host === host);
-    return {
-      host,
-      ip: item?.ip
-    };
-  });
+  // ... validation ...
 
   addDevicesMutation.mutate(
     { targets: targetsData },
     {
       onSuccess: (response) => {
-        // NEW: Close modal immediately (no await!)
+        // Close modal immediately (no await!)
         popModal("AddDiscovery");
 
-        // Show toast after modal closes
+        // Show toast
         toast.success("Devices created successfully", {
           description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
         });
 
-        // Refetch happens in background via mutation's onSuccess
+        // Notify parent for animation (UI state in component)
+        if (onDevicesAdded && response.devices) {
+          onDevicesAdded(response.devices.map(d => d.id));
+        }
       },
       onError: (error: any) => {
-        toast.error("Failed to create devices", {
-          description: error instanceof Error ? error.message : "Please try again",
-        });
+        toast.error("Failed to create devices");
       },
     }
   );
 };
 ```
 
-**Result:** Modal closes instantly, devices appear immediately (optimistic), then sync with server data in background.
+**Result:** Modal closes instantly, devices appear immediately (optimistic data), animation handled separately by component state.
 
 ---
 
@@ -763,11 +957,12 @@ Run through this checklist when you find janky UI:
 
 **Golden Rules:**
 
-1. **Never wait for server before updating UI** - Use optimistic updates
-2. **Never refetch before closing modals** - Refetch in background
-3. **Always cancel queries before optimistic updates** - Prevent race conditions
-4. **Always provide rollback context** - Handle errors gracefully
-5. **Use `useSuspenseQuery` for SSR** - Prevent loading states on navigation
+1. **Never mix data and UI state** - Cache for data, component state for UI effects
+2. **Never wait for server before updating UI** - Use optimistic updates
+3. **Never refetch before closing modals** - Refetch in background
+4. **Always cancel queries before optimistic updates** - Prevent race conditions
+5. **Always provide rollback context** - Handle errors gracefully
+6. **Use `useSuspenseQuery` for SSR** - Prevent loading states on navigation
 
 **Performance Targets:**
 
@@ -790,4 +985,6 @@ Run through this checklist when you find janky UI:
 
 ---
 
-**Last Updated:** 2025-10-22 (Initial version based on TanStack Start examples)
+**Last Updated:** 2025-10-23
+- **2025-10-23:** Added "Temporary UI States vs Data Optimism" section, fixed wrong `_optimistic` pattern
+- **2025-10-22:** Initial version based on TanStack Start examples

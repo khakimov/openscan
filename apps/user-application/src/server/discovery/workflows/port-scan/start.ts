@@ -53,7 +53,6 @@ export const startPortScanWorkflow = createServerFn({
       return {
         success: true,
         scanId: result.scanId, // Restate workflow key
-        scanWorkflowId: result.scanWorkflowId, // Database ID (CUID)
         scanRunId: result.scanRunId,
         target: result.target,
         ports: result.ports,

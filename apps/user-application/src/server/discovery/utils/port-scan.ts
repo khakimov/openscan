@@ -17,10 +17,9 @@ export function buildScannerInput(params: {
   userId: string;
   input: PortScanInput;
   scope: ScanScope;
-  scanWorkflowId: string;
   scanRunId: string;
 }): ScannerInput {
-  const { tenantId, userId, input, scope, scanWorkflowId, scanRunId } = params;
+  const { tenantId, userId, input, scope, scanRunId } = params;
   const targetType = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(input.target)
     ? 'IP_ADDRESS'
     : 'DOMAIN';
@@ -78,7 +77,6 @@ export function buildScannerInput(params: {
 
   return {
     tenantId,
-    scanWorkflowId, // Database FK to scanWorkflows.id (CUID)
     userId,
     scanRunId,
     scanId: scanRunId, // FIXME: scanId should be Restate workflow key, not scanRunId

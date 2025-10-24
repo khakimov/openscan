@@ -6,12 +6,8 @@ import { getRestateHttpClient } from '../../utils/restate-http-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
 import { getCurrentOrganizationId, getCurrentUser } from '../../utils/auth';
 import {
-  createScanWorkflow,
   createScanRun,
-  getScanWorkflowByScanId,
-  getDb,
-  scanRuns,
-  eq,
+  getScanRunByRestateWorkflowId,
 } from '@repo/data-ops';
 
 const logger = createLogger({ name: 'discovery-handler' });
@@ -52,33 +48,22 @@ export const startDiscoveryWorkflow = createServerFn({
       // Generate scanId for workflow key (deterministic pattern)
       const scanId = generateWorkflowId('discovery', target);
 
-      // Step 1: Create scan workflow record in database
-      const workflow = await createScanWorkflow({
-        organizationId,
-        scanId,
-        kind: 'DISCOVERY',
-      });
-
-      logger.info('Created scan workflow record', {
-        scanId,
-        workflowId: workflow.id,
-        organizationId,
-      });
-
-      // Step 2: Create scan run record for tracking
+      // Create scan run with embedded workflow tracking
       const scanRun = await createScanRun({
-        scanWorkflowId: workflow.id,
         organizationId,
+        restateWorkflowId: scanId,
+        workflowKind: 'DISCOVERY',
         scanType: 'DISCOVERY',
         scope: 'EXTERNAL',
         requestedById: currentUser.id,
         target,
       });
 
-      logger.info('Created scan run record', {
+      logger.info('Created scan run with workflow tracking', {
         scanId,
         scanRunId: scanRun.id,
         target,
+        organizationId,
       });
 
       // Step 3: Build callback URL for postback
@@ -110,7 +95,6 @@ export const startDiscoveryWorkflow = createServerFn({
       return {
         success: true,
         scanId, // Restate workflow key
-        scanWorkflowId: workflow.id, // Database ID (CUID)
         scanRunId: scanRun.id,
         target,
         message: `Discovery started for ${target}`,
@@ -160,32 +144,24 @@ export const getScanWorkflowStatusDB = createServerFn({
     try {
       const organizationId = await getCurrentOrganizationId();
 
-      // Get workflow from database
-      const workflow = await getScanWorkflowByScanId(organizationId, scanId);
+      // Get scan run from database (workflow data is now embedded)
+      const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
-      if (!workflow) {
-        logger.warn('Workflow not found in database', { scanId, organizationId });
+      if (!scanRun) {
+        logger.warn('Scan run not found in database', { scanId, organizationId });
         return {
           scanId,
           status: 'UNKNOWN',
-          error: 'Workflow not found',
+          error: 'Scan run not found',
         };
       }
 
-      // Get scan run for progress/device count
-      const db = getDb();
-      const [scanRun] = await db
-        .select()
-        .from(scanRuns)
-        .where(eq(scanRuns.scanWorkflowId, workflow.id))
-        .limit(1);
+      const resultSummary = scanRun.resultSummary as any;
 
-      const resultSummary = scanRun?.resultSummary as any;
-
-      logger.info('Retrieved workflow status from database', {
+      logger.info('Retrieved scan run status from database', {
         scanId,
-        workflowStatus: workflow.status,
-        scanRunStatus: scanRun?.status,
+        workflowStatus: scanRun.workflowStatus,
+        scanRunStatus: scanRun.status,
         devicesFound: resultSummary?.createdDevices || 0,
       });
 
@@ -199,12 +175,12 @@ export const getScanWorkflowStatusDB = createServerFn({
         TIMEOUT: 'FAILED',
       };
 
-      const status = statusMap[workflow.status] || 'RUNNING';
+      const status = statusMap[scanRun.workflowStatus] || 'RUNNING';
 
       return {
         scanId,
         status,
-        workflowStatus: workflow.status,
+        workflowStatus: scanRun.workflowStatus,
         isRunning: status === 'RUNNING',
         isCompleted: status === 'COMPLETED',
         isFailed: status === 'FAILED',
@@ -212,7 +188,7 @@ export const getScanWorkflowStatusDB = createServerFn({
         processedTargets: resultSummary?.target ? 1 : 0,
       };
     } catch (error) {
-      logger.error('Failed to get workflow status from database', { scanId, error });
+      logger.error('Failed to get scan run status from database', { scanId, error });
       return {
         scanId,
         status: 'UNKNOWN',
@@ -242,23 +218,8 @@ export const getScanWorkflowResultsDB = createServerFn({
     try {
       const organizationId = await getCurrentOrganizationId();
 
-      // Get workflow from database
-      const workflow = await getScanWorkflowByScanId(organizationId, scanId);
-
-      if (!workflow) {
-        return {
-          success: false,
-          error: 'Workflow not found',
-        };
-      }
-
-      // Get scan run with results
-      const db = getDb();
-      const [scanRun] = await db
-        .select()
-        .from(scanRuns)
-        .where(eq(scanRuns.scanWorkflowId, workflow.id))
-        .limit(1);
+      // Get scan run from database (workflow data is now embedded)
+      const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
       if (!scanRun) {
         return {

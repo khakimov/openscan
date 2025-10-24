@@ -94,7 +94,7 @@ export function DeviceScanChart({
                         <div className="flex items-center gap-1 mb-2">
                           <div className="w-2 h-2 rounded-full bg-primary"></div>
                           <span className="font-medium">
-                            {data.allPorts.length} open ports:
+                            {data.allPorts.length} {data.allPorts.length === 1 ? 'service' : 'services'}:
                           </span>
                         </div>
                         <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">

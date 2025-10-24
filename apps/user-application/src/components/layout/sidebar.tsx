@@ -7,6 +7,7 @@ import { Home, Menu, Shield, ScanLine, XIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 
 interface NavigationItem {
   name: string;
@@ -15,23 +16,35 @@ interface NavigationItem {
   badge?: string | number;
 }
 
-const navigationItems: NavigationItem[] = [
-  {
-    name: "Dashboard",
-    icon: Home,
-    href: "/dashboard",
-  },
-  {
-    name: "Assets",
-    icon: Shield,
-    href: "/assets",
-  },
-  {
-    name: "Scans",
-    icon: ScanLine,
-    href: "/scans",
-  },
-];
+/**
+ * Build navigation items with organization slug (or ID as fallback)
+ */
+function getNavigationItems(organization: SidebarOrganization | null): NavigationItem[] {
+  if (!organization) {
+    return [];
+  }
+
+  // Prefer slug over ID for cleaner URLs (OpenPanel pattern)
+  const orgIdentifier = organization.slug || organization.id;
+
+  return [
+    {
+      name: "Dashboard",
+      icon: Home,
+      href: `/${orgIdentifier}`,
+    },
+    {
+      name: "Assets",
+      icon: Shield,
+      href: `/${orgIdentifier}/assets`,
+    },
+    {
+      name: "Scans",
+      icon: ScanLine,
+      href: `/${orgIdentifier}/scans`,
+    },
+  ];
+}
 
 export interface SidebarOrganization {
   id: string;
@@ -79,6 +92,9 @@ export function Sidebar({
     ? user.name.charAt(0).toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "U";
 
+  // Build navigation items based on active organization (uses slug for cleaner URLs)
+  const navigationItems = getNavigationItems(activeOrganization);
+
   // Auto-close mobile menu on navigation using router.subscribe (proper TanStack Router pattern)
   useEffect(() => {
     const unsubscribe = router.subscribe("onResolved", () => {
@@ -125,10 +141,12 @@ export function Sidebar({
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              const isActive =
-                currentPath === item.href ||
-                (item.href !== "/dashboard" &&
-                  currentPath.startsWith(item.href));
+              // Dashboard (org root) should only match exactly
+              // Other routes can match by prefix (with trailing slash to avoid partial matches)
+              const isDashboard = item.name === "Dashboard";
+              const isActive = isDashboard
+                ? currentPath === item.href
+                : currentPath === item.href || currentPath.startsWith(item.href + "/");
 
               return (
                 <Button
@@ -224,20 +242,26 @@ export function Sidebar({
           isMobileMenuOpen && "translate-x-0", // slide in when active
         )}
       >
-        {/* Toggle Button - Positioned outside sidebar (mobile only) */}
+        {/* Toggle Button & Spinner - Positioned outside sidebar (mobile only) */}
         <div className="absolute -right-16 flex h-16 items-center lg:hidden">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-            className="h-10 w-10 bg-background"
-          >
-            {isMobileMenuOpen ? (
-              <XIcon className="h-3 w-3" />
-            ) : (
-              <Menu className="h-2 w-2" />
-            )}
-          </Button>
+          <div className="relative">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+              className="h-10 w-10 bg-background"
+            >
+              {isMobileMenuOpen ? (
+                <XIcon className="h-3 w-3" />
+              ) : (
+                <Menu className="h-2 w-2" />
+              )}
+            </Button>
+            {/* Spinner positioned absolutely to not affect button position */}
+            <div className="absolute -right-8 top-1/2 -translate-y-1/2">
+              <InlineRouterSpinner size="sm" />
+            </div>
+          </div>
         </div>
 
         {/* Header */}
@@ -259,10 +283,12 @@ export function Sidebar({
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              const isActive =
-                currentPath === item.href ||
-                (item.href !== "/dashboard" &&
-                  currentPath.startsWith(item.href));
+              // Dashboard (org root) should only match exactly
+              // Other routes can match by prefix (with trailing slash to avoid partial matches)
+              const isDashboard = item.name === "Dashboard";
+              const isActive = isDashboard
+                ? currentPath === item.href
+                : currentPath === item.href || currentPath.startsWith(item.href + "/");
 
               return (
                 <Button

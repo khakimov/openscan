@@ -1,7 +1,6 @@
 import {
   createScanRun,
-  createScanWorkflow,
-  getScanRunWithWorkflow,
+  getScanRunById,
   updateScanRunStatus,
   updateScanWorkflowStatus,
 } from '@repo/data-ops';
@@ -14,44 +13,34 @@ type WorkflowStatus = 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' 
 const logger = createLogger({ name: 'discovery-scan-recorder' });
 
 export class ScanRecorder {
-  async createWorkflow(params: {
-    tenantId: string;
-    scanId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
-    kind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
-  }) {
-    const workflow = await createScanWorkflow({
-      organizationId: params.tenantId,
-      scanId: params.scanId,
-      kind: params.kind,
-    });
-    logger.info('Created scan workflow record', {
-      scanWorkflowId: workflow.id, // Database ID (CUID)
-      restateScanId: params.scanId, // Restate workflow key
-      tenantId: params.tenantId,
-    });
-    return workflow;
-  }
-
+  /**
+   * Create a new scan run with embedded workflow tracking
+   */
   async createRun(params: {
-    scanWorkflowId: string; // FK to scanWorkflows.id (CUID)
     tenantId: string;
+    restateWorkflowId: string; // Restate workflow key (e.g., "portscan-0-0-0-0-123456")
+    workflowKind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
     scanType: 'DISCOVERY' | 'PORT' | 'WEB' | 'ADVANCED';
     scope: ScanScope;
     requestedById: string;
     target: string;
     targets: string[];
+    workflowMetadata?: Record<string, any>;
   }) {
     const run = await createScanRun({
-      scanWorkflowId: params.scanWorkflowId,
       organizationId: params.tenantId,
+      restateWorkflowId: params.restateWorkflowId,
+      workflowKind: params.workflowKind,
       scanType: params.scanType,
       scope: params.scope,
       requestedById: params.requestedById,
       target: params.target,
+      workflowMetadata: params.workflowMetadata,
     });
-    logger.info('Created scan run record', {
+    logger.info('Created scan run with workflow tracking', {
       scanRunId: run.id,
-      scanWorkflowId: params.scanWorkflowId,
+      restateWorkflowId: params.restateWorkflowId,
+      workflowKind: params.workflowKind,
       target: params.target,
     });
     return run;
@@ -62,10 +51,10 @@ export class ScanRecorder {
     logger.info('Marked scan run as running', { scanRunId });
   }
 
-  async updateWorkflowStatus(scanWorkflowId: string, status: WorkflowStatus) {
-    await updateScanWorkflowStatus(scanWorkflowId, status);
-    logger.info('Updated scan workflow status', {
-      scanWorkflowId,
+  async updateWorkflowStatus(scanRunId: string, status: WorkflowStatus) {
+    await updateScanWorkflowStatus(scanRunId, status);
+    logger.info('Updated workflow status', {
+      scanRunId,
       status,
     });
   }
@@ -78,8 +67,8 @@ export class ScanRecorder {
     logger.info('Marked scan run canceled', { scanRunId });
   }
 
-  async fetchRunWithWorkflow(scanRunId: string) {
-    return getScanRunWithWorkflow(scanRunId);
+  async fetchRun(scanRunId: string) {
+    return getScanRunById(scanRunId);
   }
 }
 
