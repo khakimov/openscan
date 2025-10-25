@@ -5,7 +5,7 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const Route = createFileRoute("/_app/$organizationId/$deviceId_/scans")({
+export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/scans")({
   loader: async ({ context: { queryClient }, params }) => {
     // Prefetch scan history for SSR
     await queryClient.ensureQueryData(deviceQueries.scanHistory(params.deviceId, 50));

@@ -241,7 +241,8 @@ const GetDevicesDataSchema = z.object({
   verificationStatus: z.union([
     z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']),
     z.array(z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']))
-  ]).optional()
+  ]).optional(),
+  projectId: z.string().optional()
 })
 
 export const getDevicesData = createServerFn({
@@ -251,14 +252,16 @@ export const getDevicesData = createServerFn({
   .handler(async ({ data }) => {
   try {
     logger.info('Fetching devices from database', {
-      verificationStatus: data?.verificationStatus
+      verificationStatus: data?.verificationStatus,
+      projectId: data?.projectId
     })
 
     // Get session for organization context
     const organizationId = await getCurrentOrganizationId()
     logger.info('Fetching devices for organization', {
       organizationId,
-      verificationStatus: data?.verificationStatus
+      verificationStatus: data?.verificationStatus,
+      projectId: data?.projectId
     })
 
     // Query database with organization filter and verification status
@@ -267,7 +270,8 @@ export const getDevicesData = createServerFn({
       pageSize: 50, // Get more devices by default
       sortColumn: 'discoveredAt',
       sortDirection: 'desc',
-      verificationStatus: data?.verificationStatus
+      verificationStatus: data?.verificationStatus,
+      projectId: data?.projectId
     }
 
     const devicesResponse = await getDevicesForTenant(organizationId, queryParams)

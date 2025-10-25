@@ -5,7 +5,7 @@ import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { TransformedDevice } from "@/server/devices";
 
-export const Route = createFileRoute("/_app/$organizationId/$deviceId/")({
+export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/")({
   component: DeviceOverview,
 });
 

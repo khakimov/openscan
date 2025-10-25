@@ -21,6 +21,7 @@ const Loading = () => (
 // Import simple modals directly to avoid loading state
 import AddDiscovery from "./AddDiscovery";
 import AddDevice from "./AddDevice";
+import AddProject from "./AddProject";
 import DeleteDeviceConfirm from "./DeleteDeviceConfirm";
 import EditDevice from "./EditDevice";
 
@@ -30,11 +31,11 @@ const modals = {
   DateRangerPicker: lazy(() => import("./DateRangerPicker")),
   AddDiscovery: AddDiscovery, // Direct import, no loading state
   AddDevice: AddDevice, // Direct import, no loading state
+  AddProject: AddProject, // Direct import, no loading state
   DeleteDeviceConfirm: DeleteDeviceConfirm, // Direct import, no loading state
   EditDevice: EditDevice, // Direct import, no loading state
   // Add more modals as needed:
   // EditProfile: lazy(() => import('./EditProfile')),
-  // AddProject: lazy(() => import('./AddProject')),
 };
 
 type ModalName = keyof typeof modals;

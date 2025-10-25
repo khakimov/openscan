@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
+import { useAppParams } from "@/hooks/use-app-params";
 
 interface NavigationItem {
   name: string;
@@ -17,9 +18,14 @@ interface NavigationItem {
 }
 
 /**
- * Build navigation items with organization slug (or ID as fallback)
+ * Build navigation items with organization and project
+ * If projectId is available, build project-scoped URLs
+ * Otherwise, build org-level URLs
  */
-function getNavigationItems(organization: SidebarOrganization | null): NavigationItem[] {
+function getNavigationItems(
+  organization: SidebarOrganization | null,
+  projectId?: string
+): NavigationItem[] {
   if (!organization) {
     return [];
   }
@@ -27,21 +33,33 @@ function getNavigationItems(organization: SidebarOrganization | null): Navigatio
   // Prefer slug over ID for cleaner URLs (OpenPanel pattern)
   const orgIdentifier = organization.slug || organization.id;
 
+  // If on a project-scoped route, use project URLs
+  if (projectId) {
+    return [
+      {
+        name: "Dashboard",
+        icon: Home,
+        href: `/${orgIdentifier}/${projectId}`,
+      },
+      {
+        name: "Assets",
+        icon: Shield,
+        href: `/${orgIdentifier}/${projectId}/assets`,
+      },
+      {
+        name: "Scans",
+        icon: ScanLine,
+        href: `/${orgIdentifier}/${projectId}/scans`,
+      },
+    ];
+  }
+
+  // Otherwise, use org-level URLs (project list)
   return [
     {
-      name: "Dashboard",
+      name: "Projects",
       icon: Home,
       href: `/${orgIdentifier}`,
-    },
-    {
-      name: "Assets",
-      icon: Shield,
-      href: `/${orgIdentifier}/assets`,
-    },
-    {
-      name: "Scans",
-      icon: ScanLine,
-      href: `/${orgIdentifier}/scans`,
     },
   ];
 }
@@ -88,12 +106,16 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
+  // Get projectId from URL if on a project-scoped route
+  const params = useAppParams();
+  const projectId = params.projectId;
+
   const fallbackText = user?.name
     ? user.name.charAt(0).toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "U";
 
-  // Build navigation items based on active organization (uses slug for cleaner URLs)
-  const navigationItems = getNavigationItems(activeOrganization);
+  // Build navigation items based on active organization and current project
+  const navigationItems = getNavigationItems(activeOrganization, projectId);
 
   // Auto-close mobile menu on navigation using router.subscribe (proper TanStack Router pattern)
   useEffect(() => {

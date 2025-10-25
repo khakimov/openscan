@@ -7,7 +7,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 
-export const Route = createFileRoute("/_app/$organizationId/$deviceId_/vulnerabilities")({
+export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/vulnerabilities")({
   loader: async ({ context: { queryClient }, params }) => {
     // Prefetch scan history to get CVE data
     await queryClient.ensureQueryData(deviceQueries.scanHistory(params.deviceId, 1));

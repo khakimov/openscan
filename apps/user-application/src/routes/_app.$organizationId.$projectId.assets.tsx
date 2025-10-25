@@ -21,10 +21,10 @@ const assetsSearchSchema = z.object({
   tab: fallback(z.enum(["discovery", "verified"]), "discovery").default("discovery"),
 });
 
-export const Route = createFileRoute("/_app/$organizationId/assets")({
+export const Route = createFileRoute("/_app/$organizationId/$projectId/assets")({
   validateSearch: zodValidator(assetsSearchSchema),
   loaderDeps: ({ search }) => ({ tab: search.tab }),
-  loader: async ({ context: { queryClient }, deps: { tab } }) => {
+  loader: async ({ context: { queryClient }, deps: { tab }, params }) => {
     // Map tab to verification status from validated search params
     const verificationStatus =
       tab === "verified"
@@ -34,7 +34,10 @@ export const Route = createFileRoute("/_app/$organizationId/assets")({
     // Populate query cache using queryOptions
     // This ensures SSR data is available in cache for useSuspenseQuery
     return queryClient.ensureQueryData(
-      deviceQueries.list({ verificationStatus })
+      deviceQueries.list({
+        verificationStatus,
+        projectId: params.projectId
+      })
     );
   },
   // No pendingComponent - render page shell immediately, suspend only data component
@@ -43,7 +46,7 @@ export const Route = createFileRoute("/_app/$organizationId/assets")({
 
 function Assets() {
   const { tab } = Route.useSearch();
-  const { organizationId } = Route.useParams();
+  const { organizationId, projectId } = Route.useParams();
 
   // Track newly added device IDs for animation (TanStack pattern - UI state in component)
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
@@ -68,10 +71,10 @@ function Assets() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <PageTabs>
-            <PageTabsLink href={`/${organizationId}/assets?tab=discovery`} isActive={tab === "discovery"}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/assets?tab=discovery`} isActive={tab === "discovery"}>
               Discovery
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/assets?tab=verified`} isActive={tab === "verified"}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/assets?tab=verified`} isActive={tab === "verified"}>
               Verified
             </PageTabsLink>
           </PageTabs>
@@ -109,7 +112,7 @@ function Assets() {
           </div>
         }
       >
-        <DevicesContent tab={tab} newlyAddedIds={newlyAddedIds} />
+        <DevicesContent tab={tab} newlyAddedIds={newlyAddedIds} projectId={projectId} />
       </Suspense>
     </Padding>
   );
@@ -118,10 +121,12 @@ function Assets() {
 // Data-dependent component - suspends during loading
 function DevicesContent({
   tab,
-  newlyAddedIds
+  newlyAddedIds,
+  projectId
 }: {
   tab: "discovery" | "verified";
   newlyAddedIds: Set<string>;
+  projectId: string;
 }) {
   // Map tab to verification status for query
   const verificationStatus =
@@ -132,7 +137,7 @@ function DevicesContent({
   // Use suspense query with same queryOptions as loader
   // Data is guaranteed to exist (populated by loader)
   const { data: devicesResponse } = useSuspenseQuery(
-    deviceQueries.list({ verificationStatus })
+    deviceQueries.list({ verificationStatus, projectId })
   );
 
   // No nullability check needed - useSuspenseQuery guarantees data exists

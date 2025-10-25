@@ -14,6 +14,7 @@ export type DeviceQueryParams = {
   sortColumn?: string;
   sortDirection?: 'asc' | 'desc';
   verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | Array<'CANDIDATE' | 'VERIFIED' | 'EXCLUDED'>;
+  projectId?: string; // Filter by project
 };
 
 export type DeviceUpdateData = {
@@ -52,6 +53,11 @@ export async function getDevicesForTenant(
 
   // Build WHERE conditions
   const whereConditions: SQL[] = [eq(devices.organizationId, organizationId)];
+
+  // Filter by project if specified
+  if (params.projectId) {
+    whereConditions.push(eq(devices.projectId, params.projectId));
+  }
 
   if (verificationStatus) {
     if (Array.isArray(verificationStatus)) {

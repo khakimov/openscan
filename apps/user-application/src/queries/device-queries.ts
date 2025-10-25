@@ -35,10 +35,16 @@ export const deviceQueries = {
    */
   list: (params?: {
     verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | ('CANDIDATE' | 'VERIFIED' | 'EXCLUDED')[];
+    projectId?: string;
   }) =>
     queryOptions({
-      queryKey: ['devices', params?.verificationStatus],
-      queryFn: () => getDevicesData({ data: { verificationStatus: params?.verificationStatus } }),
+      queryKey: ['devices', params?.verificationStatus, params?.projectId],
+      queryFn: () => getDevicesData({
+        data: {
+          verificationStatus: params?.verificationStatus,
+          projectId: params?.projectId
+        }
+      }),
       ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
     }),
 
