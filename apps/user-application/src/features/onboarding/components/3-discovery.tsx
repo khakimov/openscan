@@ -146,8 +146,8 @@ export function OnboardingDiscovery({
       { organizationId },
       {
         onSuccess: () => {
-          // Skip discovery and go directly to dashboard
-          navigate({ to: `/${organizationId}` as any });
+          // Skip discovery and go directly to project dashboard
+          navigate({ to: `/${organizationId}/${projectId}/` as any });
         },
         onError: (error) => {
           toast.error("Failed to complete onboarding", {
@@ -199,8 +199,8 @@ export function OnboardingDiscovery({
             await completeOnboardingMutation.mutateAsync({ organizationId });
           }
 
-          // Navigate to dashboard (onboarding complete)
-          navigate({ to: `/${organizationId}` as any });
+          // Navigate to project dashboard (onboarding complete)
+          navigate({ to: `/${organizationId}/${projectId}/` as any });
         },
         onError: (error: any) => {
           toast.error("Failed to add assets", {

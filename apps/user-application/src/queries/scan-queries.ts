@@ -6,8 +6,8 @@ import { getScans } from '@/server/scans';
  * Centralized scan query definitions using queryOptions()
  *
  * Usage:
- * - In loader: queryClient.ensureQueryData(scanQueries.list())
- * - In component: useSuspenseQuery(scanQueries.list())
+ * - In loader: queryClient.ensureQueryData(scanQueries.list({ projectId }))
+ * - In component: useSuspenseQuery(scanQueries.list({ projectId }))
  * - In mutation: queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey })
  */
 export const scanQueries = {
@@ -15,10 +15,10 @@ export const scanQueries = {
    * Scans list query
    * Used for general scan fetching without polling
    */
-  list: () =>
+  list: (params?: { projectId?: string }) =>
     queryOptions({
-      queryKey: ['scans'],
-      queryFn: () => getScans(),
+      queryKey: ['scans', params?.projectId],
+      queryFn: () => getScans({ data: { projectId: params?.projectId } }),
       refetchOnWindowFocus: false,
       ...QUERY_CONFIG.DEFAULTS.DYNAMIC_DATA,
     }),
@@ -27,10 +27,10 @@ export const scanQueries = {
    * Scans table query with auto-polling
    * Polls every 30s when active scans (PENDING/RUNNING) exist
    */
-  table: () =>
+  table: (params?: { projectId?: string }) =>
     queryOptions({
-      queryKey: ['scans-table'],
-      queryFn: () => getScans(),
+      queryKey: ['scans-table', params?.projectId],
+      queryFn: () => getScans({ data: { projectId: params?.projectId } }),
       refetchInterval: (query) => {
         const data = query.state.data;
         // Only poll if there are active scans (PENDING or RUNNING)

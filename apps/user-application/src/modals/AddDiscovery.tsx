@@ -15,6 +15,7 @@ import {
 import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
 import { DiscoveryResultsTable } from "@/components/discovery/discovery-results-table";
 import type { DiscoveryResultItem } from "@/components/discovery/discovery-results-table";
+import { useAppParams } from "@/hooks/use-app-params";
 
 interface AddDiscoveryProps {
   onConfirm?: (target: string) => void;
@@ -37,6 +38,10 @@ export default function AddDiscovery({
   const [selectedResults, setSelectedResults] = useState<Set<string>>(
     new Set(),
   );
+
+  // Get projectId from URL params
+  const params = useAppParams();
+  const projectId = params.projectId;
 
   // Query client for cache updates
   const queryClient = useQueryClient();
@@ -185,12 +190,15 @@ export default function AddDiscovery({
     });
 
     addDevicesMutation.mutate(
-      { targets: targetsData },
+      {
+        targets: targetsData,
+        projectId
+      },
       {
         onSuccess: (response) => {
           // 1. Append new devices to Discovery tab cache (instant display)
           queryClient.setQueryData(
-            ['devices', ['CANDIDATE', 'EXCLUDED']], // Discovery tab query key
+            ['devices', ['CANDIDATE', 'EXCLUDED'], projectId], // Discovery tab query key with projectId
             (old: any) => {
               if (!old?.items) return old;
 

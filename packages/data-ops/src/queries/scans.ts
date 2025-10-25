@@ -1,16 +1,77 @@
 import { eq, desc, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { scanRuns, scanRunDevices } from '../schema/orchestration';
+import { devices } from '../schema/inventory';
 import type { ScanRun, ScanScope } from '../types';
 
 /**
  * Get all scan runs for an organization (workflow data is now embedded)
+ * Optionally filter by projectId
  */
 export async function getScanRunsWithArtifacts(
-  organizationId: string
+  organizationId: string,
+  projectId?: string
 ): Promise<Array<ScanRun>> {
   const db = getDb();
 
+  // If projectId is provided, filter scans by devices in that project
+  if (projectId) {
+    // Import projects schema to validate project belongs to organization
+    const { projects } = await import('../schema/inventory');
+
+    // Verify project belongs to organization (security check)
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.organizationId, organizationId)
+      ))
+      .limit(1);
+
+    if (!project) {
+      // Project doesn't exist or doesn't belong to this organization
+      return [];
+    }
+
+    const results = await db
+      .selectDistinct({
+        id: scanRuns.id,
+        organizationId: scanRuns.organizationId,
+        restateWorkflowId: scanRuns.restateWorkflowId,
+        workflowKind: scanRuns.workflowKind,
+        workflowStatus: scanRuns.workflowStatus,
+        workflowStartedAt: scanRuns.workflowStartedAt,
+        workflowFinishedAt: scanRuns.workflowFinishedAt,
+        workflowCancelRequestedAt: scanRuns.workflowCancelRequestedAt,
+        workflowMetadata: scanRuns.workflowMetadata,
+        scope: scanRuns.scope,
+        scanType: scanRuns.scanType,
+        target: scanRuns.target,
+        requestedById: scanRuns.requestedById,
+        requestedAt: scanRuns.requestedAt,
+        startedAt: scanRuns.startedAt,
+        completedAt: scanRuns.completedAt,
+        status: scanRuns.status,
+        resultSummary: scanRuns.resultSummary,
+      })
+      .from(scanRuns)
+      .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+      .innerJoin(devices, eq(scanRunDevices.deviceId, devices.id))
+      .where(and(
+        eq(scanRuns.organizationId, organizationId),
+        eq(devices.projectId, projectId)
+      ))
+      .orderBy(
+        desc(scanRuns.completedAt),
+        desc(scanRuns.startedAt),
+        desc(scanRuns.requestedAt)
+      );
+
+    return results as Array<ScanRun>;
+  }
+
+  // Otherwise, return all scans for organization
   const results = await db
     .select()
     .from(scanRuns)

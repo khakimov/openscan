@@ -14,11 +14,13 @@ const scansSearchSchema = z.object({
   tab: fallback(z.enum(["all"]), "all").default("all"),
 });
 
-export const Route = createFileRoute("/_app/$organizationId/scans")({
+export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
   validateSearch: zodValidator(scansSearchSchema),
-  loader: async ({ context: { queryClient } }) => {
+  loader: async ({ context: { queryClient }, params }) => {
     // Populate query cache for SSR - table() uses auto-polling
-    await queryClient.ensureQueryData(scanQueries.table());
+    await queryClient.ensureQueryData(
+      scanQueries.table({ projectId: params.projectId })
+    );
   },
   // No pendingComponent - render page shell immediately, suspend only data component
   component: Scans,
@@ -26,6 +28,7 @@ export const Route = createFileRoute("/_app/$organizationId/scans")({
 
 function Scans() {
   const { tab } = Route.useSearch();
+  const { projectId } = Route.useParams();
 
   return (
     <Padding>
@@ -50,7 +53,7 @@ function Scans() {
               </div>
             }
           >
-            <ScansTable />
+            <ScansTable projectId={projectId} />
           </Suspense>
         </div>
       </div>

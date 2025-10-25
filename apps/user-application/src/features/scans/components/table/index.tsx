@@ -66,9 +66,11 @@ export type Scan = {
   resultSummary?: PortScanResult | null; // Actual scan results
 };
 
-interface ScansTableProps {}
+interface ScansTableProps {
+  projectId?: string;
+}
 
-export const ScansTable = ({}: ScansTableProps) => {
+export const ScansTable = ({ projectId }: ScansTableProps) => {
   const columns = useColumns();
 
   // useSuspenseQuery uses data from loader (no loading state needed)
@@ -76,7 +78,7 @@ export const ScansTable = ({}: ScansTableProps) => {
   const {
     data: response,
     isRefetching,
-  } = useSuspenseQuery(scanQueries.table());
+  } = useSuspenseQuery(scanQueries.table({ projectId }));
 
   const hasServerData =
     response?.success &&

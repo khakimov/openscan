@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { deviceQueries, useStartDeviceScanMutation } from "@/queries/device-queries";
 import { useSuspenseQuery } from "@tanstack/react-query";
 
-export const Route = createFileRoute("/_app/$organizationId/$deviceId")({
+export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId")({
   loader: async ({ context: { queryClient }, params }) => {
     // Prefetch device detail for SSR
     await queryClient.ensureQueryData(deviceQueries.detail(params.deviceId));
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_app/$organizationId/$deviceId")({
 });
 
 function DevicePage() {
-  const { organizationId, deviceId } = Route.useParams();
+  const { organizationId, projectId, deviceId } = Route.useParams();
 
   // Load device detail with suspense
   const { data: device } = useSuspenseQuery(deviceQueries.detail(deviceId));
@@ -79,7 +79,7 @@ function DevicePage() {
       {/* Header with back button and actions */}
       <div className="mb-4">
         <div className="flex items-center gap-3 mb-4">
-          <Link to={`/${organizationId}/assets` as any}>
+          <Link to={`/${organizationId}/${projectId}/assets` as any}>
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Assets
@@ -131,13 +131,13 @@ function DevicePage() {
         {/* Navigation Tabs */}
         <div className="flex items-center gap-3 mt-6">
           <PageTabs>
-            <PageTabsLink href={`/${organizationId}/${deviceId}`} isActive={true}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}`} isActive={true}>
               Overview
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${deviceId}/scans`} isActive={false}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/scans`} isActive={false}>
               Scans
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${deviceId}/vulnerabilities`} isActive={false}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/vulnerabilities`} isActive={false}>
               Vulnerabilities
             </PageTabsLink>
           </PageTabs>

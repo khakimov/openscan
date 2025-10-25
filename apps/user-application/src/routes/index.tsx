@@ -7,7 +7,8 @@ export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     const user = await getCurrentUser();
     if (user) {
-      // Get active organization and redirect to org dashboard
+      // Get active organization and redirect to org index
+      // Org index will auto-redirect to project if only 1 project exists
       const activeOrgResult = await getActiveOrganization();
       const org = activeOrgResult.success ? activeOrgResult.organization : null;
 

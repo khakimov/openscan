@@ -16,6 +16,9 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
+import { useAppParams } from "@/hooks/use-app-params";
+import { pushModal } from "@/modals";
 
 type SelectorAlignment = "start" | "end" | "center";
 
@@ -45,9 +48,12 @@ export function LayoutProjectSelector({
   isLoading = false,
 }: LayoutProjectSelectorProps) {
   const [open, setOpen] = useState(false);
+  const navigate = useNavigate();
+  const params = useAppParams();
 
-  const activeProject = projects[0];
-  const activeProjectId = activeProject?.id;
+  // Get active project from URL params (if on project-scoped route)
+  const activeProjectId = params.projectId;
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
 
   const activeOrganizationId = useMemo(
     () => tenant?.id ?? organizations[0]?.id ?? undefined,
@@ -77,6 +83,18 @@ export function LayoutProjectSelector({
     return "No organization";
   }, [activeOrganizationId, isLoading, organizations, tenant?.name]);
 
+  const projectDisplayName = useMemo(() => {
+    if (isLoading) {
+      return "Loading…";
+    }
+
+    if (activeProject?.name) {
+      return activeProject.name;
+    }
+
+    return "No project";
+  }, [activeProject?.name, isLoading]);
+
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -89,11 +107,11 @@ export function LayoutProjectSelector({
           disabled={isLoading}
         >
           <Building2Icon size={16} className="shrink-0" />
-          <div className="mx-2 flex min-w-0 flex-col text-left">
-            <span className="truncate text-sm font-medium">
-              {organizationDisplayName}
-            </span>
-          </div>
+          <span className="mx-2 truncate">
+            {activeProjectId
+              ? projectDisplayName
+              : organizationDisplayName}
+          </span>
           <ChevronsUpDownIcon className="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </DropdownMenuTrigger>
@@ -144,9 +162,18 @@ export function LayoutProjectSelector({
                 className="flex items-center gap-2"
                 onSelect={() => {
                   setOpen(false);
-                  console.info("[LayoutProjectSelector] select project", {
-                    projectId: project.id,
-                  });
+
+                  // Navigate to project dashboard when switching projects
+                  const orgIdentifier = tenant?.slug || tenant?.id || params.organizationId;
+                  if (orgIdentifier && project.id) {
+                    navigate({
+                      to: '/$organizationId/$projectId',
+                      params: {
+                        organizationId: orgIdentifier,
+                        projectId: project.id,
+                      },
+                    });
+                  }
                 }}
               >
                 <div className="flex min-w-0 flex-col">
@@ -172,7 +199,7 @@ export function LayoutProjectSelector({
             className="text-emerald-600"
             onSelect={() => {
               setOpen(false);
-              console.info("[LayoutProjectSelector] create project");
+              pushModal("AddProject");
             }}
           >
             Create new project
