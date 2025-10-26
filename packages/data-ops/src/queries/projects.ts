@@ -63,6 +63,24 @@ export async function getProjectById(
 }
 
 /**
+ * Get organizationId from projectId (VULN-003 FIX)
+ *
+ * Security: Use this to derive organizationId from projectId
+ * instead of accepting organizationId from client
+ */
+export async function getOrganizationIdFromProject(projectId: string): Promise<string | null> {
+  const db = getDb();
+
+  const [project] = await db
+    .select({ organizationId: projects.organizationId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  return project?.organizationId || null;
+}
+
+/**
  * Get all projects for an organization
  */
 export async function getProjectsForOrganization(organizationId: string) {

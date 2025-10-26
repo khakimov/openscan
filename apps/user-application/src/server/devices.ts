@@ -10,6 +10,7 @@ import {
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
   getScanScheduleByDeviceId,
+  getOrganizationIdFromProject,  // ✅ VULN-003 FIX
   type DeviceQueryParams,
   type DeviceUpdateData
 } from '@repo/data-ops'
@@ -566,8 +567,7 @@ export const createDevicesFromDiscovery = createServerFn({
 })
   .inputValidator((data: {
     targets: Array<{host: string, ip?: string}>,
-    organizationId?: string,
-    projectId?: string,
+    projectId?: string,  // ✅ VULN-003 FIX: Removed organizationId (never accept from client)
     options?: {
       source?: string;
       scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
@@ -609,12 +609,34 @@ export const createDevicesFromDiscovery = createServerFn({
       logger.info('Starting createDevicesFromDiscovery handler', {
         targetCount: data.targets.length,
         projectId: data.projectId,
-        options: data.options,
-        hasOrganizationId: !!data.organizationId
+        options: data.options
       });
 
-      // Use provided organizationId during onboarding, otherwise get from session
-      const organizationId = data.organizationId || await getCurrentOrganizationId();
+      // ✅ VULN-003 FIX: Derive organizationId securely
+      let organizationId: string;
+
+      if (data.projectId) {
+        // Derive organizationId from projectId (don't trust client)
+        const derivedOrgId = await getOrganizationIdFromProject(data.projectId);
+
+        if (!derivedOrgId) {
+          throw new Error('Project not found or access denied');
+        }
+
+        organizationId = derivedOrgId;
+
+        logger.info('Derived organizationId from projectId', {
+          projectId: data.projectId,
+          organizationId
+        });
+      } else {
+        // No projectId provided - use session organizationId
+        organizationId = await getCurrentOrganizationId();
+
+        logger.info('Using organizationId from session', {
+          organizationId
+        });
+      }
 
       logger.info('Creating devices from discovery', {
         organizationId,
@@ -622,7 +644,7 @@ export const createDevicesFromDiscovery = createServerFn({
         targetCount: data.targets.length,
         targets: data.targets,
         options: data.options,
-        source: data.organizationId ? 'onboarding' : 'session'
+        source: data.projectId ? 'with-project' : 'session-default'
       });
 
       const createdDevices = await createMultipleDevicesFromDiscovery(
