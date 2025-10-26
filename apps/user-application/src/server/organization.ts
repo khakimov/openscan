@@ -5,6 +5,7 @@ import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth
 import { getRequest } from "@tanstack/react-start/server";
 import { getDb } from "@repo/data-ops/database/setup";
 import { organization, projects } from "@repo/data-ops/schema";
+import { member } from "@repo/data-ops/drizzle/auth-schema";
 import { and, eq, or } from "@repo/data-ops";
 import { createProject, updateProject } from "@repo/data-ops";
 import { getCurrentUser } from "./utils/auth";
@@ -644,14 +645,33 @@ export const getOrganizationById = createServerFn({
         throw new Error("Organization not found");
       }
 
-      // TODO: Add membership check once we have member/role tables
-      // For now, assume user has access if organization exists
+      // VULN-002 FIX: Validate user is a member of the organization
+      const [membership] = await db
+        .select()
+        .from(member)
+        .where(
+          and(
+            eq(member.userId, user.id),
+            eq(member.organizationId, org.id)
+          )
+        )
+        .limit(1);
+
+      if (!membership) {
+        logger.warn("User attempted to access organization without membership", {
+          userId: user.id,
+          organizationId: org.id,
+          organizationSlug: org.slug,
+        });
+        throw new Error("You do not have access to this organization");
+      }
 
       logger.info("Organization accessed", {
         organizationId: org.id,
         organizationSlug: org.slug,
         accessedVia: organizationIdentifier,
         userId: user.id,
+        userRole: membership.role,
       });
 
       return {
