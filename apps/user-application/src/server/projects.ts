@@ -4,6 +4,7 @@ import { z } from "zod";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { getProjectsForOrganization, createProject, getProjectById } from "@repo/data-ops";
 import { getCurrentOrganizationId } from "./utils/auth";
+import { getOrganizationById } from "./organization";
 
 const logger = createLogger({ name: "projects-server" });
 
@@ -59,14 +60,34 @@ export const validateProjectAccess = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      // First, verify user has access to the organization
-      // This ensures organizationId from URL is valid for current user
+      // First, resolve organizationIdentifier (could be slug or ID) to actual organization
+      // This validates user has access through getOrganizationById's membership check
+      const orgResult = await getOrganizationById({
+        data: data.organizationId
+      });
+
+      if (!orgResult.success || !orgResult.organization) {
+        logger.warn("Organization not found or access denied", {
+          requestedOrganization: data.organizationId,
+          projectId: data.projectId,
+        });
+        return {
+          success: false,
+          error: "Project not found or access denied",
+          project: null,
+        };
+      }
+
+      const resolvedOrgId = orgResult.organization.id;
+
+      // Verify this matches the user's current organization
       const userOrgId = await getCurrentOrganizationId();
 
-      if (userOrgId !== data.organizationId) {
+      if (userOrgId !== resolvedOrgId) {
         logger.warn("User attempted to access project in different organization", {
           userOrganizationId: userOrgId,
-          requestedOrganizationId: data.organizationId,
+          requestedOrganization: data.organizationId,
+          resolvedOrganizationId: resolvedOrgId,
           projectId: data.projectId,
         });
         return {
@@ -77,12 +98,12 @@ export const validateProjectAccess = createServerFn({
       }
 
       // Then validate project exists and belongs to organization
-      const project = await getProjectById(data.projectId, data.organizationId);
+      const project = await getProjectById(data.projectId, resolvedOrgId);
 
       if (!project) {
         logger.warn("Project not found or does not belong to organization", {
           projectId: data.projectId,
-          organizationId: data.organizationId,
+          organizationId: resolvedOrgId,
         });
         return {
           success: false,
@@ -94,7 +115,8 @@ export const validateProjectAccess = createServerFn({
       logger.info("Project access validated", {
         projectId: project.id,
         projectName: project.name,
-        organizationId: data.organizationId,
+        organizationId: resolvedOrgId,
+        organizationSlug: orgResult.organization.slug,
       });
 
       return {
@@ -106,7 +128,7 @@ export const validateProjectAccess = createServerFn({
       logger.error("Failed to validate project access", {
         error: errorMessage,
         projectId: data.projectId,
-        organizationId: data.organizationId,
+        organizationIdentifier: data.organizationId,
       });
 
       return {
