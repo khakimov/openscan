@@ -61,7 +61,11 @@ export default function AddProject() {
             label: "View project",
             onClick: () => {
               navigate({
-                to: `/${orgIdentifier}/${response.project.id}` as any,
+                to: "/$organizationId/$projectId",
+                params: {
+                  organizationId: orgIdentifier,
+                  projectId: response.project.id,
+                },
               });
             },
           },
