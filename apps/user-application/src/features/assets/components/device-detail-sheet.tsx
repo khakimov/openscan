@@ -47,9 +47,10 @@ function DeviceDetailSheetItem({
   device: TransformedDevice;
   isNewlyAdded?: boolean;
 }) {
-  // Get organizationId from route params
+  // Get organizationId and projectId from route params
   const params = useParams({ strict: false });
   const organizationId = 'organizationId' in params ? params.organizationId as string : null;
+  const projectId = 'projectId' in params ? params.projectId as string : null;
   // Each device has its own Sheet with its own data loading using queryOptions
   const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery({
     ...deviceQueries.detail(device.id),
@@ -196,9 +197,16 @@ function DeviceDetailSheetItem({
         </div>
 
         {/* Footer with link to full device page */}
-        {organizationId && (
+        {organizationId && projectId && (
           <SheetFooter className="border-t pt-4 px-4">
-            <Link to={`/${organizationId}/${device.id}` as any}>
+            <Link
+              to="/$organizationId/$projectId/$deviceId"
+              params={{
+                organizationId,
+                projectId,
+                deviceId: device.id,
+              }}
+            >
               <Button variant="outline" className="w-full gap-2">
                 <ExternalLink className="h-4 w-4" />
                 View Full Device Details
