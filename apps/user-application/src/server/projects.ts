@@ -2,9 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
 import { z } from "zod";
 import { zodValidator } from "@tanstack/zod-adapter";
-import { getProjectsForOrganization, createProject, getProjectById } from "@repo/data-ops";
-import { getCurrentOrganizationId } from "./utils/auth";
-import { getOrganizationById } from "./organization";
+import { getProjectsForOrganization, createProject, validateProjectAccess } from "@repo/data-ops";
+import { getCurrentOrganizationId, getCurrentUser } from "./utils/auth";
 
 const logger = createLogger({ name: "projects-server" });
 
@@ -40,16 +39,17 @@ export const getOrganizationProjects = createServerFn({
 });
 
 /**
- * Validate project access and ownership (VULN-001 FIX)
+ * Validate project access and ownership (VULN-001 FIX - REFACTORED)
  *
  * Security: Validates that:
  * 1. Project exists
  * 2. Project belongs to the specified organization
- * 3. User has access to the organization (via getCurrentOrganizationId)
+ * 3. User has access to the organization (via membership check)
  *
- * Used by route loaders to prevent unauthorized project access
+ * Now just a thin wrapper around data-ops validateProjectAccess function.
+ * All business logic lives in data-ops for better reusability.
  */
-export const validateProjectAccess = createServerFn({
+export const validateProjectAccessFn = createServerFn({
   method: "GET",
 })
   .inputValidator((data: { projectId: string; organizationId: string }) => {
@@ -60,50 +60,20 @@ export const validateProjectAccess = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      // First, resolve organizationIdentifier (could be slug or ID) to actual organization
-      // This validates user has access through getOrganizationById's membership check
-      const orgResult = await getOrganizationById({
-        data: data.organizationId
-      });
+      const user = await getCurrentUser();
 
-      if (!orgResult.success || !orgResult.organization) {
-        logger.warn("Organization not found or access denied", {
-          requestedOrganization: data.organizationId,
+      // ✅ CLEAN: All business logic in data-ops
+      const result = await validateProjectAccess(
+        user.id,
+        data.projectId,
+        data.organizationId
+      );
+
+      if (!result) {
+        logger.warn("Project access denied", {
+          userId: user.id,
+          organizationId: data.organizationId,
           projectId: data.projectId,
-        });
-        return {
-          success: false,
-          error: "Project not found or access denied",
-          project: null,
-        };
-      }
-
-      const resolvedOrgId = orgResult.organization.id;
-
-      // Verify this matches the user's current organization
-      const userOrgId = await getCurrentOrganizationId();
-
-      if (userOrgId !== resolvedOrgId) {
-        logger.warn("User attempted to access project in different organization", {
-          userOrganizationId: userOrgId,
-          requestedOrganization: data.organizationId,
-          resolvedOrganizationId: resolvedOrgId,
-          projectId: data.projectId,
-        });
-        return {
-          success: false,
-          error: "Project not found or access denied",
-          project: null,
-        };
-      }
-
-      // Then validate project exists and belongs to organization
-      const project = await getProjectById(data.projectId, resolvedOrgId);
-
-      if (!project) {
-        logger.warn("Project not found or does not belong to organization", {
-          projectId: data.projectId,
-          organizationId: resolvedOrgId,
         });
         return {
           success: false,
@@ -113,22 +83,23 @@ export const validateProjectAccess = createServerFn({
       }
 
       logger.info("Project access validated", {
-        projectId: project.id,
-        projectName: project.name,
-        organizationId: resolvedOrgId,
-        organizationSlug: orgResult.organization.slug,
+        userId: user.id,
+        projectId: result.project.id,
+        projectName: result.project.name,
+        organizationId: result.organization.id,
+        organizationSlug: result.organization.slug,
       });
 
       return {
         success: true,
-        project,
+        project: result.project,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error("Failed to validate project access", {
         error: errorMessage,
         projectId: data.projectId,
-        organizationIdentifier: data.organizationId,
+        organizationId: data.organizationId,
       });
 
       return {

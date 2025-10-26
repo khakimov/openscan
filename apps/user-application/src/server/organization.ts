@@ -5,9 +5,8 @@ import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth
 import { getRequest } from "@tanstack/react-start/server";
 import { getDb } from "@repo/data-ops/database/setup";
 import { organization, projects } from "@repo/data-ops/schema";
-import { member } from "@repo/data-ops/drizzle/auth-schema";
-import { and, eq, or } from "@repo/data-ops";
-import { createProject, updateProject } from "@repo/data-ops";
+import { and, eq } from "@repo/data-ops";
+import { createProject, updateProject, validateOrganizationAccess } from "@repo/data-ops";
 import { getCurrentUser } from "./utils/auth";
 import type {
   OnboardingOrganizationSummary,
@@ -606,8 +605,10 @@ export const getOnboardingStatus = createServerFn({
 });
 
 /**
- * Get organization by slug or ID and validate user has access
- * Follows OpenPanel pattern: accepts slug (preferred) or ID as fallback
+ * Get organization by slug or ID and validate user has access (VULN-002 FIX - REFACTORED)
+ *
+ * Now just a thin wrapper around data-ops validateOrganizationAccess function.
+ * All business logic lives in data-ops for better reusability.
  */
 export const getOrganizationById = createServerFn({
   method: "GET",
@@ -621,49 +622,19 @@ export const getOrganizationById = createServerFn({
   .handler(async ({ data: organizationIdentifier }) => {
     try {
       const user = await getCurrentUser();
-      const db = getDb();
 
-      // Query organization by slug OR id (OpenPanel pattern)
-      // Try slug first (cleaner URLs), fallback to ID
-      const [org] = await db
-        .select({
-          id: organization.id,
-          name: organization.name,
-          slug: organization.slug,
-          metadata: organization.metadata,
-        })
-        .from(organization)
-        .where(
-          or(
-            eq(organization.slug, organizationIdentifier),
-            eq(organization.id, organizationIdentifier)
-          )
-        )
-        .limit(1);
+      // ✅ CLEAN: All business logic in data-ops
+      const org = await validateOrganizationAccess(
+        user.id,
+        organizationIdentifier
+      );
 
       if (!org) {
-        throw new Error("Organization not found");
-      }
-
-      // VULN-002 FIX: Validate user is a member of the organization
-      const [membership] = await db
-        .select()
-        .from(member)
-        .where(
-          and(
-            eq(member.userId, user.id),
-            eq(member.organizationId, org.id)
-          )
-        )
-        .limit(1);
-
-      if (!membership) {
-        logger.warn("User attempted to access organization without membership", {
+        logger.warn("Organization access denied", {
           userId: user.id,
-          organizationId: org.id,
-          organizationSlug: org.slug,
+          organizationIdentifier,
         });
-        throw new Error("You do not have access to this organization");
+        throw new Error("Organization not found or access denied");
       }
 
       logger.info("Organization accessed", {
@@ -671,7 +642,7 @@ export const getOrganizationById = createServerFn({
         organizationSlug: org.slug,
         accessedVia: organizationIdentifier,
         userId: user.id,
-        userRole: membership.role,
+        userRole: org.userRole,
       });
 
       return {

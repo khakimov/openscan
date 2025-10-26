@@ -1,6 +1,6 @@
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { createLogger } from "@repo/logger";
-import { validateProjectAccess } from "@/server/projects";
+import { validateProjectAccessFn } from "@/server/projects";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
   },
   loader: async ({ params }) => {
     // VULN-001 FIX: Validate project exists and belongs to organization
-    const result = await validateProjectAccess({
+    const result = await validateProjectAccessFn({
       data: {
         projectId: params.projectId,
         organizationId: params.organizationId,

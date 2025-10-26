@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { projects } from '../schema';
+import { validateOrganizationAccess } from './organizations';
 
 export type ProjectCreateData = {
   name: string;
@@ -172,4 +173,48 @@ export async function deleteProject(
     .returning();
 
   return result.length > 0;
+}
+
+/**
+ * Validate user has access to project (VULN-001 FIX - REFACTORED)
+ *
+ * Security: Multi-layer validation
+ * 1. Resolves organization slug/ID to actual organization
+ * 2. Validates user is a member of that organization
+ * 3. Validates project exists and belongs to organization
+ *
+ * This is the SINGLE SOURCE OF TRUTH for project access validation.
+ * Use this function in route loaders and server functions.
+ *
+ * @param userId - User ID to check
+ * @param projectId - Project ID to validate
+ * @param organizationSlugOrId - Organization slug or ID from URL
+ * @returns Object with project and organization if access granted, null otherwise
+ */
+export async function validateProjectAccess(
+  userId: string,
+  projectId: string,
+  organizationSlugOrId: string
+) {
+  // First, validate organization access (includes membership check)
+  const orgAccess = await validateOrganizationAccess(
+    userId,
+    organizationSlugOrId
+  );
+
+  if (!orgAccess) {
+    return null;
+  }
+
+  // Then validate project belongs to organization
+  const project = await getProjectById(projectId, orgAccess.id);
+
+  if (!project) {
+    return null;
+  }
+
+  return {
+    project,
+    organization: orgAccess,
+  };
 }
