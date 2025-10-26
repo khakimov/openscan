@@ -691,14 +691,19 @@ export async function getScanScheduleByDeviceId(
 }
 
 /**
- * Delete scan schedule
+ * Delete scan schedule (VULN-004 FIX: now requires organizationId)
+ *
+ * Security: Validates schedule belongs to organization before deletion
  */
-export async function deleteScanSchedule(scheduleId: string) {
+export async function deleteScanSchedule(scheduleId: string, organizationId: string) {
   const db = getDb();
 
   const result = await db
     .delete(scanSchedules)
-    .where(eq(scanSchedules.scheduleId, scheduleId))
+    .where(and(
+      eq(scanSchedules.scheduleId, scheduleId),
+      eq(scanSchedules.organizationId, organizationId)  // ✅ Security: validate org ownership
+    ))
     .returning();
 
   return result.length > 0;
