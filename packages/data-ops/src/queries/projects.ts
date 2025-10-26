@@ -1,7 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { projects } from '../schema';
-import { validateOrganizationAccess } from './organizations';
+import { validateOrganizationAccess } from './organizations/access';
 
 export type ProjectCreateData = {
   name: string;
@@ -92,6 +92,26 @@ export async function getProjectsForOrganization(organizationId: string) {
     .from(projects)
     .where(eq(projects.organizationId, organizationId))
     .orderBy(projects.createdAt);
+}
+
+/**
+ * Get default project for organization (without auto-creating)
+ */
+export async function getDefaultProject(organizationId: string) {
+  const db = getDb();
+
+  const [defaultProject] = await db
+    .select()
+    .from(projects)
+    .where(
+      and(
+        eq(projects.organizationId, organizationId),
+        eq(projects.isDefault, true)
+      )
+    )
+    .limit(1);
+
+  return defaultProject || null;
 }
 
 /**

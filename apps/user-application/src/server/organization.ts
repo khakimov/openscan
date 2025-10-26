@@ -3,10 +3,15 @@ import { createLogger } from "@repo/logger";
 import { getAuth } from "@repo/data-ops/auth/server";
 import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth/organization-api";
 import { getRequest } from "@tanstack/react-start/server";
-import { getDb } from "@repo/data-ops/database/setup";
-import { organization, projects } from "@repo/data-ops/schema";
-import { and, eq } from "@repo/data-ops";
-import { createProject, updateProject, validateOrganizationAccess } from "@repo/data-ops";
+import {
+  createProject,
+  updateProject,
+  validateOrganizationAccess,
+  updateOrganizationOnboarding as updateOrgOnboardingData,
+  markOnboardingComplete as markOnboardingCompleteData,
+  getOrganizationById as getOrgByIdData,
+  getDefaultProject,
+} from "@repo/data-ops";
 import { getCurrentUser } from "./utils/auth";
 import type {
   OnboardingOrganizationSummary,
@@ -264,7 +269,9 @@ export const createProjectOnboarding = createServerFn({
   });
 
 /**
- * Update organization details during onboarding
+ * Update organization details during onboarding (REFACTORED - sec-85)
+ *
+ * Now uses data-ops updateOrganizationOnboarding function
  */
 export const updateOrganizationOnboarding = createServerFn({
   method: "POST",
@@ -282,38 +289,12 @@ export const updateOrganizationOnboarding = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
-      const db = getDb();
-      const [existing] = await db
-        .select({
-          metadata: organization.metadata,
-        })
-        .from(organization)
-        .where(eq(organization.id, data.organizationId))
-        .limit(1);
-
-      let metadataObj: Record<string, unknown> = {};
-      if (existing?.metadata) {
-        try {
-          metadataObj = JSON.parse(existing.metadata);
-        } catch (err) {
-          logger.warn("Failed to parse organization metadata, resetting", {
-            organizationId: data.organizationId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-
-      if (data.timezone) {
-        metadataObj.timezone = data.timezone;
-      }
-
-      await db
-        .update(organization)
-        .set({
-          name: data.name,
-          metadata: Object.keys(metadataObj).length ? JSON.stringify(metadataObj) : null,
-        })
-        .where(eq(organization.id, data.organizationId));
+      // ✅ CLEAN: All business logic in data-ops
+      await updateOrgOnboardingData(
+        data.organizationId,
+        data.name,
+        data.timezone
+      );
 
       logger.info("Organization updated during onboarding", {
         organizationId: data.organizationId,
@@ -338,7 +319,9 @@ export const updateOrganizationOnboarding = createServerFn({
   });
 
 /**
- * Mark onboarding as complete for the organization
+ * Mark onboarding as complete for the organization (REFACTORED - sec-85)
+ *
+ * Now uses data-ops markOnboardingComplete function
  */
 export const completeOnboarding = createServerFn({
   method: "POST",
@@ -351,37 +334,8 @@ export const completeOnboarding = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      const db = getDb();
-      const [existing] = await db
-        .select({
-          metadata: organization.metadata,
-        })
-        .from(organization)
-        .where(eq(organization.id, data.organizationId))
-        .limit(1);
-
-      let metadataObj: Record<string, unknown> = {};
-      if (existing?.metadata) {
-        try {
-          metadataObj = JSON.parse(existing.metadata);
-        } catch (err) {
-          logger.warn("Failed to parse organization metadata, resetting", {
-            organizationId: data.organizationId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
-
-      // Mark onboarding as complete
-      metadataObj.onboardingCompleted = true;
-      metadataObj.onboardingCompletedAt = new Date().toISOString();
-
-      await db
-        .update(organization)
-        .set({
-          metadata: JSON.stringify(metadataObj),
-        })
-        .where(eq(organization.id, data.organizationId));
+      // ✅ CLEAN: All business logic in data-ops
+      await markOnboardingCompleteData(data.organizationId);
 
       logger.info("Onboarding marked as complete", {
         organizationId: data.organizationId,
@@ -405,7 +359,9 @@ export const completeOnboarding = createServerFn({
   });
 
 /**
- * Get active organization from session
+ * Get active organization from session (REFACTORED - sec-85)
+ *
+ * Now uses data-ops getOrganizationById function
  */
 export const getActiveOrganization = createServerFn({
   method: "GET",
@@ -425,17 +381,8 @@ export const getActiveOrganization = createServerFn({
       };
     }
 
-    // Query organization from database using data-ops
-    const db = getDb();
-    const [org] = await db
-      .select({
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-      })
-      .from(organization)
-      .where(eq(organization.id, activeOrgId))
-      .limit(1);
+    // ✅ CLEAN: Use data-ops function
+    const org = await getOrgByIdData(activeOrgId);
 
     if (!org) {
       return {
@@ -516,16 +463,8 @@ export const getOnboardingStatus = createServerFn({
       } satisfies OnboardingStatus;
     }
 
-    const db = getDb();
-    const [organizationRecord] = await db
-      .select({
-        id: organization.id,
-        name: organization.name,
-        metadata: organization.metadata,
-      })
-      .from(organization)
-      .where(eq(organization.id, primaryOrganizationId))
-      .limit(1);
+    // ✅ CLEAN: Use data-ops function to get organization
+    const organizationRecord = await getOrgByIdData(primaryOrganizationId);
 
     let organizationMetadata: Record<string, {}> | null = null;
     if (organizationRecord?.metadata) {
@@ -539,21 +478,8 @@ export const getOnboardingStatus = createServerFn({
       }
     }
 
-    // Query for default project (created during onboarding)
-    const [defaultProject] = await db
-      .select({
-        id: projects.id,
-        name: projects.name,
-        domain: projects.domain,
-      })
-      .from(projects)
-      .where(
-        and(
-          eq(projects.organizationId, primaryOrganizationId),
-          eq(projects.isDefault, true)
-        )
-      )
-      .limit(1);
+    // ✅ CLEAN: Use data-ops function to get default project
+    const defaultProject = await getDefaultProject(primaryOrganizationId);
 
     const hasProject = Boolean(defaultProject);
 

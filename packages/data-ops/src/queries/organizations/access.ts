@@ -1,6 +1,6 @@
 import { eq, or, and } from 'drizzle-orm';
-import { getDb } from '../database/setup';
-import { organization, member } from '../drizzle/auth-schema';
+import { getDb } from '../../database/setup';
+import { organization, member } from '../../drizzle/auth-schema';
 
 /**
  * Get organization by slug or ID
