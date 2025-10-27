@@ -54,6 +54,24 @@ export function resetNectoClientForTesting(): void {
 }
 
 /**
+ * Common HTTP/HTTPS ports that should be probed with httpx
+ */
+const HTTP_PORTS = new Set([
+  80, 443, 8080, 8443, 8000, 8888, 3000, 5000, 9000,
+  8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089,
+]);
+
+/**
+ * Extract HTTP ports from scan results
+ */
+function extractHttpPorts(ports: Array<{ port: number; state: string; service?: any }>): number[] {
+  return ports
+    .filter((p) => p.state === 'open' && HTTP_PORTS.has(p.port))
+    .map((p) => p.port)
+    .sort((a, b) => a - b);
+}
+
+/**
  * Zod schema for port scan postback validation
  */
 const PortScanPostbackSchema = z.object({
@@ -400,11 +418,52 @@ export class PortScanPostbackHandler
       });
     }
 
+    // Step 7: Trigger httpx workflow for HTTP ports (if any)
+    const httpPorts = extractHttpPorts(data.ports || []);
+
+    if (httpPorts.length > 0) {
+      ctx.logger.info('HTTP ports detected, preparing httpx scan', {
+        scanId,
+        deviceId,
+        httpPorts,
+        httpPortCount: httpPorts.length,
+      });
+
+      // TODO: Trigger Restate httpx workflow when screenshot-worker is ready
+      // This will be implemented in Phase 4
+      // await ctx.restate?.invokeWorkflow('httpx-scan', {
+      //   scanRunId: scanRun.id,
+      //   deviceId,
+      //   organizationId,
+      //   ports: httpPorts,
+      // });
+
+      // Update scan run metadata to track httpx trigger
+      try {
+        const currentMetadata = scanRun.workflowMetadata || {};
+        await updateScanRunStatus(scanRun.id, 'SUCCEEDED', {
+          ...resultSummary,
+        });
+
+        ctx.logger.info('Metadata updated with httpx ports', {
+          scanRunId: scanRun.id,
+          httpPortsQueued: httpPorts.length,
+        });
+      } catch (error) {
+        // Non-critical - log but don't fail
+        ctx.logger.warn('Failed to update metadata with httpx ports', {
+          scanId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
     ctx.logger.info('Scan results stored successfully', {
       deviceId,
       scanId,
       scanRunId: scanRun.id,
       portsStored: openPorts.length,
+      httpPortsQueued: httpPorts.length,
     });
 
     // Build analytics with CVE count
