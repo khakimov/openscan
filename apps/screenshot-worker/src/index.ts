@@ -16,6 +16,7 @@
 
 import type { Env } from './types/env';
 import { handleCapture } from './handlers/capture';
+import { handleHttpx } from './handlers/httpx';
 import { handleHealth } from './handlers/health';
 import { handleTest } from './handlers/test';
 import { handleView } from './handlers/view';
@@ -43,6 +44,10 @@ export default {
 
       if (url.pathname === '/screenshots/capture' && request.method === 'POST') {
         return await handleCapture(request, env);
+      }
+
+      if (url.pathname === '/httpx/probe' && request.method === 'POST') {
+        return await handleHttpx(request, env);
       }
 
       if (url.pathname === '/screenshots/test' && request.method === 'POST') {
