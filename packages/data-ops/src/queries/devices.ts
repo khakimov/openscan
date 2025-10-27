@@ -1,6 +1,6 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules } from '../schema';
+import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects } from '../schema';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
@@ -387,6 +387,21 @@ export async function createMultipleDevicesFromDiscovery(
     scope = 'EXTERNAL',
     verificationStatus = 'CANDIDATE'
   } = options || {};
+
+  if (projectId) {
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.organizationId, organizationId)
+      ))
+      .limit(1);
+
+    if (!project) {
+      throw new Error('Project not found or access denied');
+    }
+  }
 
   for (const target of targets) {
     // Check if device already exists for this organization (by name + IP combination)
