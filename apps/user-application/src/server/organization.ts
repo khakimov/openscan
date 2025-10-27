@@ -3,10 +3,15 @@ import { createLogger } from "@repo/logger";
 import { getAuth } from "@repo/data-ops/auth/server";
 import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth/organization-api";
 import { getRequest } from "@tanstack/react-start/server";
-import { getDb } from "@repo/data-ops/database/setup";
-import { organization, projects } from "@repo/data-ops/schema";
-import { and, eq, or } from "@repo/data-ops";
-import { createProject, updateProject } from "@repo/data-ops";
+import {
+  createProject,
+  updateProject,
+  validateOrganizationAccess,
+  updateOrganizationOnboarding as updateOrgOnboardingData,
+  markOnboardingComplete as markOnboardingCompleteData,
+  getOrganizationById as getOrgByIdData,
+  getDefaultProject,
+} from "@repo/data-ops";
 import { getCurrentUser } from "./utils/auth";
 import type {
   OnboardingOrganizationSummary,
@@ -194,18 +199,37 @@ export const createProjectOnboarding = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
+      const user = await getCurrentUser();
+
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization access denied during project onboarding", {
+          userId: user.id,
+          organizationId: data.organizationId,
+          projectId: data.projectId,
+        });
+        throw new Error("Organization not found or access denied");
+      }
+
+      const organizationId = orgAccess.id;
+
       // If projectId provided, update existing project
       if (data.projectId) {
         logger.info("Updating project during onboarding", {
           projectId: data.projectId,
           projectName: data.projectName,
           domain: data.domain,
-          organizationId: data.organizationId,
+          organizationId,
+          userId: user.id,
         });
 
         const project = await updateProject(
           data.projectId,
-          data.organizationId,
+          organizationId,
           {
             name: data.projectName,
             domain: data.domain,
@@ -218,7 +242,8 @@ export const createProjectOnboarding = createServerFn({
 
         logger.info("Project updated successfully", {
           projectId: project.id,
-          organizationId: data.organizationId,
+          organizationId,
+          userId: user.id,
         });
 
         return {
@@ -231,10 +256,11 @@ export const createProjectOnboarding = createServerFn({
       logger.info("Creating project during onboarding", {
         projectName: data.projectName,
         domain: data.domain,
-        organizationId: data.organizationId,
+        organizationId,
+        userId: user.id,
       });
 
-      const project = await createProject(data.organizationId, {
+      const project = await createProject(organizationId, {
         name: data.projectName,
         domain: data.domain,
         isDefault: true, // First project created during onboarding is default
@@ -242,7 +268,8 @@ export const createProjectOnboarding = createServerFn({
 
       logger.info("Project created successfully", {
         projectId: project.id,
-        organizationId: data.organizationId,
+        organizationId,
+        userId: user.id,
       });
 
       return {
@@ -264,7 +291,9 @@ export const createProjectOnboarding = createServerFn({
   });
 
 /**
- * Update organization details during onboarding
+ * Update organization details during onboarding (REFACTORED - sec-85)
+ *
+ * Now uses data-ops updateOrganizationOnboarding function
  */
 export const updateOrganizationOnboarding = createServerFn({
   method: "POST",
@@ -282,42 +311,32 @@ export const updateOrganizationOnboarding = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
-      const db = getDb();
-      const [existing] = await db
-        .select({
-          metadata: organization.metadata,
-        })
-        .from(organization)
-        .where(eq(organization.id, data.organizationId))
-        .limit(1);
+      const user = await getCurrentUser();
 
-      let metadataObj: Record<string, unknown> = {};
-      if (existing?.metadata) {
-        try {
-          metadataObj = JSON.parse(existing.metadata);
-        } catch (err) {
-          logger.warn("Failed to parse organization metadata, resetting", {
-            organizationId: data.organizationId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization update denied during onboarding", {
+          userId: user.id,
+          organizationId: data.organizationId,
+        });
+        throw new Error("Organization not found or access denied");
       }
 
-      if (data.timezone) {
-        metadataObj.timezone = data.timezone;
-      }
-
-      await db
-        .update(organization)
-        .set({
-          name: data.name,
-          metadata: Object.keys(metadataObj).length ? JSON.stringify(metadataObj) : null,
-        })
-        .where(eq(organization.id, data.organizationId));
+      // ✅ CLEAN: All business logic in data-ops
+      await updateOrgOnboardingData(
+        orgAccess.id,
+        data.name,
+        data.timezone
+      );
 
       logger.info("Organization updated during onboarding", {
-        organizationId: data.organizationId,
+        organizationId: orgAccess.id,
         timezone: data.timezone,
+        userId: user.id,
       });
 
       return {
@@ -338,7 +357,9 @@ export const updateOrganizationOnboarding = createServerFn({
   });
 
 /**
- * Mark onboarding as complete for the organization
+ * Mark onboarding as complete for the organization (REFACTORED - sec-85)
+ *
+ * Now uses data-ops markOnboardingComplete function
  */
 export const completeOnboarding = createServerFn({
   method: "POST",
@@ -351,40 +372,27 @@ export const completeOnboarding = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      const db = getDb();
-      const [existing] = await db
-        .select({
-          metadata: organization.metadata,
-        })
-        .from(organization)
-        .where(eq(organization.id, data.organizationId))
-        .limit(1);
+      const user = await getCurrentUser();
 
-      let metadataObj: Record<string, unknown> = {};
-      if (existing?.metadata) {
-        try {
-          metadataObj = JSON.parse(existing.metadata);
-        } catch (err) {
-          logger.warn("Failed to parse organization metadata, resetting", {
-            organizationId: data.organizationId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization access denied when completing onboarding", {
+          userId: user.id,
+          organizationId: data.organizationId,
+        });
+        throw new Error("Organization not found or access denied");
       }
 
-      // Mark onboarding as complete
-      metadataObj.onboardingCompleted = true;
-      metadataObj.onboardingCompletedAt = new Date().toISOString();
-
-      await db
-        .update(organization)
-        .set({
-          metadata: JSON.stringify(metadataObj),
-        })
-        .where(eq(organization.id, data.organizationId));
+      // ✅ CLEAN: All business logic in data-ops
+      await markOnboardingCompleteData(orgAccess.id);
 
       logger.info("Onboarding marked as complete", {
-        organizationId: data.organizationId,
+        organizationId: orgAccess.id,
+        userId: user.id,
       });
 
       return {
@@ -405,7 +413,9 @@ export const completeOnboarding = createServerFn({
   });
 
 /**
- * Get active organization from session
+ * Get active organization from session (REFACTORED - sec-85)
+ *
+ * Now uses data-ops getOrganizationById function
  */
 export const getActiveOrganization = createServerFn({
   method: "GET",
@@ -425,17 +435,8 @@ export const getActiveOrganization = createServerFn({
       };
     }
 
-    // Query organization from database using data-ops
-    const db = getDb();
-    const [org] = await db
-      .select({
-        id: organization.id,
-        name: organization.name,
-        slug: organization.slug,
-      })
-      .from(organization)
-      .where(eq(organization.id, activeOrgId))
-      .limit(1);
+    // ✅ CLEAN: Use data-ops function
+    const org = await getOrgByIdData(activeOrgId);
 
     if (!org) {
       return {
@@ -516,16 +517,8 @@ export const getOnboardingStatus = createServerFn({
       } satisfies OnboardingStatus;
     }
 
-    const db = getDb();
-    const [organizationRecord] = await db
-      .select({
-        id: organization.id,
-        name: organization.name,
-        metadata: organization.metadata,
-      })
-      .from(organization)
-      .where(eq(organization.id, primaryOrganizationId))
-      .limit(1);
+    // ✅ CLEAN: Use data-ops function to get organization
+    const organizationRecord = await getOrgByIdData(primaryOrganizationId);
 
     let organizationMetadata: Record<string, {}> | null = null;
     if (organizationRecord?.metadata) {
@@ -539,21 +532,8 @@ export const getOnboardingStatus = createServerFn({
       }
     }
 
-    // Query for default project (created during onboarding)
-    const [defaultProject] = await db
-      .select({
-        id: projects.id,
-        name: projects.name,
-        domain: projects.domain,
-      })
-      .from(projects)
-      .where(
-        and(
-          eq(projects.organizationId, primaryOrganizationId),
-          eq(projects.isDefault, true)
-        )
-      )
-      .limit(1);
+    // ✅ CLEAN: Use data-ops function to get default project
+    const defaultProject = await getDefaultProject(primaryOrganizationId);
 
     const hasProject = Boolean(defaultProject);
 
@@ -605,8 +585,10 @@ export const getOnboardingStatus = createServerFn({
 });
 
 /**
- * Get organization by slug or ID and validate user has access
- * Follows OpenPanel pattern: accepts slug (preferred) or ID as fallback
+ * Get organization by slug or ID and validate user has access (VULN-002 FIX - REFACTORED)
+ *
+ * Now just a thin wrapper around data-ops validateOrganizationAccess function.
+ * All business logic lives in data-ops for better reusability.
  */
 export const getOrganizationById = createServerFn({
   method: "GET",
@@ -620,38 +602,27 @@ export const getOrganizationById = createServerFn({
   .handler(async ({ data: organizationIdentifier }) => {
     try {
       const user = await getCurrentUser();
-      const db = getDb();
 
-      // Query organization by slug OR id (OpenPanel pattern)
-      // Try slug first (cleaner URLs), fallback to ID
-      const [org] = await db
-        .select({
-          id: organization.id,
-          name: organization.name,
-          slug: organization.slug,
-          metadata: organization.metadata,
-        })
-        .from(organization)
-        .where(
-          or(
-            eq(organization.slug, organizationIdentifier),
-            eq(organization.id, organizationIdentifier)
-          )
-        )
-        .limit(1);
+      // ✅ CLEAN: All business logic in data-ops
+      const org = await validateOrganizationAccess(
+        user.id,
+        organizationIdentifier
+      );
 
       if (!org) {
-        throw new Error("Organization not found");
+        logger.warn("Organization access denied", {
+          userId: user.id,
+          organizationIdentifier,
+        });
+        throw new Error("Organization not found or access denied");
       }
-
-      // TODO: Add membership check once we have member/role tables
-      // For now, assume user has access if organization exists
 
       logger.info("Organization accessed", {
         organizationId: org.id,
         organizationSlug: org.slug,
         accessedVia: organizationIdentifier,
         userId: user.id,
+        userRole: org.userRole,
       });
 
       return {

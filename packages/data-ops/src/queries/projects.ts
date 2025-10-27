@@ -1,6 +1,7 @@
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { projects } from '../schema';
+import { validateOrganizationAccess } from './organizations/access';
 
 export type ProjectCreateData = {
   name: string;
@@ -63,6 +64,24 @@ export async function getProjectById(
 }
 
 /**
+ * Get organizationId from projectId (VULN-003 FIX)
+ *
+ * Security: Use this to derive organizationId from projectId
+ * instead of accepting organizationId from client
+ */
+export async function getOrganizationIdFromProject(projectId: string): Promise<string | null> {
+  const db = getDb();
+
+  const [project] = await db
+    .select({ organizationId: projects.organizationId })
+    .from(projects)
+    .where(eq(projects.id, projectId))
+    .limit(1);
+
+  return project?.organizationId || null;
+}
+
+/**
  * Get all projects for an organization
  */
 export async function getProjectsForOrganization(organizationId: string) {
@@ -73,6 +92,26 @@ export async function getProjectsForOrganization(organizationId: string) {
     .from(projects)
     .where(eq(projects.organizationId, organizationId))
     .orderBy(projects.createdAt);
+}
+
+/**
+ * Get default project for organization (without auto-creating)
+ */
+export async function getDefaultProject(organizationId: string) {
+  const db = getDb();
+
+  const [defaultProject] = await db
+    .select()
+    .from(projects)
+    .where(
+      and(
+        eq(projects.organizationId, organizationId),
+        eq(projects.isDefault, true)
+      )
+    )
+    .limit(1);
+
+  return defaultProject || null;
 }
 
 /**
@@ -154,4 +193,48 @@ export async function deleteProject(
     .returning();
 
   return result.length > 0;
+}
+
+/**
+ * Validate user has access to project (VULN-001 FIX - REFACTORED)
+ *
+ * Security: Multi-layer validation
+ * 1. Resolves organization slug/ID to actual organization
+ * 2. Validates user is a member of that organization
+ * 3. Validates project exists and belongs to organization
+ *
+ * This is the SINGLE SOURCE OF TRUTH for project access validation.
+ * Use this function in route loaders and server functions.
+ *
+ * @param userId - User ID to check
+ * @param projectId - Project ID to validate
+ * @param organizationSlugOrId - Organization slug or ID from URL
+ * @returns Object with project and organization if access granted, null otherwise
+ */
+export async function validateProjectAccess(
+  userId: string,
+  projectId: string,
+  organizationSlugOrId: string
+) {
+  // First, validate organization access (includes membership check)
+  const orgAccess = await validateOrganizationAccess(
+    userId,
+    organizationSlugOrId
+  );
+
+  if (!orgAccess) {
+    return null;
+  }
+
+  // Then validate project belongs to organization
+  const project = await getProjectById(projectId, orgAccess.id);
+
+  if (!project) {
+    return null;
+  }
+
+  return {
+    project,
+    organization: orgAccess,
+  };
 }

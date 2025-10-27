@@ -18,6 +18,8 @@ export interface HandlerContext {
   /** Environment bindings (Analytics Engine, etc.) */
   env?: {
     ANALYTICS?: AnalyticsEngineDataset;
+    NECTO_API_URL?: string;
+    WORKER_API_KEY?: string;
   };
 
   /** Logger instance for structured logging */

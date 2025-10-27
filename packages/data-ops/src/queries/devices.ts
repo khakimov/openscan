@@ -1,6 +1,6 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules } from '../schema';
+import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects } from '../schema';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
@@ -388,6 +388,21 @@ export async function createMultipleDevicesFromDiscovery(
     verificationStatus = 'CANDIDATE'
   } = options || {};
 
+  if (projectId) {
+    const [project] = await db
+      .select({ id: projects.id })
+      .from(projects)
+      .where(and(
+        eq(projects.id, projectId),
+        eq(projects.organizationId, organizationId)
+      ))
+      .limit(1);
+
+    if (!project) {
+      throw new Error('Project not found or access denied');
+    }
+  }
+
   for (const target of targets) {
     // Check if device already exists for this organization (by name + IP combination)
     // First get devices with matching name
@@ -691,14 +706,19 @@ export async function getScanScheduleByDeviceId(
 }
 
 /**
- * Delete scan schedule
+ * Delete scan schedule (VULN-004 FIX: now requires organizationId)
+ *
+ * Security: Validates schedule belongs to organization before deletion
  */
-export async function deleteScanSchedule(scheduleId: string) {
+export async function deleteScanSchedule(scheduleId: string, organizationId: string) {
   const db = getDb();
 
   const result = await db
     .delete(scanSchedules)
-    .where(eq(scanSchedules.scheduleId, scheduleId))
+    .where(and(
+      eq(scanSchedules.scheduleId, scheduleId),
+      eq(scanSchedules.organizationId, organizationId)  // ✅ Security: validate org ownership
+    ))
     .returning();
 
   return result.length > 0;

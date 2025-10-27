@@ -182,15 +182,23 @@ export class NectoAPIClient {
   buildRequest(ports: PortScanPort[], osInfo?: PortScanOSInfo): NectoVulnMappingRequest {
     const request: NectoVulnMappingRequest = {};
 
-    // Only include OS if we have valid OS detection (not 'unknown' or empty)
-    // Necto API rejects 'unknown' with 422 error
+    // Necto API requires 'os' field - use detected OS or generic Linux
     const hasValidOS = osInfo?.name && osInfo.name.toLowerCase() !== 'unknown';
     if (hasValidOS) {
       request.os = {
         id: 0,
         product_type: 'os',
-        product_name: osInfo.name!, // Safe: validated by hasValidOS check
+        product_name: osInfo.name!,
         product_version: osInfo.version || '',
+        extra: {},
+      };
+    } else {
+      // Fallback: Send generic Linux for /vulnerability-mapping/linux/ endpoint
+      request.os = {
+        id: 0,
+        product_type: 'os',
+        product_name: 'Linux',
+        product_version: '',
         extra: {},
       };
     }
@@ -198,17 +206,18 @@ export class NectoAPIClient {
     // Add application information from open ports with valid service detection
     const openPorts = ports.filter((p) => p.state === 'open' && p.service);
     if (openPorts.length > 0) {
-      // Only include applications with valid names (not 'unknown')
+      // Only include applications with product name AND version
       const validApps = openPorts
         .filter((p) => {
           const name = p.service?.product || p.service?.name;
-          return name && name.toLowerCase() !== 'unknown';
+          const version = p.service?.version;
+          return name && name.toLowerCase() !== 'unknown' && version && version.trim() !== '';
         })
         .map((p, idx) => ({
           id: idx + 1,
           product_type: 'application' as const,
-          product_name: p.service?.product || p.service?.name || '',
-          product_version: p.service?.version || '',
+          product_name: p.service!.product || p.service!.name!,
+          product_version: p.service!.version!,
           extra: { port: p.port },
         }));
 
@@ -216,15 +225,6 @@ export class NectoAPIClient {
         request.applications = validApps;
       }
     }
-
-    console.log('[NectoAPIClient] Built request:', {
-      hasOS: !!request.os,
-      osName: request.os?.product_name,
-      applicationCount: request.applications?.length || 0,
-      openPortsTotal: openPorts.length,
-      portsWithService: openPorts.filter(p => p.service).length,
-      validAppsCount: request.applications?.length || 0,
-    });
 
     return request;
   }
@@ -471,9 +471,7 @@ export class NectoAPIClient {
             status: response.status,
             statusText: response.statusText,
             errorMessage,
-            errorDetails,
             fullErrorResponse: fullErrorData,
-            requestPayload: request
           });
 
           throw new NectoAPIClientError(
@@ -612,10 +610,12 @@ export class NectoAPIClient {
   async enrichScanResults(ports: PortScanPort[], osInfo?: PortScanOSInfo): Promise<CVEEnrichment> {
     const request = this.buildRequest(ports, osInfo);
 
-    // Validate request has data to enrich
-    // Skip if no valid OS AND no valid applications
-    if (!request.os && (!request.applications || request.applications.length === 0)) {
-      console.log('[NectoAPIClient] Skipping enrichment - no valid OS or applications detected');
+    // Skip if no useful data to enrich
+    // Check for generic OS (fallback "Linux" with no version) AND no applications
+    const hasValidOS = request.os && request.os.product_name !== 'Linux' || (request.os?.product_version && request.os.product_version.trim() !== '');
+    const hasValidApplications = request.applications && request.applications.length > 0;
+
+    if (!hasValidOS && !hasValidApplications) {
       return {
         enrichedAt: new Date().toISOString(),
         summary: {

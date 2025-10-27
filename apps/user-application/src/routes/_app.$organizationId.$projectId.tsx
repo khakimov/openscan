@@ -1,5 +1,6 @@
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { createLogger } from "@repo/logger";
+import { validateProjectAccessFn } from "@/server/projects";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -34,17 +35,32 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
     }
   },
   loader: async ({ params }) => {
-    // TODO: Validate project exists and belongs to organization
-    // TODO: Validate user has access to project
-    // For now, just pass through params
+    // VULN-001 FIX: Validate project exists and belongs to organization
+    const result = await validateProjectAccessFn({
+      data: {
+        projectId: params.projectId,
+        organizationId: params.organizationId,
+      },
+    });
+
+    if (!result.success || !result.project) {
+      logger.warn("Project access denied", {
+        organizationId: params.organizationId,
+        projectId: params.projectId,
+        error: result.error,
+      });
+      throw notFound();
+    }
 
     logger.info("Project layout loaded", {
       organizationId: params.organizationId,
       projectId: params.projectId,
+      projectName: result.project.name,
     });
 
     return {
       projectId: params.projectId,
+      project: result.project,
     };
   },
   component: ProjectLayout,

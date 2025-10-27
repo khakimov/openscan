@@ -10,6 +10,9 @@ import {
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
   getScanScheduleByDeviceId,
+  getOrganizationIdFromProject,  // ✅ VULN-003 FIX
+  validateProjectAccess,
+  validateOrganizationAccess,  // ✅ VULN-004 FIX
   type DeviceQueryParams,
   type DeviceUpdateData
 } from '@repo/data-ops'
@@ -498,13 +501,40 @@ export const getDiscoveryDevices = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
-      // Use provided organizationId during onboarding, otherwise get from session
-      const organizationId = data.organizationId || await getCurrentOrganizationId();
+      const user = await getCurrentUser();
+      let organizationId: string;
 
-      logger.info('Fetching discovery devices', {
-        organizationId,
-        source: data.organizationId ? 'onboarding' : 'session'
-      });
+      // ✅ VULN-004 FIX: Validate organization membership before accepting caller-provided organizationId
+      if (data.organizationId) {
+        // Onboarding flow: validate user has access to the provided organizationId
+        const orgAccess = await validateOrganizationAccess(
+          user.id,
+          data.organizationId
+        );
+
+        if (!orgAccess) {
+          logger.warn('Organization access denied for getDiscoveryDevices', {
+            userId: user.id,
+            attemptedOrganizationId: data.organizationId,
+          });
+          throw new Error('Organization not found or access denied');
+        }
+
+        organizationId = orgAccess.id;
+        logger.info('Fetching discovery devices with validated organization', {
+          organizationId,
+          userId: user.id,
+          source: 'onboarding'
+        });
+      } else {
+        // Normal flow: get organization from session
+        organizationId = await getCurrentOrganizationId();
+        logger.info('Fetching discovery devices from session', {
+          organizationId,
+          userId: user.id,
+          source: 'session'
+        });
+      }
 
       const devicesResponse = await getDevicesForTenant(organizationId, {
         page: 1,
@@ -566,8 +596,7 @@ export const createDevicesFromDiscovery = createServerFn({
 })
   .inputValidator((data: {
     targets: Array<{host: string, ip?: string}>,
-    organizationId?: string,
-    projectId?: string,
+    projectId?: string,  // ✅ VULN-003 FIX: Removed organizationId (never accept from client)
     options?: {
       source?: string;
       scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
@@ -606,23 +635,68 @@ export const createDevicesFromDiscovery = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
+      const user = await getCurrentUser();
+
       logger.info('Starting createDevicesFromDiscovery handler', {
         targetCount: data.targets.length,
         projectId: data.projectId,
         options: data.options,
-        hasOrganizationId: !!data.organizationId
+        userId: user.id,
       });
 
-      // Use provided organizationId during onboarding, otherwise get from session
-      const organizationId = data.organizationId || await getCurrentOrganizationId();
+      // ✅ VULN-003 FIX: Derive organizationId securely
+      let organizationId: string;
+      let validatedProjectId: string | null = data.projectId ?? null;
+
+      if (data.projectId) {
+        // Derive organizationId from projectId (don't trust client)
+        const derivedOrgId = await getOrganizationIdFromProject(data.projectId);
+
+        if (!derivedOrgId) {
+          throw new Error('Project not found or access denied');
+        }
+
+        const access = await validateProjectAccess(
+          user.id,
+          data.projectId,
+          derivedOrgId
+        );
+
+        if (!access) {
+          logger.warn('Project access validation failed for device discovery', {
+            userId: user.id,
+            projectId: data.projectId,
+            derivedOrgId,
+          });
+          throw new Error('Project not found or access denied');
+        }
+
+        organizationId = access.organization.id;
+        validatedProjectId = access.project.id;
+
+        logger.info('Derived organizationId from projectId', {
+          projectId: data.projectId,
+          organizationId,
+          userId: user.id,
+        });
+      } else {
+        // No projectId provided - use session organizationId
+        organizationId = await getCurrentOrganizationId();
+        validatedProjectId = null;
+
+        logger.info('Using organizationId from session', {
+          organizationId,
+          userId: user.id,
+        });
+      }
 
       logger.info('Creating devices from discovery', {
         organizationId,
-        projectId: data.projectId,
+        projectId: validatedProjectId,
         targetCount: data.targets.length,
         targets: data.targets,
         options: data.options,
-        source: data.organizationId ? 'onboarding' : 'session'
+        source: data.projectId ? 'with-project' : 'session-default'
       });
 
       const createdDevices = await createMultipleDevicesFromDiscovery(
@@ -630,7 +704,7 @@ export const createDevicesFromDiscovery = createServerFn({
         organizationId,
         {
           ...data.options,
-          projectId: data.projectId,
+          projectId: validatedProjectId,
         }
       );
 

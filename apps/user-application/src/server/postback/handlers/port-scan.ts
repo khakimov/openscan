@@ -31,12 +31,15 @@ import {
  */
 let nectoClientInstance: NectoAPIClient | null = null;
 
-function getNectoAPIClient(): NectoAPIClient {
+function getNectoAPIClient(nectoApiUrl?: string, apiKey?: string): NectoAPIClient {
   if (!nectoClientInstance) {
+    const baseUrl = nectoApiUrl || process.env.NECTO_API_URL || 'http://127.0.0.1:5020';
+
     nectoClientInstance = createNectoAPIClient({
-      baseUrl: process.env.NECTO_API_URL || 'http://127.0.0.1:5020',
+      baseUrl,
+      apiKey: apiKey || process.env.WORKER_API_KEY,
       timeout: 30000,
-      retries: 2, // Lower retries in postback to avoid blocking too long
+      retries: 2,
     });
   }
   return nectoClientInstance;
@@ -270,7 +273,7 @@ export class PortScanPostbackHandler
 
     if (hasOpenPorts || hasOSInfo) {
       try {
-        const nectoClient = getNectoAPIClient();
+        const nectoClient = getNectoAPIClient(ctx.env?.NECTO_API_URL, ctx.env?.WORKER_API_KEY);
         cveEnrichment = await nectoClient.enrichScanResults(
           openPorts,
           data.osInfo

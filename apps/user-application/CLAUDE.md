@@ -211,8 +211,10 @@ Port scan results are automatically enriched with CVE vulnerability data from th
 #### Configuration
 
 - **Environment Variable**: `NECTO_API_URL`
-  - Local dev: `http://127.0.0.1:5020` (default)
-  - Production: `https://necto.sec.rocks` (configured in wrangler.jsonc)
+  - Production: `https://necto.sec.rocks` (configured in wrangler.jsonc `vars`)
+  - Local dev: `http://127.0.0.1:5020` (default fallback)
+  - **Important**: In Cloudflare Workers, access via `env.NECTO_API_URL`, NOT `process.env`
+  - Fallback chain: `ctx.env.NECTO_API_URL` → `process.env.NECTO_API_URL` → `http://127.0.0.1:5020`
 - **Timeout**: 30 seconds per API call
 - **Retries**: 2 attempts with exponential backoff
 
@@ -288,9 +290,12 @@ CVE data is stored in `scanRuns.resultSummary.cveEnrichment`:
 
 - **Location**: `src/server/postback/handlers/port-scan.ts`
 - **Client**: `src/server/discovery/services/necto-api-client.ts`
-- **Integration Point**: `PortScanPostbackHandler.handleSuccess()` method (line ~246-292)
+- **Integration Point**: `PortScanPostbackHandler.handleSuccess()` method (line ~277-299)
 - **Singleton Pattern**: Necto client is created once and reused across postback requests
+  - `getNectoAPIClient(ctx.env?.NECTO_API_URL)` accepts env binding for Workers compatibility
+  - Falls back to `process.env.NECTO_API_URL` for local dev, then `http://127.0.0.1:5020`
 - **Error Handling**: Try/catch wrapper ensures enrichment failures don't propagate
+- **Environment Binding**: `HandlerContext.env.NECTO_API_URL` passed from Cloudflare Workers runtime
 
 #### Testing
 

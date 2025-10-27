@@ -303,26 +303,57 @@ describe('Security Vulnerabilities - Server Functions', () => {
   describe('VULN-004: Unprotected Scan Schedule Deletion', () => {
     let scheduleAId: string;
     let scheduleBId: string;
+    let deviceAId: string;
+    let deviceBId: string;
 
     beforeAll(async () => {
       const db = getDb();
 
-      // Create scan schedules for both organizations
+      // Create test devices first (scan schedules require deviceId)
+      deviceAId = createId();
+      await db.insert(devices).values({
+        id: deviceAId,
+        organizationId: orgAId,
+        projectId: projectAId,
+        name: 'Test Device A',
+        hostname: 'device-a.test.com',
+        source: 'TEST',
+        scope: 'EXTERNAL',
+        state: 'AVAILABLE',
+        verificationStatus: 'VERIFIED',
+        createdAt: new Date(),
+      });
+
+      deviceBId = createId();
+      await db.insert(devices).values({
+        id: deviceBId,
+        organizationId: orgBId,
+        projectId: projectBId,
+        name: 'Test Device B',
+        hostname: 'device-b.test.com',
+        source: 'TEST',
+        scope: 'EXTERNAL',
+        state: 'AVAILABLE',
+        verificationStatus: 'VERIFIED',
+        createdAt: new Date(),
+      });
+
+      // Create scan schedules for both devices
       scheduleAId = createId();
       await db.insert(scanSchedules).values({
         scheduleId: scheduleAId,
+        deviceId: deviceAId,  // Required: schedules are per-device
         organizationId: orgAId,
-        cronSchedule: '0 0 * * *',
-        enabled: true,
+        interval: '1h',
         createdAt: new Date(),
       });
 
       scheduleBId = createId();
       await db.insert(scanSchedules).values({
         scheduleId: scheduleBId,
+        deviceId: deviceBId,  // Required: schedules are per-device
         organizationId: orgBId,
-        cronSchedule: '0 0 * * *',
-        enabled: true,
+        interval: '1h',
         createdAt: new Date(),
       });
 
@@ -333,6 +364,8 @@ describe('Security Vulnerabilities - Server Functions', () => {
       const db = getDb();
       await db.delete(scanSchedules).where(eq(scanSchedules.scheduleId, scheduleAId));
       await db.delete(scanSchedules).where(eq(scanSchedules.scheduleId, scheduleBId));
+      await db.delete(devices).where(eq(devices.id, deviceAId));
+      await db.delete(devices).where(eq(devices.id, deviceBId));
     });
 
     it('should require organizationId to delete scan schedule', async () => {
@@ -410,13 +443,28 @@ describe('Security Vulnerabilities - Server Functions', () => {
     it('should allow deletion of own schedule', async () => {
       const db = getDb();
 
+      // Create a temporary device for this test (deviceId is UNIQUE in scanSchedules)
+      const tempDeviceId = createId();
+      await db.insert(devices).values({
+        id: tempDeviceId,
+        organizationId: orgAId,
+        projectId: projectAId,
+        name: 'Temp Test Device',
+        hostname: 'temp-device.test.com',
+        source: 'TEST',
+        scope: 'EXTERNAL',
+        state: 'AVAILABLE',
+        verificationStatus: 'VERIFIED',
+        createdAt: new Date(),
+      });
+
       // Create a test schedule we can actually delete
       const testScheduleId = createId();
       await db.insert(scanSchedules).values({
         scheduleId: testScheduleId,
+        deviceId: tempDeviceId,  // Use temp device (deviceId is UNIQUE)
         organizationId: orgAId,
-        cronSchedule: '0 0 * * *',
-        enabled: true,
+        interval: '1h',
         createdAt: new Date(),
       });
 
@@ -447,6 +495,9 @@ describe('Security Vulnerabilities - Server Functions', () => {
         .limit(1);
 
       expect(schedule).toBeUndefined();
+
+      // Cleanup temp device
+      await db.delete(devices).where(eq(devices.id, tempDeviceId));
 
       console.log('✅ Own schedule deletion successful');
     });
