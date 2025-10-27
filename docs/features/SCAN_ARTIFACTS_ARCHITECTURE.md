@@ -282,6 +282,594 @@ CREATE TABLE nuclei_events (
 );
 ```
 
+## Happy Path: End-to-End Flow
+
+### Complete Flow from Port Scan → Screenshot Display
+
+This section walks through the entire happy path with concrete examples of data at each step.
+
+#### Step 1: Port Scan Completes
+
+**What happens**: Restate port scanner finishes, sends postback to user-application
+
+**Postback payload**:
+```json
+{
+  "type": "PORT_SCAN",
+  "scanId": "scan_abc123",
+  "deviceId": "dev_xyz789",
+  "organizationId": "org_company1",
+  "status": "SUCCESS",
+  "timestamp": "2025-10-27T14:30:00Z",
+  "data": {
+    "target": "app.example.com",
+    "ports": [
+      { "port": 80, "protocol": "tcp", "state": "open", "service": { "name": "http" } },
+      { "port": 443, "protocol": "tcp", "state": "open", "service": { "name": "https" } },
+      { "port": 8080, "protocol": "tcp", "state": "open", "service": { "name": "http-proxy" } }
+    ],
+    "hostsUp": 1
+  }
+}
+```
+
+**Storage**: Postback handler updates `scanRuns.resultSummary`:
+```sql
+UPDATE scanRuns
+SET resultSummary = json_set(resultSummary, '$.ports', [...])
+WHERE id = 'scan_abc123';
+```
+
+**Result**: `scanRuns.resultSummary` now contains:
+```json
+{
+  "ports": [
+    { "port": 80, "state": "open", "service": "http" },
+    { "port": 443, "state": "open", "service": "https" },
+    { "port": 8080, "state": "open", "service": "http-proxy" }
+  ],
+  "hostsUp": 1,
+  "scanDuration": 45000
+}
+```
+
+---
+
+#### Step 2: Trigger httpx Scan
+
+**What happens**: User-application detects HTTP/HTTPS ports, triggers httpx workflow
+
+**Decision logic**:
+```typescript
+const httpPorts = scanResult.ports.filter(p =>
+  p.state === 'open' &&
+  ['http', 'https', 'http-proxy'].includes(p.service?.name)
+);
+
+if (httpPorts.length > 0) {
+  await restateClient.httpxProbe({
+    scanRunId: 'scan_abc123',
+    deviceId: 'dev_xyz789',
+    organizationId: 'org_company1',
+    target: 'app.example.com',
+    ports: [80, 443, 8080]  // Extracted HTTP ports
+  });
+}
+```
+
+**Restate workflow invoked**:
+```
+Workflow: httpxProbe
+Input: {
+  scanRunId: "scan_abc123",
+  deviceId: "dev_xyz789",
+  organizationId: "org_company1",
+  target: "app.example.com",
+  ports: [80, 443, 8080]
+}
+```
+
+---
+
+#### Step 3: httpx Worker Execution (Per Port)
+
+**What happens**: Screenshot-worker probes each port independently
+
+**For Port 80** (first iteration):
+
+**3a. Create scan_artifact**:
+```typescript
+const artifactId = await createScanArtifact({
+  id: 'artifact_80_xyz',
+  scanRunId: 'scan_abc123',
+  deviceId: 'dev_xyz789',
+  organizationId: 'org_company1',
+  toolName: 'httpx',
+  port: 80,
+  status: 'pending',
+  createdAt: Date.now()
+});
+```
+
+**Database state**:
+```sql
+-- scan_artifacts table
+id: 'artifact_80_xyz'
+scanRunId: 'scan_abc123'
+deviceId: 'dev_xyz789'
+organizationId: 'org_company1'
+toolName: 'httpx'
+port: 80
+status: 'pending'
+startedAt: NULL
+completedAt: NULL
+```
+
+**3b. Update to 'running'**:
+```typescript
+await updateArtifactStatus('artifact_80_xyz', 'running', Date.now());
+```
+
+**3c. Execute httpx**:
+```bash
+# Screenshot-worker runs:
+httpx -u http://app.example.com:80 \
+  -screenshot \
+  -tech-detect \
+  -json
+```
+
+**httpx output**:
+```json
+{
+  "url": "http://app.example.com:80",
+  "status_code": 200,
+  "title": "Example App - Login",
+  "scheme": "http",
+  "webserver": "nginx/1.24.0",
+  "content_type": "text/html",
+  "content_length": 4521,
+  "response_time": "245ms",
+  "technologies": ["Nginx:1.24.0", "React:18.2.0", "Webpack:5.88.0"],
+  "screenshot": "./output/screenshot_1234.png",
+  "final_url": "http://app.example.com/login"
+}
+```
+
+---
+
+#### Step 4: Screenshot Upload to R2
+
+**What happens**: Worker uploads screenshot to existing R2 bucket
+
+**R2 bucket structure** (assuming bucket already exists):
+```
+Bucket: openscan-screenshots (production)
+       openscan-screenshots-dev (development)
+
+Path structure:
+  {organizationId}/
+    {deviceId}/
+      {scanRunId}/
+        {port}-{timestamp}.png
+```
+
+**Upload operation**:
+```typescript
+const screenshotBuffer = fs.readFileSync('./output/screenshot_1234.png');
+const r2Key = `${organizationId}/${deviceId}/${scanRunId}/${port}-${Date.now()}.png`;
+
+// Worker has R2 binding from wrangler.jsonc
+await env.SCREENSHOTS.put(r2Key, screenshotBuffer, {
+  httpMetadata: {
+    contentType: 'image/png'
+  },
+  customMetadata: {
+    deviceId: 'dev_xyz789',
+    port: '80',
+    scanRunId: 'scan_abc123'
+  }
+});
+```
+
+**R2 object created**:
+```
+Key: org_company1/dev_xyz789/scan_abc123/80-1730038200000.png
+Size: 245 KB
+Content-Type: image/png
+Metadata: {
+  deviceId: "dev_xyz789",
+  port: "80",
+  scanRunId: "scan_abc123"
+}
+```
+
+---
+
+#### Step 5: Store httpx Probe Data
+
+**What happens**: Worker inserts probe result into database
+
+**5a. Insert httpx_probes**:
+```typescript
+await db.insert(httpx_probes).values({
+  id: 'probe_80_abc',
+  artifactId: 'artifact_80_xyz',  // Links to scan_artifacts
+  scheme: 'http',
+  statusCode: 200,
+  title: 'Example App - Login',
+  screenshot: 'org_company1/dev_xyz789/scan_abc123/80-1730038200000.png',  // R2 key
+  headers: JSON.stringify({
+    'server': 'nginx/1.24.0',
+    'content-type': 'text/html; charset=utf-8',
+    'x-powered-by': 'Express'
+  }),
+  responseTime: 245,
+  contentLength: 4521,
+  finalUrl: 'http://app.example.com/login',
+  tlsVersion: null,
+  webServer: 'nginx/1.24.0',
+  contentType: 'text/html',
+  createdAt: Date.now()
+});
+```
+
+**Database state**:
+```sql
+-- httpx_probes table
+id: 'probe_80_abc'
+artifactId: 'artifact_80_xyz'
+scheme: 'http'
+statusCode: 200
+title: 'Example App - Login'
+screenshot: 'org_company1/dev_xyz789/scan_abc123/80-1730038200000.png'
+responseTime: 245
+webServer: 'nginx/1.24.0'
+finalUrl: 'http://app.example.com/login'
+```
+
+---
+
+#### Step 6: Store Tech Detections (Normalized)
+
+**What happens**: Worker normalizes tech names and creates link records
+
+**6a. Process Wappalyzer output**:
+```typescript
+const rawTech = ['Nginx:1.24.0', 'React:18.2.0', 'Webpack:5.88.0'];
+
+for (const tech of rawTech) {
+  const [name, version] = tech.split(':');
+  const normalizedName = name.toLowerCase();  // 'nginx', 'react', 'webpack'
+
+  // Ensure technology exists in catalog
+  let techId = await findOrCreateTechnology(normalizedName, 'web-server');
+
+  // Create detection link
+  await db.insert(httpx_tech_detections).values({
+    id: createId(),
+    probeId: 'probe_80_abc',
+    technologyId: techId,
+    confidence: 'high',  // from Wappalyzer
+    version: version,
+    createdAt: Date.now()
+  });
+}
+```
+
+**Database state**:
+```sql
+-- technologies table
+id: 'tech_nginx'     | name: 'nginx'    | category: 'web-server'
+id: 'tech_react'     | name: 'react'    | category: 'framework'
+id: 'tech_webpack'   | name: 'webpack'  | category: 'build-tool'
+
+-- httpx_tech_detections table
+id: 'det_1' | probeId: 'probe_80_abc' | technologyId: 'tech_nginx'   | version: '1.24.0'
+id: 'det_2' | probeId: 'probe_80_abc' | technologyId: 'tech_react'   | version: '18.2.0'
+id: 'det_3' | probeId: 'probe_80_abc' | technologyId: 'tech_webpack' | version: '5.88.0'
+```
+
+---
+
+#### Step 7: Mark Artifact Complete
+
+**What happens**: Worker updates artifact status to 'completed'
+
+```typescript
+await updateArtifactStatus('artifact_80_xyz', 'completed', Date.now());
+```
+
+**Database state**:
+```sql
+-- scan_artifacts table (updated)
+id: 'artifact_80_xyz'
+status: 'completed'  -- Changed from 'running'
+startedAt: 1730038100000
+completedAt: 1730038145000  -- 45 seconds later
+```
+
+**Repeat Steps 3-7 for ports 443 and 8080** → Creates 2 more artifacts, probes, tech detections
+
+---
+
+#### Step 8: Send Postback Summary
+
+**What happens**: Worker sends completion event to user-application
+
+**Postback payload**:
+```json
+{
+  "type": "HTTPX_COMPLETE",
+  "scanRunId": "scan_abc123",
+  "deviceId": "dev_xyz789",
+  "organizationId": "org_company1",
+  "timestamp": "2025-10-27T14:32:00Z",
+  "summary": {
+    "portsScanned": 3,
+    "portsSuccessful": 3,
+    "portsFailed": 0,
+    "screenshotsCaptured": 3,
+    "technologiesDetected": 5,
+    "artifactIds": [
+      "artifact_80_xyz",
+      "artifact_443_xyz",
+      "artifact_8080_xyz"
+    ]
+  }
+}
+```
+
+**Postback handler** (user-application):
+```typescript
+export async function handleHttpxPostback(payload) {
+  // Update scan run with httpx metadata
+  await db.update(scanRuns)
+    .set({
+      metadata: sql`json_set(metadata, '$.httpxCompleted', true)`
+    })
+    .where(eq(scanRuns.id, payload.scanRunId));
+
+  // Trigger UI notification
+  await notifyUser({
+    organizationId: payload.organizationId,
+    message: `httpx scan completed: ${payload.summary.portsSuccessful}/${payload.summary.portsScanned} ports`,
+    link: `/devices/${payload.deviceId}/artifacts`
+  });
+}
+```
+
+---
+
+#### Step 9: UI Data Retrieval
+
+**What happens**: User views device in UI, needs to display artifacts
+
+**9a. Timeline Query**:
+```typescript
+// Route: /devices/[deviceId]/artifacts
+export const getDeviceArtifacts = createServerFn()
+  .handler(async ({ deviceId }) => {
+    const organizationId = await getCurrentOrganizationId();
+
+    const artifacts = await db
+      .select({
+        artifactId: scan_artifacts.id,
+        port: scan_artifacts.port,
+        status: scan_artifacts.status,
+        createdAt: scan_artifacts.createdAt,
+        completedAt: scan_artifacts.completedAt,
+        // Join probe data
+        probeId: httpx_probes.id,
+        statusCode: httpx_probes.statusCode,
+        title: httpx_probes.title,
+        screenshot: httpx_probes.screenshot,
+        webServer: httpx_probes.webServer,
+        // Aggregate tech stack
+        technologies: sql<string[]>`
+          json_group_array(
+            json_object(
+              'name', technologies.name,
+              'version', httpx_tech_detections.version
+            )
+          )
+        `
+      })
+      .from(scan_artifacts)
+      .leftJoin(httpx_probes, eq(httpx_probes.artifactId, scan_artifacts.id))
+      .leftJoin(httpx_tech_detections, eq(httpx_tech_detections.probeId, httpx_probes.id))
+      .leftJoin(technologies, eq(technologies.id, httpx_tech_detections.technologyId))
+      .where(and(
+        eq(scan_artifacts.deviceId, deviceId),
+        eq(scan_artifacts.organizationId, organizationId)
+      ))
+      .groupBy(scan_artifacts.id, httpx_probes.id)
+      .orderBy(desc(scan_artifacts.createdAt))
+      .limit(50);
+
+    return artifacts;
+  });
+```
+
+**Query result**:
+```typescript
+[
+  {
+    artifactId: 'artifact_80_xyz',
+    port: 80,
+    status: 'completed',
+    createdAt: 1730038100000,
+    completedAt: 1730038145000,
+    probeId: 'probe_80_abc',
+    statusCode: 200,
+    title: 'Example App - Login',
+    screenshot: 'org_company1/dev_xyz789/scan_abc123/80-1730038200000.png',
+    webServer: 'nginx/1.24.0',
+    technologies: [
+      { name: 'nginx', version: '1.24.0' },
+      { name: 'react', version: '18.2.0' },
+      { name: 'webpack', version: '5.88.0' }
+    ]
+  },
+  {
+    artifactId: 'artifact_443_xyz',
+    port: 443,
+    status: 'completed',
+    // ... similar data for port 443
+  },
+  {
+    artifactId: 'artifact_8080_xyz',
+    port: 8080,
+    status: 'completed',
+    // ... similar data for port 8080
+  }
+]
+```
+
+---
+
+#### Step 10: Screenshot Display (Signed URLs)
+
+**What happens**: UI needs to display screenshot, generates signed URL from R2
+
+**10a. Generate signed URL**:
+```typescript
+// Server function to get signed URL
+export const getScreenshotUrl = createServerFn()
+  .handler(async ({ screenshotKey, deviceId }) => {
+    const organizationId = await getCurrentOrganizationId();
+
+    // Validate device belongs to organization
+    const device = await db.query.devices.findFirst({
+      where: and(
+        eq(devices.id, deviceId),
+        eq(devices.organizationId, organizationId)
+      )
+    });
+
+    if (!device) {
+      throw new Error('Device not found or access denied');
+    }
+
+    // Generate signed URL (valid for 1 hour)
+    // Note: R2 signed URLs via Workers API
+    const url = await env.SCREENSHOTS.createSignedUrl(screenshotKey, {
+      expiresIn: 3600  // 1 hour
+    });
+
+    return { url };
+  });
+```
+
+**10b. UI Component**:
+```tsx
+function ArtifactTimeline({ artifacts }) {
+  return (
+    <div className="space-y-4">
+      {artifacts.map(artifact => (
+        <div key={artifact.artifactId} className="border rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold">Port {artifact.port}</h3>
+              <p className="text-sm text-muted-foreground">{artifact.title}</p>
+            </div>
+            <Badge>{artifact.statusCode}</Badge>
+          </div>
+
+          {/* Screenshot with signed URL */}
+          <ScreenshotViewer
+            screenshotKey={artifact.screenshot}
+            deviceId={artifact.deviceId}
+          />
+
+          {/* Tech stack */}
+          <div className="flex gap-2 mt-2">
+            {artifact.technologies.map(tech => (
+              <Badge key={tech.name} variant="secondary">
+                {tech.name} {tech.version}
+              </Badge>
+            ))}
+          </div>
+
+          <p className="text-xs text-muted-foreground mt-2">
+            Scanned {formatDistanceToNow(artifact.createdAt)} ago
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ScreenshotViewer({ screenshotKey, deviceId }) {
+  const [signedUrl, setSignedUrl] = useState(null);
+
+  useEffect(() => {
+    // Fetch signed URL from server
+    getScreenshotUrl({ screenshotKey, deviceId })
+      .then(({ url }) => setSignedUrl(url));
+  }, [screenshotKey, deviceId]);
+
+  if (!signedUrl) return <Skeleton className="h-48 w-full" />;
+
+  return (
+    <img
+      src={signedUrl}
+      alt="Screenshot"
+      className="rounded-md mt-2 cursor-pointer"
+      onClick={() => openLightbox(signedUrl)}
+    />
+  );
+}
+```
+
+---
+
+### Summary: Data Storage Locations
+
+| Data Type | Storage | Access Pattern |
+|-----------|---------|----------------|
+| **Port scan results** | `scanRuns.resultSummary` (JSON) | Query by scanRunId |
+| **Artifact metadata** | `scan_artifacts` table | Query by deviceId + organizationId |
+| **HTTP probe results** | `httpx_probes` table | Join via artifactId |
+| **Tech detections** | `httpx_tech_detections` + `technologies` | Join via probeId → technologyId |
+| **Screenshots** | R2 bucket (object storage) | Signed URL from R2 key |
+| **Timeline view** | Join: `scan_artifacts` + `httpx_probes` + tech | Ordered by createdAt DESC |
+| **Tech search** | `technologies` → `httpx_tech_detections` | Filter by technology name |
+
+### Key Performance Paths
+
+**1. Device Timeline** (most common):
+```sql
+-- Single query with all data
+SELECT * FROM scan_artifacts sa
+LEFT JOIN httpx_probes hp ON hp.artifactId = sa.id
+WHERE sa.deviceId = ? AND sa.organizationId = ?
+ORDER BY sa.createdAt DESC
+LIMIT 50;
+```
+
+**2. Tech Stack Search**:
+```sql
+-- Find all devices running nginx
+SELECT DISTINCT d.id, d.name
+FROM devices d
+JOIN scan_artifacts sa ON sa.deviceId = d.id
+JOIN httpx_probes hp ON hp.artifactId = sa.id
+JOIN httpx_tech_detections htd ON htd.probeId = hp.id
+JOIN technologies t ON t.id = htd.technologyId
+WHERE t.name = 'nginx' AND d.organizationId = ?;
+```
+
+**3. Screenshot Access**:
+```
+1. Query httpx_probes.screenshot → Get R2 key
+2. Call env.SCREENSHOTS.createSignedUrl(key) → Get signed URL
+3. Return URL to UI (valid 1 hour)
+4. Browser fetches from R2 directly (fast, no proxy)
+```
+
+---
+
 ## Data Flow
 
 ### 1. Scan Initiation (User-Application)
