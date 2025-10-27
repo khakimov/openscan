@@ -170,7 +170,7 @@ describe('NectoAPIClient', () => {
       expect(request.applications).toBeUndefined();
     });
 
-    it('should filter null products to undefined', () => {
+    it('should exclude services without version info', () => {
       const ports: PortScanPort[] = [
         {
           port: 22,
@@ -179,14 +179,14 @@ describe('NectoAPIClient', () => {
           service: {
             name: 'ssh',
             product: null,
-            version: null,
+            version: null, // No version - should be excluded
           },
         },
       ];
 
       const request = client.buildRequest(ports);
-      expect(request.applications?.[0].product_name).toBe('ssh'); // Falls back to service name
-      expect(request.applications?.[0].product_version).toBe('');
+      // Services without versions are excluded (Necto API requires versions)
+      expect(request.applications).toBeUndefined();
     });
   });
 
@@ -666,12 +666,15 @@ describe('NectoAPIClient', () => {
           state: 'open',
           service: {
             name: 'ssh',
+            product: 'OpenSSH',
+            version: '9.6p1', // Version required for enrichment
           },
         },
       ];
 
       const enrichment = await client.enrichScanResults(ports);
 
+      // OS should be undefined in result (we sent generic Linux internally, but it had no CVEs)
       expect(enrichment.os).toBeUndefined();
       expect(enrichment.applications).toBeDefined();
       expect(enrichment.applications?.[0].name).toBe('ssh');
