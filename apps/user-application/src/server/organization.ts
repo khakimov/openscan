@@ -199,18 +199,37 @@ export const createProjectOnboarding = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
+      const user = await getCurrentUser();
+
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization access denied during project onboarding", {
+          userId: user.id,
+          organizationId: data.organizationId,
+          projectId: data.projectId,
+        });
+        throw new Error("Organization not found or access denied");
+      }
+
+      const organizationId = orgAccess.id;
+
       // If projectId provided, update existing project
       if (data.projectId) {
         logger.info("Updating project during onboarding", {
           projectId: data.projectId,
           projectName: data.projectName,
           domain: data.domain,
-          organizationId: data.organizationId,
+          organizationId,
+          userId: user.id,
         });
 
         const project = await updateProject(
           data.projectId,
-          data.organizationId,
+          organizationId,
           {
             name: data.projectName,
             domain: data.domain,
@@ -223,7 +242,8 @@ export const createProjectOnboarding = createServerFn({
 
         logger.info("Project updated successfully", {
           projectId: project.id,
-          organizationId: data.organizationId,
+          organizationId,
+          userId: user.id,
         });
 
         return {
@@ -236,10 +256,11 @@ export const createProjectOnboarding = createServerFn({
       logger.info("Creating project during onboarding", {
         projectName: data.projectName,
         domain: data.domain,
-        organizationId: data.organizationId,
+        organizationId,
+        userId: user.id,
       });
 
-      const project = await createProject(data.organizationId, {
+      const project = await createProject(organizationId, {
         name: data.projectName,
         domain: data.domain,
         isDefault: true, // First project created during onboarding is default
@@ -247,7 +268,8 @@ export const createProjectOnboarding = createServerFn({
 
       logger.info("Project created successfully", {
         projectId: project.id,
-        organizationId: data.organizationId,
+        organizationId,
+        userId: user.id,
       });
 
       return {
@@ -289,16 +311,32 @@ export const updateOrganizationOnboarding = createServerFn({
   )
   .handler(async ({ data }) => {
     try {
+      const user = await getCurrentUser();
+
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization update denied during onboarding", {
+          userId: user.id,
+          organizationId: data.organizationId,
+        });
+        throw new Error("Organization not found or access denied");
+      }
+
       // ✅ CLEAN: All business logic in data-ops
       await updateOrgOnboardingData(
-        data.organizationId,
+        orgAccess.id,
         data.name,
         data.timezone
       );
 
       logger.info("Organization updated during onboarding", {
-        organizationId: data.organizationId,
+        organizationId: orgAccess.id,
         timezone: data.timezone,
+        userId: user.id,
       });
 
       return {
@@ -334,11 +372,27 @@ export const completeOnboarding = createServerFn({
   })
   .handler(async ({ data }) => {
     try {
+      const user = await getCurrentUser();
+
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization access denied when completing onboarding", {
+          userId: user.id,
+          organizationId: data.organizationId,
+        });
+        throw new Error("Organization not found or access denied");
+      }
+
       // ✅ CLEAN: All business logic in data-ops
-      await markOnboardingCompleteData(data.organizationId);
+      await markOnboardingCompleteData(orgAccess.id);
 
       logger.info("Onboarding marked as complete", {
-        organizationId: data.organizationId,
+        organizationId: orgAccess.id,
+        userId: user.id,
       });
 
       return {
