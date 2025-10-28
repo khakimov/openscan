@@ -32,6 +32,23 @@ let testDeviceId: string;
 let testProjectId: string;
 let testScanRunId: string;
 
+// Helper to create unique scan run for each test (prevents idempotency constraint conflicts)
+async function createTestScanRun(): Promise<string> {
+  const db = getDb();
+  const scanRunId = createId();
+  await db.insert(scanRuns).values({
+    id: scanRunId,
+    organizationId: testOrgId,
+    restateWorkflowId: `httpx-test-${Date.now()}-${Math.random()}`,
+    workflowKind: 'EXTEND_SCAN',
+    scanType: 'WEB',
+    scope: 'INTERNAL',
+    status: 'RUNNING',
+    createdAt: new Date(),
+  });
+  return scanRunId;
+}
+
 describe('HTTPx Postback Handler', () => {
   beforeAll(async () => {
     const db = getDb();
@@ -213,10 +230,11 @@ describe('HTTPx Postback Handler', () => {
   describe('Successful Probe Handling', () => {
     it('should store successful HTTP probe with all metadata', async () => {
       const handler = new HttpxPostbackHandler();
+      const scanRunId = await createTestScanRun(); // Use unique scan run to avoid idempotency conflicts
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -260,7 +278,7 @@ describe('HTTPx Postback Handler', () => {
       const artifacts = await db
         .select()
         .from(scanArtifacts)
-        .where(eq(scanArtifacts.scanRunId, testScanRunId));
+        .where(eq(scanArtifacts.scanRunId, scanRunId));
 
       expect(artifacts.length).toBe(1);
       expect(artifacts[0].port).toBe(80);
@@ -279,7 +297,9 @@ describe('HTTPx Postback Handler', () => {
       expect(probes[0].scheme).toBe('http');
       expect(probes[0].responseTime).toBe(85);
       expect(probes[0].webServer).toBe('nginx');
-      expect(probes[0].headers).toEqual({
+      // Headers are now in metadata JSON
+      expect(probes[0].metadata).toBeDefined();
+      expect(probes[0].metadata?.headers).toEqual({
         'server': 'nginx/1.24.0',
         'content-type': 'text/html',
         'x-powered-by': 'PHP/8.2.0',
@@ -350,10 +370,11 @@ describe('HTTPx Postback Handler', () => {
 
     it('should store technology detections correctly', async () => {
       const handler = new HttpxPostbackHandler();
+      const scanRunId = await createTestScanRun(); // Use unique scan run to avoid idempotency conflicts
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -397,7 +418,7 @@ describe('HTTPx Postback Handler', () => {
       const artifacts = await db
         .select()
         .from(scanArtifacts)
-        .where(eq(scanArtifacts.scanRunId, testScanRunId));
+        .where(eq(scanArtifacts.scanRunId, scanRunId));
 
       const probes = await db
         .select()
@@ -554,10 +575,11 @@ describe('HTTPx Postback Handler', () => {
 
     it('should handle mixed success and failure probes', async () => {
       const handler = new HttpxPostbackHandler();
+      const scanRunId = await createTestScanRun(); // Use unique scan run to avoid idempotency conflicts
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -605,10 +627,11 @@ describe('HTTPx Postback Handler', () => {
   describe('Analytics Tracking', () => {
     it('should return analytics for successful httpx workflow', async () => {
       const handler = new HttpxPostbackHandler();
+      const scanRunId = await createTestScanRun(); // Use unique scan run to avoid idempotency conflicts
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -636,7 +659,7 @@ describe('HTTPx Postback Handler', () => {
 
       expect(result.analytics).toBeDefined();
       expect(result.analytics!.eventType).toBe('postback_httpx_success');
-      expect(result.analytics!.blobs).toEqual([testScanRunId, testDeviceId, testOrgId]);
+      expect(result.analytics!.blobs).toEqual([scanRunId, testDeviceId, testOrgId]);
       expect(result.analytics!.doubles).toEqual([1]); // 1 successful probe
     });
 

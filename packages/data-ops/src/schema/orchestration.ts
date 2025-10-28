@@ -120,21 +120,31 @@ export const scanArtifacts = sqliteTable('scan_artifacts', {
   statusIdx: index('scan_artifacts_status_idx').on(t.status),
   toolNameIdx: index('scan_artifacts_tool_name_idx').on(t.toolName),
   portIdx: index('scan_artifacts_port_idx').on(t.port),
+  // Idempotency constraint: prevents duplicate artifacts from Restate retries
+  idempotencyUq: uniqueIndex('scan_artifacts_idempotency_uq').on(t.deviceId, t.port, t.scanRunId, t.toolName),
 }));
 
 export const httpxProbes = sqliteTable('httpx_probes', {
   id: cuidText().primaryKey(),
   artifactId: text('artifact_id').notNull().unique().references(() => scanArtifacts.id, { onDelete: 'cascade' }),
-  scheme: text('scheme'), // 'http', 'https'
-  statusCode: integer('status_code'),
-  title: text('title'),
-  screenshot: text('screenshot'), // R2 object key
-  headers: text('headers', { mode: 'json' }).$type<Record<string, string>>(),
-  responseTime: integer('response_time'), // milliseconds
-  contentLength: integer('content_length'),
-  finalUrl: text('final_url'),
-  tlsVersion: text('tls_version'),
-  webServer: text('web_server'),
+
+  // Typed columns: frequently queried or displayed in UI
+  scheme: text('scheme'), // 'http', 'https' - used in filters
+  statusCode: integer('status_code'), // used in WHERE clauses
+  title: text('title'), // displayed in UI list
+  screenshot: text('screenshot'), // R2 object key - critical path
+  responseTime: integer('response_time'), // milliseconds - performance metrics
+  webServer: text('web_server'), // used for tech detection queries
+
+  // Low-value fields moved to metadata JSON (headers, tlsVersion, contentLength, finalUrl)
+  metadata: text('metadata', { mode: 'json' }).$type<{
+    headers?: Record<string, string>;
+    tlsVersion?: string;
+    contentLength?: number;
+    finalUrl?: string;
+    [key: string]: any;
+  }>(),
+
   createdAt: now(),
 }, (t) => ({
   artifactIdx: index('httpx_probes_artifact_idx').on(t.artifactId),

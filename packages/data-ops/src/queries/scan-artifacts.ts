@@ -95,21 +95,27 @@ export async function createHttpxProbe(params: {
 }): Promise<{ id: string }> {
   const db = getDb();
 
+  // Build metadata object for low-value fields
+  const metadata: Record<string, any> = {};
+  if (params.headers) metadata.headers = params.headers;
+  if (params.tlsVersion) metadata.tlsVersion = params.tlsVersion;
+  if (params.contentLength !== undefined) metadata.contentLength = params.contentLength;
+  if (params.finalUrl) metadata.finalUrl = params.finalUrl;
+
   const [probe] = await db
     .insert(httpxProbes)
     .values({
       id: createId(),
       artifactId: params.artifactId,
+      // Typed columns (frequently queried)
       scheme: params.scheme,
       statusCode: params.statusCode,
       title: params.title,
       screenshot: params.screenshot,
-      headers: params.headers,
       responseTime: params.responseTime,
-      contentLength: params.contentLength,
-      finalUrl: params.finalUrl,
-      tlsVersion: params.tlsVersion,
       webServer: params.webServer,
+      // Low-value fields in metadata JSON
+      metadata: Object.keys(metadata).length > 0 ? metadata : null,
     })
     .returning({ id: httpxProbes.id });
 
