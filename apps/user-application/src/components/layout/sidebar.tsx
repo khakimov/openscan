@@ -9,6 +9,8 @@ import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 import { useAppParams } from "@/hooks/use-app-params";
+import { useQuery } from "@tanstack/react-query";
+import { getOrganizationProjects } from "@/server/projects";
 
 interface NavigationItem {
   name: string;
@@ -97,7 +99,7 @@ export function Sidebar({
   user,
   activeOrganization,
   organizations,
-  projects,
+  projects: initialProjects,
 }: SidebarProps) {
   const navigate = useNavigate();
   const router = useRouter();
@@ -109,6 +111,20 @@ export function Sidebar({
   // Get projectId from URL if on a project-scoped route
   const params = useAppParams();
   const projectId = params.projectId;
+
+  // Use TanStack Query for projects with SSR initialData
+  // This allows the AddProject modal to invalidate and refresh just the projects list
+  const { data: projectsData } = useQuery({
+    queryKey: ['organization-projects'],
+    queryFn: async () => {
+      const result = await getOrganizationProjects();
+      return result;
+    },
+    initialData: { success: true, projects: initialProjects },
+    staleTime: 0, // Always refetch on invalidation
+  });
+
+  const projects = projectsData?.success ? projectsData.projects : initialProjects;
 
   const fallbackText = user?.name
     ? user.name.charAt(0).toUpperCase()
