@@ -119,12 +119,40 @@ export const httpxService = restate.service({
           throw new Error('Target is required');
         }
 
+        // Validate target format (hostname or IP, no shell metacharacters)
+        const targetPattern = /^[a-zA-Z0-9.-]+$/;
+        if (!targetPattern.test(input.target)) {
+          throw new Error('Invalid target format');
+        }
+
         if (!input.ports || input.ports.length === 0) {
           throw new Error('At least one port is required');
         }
 
+        // Limit number of ports to prevent resource exhaustion
+        if (input.ports.length > 100) {
+          throw new Error('Maximum 100 ports allowed per request');
+        }
+
+        // Validate all ports are valid numbers
+        for (const port of input.ports) {
+          if (!Number.isInteger(port) || port < 1 || port > 65535) {
+            throw new Error(`Invalid port: ${port}`);
+          }
+        }
+
         if (!input.callbackUrl) {
           throw new Error('Callback URL is required');
+        }
+
+        // Validate callbackUrl is a valid HTTPS URL
+        try {
+          const url = new URL(input.callbackUrl);
+          if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+            throw new Error('Callback URL must use HTTP or HTTPS');
+          }
+        } catch (error) {
+          throw new Error('Invalid callback URL format');
         }
 
         // Step 1: Run httpx CLI tool (durable)
@@ -180,6 +208,13 @@ export const httpxService = restate.service({
             ? parseInt(result.response_time.replace('ms', ''))
             : undefined;
 
+          // Validate screenshot path (prevent path traversal)
+          let screenshotPath = result.screenshot_path;
+          if (screenshotPath && screenshotPath.includes('..')) {
+            logger.warn('Suspicious screenshot path detected', { path: screenshotPath });
+            screenshotPath = undefined;
+          }
+
           return {
             port: result.port || 0,
             url: result.url,
@@ -193,7 +228,7 @@ export const httpxService = restate.service({
             finalUrl: result.final_url,
             tlsVersion: result.tls?.version,
             webServer: result.webserver,
-            screenshot: result.screenshot_path, // Absolute file path (e.g., /root/openscan/apps/restate-worker/output/screenshot/example.com/hash.png)
+            screenshot: screenshotPath, // Absolute file path (e.g., /root/openscan/apps/restate-worker/output/screenshot/example.com/hash.png)
             technologies: result.tech?.map((name) => ({
               name,
               confidence: 'medium' as const, // httpx doesn't provide confidence
@@ -345,9 +380,15 @@ async function runHttpx(options: {
   });
 
   try {
+    // Calculate total timeout with reasonable cap (max 10 minutes)
+    const totalTimeout = Math.min(
+      (timeout + 5) * 1000 * targets.length,
+      10 * 60 * 1000 // 10 minutes max
+    );
+
     const { stdout, stderr } = await execFileAsync(httpxPath, args, {
       maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large JSON output
-      timeout: (timeout + 5) * 1000 * targets.length, // Total timeout: per-target timeout + buffer
+      timeout: totalTimeout,
     });
 
     if (stderr) {
