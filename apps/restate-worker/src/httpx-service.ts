@@ -15,12 +15,10 @@
  */
 
 import * as restate from '@restatedev/restate-sdk';
-import { execFile } from 'child_process';
-import { promisify } from 'util';
+import { spawn } from 'child_process';
 import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
 
-const execFileAsync = promisify(execFile);
 const logger = createLogger({ name: 'restate-httpx' });
 
 // State management for httpx probing tracking
@@ -389,34 +387,86 @@ async function runHttpx(options: {
     targetCount: targets.length,
     totalTimeout: `${totalTimeout / 1000}s`,
     command: `${httpxPath} ${args.join(' ')}`,
+    env: {
+      HOME: process.env.HOME,
+      PATH: process.env.PATH,
+      DISPLAY: process.env.DISPLAY,
+    },
   });
 
   try {
     const startTime = Date.now();
-    const { stdout, stderr } = await execFileAsync(httpxPath, args, {
-      maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large JSON output
-      timeout: totalTimeout,
-    });
-    const executionTime = Date.now() - startTime;
 
-    logger.info('HTTPx completed', {
-      executionTime: `${executionTime}ms`,
-      stdoutLength: stdout.length,
-      stderrLength: stderr.length,
+    // Use spawn instead of execFile to avoid Chrome child process stdio inheritance issues
+    const httpxProcess = spawn(httpxPath, args, {
+      env: {
+        ...process.env,
+        // Chrome/browser environment
+        DISPLAY: process.env.DISPLAY || ':99', // Virtual display for headless
+      },
+      // Detach stdio to prevent Chrome children from blocking
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: false,
     });
 
-    if (stderr) {
-      logger.debug('HTTPx stderr output', { stderr: stderr.substring(0, 1000) });
+    let stdout = '';
+    let stderr = '';
+
+    httpxProcess.stdout?.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    httpxProcess.stderr?.on('data', (data) => {
+      const chunk = data.toString();
+      stderr += chunk;
+      // Log stderr in real-time for debugging
+      logger.debug('HTTPx stderr chunk', { chunk: chunk.substring(0, 200) });
+    });
+
+    // Wait for process to exit with timeout
+    const result = await Promise.race([
+      new Promise<{ stdout: string; stderr: string }>((resolve, reject) => {
+        httpxProcess.on('exit', (code, signal) => {
+          const executionTime = Date.now() - startTime;
+          logger.info('HTTPx process exited', {
+            code,
+            signal,
+            executionTime: `${executionTime}ms`,
+            stdoutLength: stdout.length,
+            stderrLength: stderr.length,
+          });
+
+          if (code === 0 || stdout.length > 0) {
+            resolve({ stdout, stderr });
+          } else {
+            reject(new Error(`HTTPx exited with code ${code}`));
+          }
+        });
+
+        httpxProcess.on('error', (error) => {
+          reject(error);
+        });
+      }),
+      new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          httpxProcess.kill('SIGTERM');
+          reject(new Error(`HTTPx timeout after ${totalTimeout}ms`));
+        }, totalTimeout);
+      }),
+    ]);
+
+    if (result.stderr) {
+      logger.debug('HTTPx stderr output', { stderr: result.stderr.substring(0, 1000) });
     }
 
     // Parse JSON output (one JSON object per line)
-    const lines = stdout.trim().split('\n').filter((line) => line.trim().length > 0);
+    const lines = result.stdout.trim().split('\n').filter((line) => line.trim().length > 0);
     const results: HttpxProbeResult[] = [];
 
     for (const line of lines) {
       try {
-        const result = JSON.parse(line);
-        results.push(result);
+        const parsed = JSON.parse(line);
+        results.push(parsed);
       } catch (error) {
         logger.warn('Failed to parse httpx JSON line', {
           line: line.substring(0, 100),
