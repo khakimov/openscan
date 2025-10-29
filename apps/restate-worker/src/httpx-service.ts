@@ -51,14 +51,15 @@ interface HttpxProbeResult {
   webserver?: string;
   content_type?: string;
   content_length?: number;
-  response_time?: string; // e.g., "123ms"
+  response_time?: string; // e.g., "339.107572ms"
   final_url?: string;
   tls?: {
     version?: string;
     cipher?: string;
   };
   header?: Record<string, string[]>;
-  screenshot?: string; // File path to screenshot
+  screenshot_path?: string; // Absolute file path to screenshot
+  screenshot_path_rel?: string; // Relative path
   tech?: string[]; // Technology detection
   failed?: boolean;
   error?: string;
@@ -192,7 +193,7 @@ export const httpxService = restate.service({
             finalUrl: result.final_url,
             tlsVersion: result.tls?.version,
             webServer: result.webserver,
-            screenshot: result.screenshot, // Local file path (e.g., /root/.config/httpx/screenshot/example.com_443.png)
+            screenshot: result.screenshot_path, // Absolute file path (e.g., /root/openscan/apps/restate-worker/output/screenshot/example.com/hash.png)
             technologies: result.tech?.map((name) => ({
               name,
               confidence: 'medium' as const, // httpx doesn't provide confidence
@@ -322,16 +323,17 @@ async function runHttpx(options: {
     '-content-length', // Get content length
     '-follow-redirects', // Follow redirects
     '-max-redirects', '3', // Max redirect hops
-    ...targets, // Target URLs
   ];
 
-  // Add screenshot flag if enabled
+  // Add screenshot flags if enabled
   if (screenshotsEnabled) {
-    args.unshift('-screenshot'); // Enable screenshots
-    args.unshift('-screenshot-timeout', `${timeout}s`); // Screenshot timeout
-    // Note: httpx saves screenshots to ~/.config/httpx/screenshot/ by default
-    // TODO: Consider adding -srd flag to specify custom output directory
+    args.push('-screenshot'); // Enable screenshots
+    args.push('-system-chrome'); // Use system Chrome (required for headless)
+    args.push('-screenshot-timeout', `${timeout}s`); // Screenshot timeout
   }
+
+  // Add target URLs last
+  args.push(...targets);
 
   logger.info('Executing httpx', {
     binary: httpxPath,

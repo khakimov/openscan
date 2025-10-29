@@ -319,6 +319,18 @@ Get credentials from: https://cloud.restate.dev → Your Environment → Setting
 
 - Node.js 18+
 - nmap installed (`apt-get install nmap` or `brew install nmap`)
+- httpx installed (`go install -v github.com/projectdiscovery/httpx-toolkit/cmd/httpx@latest`)
+- Google Chrome (required for httpx screenshots):
+  ```bash
+  # Ubuntu/Debian
+  echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+  wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+  sudo apt-get update
+  sudo apt-get install -y google-chrome-stable
+
+  # Verify installation
+  google-chrome --version
+  ```
 - Network access to scan targets
 
 ### Deploy Steps
@@ -404,6 +416,17 @@ CMD ["node", "dist/index.js"]
 - Increase `timeout` in scan input
 - Check network access to target
 - Verify nmap is working: `nmap -V`
+
+**httpx screenshots not working:**
+- Install Chrome: See Prerequisites section above
+- Verify Chrome: `google-chrome --version`
+- Test httpx: `httpx -json -ss -system-chrome http://example.com`
+- Check Chrome dependencies are installed (see httpx service section)
+
+**httpx not found:**
+- Install: `go install -v github.com/projectdiscovery/httpx-toolkit/cmd/httpx@latest`
+- Check PATH: `echo $PATH | grep go/bin`
+- Verify: `httpx -version`
 
 ## Next Steps
 
