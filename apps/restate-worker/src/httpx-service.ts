@@ -367,8 +367,10 @@ async function runHttpx(options: {
     args.push('-screenshot-timeout', `${timeout}s`); // Screenshot timeout
   }
 
-  // Add target URLs last
-  args.push(...targets);
+  // Add target URLs with -u flag for each
+  for (const target of targets) {
+    args.push('-u', target);
+  }
 
   logger.info('Executing httpx', {
     binary: httpxPath,
