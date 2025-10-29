@@ -14,14 +14,14 @@ const logger = createLogger({ name: 'restate-postback' });
  * Format with type discrimination for routing to appropriate handlers
  */
 export interface UniversalPostbackPayload {
-  type: 'PORT_SCAN' | 'DISCOVERY';
+  type: 'PORT_SCAN' | 'DISCOVERY' | 'HTTPX';
   scanId: string;
   organizationId: string;
   timestamp: string;
   status: 'SUCCESS' | 'FAILURE';
   callbackUrl: string;
-  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY)
-  deviceId?: string; // Only for PORT_SCAN
+  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY, probes for HTTPX)
+  deviceId?: string; // For PORT_SCAN and HTTPX
   error?: string; // Only for FAILURE status
 }
 

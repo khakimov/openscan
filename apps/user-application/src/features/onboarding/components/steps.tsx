@@ -20,7 +20,7 @@ interface StepDefinition {
         params: { projectId: string };
       }
     | {
-        to: "/onboarding/$projectId/connect";
+        to: "/onboarding/$projectId/notifications";
         params: { projectId: string };
       }
     | null;
@@ -56,11 +56,11 @@ const STEP_DEFINITIONS: StepDefinition[] = [
   },
   {
     number: 4,
-    title: "Set monitoring",
+    title: "Notifications",
     requiresProjectId: true,
     getTarget: (projectId) =>
       projectId
-        ? { to: "/onboarding/$projectId/connect", params: { projectId } }
+        ? { to: "/onboarding/$projectId/notifications", params: { projectId } }
         : null,
   },
 ];
