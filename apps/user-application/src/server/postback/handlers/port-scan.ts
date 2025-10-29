@@ -24,6 +24,7 @@ import {
   createNectoAPIClient,
   type NectoAPIClient,
 } from '@/server/discovery/services/necto-api-client';
+import { getRestateHttpClient } from '@/server/utils/restate-http-client';
 
 /**
  * Necto API client singleton
@@ -431,16 +432,14 @@ export class PortScanPostbackHandler
       });
 
       try {
-        // Invoke Restate httpx service
-        const restateIngressUrl = ctx.env?.RESTATE_INGRESS_URL || process.env.RESTATE_INGRESS_URL;
-
-        if (!restateIngressUrl) {
-          throw new Error('RESTATE_INGRESS_URL not configured');
-        }
+        // Use Restate HTTP client for consistent invocation
+        const restateClient = getRestateHttpClient(
+          ctx.env?.RESTATE_INGRESS_URL || process.env.RESTATE_INGRESS_URL
+        );
 
         const callbackUrl = `${ctx.env?.APP_URL || process.env.APP_URL || 'https://sec-rocks.saipe.workers.dev'}/api/internal/scan-results`;
 
-        const httpxPayload = {
+        await restateClient.startHttpxProbe({
           target: data.target,
           ports: portsForHttpx,
           scanRunId: scanRun.id,
@@ -449,28 +448,9 @@ export class PortScanPostbackHandler
           callbackUrl,
           screenshotsEnabled: true,
           timeout: 10,
-        };
-
-        ctx.logger.info('Invoking Restate httpx service', {
-          restateIngressUrl,
-          callbackUrl,
-          payload: httpxPayload,
         });
 
-        const response = await fetch(`${restateIngressUrl}/Httpx/probe`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(httpxPayload),
-        });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Restate httpx invocation failed: ${response.status} ${errorText}`);
-        }
-
-        ctx.logger.info('Httpx workflow triggered successfully', {
+        ctx.logger.info('Httpx probe triggered successfully', {
           scanRunId: scanRun.id,
           portsQueued: portsForHttpx.length,
         });
