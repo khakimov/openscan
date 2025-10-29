@@ -54,19 +54,19 @@ export function resetNectoClientForTesting(): void {
 }
 
 /**
- * Common HTTP/HTTPS ports that should be probed with httpx
+ * Extract all open ports with service detection for httpx probing
+ *
+ * Strategy: Probe ALL open ports that have service information
+ * Rationale:
+ * - Service detection is often inaccurate (e.g., port 9100 shows as "jetdirect" but is actually HTTP)
+ * - httpx fails fast on non-HTTP ports (timeout in seconds)
+ * - Only probe ports with services to avoid WAF scenarios (all ports open, no actual services)
+ * - Industry standard approach used by httpx, nuclei, aquatone, EyeWitness
+ * - Ensures we don't miss HTTP services on non-standard ports
  */
-const HTTP_PORTS = new Set([
-  80, 443, 8080, 8443, 8000, 8888, 3000, 5000, 9000,
-  8081, 8082, 8083, 8084, 8085, 8086, 8087, 8088, 8089,
-]);
-
-/**
- * Extract HTTP ports from scan results
- */
-function extractHttpPorts(ports: Array<{ port: number; state: string; service?: any }>): number[] {
+function extractPortsForHttpx(ports: Array<{ port: number; state: string; service?: any }>): number[] {
   return ports
-    .filter((p) => p.state === 'open' && HTTP_PORTS.has(p.port))
+    .filter((p) => p.state === 'open' && (p.service?.name || p.service?.product))
     .map((p) => p.port)
     .sort((a, b) => a - b);
 }
@@ -418,42 +418,69 @@ export class PortScanPostbackHandler
       });
     }
 
-    // Step 7: Trigger httpx workflow for HTTP ports (if any)
-    const httpPorts = extractHttpPorts(data.ports || []);
+    // Step 7: Trigger httpx workflow for all open ports with service detection
+    const portsForHttpx = extractPortsForHttpx(data.ports || []);
 
-    if (httpPorts.length > 0) {
-      ctx.logger.info('HTTP ports detected, preparing httpx scan', {
+    if (portsForHttpx.length > 0) {
+      ctx.logger.info('Open ports with services detected, triggering httpx probe', {
         scanId,
         deviceId,
-        httpPorts,
-        httpPortCount: httpPorts.length,
+        target: data.target,
+        ports: portsForHttpx,
+        portCount: portsForHttpx.length,
       });
 
-      // TODO: Trigger Restate httpx workflow when screenshot-worker is ready
-      // This will be implemented in Phase 4
-      // await ctx.restate?.invokeWorkflow('httpx-scan', {
-      //   scanRunId: scanRun.id,
-      //   deviceId,
-      //   organizationId,
-      //   ports: httpPorts,
-      // });
-
-      // Update scan run metadata to track httpx trigger
       try {
-        const currentMetadata = scanRun.workflowMetadata || {};
-        await updateScanRunStatus(scanRun.id, 'SUCCEEDED', {
-          ...resultSummary,
+        // Invoke Restate httpx service
+        const restateIngressUrl = ctx.env?.RESTATE_INGRESS_URL || process.env.RESTATE_INGRESS_URL;
+
+        if (!restateIngressUrl) {
+          throw new Error('RESTATE_INGRESS_URL not configured');
+        }
+
+        const callbackUrl = `${ctx.env?.APP_URL || process.env.APP_URL || 'https://sec-rocks.saipe.workers.dev'}/api/internal/scan-results`;
+
+        const httpxPayload = {
+          target: data.target,
+          ports: portsForHttpx,
+          scanRunId: scanRun.id,
+          deviceId,
+          organizationId,
+          callbackUrl,
+          screenshotsEnabled: true,
+          timeout: 10,
+        };
+
+        ctx.logger.info('Invoking Restate httpx service', {
+          restateIngressUrl,
+          callbackUrl,
+          payload: httpxPayload,
         });
 
-        ctx.logger.info('Metadata updated with httpx ports', {
+        const response = await fetch(`${restateIngressUrl}/Httpx/probe`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(httpxPayload),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Restate httpx invocation failed: ${response.status} ${errorText}`);
+        }
+
+        ctx.logger.info('Httpx workflow triggered successfully', {
           scanRunId: scanRun.id,
-          httpPortsQueued: httpPorts.length,
+          portsQueued: portsForHttpx.length,
         });
       } catch (error) {
-        // Non-critical - log but don't fail
-        ctx.logger.warn('Failed to update metadata with httpx ports', {
+        // Non-critical - log but don't fail port scan postback
+        ctx.logger.error('Failed to trigger httpx workflow', {
           scanId,
+          deviceId,
           error: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
         });
       }
     }
@@ -463,7 +490,7 @@ export class PortScanPostbackHandler
       scanId,
       scanRunId: scanRun.id,
       portsStored: openPorts.length,
-      httpPortsQueued: httpPorts.length,
+      httpxPortsQueued: portsForHttpx.length,
     });
 
     // Build analytics with CVE count
