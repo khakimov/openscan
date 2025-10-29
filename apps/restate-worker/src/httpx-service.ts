@@ -383,8 +383,10 @@ async function runHttpx(options: {
 
   try {
     // Calculate total timeout with reasonable cap (max 10 minutes)
+    // Screenshots take much longer, so give more time per target
+    const timePerTarget = screenshotsEnabled ? 30 : (timeout + 5);
     const totalTimeout = Math.min(
-      (timeout + 5) * 1000 * targets.length,
+      timePerTarget * 1000 * targets.length,
       10 * 60 * 1000 // 10 minutes max
     );
 
