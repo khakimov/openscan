@@ -346,7 +346,6 @@ async function runHttpx(options: {
   // Build httpx arguments
   const args = [
     '-json', // JSON output
-    '-silent', // Suppress progress output
     '-no-color', // No ANSI colors
     '-timeout', `${timeout}`, // Timeout per request
     '-retries', '1', // Single retry
@@ -358,6 +357,7 @@ async function runHttpx(options: {
     '-content-length', // Get content length
     '-follow-redirects', // Follow redirects
     '-max-redirects', '3', // Max redirect hops
+    // Note: Not using -silent because it can cause buffering issues with Chrome screenshots
   ];
 
   // Add screenshot flags if enabled
