@@ -372,6 +372,14 @@ async function runHttpx(options: {
     args.push('-u', target);
   }
 
+  // Calculate total timeout with reasonable cap (max 10 minutes)
+  // Screenshots take much longer, so give more time per target
+  const timePerTarget = screenshotsEnabled ? 30 : (timeout + 5);
+  const totalTimeout = Math.min(
+    timePerTarget * 1000 * targets.length,
+    10 * 60 * 1000 // 10 minutes max
+  );
+
   logger.info('Executing httpx', {
     binary: httpxPath,
     target,
@@ -379,24 +387,26 @@ async function runHttpx(options: {
     screenshotsEnabled,
     timeout,
     targetCount: targets.length,
+    totalTimeout: `${totalTimeout / 1000}s`,
+    command: `${httpxPath} ${args.join(' ')}`,
   });
 
   try {
-    // Calculate total timeout with reasonable cap (max 10 minutes)
-    // Screenshots take much longer, so give more time per target
-    const timePerTarget = screenshotsEnabled ? 30 : (timeout + 5);
-    const totalTimeout = Math.min(
-      timePerTarget * 1000 * targets.length,
-      10 * 60 * 1000 // 10 minutes max
-    );
-
+    const startTime = Date.now();
     const { stdout, stderr } = await execFileAsync(httpxPath, args, {
       maxBuffer: 50 * 1024 * 1024, // 50MB buffer for large JSON output
       timeout: totalTimeout,
     });
+    const executionTime = Date.now() - startTime;
+
+    logger.info('HTTPx completed', {
+      executionTime: `${executionTime}ms`,
+      stdoutLength: stdout.length,
+      stderrLength: stderr.length,
+    });
 
     if (stderr) {
-      logger.warn('HTTPx stderr output', { stderr: stderr.substring(0, 500) });
+      logger.debug('HTTPx stderr output', { stderr: stderr.substring(0, 1000) });
     }
 
     // Parse JSON output (one JSON object per line)
@@ -418,8 +428,13 @@ async function runHttpx(options: {
     return results;
   } catch (error: any) {
     logger.error('HTTPx execution failed', {
+      command: `${httpxPath} ${args.join(' ')}`,
       error: error.message,
-      stderr: error.stderr?.substring(0, 500),
+      code: error.code,
+      killed: error.killed,
+      signal: error.signal,
+      stderr: error.stderr?.substring(0, 1000),
+      stdout: error.stdout?.substring(0, 1000),
     });
 
     // Return failed results for all ports
