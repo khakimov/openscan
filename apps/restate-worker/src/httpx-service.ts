@@ -191,9 +191,12 @@ export const httpxService = restate.service({
 
         // Step 2: Process and format results
         const processedProbes = probeResults.map((result) => {
+          // Ensure port is a number (httpx might return it as string)
+          const port = typeof result.port === 'string' ? parseInt(result.port, 10) : (result.port || 0);
+
           if (result.failed) {
             return {
-              port: result.port || 0,
+              port,
               url: result.url,
               status: 'FAILED' as const,
               error: result.error || 'Unknown error',
@@ -214,7 +217,7 @@ export const httpxService = restate.service({
           }
 
           return {
-            port: result.port || 0,
+            port,
             url: result.url,
             status: 'SUCCESS' as const,
             scheme: result.scheme,
