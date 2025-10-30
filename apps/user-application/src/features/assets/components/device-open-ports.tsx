@@ -48,6 +48,20 @@ type PortDetail = {
   discoveredBy?: string[];
   firstSeen?: number | null;
   lastSeen?: number | null;
+  httpxProbe?: {
+    scheme?: string;
+    statusCode?: number;
+    title?: string;
+    screenshot?: string;
+    responseTime?: number;
+    webServer?: string;
+    metadata?: any;
+    technologies?: Array<{
+      name: string;
+      confidence?: string;
+      version?: string;
+    }>;
+  };
 };
 
 function formatServiceInfo(service?: PortDetail["service"]) {
@@ -252,12 +266,13 @@ export function DeviceOpenPorts({
               const lastSeen = parseLastSeenTimestamp(port.lastSeen ?? null);
               const portCVEs = getCVEsForPort(port.port);
               const hasDetails =
-                port.service &&
-                (port.service.confidence !== null ||
-                  port.service.method ||
-                  port.service.cpe ||
-                  port.service.fingerprintMatches?.length ||
-                  portCVEs);
+                port.httpxProbe ||
+                (port.service &&
+                  (port.service.confidence !== null ||
+                    port.service.method ||
+                    port.service.cpe ||
+                    port.service.fingerprintMatches?.length ||
+                    portCVEs));
 
               return (
                 <>
@@ -383,6 +398,55 @@ export function DeviceOpenPorts({
                                   }}
                                 />
                               </div>
+
+                              {/* HTTPx Probe Results Section */}
+                              {port.httpxProbe && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        <Terminal className="w-3 h-3 mr-1" />
+                                        HTTPx Probe Results
+                                      </Badge>
+                                      {port.httpxProbe.statusCode && (
+                                        <Badge
+                                          variant={port.httpxProbe.statusCode >= 200 && port.httpxProbe.statusCode < 300 ? "default" : "secondary"}
+                                          className="text-xs"
+                                        >
+                                          {port.httpxProbe.statusCode}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2"
+                                      onClick={async () => {
+                                        try {
+                                          await navigator.clipboard.writeText(
+                                            JSON.stringify(port.httpxProbe, null, 2),
+                                          );
+                                          toast.success(
+                                            "HTTPx data copied to clipboard",
+                                          );
+                                        } catch (error) {
+                                          toast.error(
+                                            "Failed to copy to clipboard",
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                  <pre className="text-xs bg-muted/50 p-3 rounded-md border overflow-auto max-h-64 font-mono">
+                                    {JSON.stringify(port.httpxProbe, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
 
                               {port.service?.cpe && (
                                 <div className="space-y-2">

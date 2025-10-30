@@ -72,6 +72,20 @@ export type TransformedDevice = {
       discoveredBy?: string[];
       firstSeen?: number | null;
       lastSeen?: number | null;
+      httpxProbe?: {
+        scheme?: string;
+        statusCode?: number;
+        title?: string;
+        screenshot?: string;
+        responseTime?: number;
+        webServer?: string;
+        metadata?: any;
+        technologies?: Array<{
+          name: string;
+          confidence?: string;
+          version?: string;
+        }>;
+      };
     }>;
   };
   scanStats?: {
@@ -108,6 +122,20 @@ export type TransformedDevice = {
       discoveredBy?: string[];
       firstSeen?: number | null;
       lastSeen?: number | null;
+      httpxProbe?: {
+        scheme?: string;
+        statusCode?: number;
+        title?: string;
+        screenshot?: string;
+        responseTime?: number;
+        webServer?: string;
+        metadata?: any;
+        technologies?: Array<{
+          name: string;
+          confidence?: string;
+          version?: string;
+        }>;
+      };
     }>;
   };
   verificationStatus: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
