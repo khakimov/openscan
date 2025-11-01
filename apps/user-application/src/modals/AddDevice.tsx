@@ -10,6 +10,7 @@ import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries"
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 
 // Form validation schema
 const AddDeviceSchema = z.object({
@@ -41,6 +42,9 @@ export default function AddDevice() {
 
   const queryClient = useQueryClient();
 
+  // Get current project ID from route params
+  const { projectId } = useParams({ strict: false });
+
   // Create device mutation (using centralized hook)
   const createDeviceMutation = useCreateDevicesFromDiscoveryMutation();
 
@@ -53,7 +57,10 @@ export default function AddDevice() {
       .map(host => ({ host }));
 
     createDeviceMutation.mutate(
-      { targets },
+      {
+        targets,
+        projectId, // ✅ FIX: Pass projectId from route params
+      },
       {
         onSuccess: async (response) => {
           // Wait for device list to refetch before closing modal
