@@ -15,6 +15,7 @@ import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as OnboardingProjectRouteImport } from './routes/onboarding/project'
+import { Route as ApiScreenshotsRouteImport } from './routes/api/screenshots'
 import { Route as PublicTermsRouteImport } from './routes/_public.terms'
 import { Route as PublicPrivacyRouteImport } from './routes/_public.privacy'
 import { Route as AppOrganizationIdRouteImport } from './routes/_app.$organizationId'
@@ -65,6 +66,11 @@ const OnboardingProjectRoute = OnboardingProjectRouteImport.update({
   id: '/project',
   path: '/project',
   getParentRoute: () => OnboardingRouteRoute,
+} as any)
+const ApiScreenshotsRoute = ApiScreenshotsRouteImport.update({
+  id: '/api/screenshots',
+  path: '/api/screenshots',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const PublicTermsRoute = PublicTermsRouteImport.update({
   id: '/terms',
@@ -197,6 +203,7 @@ export interface FileRoutesByFullPath {
   '/$organizationId': typeof AppOrganizationIdRouteWithChildren
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
+  '/api/screenshots': typeof ApiScreenshotsRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
@@ -223,6 +230,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
+  '/api/screenshots': typeof ApiScreenshotsRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -252,6 +260,7 @@ export interface FileRoutesById {
   '/_app/$organizationId': typeof AppOrganizationIdRouteWithChildren
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/terms': typeof PublicTermsRoute
+  '/api/screenshots': typeof ApiScreenshotsRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/_app/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
@@ -282,6 +291,7 @@ export interface FileRouteTypes {
     | '/$organizationId'
     | '/privacy'
     | '/terms'
+    | '/api/screenshots'
     | '/onboarding/project'
     | '/onboarding/'
     | '/$organizationId/$projectId'
@@ -308,6 +318,7 @@ export interface FileRouteTypes {
     | '/'
     | '/privacy'
     | '/terms'
+    | '/api/screenshots'
     | '/onboarding/project'
     | '/onboarding'
     | '/api/auth/$'
@@ -336,6 +347,7 @@ export interface FileRouteTypes {
     | '/_app/$organizationId'
     | '/_public/privacy'
     | '/_public/terms'
+    | '/api/screenshots'
     | '/onboarding/project'
     | '/onboarding/'
     | '/_app/$organizationId/$projectId'
@@ -364,6 +376,7 @@ export interface RootRouteChildren {
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
+  ApiScreenshotsRoute: typeof ApiScreenshotsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
   AuthAppIndexRoute: typeof AuthAppIndexRoute
@@ -415,6 +428,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/onboarding/project'
       preLoaderRoute: typeof OnboardingProjectRouteImport
       parentRoute: typeof OnboardingRouteRoute
+    }
+    '/api/screenshots': {
+      id: '/api/screenshots'
+      path: '/api/screenshots'
+      fullPath: '/api/screenshots'
+      preLoaderRoute: typeof ApiScreenshotsRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_public/terms': {
       id: '/_public/terms'
@@ -679,6 +699,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
+  ApiScreenshotsRoute: ApiScreenshotsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
   AuthAppIndexRoute: AuthAppIndexRoute,

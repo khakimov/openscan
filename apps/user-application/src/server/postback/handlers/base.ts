@@ -15,12 +15,8 @@ import type { BasePostback } from '../types';
  * Provides access to environment bindings, logging, and timing information.
  */
 export interface HandlerContext {
-  /** Environment bindings (Analytics Engine, etc.) */
-  env?: {
-    ANALYTICS?: AnalyticsEngineDataset;
-    NECTO_API_URL?: string;
-    WORKER_API_KEY?: string;
-  };
+  /** Environment bindings (use cloudflare:workers Env type) */
+  env?: Partial<Env>;
 
   /** Logger instance for structured logging */
   logger: ILogger;

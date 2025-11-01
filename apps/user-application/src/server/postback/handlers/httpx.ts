@@ -75,7 +75,7 @@ const HttpxProbeResultSchema = z.object({
  */
 const HttpxPostbackSchema = z.object({
   type: z.literal('HTTPX'),
-  scanRunId: z.string().min(1),
+  scanId: z.string().min(1), // Changed from scanRunId to align with BasePostback
   deviceId: z.string().min(1),
   organizationId: z.string().min(1),
   timestamp: z.string(),
@@ -120,7 +120,8 @@ export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
     payload: HttpxPostback,
     ctx: HandlerContext
   ): Promise<HandlerResult> {
-    const { scanRunId, deviceId, organizationId, data } = payload;
+    const { scanId, deviceId, organizationId, data } = payload;
+    const scanRunId = scanId; // Alias for database operations
 
     ctx.logger.info('Processing httpx probe results', {
       scanRunId,
@@ -163,8 +164,12 @@ export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
           // Upload screenshot to R2 if base64 data is present
           if (probe.screenshotBase64 && env.SCREENSHOTS) {
             try {
-              // Decode base64 to buffer
+              // Decode base64 to ArrayBuffer
               const buffer = Buffer.from(probe.screenshotBase64, 'base64');
+              const arrayBuffer = buffer.buffer.slice(
+                buffer.byteOffset,
+                buffer.byteOffset + buffer.byteLength
+              );
 
               // Generate R2 key
               const key = generateR2Key(
@@ -178,7 +183,7 @@ export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
               r2Key = await uploadScreenshot(
                 env.SCREENSHOTS,
                 key,
-                buffer,
+                arrayBuffer,
                 {
                   organizationId,
                   deviceId,
@@ -309,10 +314,10 @@ export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
     payload: HttpxPostback,
     ctx: HandlerContext
   ): Promise<HandlerResult> {
-    const { scanRunId, deviceId, organizationId } = payload;
+    const { scanId, deviceId, organizationId } = payload;
 
     ctx.logger.warn('HTTPx workflow failed', {
-      scanRunId,
+      scanRunId: scanId,
       deviceId,
       organizationId,
     });
@@ -321,7 +326,7 @@ export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
     const analytics = buildFailureAnalytics(
       AnalyticsEventTypes.HTTPX_FAILURE,
       {
-        scanId: scanRunId,
+        scanId,
         entityId: deviceId,
         error: 'HTTPx workflow failed',
       }

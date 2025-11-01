@@ -127,20 +127,16 @@ export async function getSignedUrl(
       throw new Error(`Screenshot not found: ${key}`);
     }
 
-    // Generate signed URL
-    const url = await r2.createMultipartUpload(key);
+    // Note: R2 signed URLs are not yet available in the Workers API
+    // We use a proxy endpoint in the user-application instead
+    // See: /api/screenshots
 
-    // Note: R2 signed URLs use a different API than S3
-    // For now, we'll use the public URL pattern
-    // In production, you may need to configure R2 public access or use Workers for signed URLs
-
-    logger.info("Generated signed URL", {
+    logger.info("Screenshot access requested", {
       key,
       expiresIn,
     });
 
-    // TODO: Implement proper signed URL generation
-    // For now, return the key (will need proxy endpoint)
+    // Return the R2 key - the proxy endpoint will fetch and serve it
     return key;
   } catch (error) {
     logger.error("Failed to generate signed URL", {

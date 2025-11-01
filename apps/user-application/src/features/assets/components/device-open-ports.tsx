@@ -452,7 +452,7 @@ export function DeviceOpenPorts({
                                       <div className="border rounded-md overflow-hidden bg-muted/30">
                                         <img
                                           src={`/api/screenshots?r2Key=${encodeURIComponent(port.httpxProbe.screenshot)}&deviceId=${encodeURIComponent(deviceDetail.id)}`}
-                                          alt={`Screenshot of ${port.httpxProbe.scheme}://${deviceDetail.hostname}:${port.port}`}
+                                          alt={`Screenshot of ${port.httpxProbe.scheme}://${deviceDetail.name || deviceDetail.ip}:${port.port}`}
                                           className="w-full h-auto"
                                           loading="lazy"
                                           onError={(e) => {

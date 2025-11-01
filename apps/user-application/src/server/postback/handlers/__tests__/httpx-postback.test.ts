@@ -136,7 +136,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -172,7 +172,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'PORT_SCAN',
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -202,7 +202,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -234,7 +234,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId,
+        scanId: scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -266,6 +266,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -311,7 +312,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -348,6 +349,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -362,7 +364,7 @@ describe('HTTPx Postback Handler', () => {
         .from(scanArtifacts)
         .where(eq(scanArtifacts.scanRunId, testScanRunId));
 
-      const ports = artifacts.map(a => a.port).sort();
+      const ports = artifacts.map((a: typeof artifacts[0]) => a.port).sort();
       expect(ports).toContain(443);
       expect(ports).toContain(3000);
       expect(ports).toContain(8080);
@@ -374,7 +376,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId,
+        scanId: scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -401,6 +403,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       await handler.handle(payload, ctx);
@@ -409,7 +412,7 @@ describe('HTTPx Postback Handler', () => {
       const db = getDb();
       const techs = await db.select().from(technologies);
 
-      const techNames = techs.map(t => t.name).sort();
+      const techNames = techs.map((t: typeof techs[0]) => t.name).sort();
       expect(techNames).toContain('nginx');
       expect(techNames).toContain('react'); // Normalized to lowercase
       expect(techNames).toContain('wordpress'); // Normalized to lowercase
@@ -432,7 +435,7 @@ describe('HTTPx Postback Handler', () => {
 
       expect(detections.length).toBe(3);
 
-      const versions = detections.map(d => d.version).sort();
+      const versions = detections.map((d: typeof detections[0]) => d.version).sort();
       expect(versions).toContain('1.24.0');
       expect(versions).toContain('18.2.0');
       expect(versions).toContain('6.4.0');
@@ -443,7 +446,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -466,6 +469,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -479,7 +483,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -501,6 +505,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -515,7 +520,7 @@ describe('HTTPx Postback Handler', () => {
         .from(scanArtifacts)
         .where(eq(scanArtifacts.scanRunId, testScanRunId));
 
-      const failedArtifact = artifacts.find(a => a.port === 9999);
+      const failedArtifact = artifacts.find((a: typeof artifacts[0]) => a.port === 9999);
       expect(failedArtifact).toBeDefined();
       expect(failedArtifact!.status).toBe('failed');
       expect(failedArtifact!.errorMessage).toContain('Connection refused');
@@ -534,7 +539,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -556,6 +561,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -567,7 +573,7 @@ describe('HTTPx Postback Handler', () => {
         .from(scanArtifacts)
         .where(eq(scanArtifacts.scanRunId, testScanRunId));
 
-      const timeoutArtifact = artifacts.find(a => a.port === 8888);
+      const timeoutArtifact = artifacts.find((a: typeof artifacts[0]) => a.port === 8888);
       expect(timeoutArtifact).toBeDefined();
       expect(timeoutArtifact!.status).toBe('failed');
       expect(timeoutArtifact!.errorMessage).toContain('timeout');
@@ -579,7 +585,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId,
+        scanId: scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -615,6 +621,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -631,7 +638,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId,
+        scanId: scanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -653,6 +660,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -668,7 +676,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -682,6 +690,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -698,7 +707,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -712,6 +721,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);
@@ -725,7 +735,7 @@ describe('HTTPx Postback Handler', () => {
 
       const payload = {
         type: 'HTTPX' as const,
-        scanRunId: testScanRunId,
+        scanId: testScanRunId,
         deviceId: testDeviceId,
         organizationId: testOrgId,
         timestamp: new Date().toISOString(),
@@ -755,6 +765,7 @@ describe('HTTPx Postback Handler', () => {
       const ctx = {
         logger: createLogger({ name: 'httpx-test' }),
         env: {},
+        startTime: Date.now(),
       };
 
       const result = await handler.handle(payload, ctx);

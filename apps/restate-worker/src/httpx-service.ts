@@ -298,11 +298,9 @@ export const httpxService = restate.service({
             deviceId: input.deviceId,
           });
 
-          // Note: The postback uses 'scanId' but the handler expects 'scanRunId'
-          // We pass scanRunId as scanId and the handler will read it correctly
           const postbackPayload: any = {
             type: 'HTTPX',
-            scanRunId: scanId, // Handler expects scanRunId
+            scanId: scanId, // Aligned with BasePostback interface
             deviceId: input.deviceId,
             organizationId: input.organizationId,
             timestamp: new Date().toISOString(),
