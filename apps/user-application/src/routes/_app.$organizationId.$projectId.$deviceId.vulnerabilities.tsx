@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
+import type { CVEEnrichment, CVEDetail } from "@repo/data-ops";
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/vulnerabilities")({
   loader: async ({ context: { queryClient }, params }) => {
@@ -24,13 +25,13 @@ function DeviceVulnerabilitiesPage() {
   );
 
   // Extract CVE enrichment data from the latest scan
-  const cveEnrichment = useMemo(() => {
+  const cveEnrichment = useMemo<CVEEnrichment | null>(() => {
     if (!scanHistoryData?.success || !scanHistoryData.history?.length) {
       return null;
     }
 
     const latestScan = scanHistoryData.history[0];
-    const resultSummary = latestScan.resultSummary as any;
+    const resultSummary = latestScan.resultSummary as { cveEnrichment?: CVEEnrichment };
 
     return resultSummary?.cveEnrichment || null;
   }, [scanHistoryData]);
@@ -132,11 +133,11 @@ function DeviceVulnerabilitiesPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {os.cves.slice(0, 10).map((cve: any) => (
-                <div key={cve.id} className="border-l-2 border-l-red-500 pl-3 py-2">
+              {os.cves.slice(0, 10).map((cve: CVEDetail) => (
+                <div key={cve.cveId} className="border-l-2 border-l-red-500 pl-3 py-2">
                   <div className="flex items-start justify-between">
                     <div>
-                      <p className="font-mono text-sm font-semibold">{cve.id}</p>
+                      <p className="font-mono text-sm font-semibold">{cve.cveId}</p>
                       <p className="text-sm text-muted-foreground mt-1">
                         {cve.description || 'No description available'}
                       </p>
@@ -166,7 +167,7 @@ function DeviceVulnerabilitiesPage() {
       {applications.length > 0 && (
         <div className="space-y-4">
           <h2 className="text-xl font-semibold">Application Vulnerabilities</h2>
-          {applications.map((app: any) => (
+          {applications.map((app) => (
             <Card key={`${app.name}-${app.port}`}>
               <CardHeader>
                 <CardTitle className="text-base">
@@ -178,11 +179,11 @@ function DeviceVulnerabilitiesPage() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-3">
-                  {app.cves.slice(0, 5).map((cve: any) => (
-                    <div key={cve.id} className="border-l-2 border-l-orange-500 pl-3 py-2">
+                  {app.cves.slice(0, 5).map((cve: CVEDetail) => (
+                    <div key={cve.cveId} className="border-l-2 border-l-orange-500 pl-3 py-2">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="font-mono text-sm font-semibold">{cve.id}</p>
+                          <p className="font-mono text-sm font-semibold">{cve.cveId}</p>
                           <p className="text-sm text-muted-foreground mt-1">
                             {cve.description || 'No description available'}
                           </p>

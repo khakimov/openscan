@@ -15,6 +15,7 @@ import {
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
 import type { CVEEnrichment } from '@repo/data-ops';
+import { safeParseCVEEnrichment } from '@repo/data-ops';
 import {
   AnalyticsEventTypes,
   buildSuccessAnalytics,
@@ -293,17 +294,31 @@ export class PortScanPostbackHandler
     if (hasOpenPorts || hasOSInfo) {
       try {
         const nectoClient = getNectoAPIClient(ctx.env?.NECTO_API_URL, ctx.env?.WORKER_API_KEY);
-        cveEnrichment = await nectoClient.enrichScanResults(
+        const rawEnrichment = await nectoClient.enrichScanResults(
           openPorts,
           data.osInfo
         );
 
-        ctx.logger.info('CVE enrichment completed', {
-          scanId,
-          totalCves: cveEnrichment.summary.totalCves,
-          criticalCount: cveEnrichment.summary.totalCritical,
-          highCount: cveEnrichment.summary.totalHigh,
-        });
+        // ✅ Schema-first pattern: Validate CVE enrichment data
+        const validationResult = safeParseCVEEnrichment(rawEnrichment);
+
+        if (!validationResult.success) {
+          ctx.logger.error('CVE enrichment validation failed', {
+            scanId,
+            error: validationResult.error.message,
+            issues: validationResult.error.issues,
+          });
+          // cveEnrichment remains undefined - don't save invalid data
+        } else {
+          cveEnrichment = validationResult.data;
+
+          ctx.logger.info('CVE enrichment completed', {
+            scanId,
+            totalCves: cveEnrichment.summary.totalCves,
+            criticalCount: cveEnrichment.summary.totalCritical,
+            highCount: cveEnrichment.summary.totalHigh,
+          });
+        }
       } catch (error) {
         // Don't fail scan if enrichment fails
         ctx.logger.error(

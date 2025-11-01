@@ -51,7 +51,7 @@ export * from './queries/scan-artifacts';
 // Explicitly re-export getDeviceByIdGlobal (internal use only)
 export { getDeviceByIdGlobal } from './queries/devices';
 
-// Export CVE enrichment types
+// Export CVE enrichment types & schemas (schema-first pattern)
 export type {
   CVESeverity,
   CVEDetail,
@@ -68,6 +68,17 @@ export type {
   CVEEnrichmentSizeGuards,
 } from './types/cve-enrichment';
 
+// Export Zod schemas for runtime validation
+export {
+  CVESeveritySchema,
+  CVEDetailSchema,
+  OSVulnerabilitiesSchema,
+  ApplicationVulnerabilitiesSchema,
+  CVESummarySchema,
+  CVEEnrichmentSchema,
+} from './types/cve-enrichment';
+
+// Export helper functions
 export {
   DEFAULT_SIZE_GUARDS,
   calculateSeverity,
@@ -75,4 +86,6 @@ export {
   calculateEnrichmentSize,
   applySizeGuards,
   validateEnrichmentSize,
+  validateCVEEnrichment,
+  safeParseCVEEnrichment,
 } from './types/cve-enrichment';

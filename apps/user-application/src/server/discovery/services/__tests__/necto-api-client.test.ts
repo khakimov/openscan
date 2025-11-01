@@ -279,7 +279,7 @@ describe('NectoAPIClient', () => {
           port: 80,
           protocol: 'tcp',
           state: 'closed',
-          service: null,
+          service: undefined,
         },
       ];
 

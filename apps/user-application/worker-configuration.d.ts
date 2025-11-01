@@ -12,6 +12,11 @@ declare namespace Cloudflare {
 		NECTO_API_URL: string;
 		RESTATE_INGRESS_URL: string;
 		WORKER_API_KEY: string;
+		// Secrets (from .dev.vars)
+		BETTER_AUTH_SECRET: string;
+		GOOGLE_CLIENT_ID: string;
+		GOOGLE_CLIENT_SECRET: string;
+		POLAR_SECRET: string;
 		SCREENSHOTS: R2Bucket;
 		DB: D1Database;
 		ANALYTICS: AnalyticsEngineDataset;

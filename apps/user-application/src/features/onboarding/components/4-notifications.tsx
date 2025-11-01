@@ -95,9 +95,6 @@ export function OnboardingNotifications({
     },
   });
 
-  const vulnerabilityAlertsEnabled = form.useStore(
-    (state) => state.values.vulnerabilityAlertsEnabled
-  );
 
   return (
     <OnboardingContentLayout
@@ -158,7 +155,8 @@ export function OnboardingNotifications({
             </form.Field>
 
             {/* Severity Filter */}
-            {vulnerabilityAlertsEnabled && (
+            <form.Subscribe selector={(state) => state.values.vulnerabilityAlertsEnabled}>
+              {(vulnerabilityAlertsEnabled) => vulnerabilityAlertsEnabled && (
               <form.Field name="alertSeverities">
                 {(field) => (
                   <div className="ml-4 space-y-3 border-l-2 border-muted pl-4">
@@ -209,7 +207,8 @@ export function OnboardingNotifications({
                   </div>
                 )}
               </form.Field>
-            )}
+              )}
+            </form.Subscribe>
           </div>
 
           {/* Weekly Summary Section */}
@@ -247,14 +246,16 @@ export function OnboardingNotifications({
               )}
             </form.Field>
 
-            {form.useStore((state) => state.values.weeklySummaryEnabled) && (
+            <form.Subscribe selector={(state) => state.values.weeklySummaryEnabled}>
+              {(weeklySummaryEnabled) => weeklySummaryEnabled && (
               <div className="ml-4 border-l-2 border-muted pl-4">
                 <p className="text-xs text-muted-foreground">
                   📅 Summaries are sent every Monday at 9:00 AM in your organization's
                   timezone
                 </p>
               </div>
-            )}
+              )}
+            </form.Subscribe>
           </div>
 
           {/* Skip Option */}
