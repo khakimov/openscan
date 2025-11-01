@@ -7,8 +7,6 @@
     "build:data-ops": "pnpm run --filter data-ops build",
     "dev:user-application": "pnpm run --filter user-application dev",
     "deploy:user-application": "pnpm run build:data-ops && pnpm run --filter user-application deploy",
-    "dev:data-service": "pnpm run --filter data-service dev",
-    "deploy:data-service": "pnpm run build:data-ops && pnpm run --filter data-service deploy",
     "deploy:screenshot-worker": "pnpm run --filter screenshot-worker deploy",
     "dev:worker": "pnpm run --filter restate-worker dev",
     "build:worker": "pnpm run --filter restate-worker build",

@@ -26,4 +26,11 @@
       "dataset": "postback_events",
     },
   ],
+  "r2_buckets": [
+    {
+      "binding": "SCREENSHOTS",
+      "bucket_name": "openscan-screenshots",
+      "preview_bucket_name": "openscan-screenshots-dev",
+    },
+  ],
 }

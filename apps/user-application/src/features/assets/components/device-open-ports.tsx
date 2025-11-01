@@ -48,6 +48,20 @@ type PortDetail = {
   discoveredBy?: string[];
   firstSeen?: number | null;
   lastSeen?: number | null;
+  httpxProbe?: {
+    scheme?: string;
+    statusCode?: number;
+    title?: string;
+    screenshot?: string;
+    responseTime?: number;
+    webServer?: string;
+    metadata?: any;
+    technologies?: Array<{
+      name: string;
+      confidence?: string;
+      version?: string;
+    }>;
+  };
 };
 
 function formatServiceInfo(service?: PortDetail["service"]) {
@@ -252,12 +266,13 @@ export function DeviceOpenPorts({
               const lastSeen = parseLastSeenTimestamp(port.lastSeen ?? null);
               const portCVEs = getCVEsForPort(port.port);
               const hasDetails =
-                port.service &&
-                (port.service.confidence !== null ||
-                  port.service.method ||
-                  port.service.cpe ||
-                  port.service.fingerprintMatches?.length ||
-                  portCVEs);
+                port.httpxProbe ||
+                (port.service &&
+                  (port.service.confidence !== null ||
+                    port.service.method ||
+                    port.service.cpe ||
+                    port.service.fingerprintMatches?.length ||
+                    portCVEs));
 
               return (
                 <>
@@ -384,6 +399,85 @@ export function DeviceOpenPorts({
                                 />
                               </div>
 
+                              {/* HTTPx Probe Results Section */}
+                              {port.httpxProbe && (
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                      <Badge
+                                        variant="outline"
+                                        className="text-xs"
+                                      >
+                                        <Terminal className="w-3 h-3 mr-1" />
+                                        HTTPx Probe Results
+                                      </Badge>
+                                      {port.httpxProbe.statusCode && (
+                                        <Badge
+                                          variant={port.httpxProbe.statusCode >= 200 && port.httpxProbe.statusCode < 300 ? "default" : "secondary"}
+                                          className="text-xs"
+                                        >
+                                          {port.httpxProbe.statusCode}
+                                        </Badge>
+                                      )}
+                                    </div>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-6 px-2"
+                                      onClick={async () => {
+                                        try {
+                                          await navigator.clipboard.writeText(
+                                            JSON.stringify(port.httpxProbe, null, 2),
+                                          );
+                                          toast.success(
+                                            "HTTPx data copied to clipboard",
+                                          );
+                                        } catch (error) {
+                                          toast.error(
+                                            "Failed to copy to clipboard",
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <Copy className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+
+                                  {/* Screenshot Thumbnail */}
+                                  {port.httpxProbe.screenshot && deviceDetail?.id && (
+                                    <div className="space-y-2">
+                                      <Badge variant="outline" className="text-xs">
+                                        Screenshot
+                                      </Badge>
+                                      <a
+                                        href={`/api/screenshots?r2Key=${encodeURIComponent(port.httpxProbe.screenshot)}&deviceId=${encodeURIComponent(deviceDetail.id)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block border rounded-md overflow-hidden bg-muted/30 hover:ring-2 hover:ring-primary/50 transition-all max-w-xs"
+                                      >
+                                        <img
+                                          src={`/api/screenshots?r2Key=${encodeURIComponent(port.httpxProbe.screenshot)}&deviceId=${encodeURIComponent(deviceDetail.id)}`}
+                                          alt={`Screenshot of ${port.httpxProbe.scheme}://${deviceDetail.name || deviceDetail.ip}:${port.port}`}
+                                          className="w-full h-auto object-cover max-h-48"
+                                          loading="lazy"
+                                          onError={(e) => {
+                                            // Hide image if it fails to load
+                                            e.currentTarget.style.display = 'none';
+                                          }}
+                                        />
+                                      </a>
+                                      <p className="text-xs text-muted-foreground">
+                                        Click to view full size
+                                      </p>
+                                    </div>
+                                  )}
+
+                                  <pre className="text-xs bg-muted/50 p-3 rounded-md border overflow-auto max-h-64 font-mono">
+                                    {JSON.stringify(port.httpxProbe, null, 2)}
+                                  </pre>
+                                </div>
+                              )}
+
                               {port.service?.cpe && (
                                 <div className="space-y-2">
                                   <Badge variant="outline" className="text-xs">
@@ -411,9 +505,8 @@ export function DeviceOpenPorts({
                                         total)
                                       </span>
                                     </div>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
                                       {port.service.fingerprintMatches
-                                        .slice(0, 3)
                                         .map((fp, idx) => (
                                           <div
                                             key={idx}
@@ -434,15 +527,6 @@ export function DeviceOpenPorts({
                                             )}
                                           </div>
                                         ))}
-                                      {port.service.fingerprintMatches.length >
-                                        3 && (
-                                        <div className="text-xs text-muted-foreground text-center py-2">
-                                          ... and{" "}
-                                          {port.service.fingerprintMatches
-                                            .length - 3}{" "}
-                                          more probes
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 )}

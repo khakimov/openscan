@@ -72,3 +72,19 @@ export const GridCell: React.FC<
     <div className="truncate w-full">{children}</div>
   </Component>
 );
+
+export const GridRow: React.FC<React.HTMLAttributes<HTMLDivElement>> = ({
+  className,
+  children,
+  ...props
+}) => (
+  <div
+    className={cn(
+      'contents transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+      className
+    )}
+    {...props}
+  >
+    {children}
+  </div>
+);

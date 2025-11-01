@@ -15,14 +15,14 @@ import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
 import { Route as OnboardingProjectRouteImport } from './routes/onboarding/project'
+import { Route as ApiScreenshotsRouteImport } from './routes/api/screenshots'
 import { Route as PublicTermsRouteImport } from './routes/_public.terms'
 import { Route as PublicPrivacyRouteImport } from './routes/_public.privacy'
 import { Route as AppOrganizationIdRouteImport } from './routes/_app.$organizationId'
 import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
 import { Route as AppOrganizationIdIndexRouteImport } from './routes/_app.$organizationId.index'
-import { Route as OnboardingProjectIdVerifyRouteImport } from './routes/onboarding/$projectId/verify'
+import { Route as OnboardingProjectIdNotificationsRouteImport } from './routes/onboarding/$projectId/notifications'
 import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding/$projectId/discovery'
-import { Route as OnboardingProjectIdConnectRouteImport } from './routes/onboarding/$projectId/connect'
 import { Route as ApiInternalScanResultsRouteImport } from './routes/api/internal/scan-results'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppOrganizationIdProjectIdRouteImport } from './routes/_app.$organizationId.$projectId'
@@ -65,6 +65,11 @@ const OnboardingProjectRoute = OnboardingProjectRouteImport.update({
   path: '/project',
   getParentRoute: () => OnboardingRouteRoute,
 } as any)
+const ApiScreenshotsRoute = ApiScreenshotsRouteImport.update({
+  id: '/api/screenshots',
+  path: '/api/screenshots',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicTermsRoute = PublicTermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -90,22 +95,16 @@ const AppOrganizationIdIndexRoute = AppOrganizationIdIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppOrganizationIdRoute,
 } as any)
-const OnboardingProjectIdVerifyRoute =
-  OnboardingProjectIdVerifyRouteImport.update({
-    id: '/$projectId/verify',
-    path: '/$projectId/verify',
+const OnboardingProjectIdNotificationsRoute =
+  OnboardingProjectIdNotificationsRouteImport.update({
+    id: '/$projectId/notifications',
+    path: '/$projectId/notifications',
     getParentRoute: () => OnboardingRouteRoute,
   } as any)
 const OnboardingProjectIdDiscoveryRoute =
   OnboardingProjectIdDiscoveryRouteImport.update({
     id: '/$projectId/discovery',
     path: '/$projectId/discovery',
-    getParentRoute: () => OnboardingRouteRoute,
-  } as any)
-const OnboardingProjectIdConnectRoute =
-  OnboardingProjectIdConnectRouteImport.update({
-    id: '/$projectId/connect',
-    path: '/$projectId/connect',
     getParentRoute: () => OnboardingRouteRoute,
   } as any)
 const ApiInternalScanResultsRoute = ApiInternalScanResultsRouteImport.update({
@@ -190,14 +189,14 @@ export interface FileRoutesByFullPath {
   '/$organizationId': typeof AppOrganizationIdRouteWithChildren
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
+  '/api/screenshots': typeof ApiScreenshotsRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
-  '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
-  '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
+  '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
@@ -215,13 +214,13 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
+  '/api/screenshots': typeof ApiScreenshotsRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
-  '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
-  '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
+  '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/$organizationId': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
   '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
@@ -243,14 +242,14 @@ export interface FileRoutesById {
   '/_app/$organizationId': typeof AppOrganizationIdRouteWithChildren
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/terms': typeof PublicTermsRoute
+  '/api/screenshots': typeof ApiScreenshotsRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/_app/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
-  '/onboarding/$projectId/connect': typeof OnboardingProjectIdConnectRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
-  '/onboarding/$projectId/verify': typeof OnboardingProjectIdVerifyRoute
+  '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/_app/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_app/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
@@ -272,14 +271,14 @@ export interface FileRouteTypes {
     | '/$organizationId'
     | '/privacy'
     | '/terms'
+    | '/api/screenshots'
     | '/onboarding/project'
     | '/onboarding/'
     | '/$organizationId/$projectId'
     | '/api/auth/$'
     | '/api/internal/scan-results'
-    | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
-    | '/onboarding/$projectId/verify'
+    | '/onboarding/$projectId/notifications'
     | '/$organizationId/'
     | '/app'
     | '/$organizationId/$projectId/$deviceId'
@@ -297,13 +296,13 @@ export interface FileRouteTypes {
     | '/'
     | '/privacy'
     | '/terms'
+    | '/api/screenshots'
     | '/onboarding/project'
     | '/onboarding'
     | '/api/auth/$'
     | '/api/internal/scan-results'
-    | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
-    | '/onboarding/$projectId/verify'
+    | '/onboarding/$projectId/notifications'
     | '/$organizationId'
     | '/app'
     | '/$organizationId/$projectId/assets'
@@ -324,14 +323,14 @@ export interface FileRouteTypes {
     | '/_app/$organizationId'
     | '/_public/privacy'
     | '/_public/terms'
+    | '/api/screenshots'
     | '/onboarding/project'
     | '/onboarding/'
     | '/_app/$organizationId/$projectId'
     | '/api/auth/$'
     | '/api/internal/scan-results'
-    | '/onboarding/$projectId/connect'
     | '/onboarding/$projectId/discovery'
-    | '/onboarding/$projectId/verify'
+    | '/onboarding/$projectId/notifications'
     | '/_app/$organizationId/'
     | '/_auth/app/'
     | '/_app/$organizationId/$projectId/$deviceId'
@@ -351,6 +350,7 @@ export interface RootRouteChildren {
   OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
+  ApiScreenshotsRoute: typeof ApiScreenshotsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
   AuthAppIndexRoute: typeof AuthAppIndexRoute
@@ -403,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OnboardingProjectRouteImport
       parentRoute: typeof OnboardingRouteRoute
     }
+    '/api/screenshots': {
+      id: '/api/screenshots'
+      path: '/api/screenshots'
+      fullPath: '/api/screenshots'
+      preLoaderRoute: typeof ApiScreenshotsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public/terms': {
       id: '/_public/terms'
       path: '/terms'
@@ -438,11 +445,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdIndexRouteImport
       parentRoute: typeof AppOrganizationIdRoute
     }
-    '/onboarding/$projectId/verify': {
-      id: '/onboarding/$projectId/verify'
-      path: '/$projectId/verify'
-      fullPath: '/onboarding/$projectId/verify'
-      preLoaderRoute: typeof OnboardingProjectIdVerifyRouteImport
+    '/onboarding/$projectId/notifications': {
+      id: '/onboarding/$projectId/notifications'
+      path: '/$projectId/notifications'
+      fullPath: '/onboarding/$projectId/notifications'
+      preLoaderRoute: typeof OnboardingProjectIdNotificationsRouteImport
       parentRoute: typeof OnboardingRouteRoute
     }
     '/onboarding/$projectId/discovery': {
@@ -450,13 +457,6 @@ declare module '@tanstack/react-router' {
       path: '/$projectId/discovery'
       fullPath: '/onboarding/$projectId/discovery'
       preLoaderRoute: typeof OnboardingProjectIdDiscoveryRouteImport
-      parentRoute: typeof OnboardingRouteRoute
-    }
-    '/onboarding/$projectId/connect': {
-      id: '/onboarding/$projectId/connect'
-      path: '/$projectId/connect'
-      fullPath: '/onboarding/$projectId/connect'
-      preLoaderRoute: typeof OnboardingProjectIdConnectRouteImport
       parentRoute: typeof OnboardingRouteRoute
     }
     '/api/internal/scan-results': {
@@ -556,17 +556,15 @@ declare module '@tanstack/react-router' {
 interface OnboardingRouteRouteChildren {
   OnboardingProjectRoute: typeof OnboardingProjectRoute
   OnboardingIndexRoute: typeof OnboardingIndexRoute
-  OnboardingProjectIdConnectRoute: typeof OnboardingProjectIdConnectRoute
   OnboardingProjectIdDiscoveryRoute: typeof OnboardingProjectIdDiscoveryRoute
-  OnboardingProjectIdVerifyRoute: typeof OnboardingProjectIdVerifyRoute
+  OnboardingProjectIdNotificationsRoute: typeof OnboardingProjectIdNotificationsRoute
 }
 
 const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
   OnboardingProjectRoute: OnboardingProjectRoute,
   OnboardingIndexRoute: OnboardingIndexRoute,
-  OnboardingProjectIdConnectRoute: OnboardingProjectIdConnectRoute,
   OnboardingProjectIdDiscoveryRoute: OnboardingProjectIdDiscoveryRoute,
-  OnboardingProjectIdVerifyRoute: OnboardingProjectIdVerifyRoute,
+  OnboardingProjectIdNotificationsRoute: OnboardingProjectIdNotificationsRoute,
 }
 
 const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
@@ -657,6 +655,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   AppRoute: AppRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
+  ApiScreenshotsRoute: ApiScreenshotsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
   AuthAppIndexRoute: AuthAppIndexRoute,

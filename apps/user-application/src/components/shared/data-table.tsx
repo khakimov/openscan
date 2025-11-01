@@ -6,7 +6,7 @@ import {
 } from "@tanstack/react-table";
 import type { ColumnDef, RowData } from "@tanstack/react-table";
 
-import { Grid, GridBody, GridCell, GridHeader, GridRow } from "./grid-table";
+import { Grid, GridBody, GridCell, GridHeader, GridRow } from "@/components/ui/grid-table";
 
 interface DataTableProps<TData> {
   columns: ColumnDef<TData, any>[];

@@ -10,6 +10,7 @@ import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries"
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
+import { useParams } from "@tanstack/react-router";
 
 // Form validation schema
 const AddDeviceSchema = z.object({
@@ -41,10 +42,21 @@ export default function AddDevice() {
 
   const queryClient = useQueryClient();
 
+  // Get current project ID from route params
+  const { projectId } = useParams({ strict: false });
+
   // Create device mutation (using centralized hook)
   const createDeviceMutation = useCreateDevicesFromDiscoveryMutation();
 
   const onSubmit = async (data: AddDeviceFormData) => {
+    // ✅ Enforce projectId at runtime (compile-time already enforced by mutation hook)
+    if (!projectId) {
+      toast.error("Project required", {
+        description: "Cannot add devices without a project context. Please navigate to a project first.",
+      });
+      return;
+    }
+
     // Parse targets from textarea (one per line)
     const targets = data.targets
       .split('\n')
@@ -53,7 +65,10 @@ export default function AddDevice() {
       .map(host => ({ host }));
 
     createDeviceMutation.mutate(
-      { targets },
+      {
+        targets,
+        projectId, // ✅ TypeScript knows this is string (not undefined) after guard above
+      },
       {
         onSuccess: async (response) => {
           // Wait for device list to refetch before closing modal

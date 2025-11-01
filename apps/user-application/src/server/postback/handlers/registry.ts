@@ -165,6 +165,8 @@ export const postbackRegistry = new PostbackRegistry();
  */
 import { portScanPostbackHandler } from './port-scan';
 import { discoveryPostbackHandler } from './discovery';
+import { httpxPostbackHandler } from './httpx';
 
 postbackRegistry.register(portScanPostbackHandler);
 postbackRegistry.register(discoveryPostbackHandler);
+postbackRegistry.register(httpxPostbackHandler);

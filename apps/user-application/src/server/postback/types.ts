@@ -124,6 +124,53 @@ export interface DiscoveryPostback extends BasePostback {
 }
 
 /**
+ * HTTPx postback - sent when HTTP/HTTPS probing workflow completes
+ */
+export interface HttpxPostback extends BasePostback {
+  type: 'HTTPX';
+
+  /** Device ID that was probed */
+  deviceId: string;
+
+  /** Probe results data */
+  data: {
+    /** Target that was probed (IP or hostname) */
+    target: string;
+
+    /** Array of HTTP probe results */
+    probes: Array<{
+      port: number;
+      url: string;
+      status: 'SUCCESS' | 'FAILED' | 'TIMEOUT';
+
+      // HTTP metadata (optional - only present on SUCCESS)
+      scheme?: 'http' | 'https';
+      statusCode?: number;
+      title?: string;
+      headers?: Record<string, string>;
+      responseTime?: number;
+      contentLength?: number;
+      finalUrl?: string;
+      tlsVersion?: string;
+      webServer?: string;
+      screenshot?: string;
+      screenshotBase64?: string;
+
+      // Tech detection
+      technologies?: Array<{
+        name: string;
+        version?: string;
+        confidence: 'high' | 'medium' | 'low';
+      }>;
+
+      // Error info (only present on FAILED/TIMEOUT)
+      error?: string;
+      errorType?: 'CONNECTION_REFUSED' | 'TIMEOUT' | 'DNS_ERROR' | 'SSL_ERROR' | 'UNKNOWN';
+    }>;
+  };
+}
+
+/**
  * Discriminated union of all postback types
  *
  * TypeScript will narrow the type based on the 'type' field:
@@ -141,7 +188,8 @@ export interface DiscoveryPostback extends BasePostback {
  */
 export type PostbackPayload =
   | PortScanPostback
-  | DiscoveryPostback;
+  | DiscoveryPostback
+  | HttpxPostback;
   // Add new postback types here:
   // | WebScanPostback
   // | VulnerabilityScanPostback

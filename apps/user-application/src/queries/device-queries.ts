@@ -308,13 +308,28 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
   });
 };
 
+/**
+ * Create devices from UI flows (AddDevice modal, etc.)
+ *
+ * This mutation REQUIRES projectId at compile-time.
+ * TypeScript will error if you try to call it without projectId.
+ *
+ * Example usage:
+ * ```tsx
+ * const { projectId } = useParams();
+ * const mutation = useCreateDevicesFromDiscoveryMutation();
+ * mutation.mutate({
+ *   targets: [{ host: 'example.com' }],
+ *   projectId,  // ✅ Required - won't compile without it
+ * });
+ * ```
+ */
 export const useCreateDevicesFromDiscoveryMutation = () => {
   return useMutation({
     mutationKey: ['devices', 'create-from-discovery'],
     mutationFn: (data: {
       targets: Array<{ host: string; ip?: string }>;
-      organizationId?: string;
-      projectId?: string;
+      projectId: string;  // ✅ REQUIRED - no question mark!
       options?: {
         source?: string;
         scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';

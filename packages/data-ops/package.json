@@ -38,6 +38,9 @@
   },
   "scripts": {
     "build": "tsc -p tsconfig.json --outDir ./dist && tsc-alias",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:ui": "vitest --ui",
     "better-auth:generate": "mkdir -p src/drizzle && npx @better-auth/cli@latest generate --config ./config/auth.ts --output ./src/drizzle/auth-schema.ts",
     "drizzle:generate": "drizzle-kit generate --config drizzle.config.ts",
     "drizzle:migrate": "pnpm wrangler --config ../../apps/user-application/wrangler.jsonc d1 migrations apply sec-db --local",
@@ -58,16 +61,21 @@
     "better-auth": "^1.3.7",
     "better-sqlite3": "^12.2.0",
     "drizzle-orm": "^0.44.5",
+    "drizzle-zod": "^0.8.3",
     "zod": "^4.1.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20250823.0",
     "@types/better-sqlite3": "^7.6.13",
+    "@vitest/ui": "^4.0.6",
     "better-sqlite#": "link:@types/better-sqlite#",
     "drizzle-kit": "^0.31.5",
     "mysql2": "^3.14.3",
     "postgres": "^3.4.7",
     "tsc-alias": "^1.8.16",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "vite": "^7.1.12",
+    "vite-tsconfig-paths": "^5.1.4",
+    "vitest": "^4.0.6"
   }
 }

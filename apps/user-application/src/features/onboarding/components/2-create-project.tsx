@@ -119,9 +119,9 @@ export function OnboardingCreateProject({
             search: { domain: value.domain },
           });
         } else {
-          // Skip discovery, go directly to step 4 (connect)
+          // Skip discovery and step 4 (connect is disabled), go directly to step 5 (notifications)
           navigate({
-            to: "/onboarding/$projectId/connect",
+            to: "/onboarding/$projectId/notifications",
             params: { projectId: setupResult.projectId },
           });
         }

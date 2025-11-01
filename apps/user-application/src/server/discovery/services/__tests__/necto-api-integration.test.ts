@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { NectoAPIClient, createNectoAPIClient } from '../necto-api-client';
+import { createNectoAPIClient } from '../necto-api-client';
 import type { PortScanPort } from '@repo/data-ops';
 
 // Only run these tests if NECTO_API_URL is set

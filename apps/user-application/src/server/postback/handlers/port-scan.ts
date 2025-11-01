@@ -15,6 +15,7 @@ import {
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
 import type { CVEEnrichment } from '@repo/data-ops';
+import { safeParseCVEEnrichment } from '@repo/data-ops';
 import {
   AnalyticsEventTypes,
   buildSuccessAnalytics,
@@ -24,6 +25,7 @@ import {
   createNectoAPIClient,
   type NectoAPIClient,
 } from '@/server/discovery/services/necto-api-client';
+import { getRestateHttpClient } from '@/server/utils/restate-http-client';
 
 /**
  * Necto API client singleton
@@ -51,6 +53,24 @@ function getNectoAPIClient(nectoApiUrl?: string, apiKey?: string): NectoAPIClien
  */
 export function resetNectoClientForTesting(): void {
   nectoClientInstance = null;
+}
+
+/**
+ * Extract all open ports with service detection for httpx probing
+ *
+ * Strategy: Probe ALL open ports that have service information
+ * Rationale:
+ * - Service detection is often inaccurate (e.g., port 9100 shows as "jetdirect" but is actually HTTP)
+ * - httpx fails fast on non-HTTP ports (timeout in seconds)
+ * - Only probe ports with services to avoid WAF scenarios (all ports open, no actual services)
+ * - Industry standard approach used by httpx, nuclei, aquatone, EyeWitness
+ * - Ensures we don't miss HTTP services on non-standard ports
+ */
+function extractPortsForHttpx(ports: Array<{ port: number; state: string; service?: any }>): number[] {
+  return ports
+    .filter((p) => p.state === 'open' && (p.service?.name || p.service?.product))
+    .map((p) => p.port)
+    .sort((a, b) => a - b);
 }
 
 /**
@@ -274,17 +294,31 @@ export class PortScanPostbackHandler
     if (hasOpenPorts || hasOSInfo) {
       try {
         const nectoClient = getNectoAPIClient(ctx.env?.NECTO_API_URL, ctx.env?.WORKER_API_KEY);
-        cveEnrichment = await nectoClient.enrichScanResults(
+        const rawEnrichment = await nectoClient.enrichScanResults(
           openPorts,
           data.osInfo
         );
 
-        ctx.logger.info('CVE enrichment completed', {
-          scanId,
-          totalCves: cveEnrichment.summary.totalCves,
-          criticalCount: cveEnrichment.summary.totalCritical,
-          highCount: cveEnrichment.summary.totalHigh,
-        });
+        // ✅ Schema-first pattern: Validate CVE enrichment data
+        const validationResult = safeParseCVEEnrichment(rawEnrichment);
+
+        if (!validationResult.success) {
+          ctx.logger.error('CVE enrichment validation failed', {
+            scanId,
+            error: validationResult.error.message,
+            issues: validationResult.error.issues,
+          });
+          // cveEnrichment remains undefined - don't save invalid data
+        } else {
+          cveEnrichment = validationResult.data;
+
+          ctx.logger.info('CVE enrichment completed', {
+            scanId,
+            totalCves: cveEnrichment.summary.totalCves,
+            criticalCount: cveEnrichment.summary.totalCritical,
+            highCount: cveEnrichment.summary.totalHigh,
+          });
+        }
       } catch (error) {
         // Don't fail scan if enrichment fails
         ctx.logger.error(
@@ -400,11 +434,58 @@ export class PortScanPostbackHandler
       });
     }
 
+    // Step 7: Trigger httpx workflow for all open ports with service detection
+    const portsForHttpx = extractPortsForHttpx(data.ports || []);
+
+    if (portsForHttpx.length > 0) {
+      ctx.logger.info('Open ports with services detected, triggering httpx probe', {
+        scanId,
+        deviceId,
+        target: data.target,
+        ports: portsForHttpx,
+        portCount: portsForHttpx.length,
+      });
+
+      try {
+        // Use Restate HTTP client for consistent invocation
+        const restateClient = getRestateHttpClient(
+          ctx.env?.RESTATE_INGRESS_URL || process.env.RESTATE_INGRESS_URL
+        );
+
+        const callbackUrl = `${ctx.env?.APP_URL || process.env.APP_URL || 'https://sec-rocks.saipe.workers.dev'}/api/internal/scan-results`;
+
+        await restateClient.startHttpxProbe({
+          target: data.target,
+          ports: portsForHttpx,
+          scanRunId: scanRun.id,
+          deviceId,
+          organizationId,
+          callbackUrl,
+          screenshotsEnabled: true,
+          timeout: 10,
+        });
+
+        ctx.logger.info('Httpx probe triggered successfully', {
+          scanRunId: scanRun.id,
+          portsQueued: portsForHttpx.length,
+        });
+      } catch (error) {
+        // Non-critical - log but don't fail port scan postback
+        ctx.logger.error('Failed to trigger httpx workflow', {
+          scanId,
+          deviceId,
+          error: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+        });
+      }
+    }
+
     ctx.logger.info('Scan results stored successfully', {
       deviceId,
       scanId,
       scanRunId: scanRun.id,
       portsStored: openPorts.length,
+      httpxPortsQueued: portsForHttpx.length,
     });
 
     // Build analytics with CVE count

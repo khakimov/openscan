@@ -160,7 +160,147 @@ import { devices } from "@repo/data-ops/schema";
 const { getDb } = await import("@repo/data-ops/database/setup");
 ```
 
-#### 4. **Server function pattern**
+#### 4. **Schema-First Data Operations (CRITICAL PATTERN)**
+
+**Problem:** Type safety breaks down across layers. A UI component can create invalid data (e.g., missing required `projectId`) because the mutation hook accepts optional types, even though the database expects specific fields.
+
+**Solution:** Split contracts for different use cases + compile-time enforcement at all layers.
+
+##### Pattern: UI vs Worker Contracts
+
+```typescript
+// packages/data-ops/src/queries/devices.ts
+import { createInsertSchema } from 'drizzle-zod';
+import { z } from 'zod';
+
+// ✅ UI Contract - projectId REQUIRED
+export const CreateDevicesInProjectSchema = z.object({
+  targets: z.array(z.object({ host: z.string().min(1) })),
+  projectId: z.string().min(1, 'Project ID is required'),  // ✅ Required!
+  organizationId: z.string().min(1),
+  options: z.object({ /* ... */ }).optional(),
+});
+
+export type CreateDevicesInProjectInput = z.infer<typeof CreateDevicesInProjectSchema>;
+
+// ✅ Worker Contract - projectId OPTIONAL
+export const CreateDevicesFromDiscoverySchema = z.object({
+  targets: z.array(z.object({ host: z.string().min(1) })),
+  projectId: z.string().min(1).optional().nullable(),  // ✅ Optional for workers
+  organizationId: z.string().min(1),
+  options: z.object({ /* ... */ }).optional(),
+});
+
+export type CreateDevicesFromDiscoveryInput = z.infer<typeof CreateDevicesFromDiscoverySchema>;
+
+// ✅ UI Function - Enforces strict contract
+export async function createDevicesInProject(input: CreateDevicesInProjectInput) {
+  const validated = CreateDevicesInProjectSchema.parse(input);  // Runtime check
+  // projectId guaranteed by type system
+}
+
+// ✅ Worker Function - Allows flexible contract
+export async function createDevicesFromDiscovery(input: CreateDevicesFromDiscoveryInput) {
+  const validated = CreateDevicesFromDiscoverySchema.parse(input);  // Runtime check
+  // projectId may be null/undefined
+}
+```
+
+##### Enforce at UI Layer (TanStack Mutation Hook)
+
+```typescript
+// apps/user-application/src/queries/device-queries.ts
+import type { CreateDevicesInProjectInput } from '@repo/data-ops';
+
+export const useCreateDevicesFromDiscoveryMutation = () => {
+  return useMutation({
+    mutationFn: (data: {
+      targets: Array<{ host: string; ip?: string }>;
+      projectId: string;  // ✅ REQUIRED - TypeScript error if missing!
+      options?: { /* ... */ };
+    }) => createDevicesFromDiscovery({ data }),
+  });
+};
+```
+
+##### UI Component with Runtime Guard
+
+```typescript
+// apps/user-application/src/modals/AddDevice.tsx
+const { projectId } = useParams({ strict: false });  // May be undefined
+const mutation = useCreateDevicesFromDiscoveryMutation();
+
+const onSubmit = async (data: FormData) => {
+  // ✅ Runtime guard (TypeScript already enforces at mutation call)
+  if (!projectId) {
+    toast.error("Project required");
+    return;
+  }
+
+  mutation.mutate({
+    targets: data.targets,
+    projectId,  // ✅ TypeScript knows this is string after guard
+  });
+};
+```
+
+##### Type-Level Tests (Guard Against Schema Evolution)
+
+```typescript
+// packages/data-ops/src/queries/__tests__/devices-schema.test.ts
+import { expectTypeOf } from 'vitest';
+
+describe('Device Schema Contracts', () => {
+  it('UI contract should require projectId', () => {
+    expectTypeOf<CreateDevicesInProjectInput['projectId']>().toBeString();
+    expectTypeOf<CreateDevicesInProjectInput['projectId']>().not.toBeNullable();
+  });
+
+  it('should fail CI if Drizzle schema changes', () => {
+    type DrizzleInsert = typeof devices.$inferInsert;
+
+    // If projectId becomes .notNull() in Drizzle, this fails
+    expectTypeOf<DrizzleInsert['projectId']>().toMatchTypeOf<string | null | undefined>();
+  });
+
+  it('should reject missing projectId at runtime', () => {
+    expect(() => CreateDevicesInProjectSchema.parse({
+      targets: [{ host: 'example.com' }],
+      organizationId: 'org123',
+      // projectId missing
+    })).toThrow(/Project ID is required/);
+  });
+});
+```
+
+##### Why This Works
+
+| Layer | Enforcement | How |
+|-------|-------------|-----|
+| **Database** | NOT NULL constraints | Drizzle schema: `projectId: text('project_id')` (nullable) |
+| **Runtime** | Zod validation | Schema parsing throws before DB insert |
+| **Compile-Time** | TypeScript types | Mutation hook requires `projectId: string` (no `?`) |
+| **CI/Tests** | Type assertions | `expectTypeOf` fails if schema changes |
+
+##### Golden Rules for This Pattern
+
+1. **UI flows use strict contracts** - `CreateDevicesInProjectInput` requires projectId
+2. **Worker flows use flexible contracts** - `CreateDevicesFromDiscoveryInput` allows null
+3. **Mutation hooks enforce at compile-time** - No optional `projectId?` in UI hooks
+4. **Add runtime guards in components** - Check `if (!projectId)` before mutation
+5. **Type tests catch schema drift** - `expectTypeOf` breaks CI when schema changes
+
+**Example Bug This Prevents:**
+```typescript
+// Before: ❌ This compiled but created invalid data
+mutation.mutate({ targets: [...] });  // projectId missing, device orphaned
+
+// After: ✅ TypeScript error at compile-time
+mutation.mutate({ targets: [...] });
+//                ^^^ Error: Property 'projectId' is missing
+```
+
+#### 5. **Server function pattern**
 
 ```typescript
 // apps/user-application/src/server/devices.ts

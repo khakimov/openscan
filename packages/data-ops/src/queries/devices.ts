@@ -1,10 +1,92 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects } from '../schema';
+import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies } from '../schema';
+import { createInsertSchema } from 'drizzle-zod';
+import { z } from 'zod';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
   return (timestamp !== null && timestamp !== undefined) ? new Date(timestamp) : undefined;
+}
+
+// ============================================================================
+// Schema Contracts (Generated from Drizzle + Validation Overrides)
+// ============================================================================
+
+/**
+ * Schema for creating devices from UI flows (modals, onboarding, etc.)
+ *
+ * Key requirement: projectId is REQUIRED
+ * Use this when users are explicitly creating devices in a project context.
+ */
+export const CreateDevicesInProjectSchema = z.object({
+  targets: z.array(z.object({
+    host: z.string().min(1, 'Host is required'),
+    ip: z.string().optional(),  // IP validation happens at data-ops layer
+  })).min(1, 'At least one target is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  organizationId: z.string().min(1, 'Organization ID is required'),
+  options: z.object({
+    source: z.string().optional(),
+    scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
+    verificationStatus: z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']).optional(),
+  }).optional(),
+});
+
+export type CreateDevicesInProjectInput = z.infer<typeof CreateDevicesInProjectSchema>;
+
+/**
+ * Schema for creating devices from discovery/worker flows
+ *
+ * Key difference: projectId is OPTIONAL
+ * Use this for automated ingestion where devices may not belong to a project yet.
+ */
+export const CreateDevicesFromDiscoverySchema = z.object({
+  targets: z.array(z.object({
+    host: z.string().min(1, 'Host is required'),
+    ip: z.string().optional(),  // IP validation happens at data-ops layer
+  })).min(1, 'At least one target is required'),
+  projectId: z.string().min(1).optional().nullable(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
+  options: z.object({
+    source: z.string().optional(),
+    scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
+    verificationStatus: z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']).optional(),
+  }).optional(),
+});
+
+export type CreateDevicesFromDiscoveryInput = z.infer<typeof CreateDevicesFromDiscoverySchema>;
+
+// ============================================================================
+// Device Creation Functions
+// ============================================================================
+
+/**
+ * Create devices from UI flows (modals, onboarding)
+ *
+ * This is the STRICT version that REQUIRES projectId.
+ * Use this when users are explicitly creating devices in a project context.
+ *
+ * @throws {ZodError} If input validation fails
+ * @throws {Error} If project not found or access denied
+ */
+export async function createDevicesInProject(
+  input: CreateDevicesInProjectInput
+) {
+  // ✅ Runtime validation (throws ZodError if invalid)
+  const validated = CreateDevicesInProjectSchema.parse(input);
+
+  // Delegate to the underlying implementation
+  return createMultipleDevicesFromDiscovery(
+    validated.targets,
+    validated.organizationId,
+    {
+      projectId: validated.projectId,  // ✅ TypeScript guarantees this is defined
+      source: validated.options?.source,
+      scope: validated.options?.scope,
+      verificationStatus: validated.options?.verificationStatus,
+    }
+  );
 }
 
 // Types
@@ -264,6 +346,7 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
   // Get the latest scan's result summary for port information
   const latestScan = await db
     .select({
+      scanRunId: scanRuns.id,
       resultSummary: scanRuns.resultSummary,
     })
     .from(scanRuns)
@@ -283,13 +366,72 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     const ports = resultSummary?.ports || [];
     const openPortCount = resultSummary?.openPortCount || ports.length || 0;
 
+    // Fetch httpx probes for this device's latest scan
+    let httpxProbesMap = new Map();
+    if (latestScan[0]?.scanRunId) {
+      const httpxProbesData = await db
+        .select({
+          port: scanArtifacts.port,
+          scheme: httpxProbes.scheme,
+          statusCode: httpxProbes.statusCode,
+          title: httpxProbes.title,
+          screenshot: httpxProbes.screenshot,
+          responseTime: httpxProbes.responseTime,
+          webServer: httpxProbes.webServer,
+          metadata: httpxProbes.metadata,
+          techName: technologies.name,
+          techConfidence: httpxTechDetections.confidence,
+          techVersion: httpxTechDetections.version,
+        })
+        .from(scanArtifacts)
+        .innerJoin(httpxProbes, eq(scanArtifacts.id, httpxProbes.artifactId))
+        .leftJoin(httpxTechDetections, eq(httpxProbes.id, httpxTechDetections.probeId))
+        .leftJoin(technologies, eq(httpxTechDetections.technologyId, technologies.id))
+        .where(and(
+          eq(scanArtifacts.scanRunId, latestScan[0].scanRunId),
+          eq(scanArtifacts.deviceId, deviceId),
+          eq(scanArtifacts.toolName, 'httpx')
+        ));
+
+      // Group technologies by port
+      for (const probe of httpxProbesData) {
+        if (!httpxProbesMap.has(probe.port)) {
+          httpxProbesMap.set(probe.port, {
+            scheme: probe.scheme,
+            statusCode: probe.statusCode,
+            title: probe.title,
+            screenshot: probe.screenshot,
+            responseTime: probe.responseTime,
+            webServer: probe.webServer,
+            metadata: probe.metadata,
+            technologies: [],
+          });
+        }
+
+        // Add technology if present
+        if (probe.techName) {
+          httpxProbesMap.get(probe.port).technologies.push({
+            name: probe.techName,
+            confidence: probe.techConfidence,
+            version: probe.techVersion,
+          });
+        }
+      }
+    }
+
+    // Merge httpx data into ports array
+    const portsWithHttpx = ports.map((port: any) => ({
+      ...port,
+      httpxProbe: httpxProbesMap.get(port.port) || undefined,
+    }));
+
     deviceScanStats = {
       scanCount: Number(stat.scanCount),
       totalScans: Number(stat.scanCount),
       lastScanAt: toDateOrUndefined(stat.lastScanAt),
       openPortCount,
       totalPortCount: openPortCount,
-      ports,
+      ports: portsWithHttpx,
       // Smart metadata for UI (port filtering, WAF/proxy detection)
       portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
       scanPattern: resultSummary?.scanPattern,

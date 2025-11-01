@@ -85,6 +85,10 @@ export const AnalyticsEventTypes = {
   DISCOVERY_SUCCESS: 'postback_discovery_success',
   DISCOVERY_FAILURE: 'postback_discovery_failure',
 
+  // HTTPx
+  HTTPX_SUCCESS: 'postback_httpx_success',
+  HTTPX_FAILURE: 'postback_httpx_failure',
+
   // Generic
   GENERIC_FAILURE: 'postback_failure',
 } as const;

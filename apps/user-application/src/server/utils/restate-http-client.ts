@@ -328,6 +328,59 @@ export class RestateHttpClient {
       throw error;
     }
   }
+
+  /**
+   * Start HTTPx probe (async service invocation)
+   * Probes HTTP/HTTPS services and captures screenshots
+   * Uses /send endpoint for async execution (same pattern as PortScanner)
+   */
+  async startHttpxProbe(input: {
+    target: string;
+    ports: number[];
+    scanRunId: string;
+    deviceId: string;
+    organizationId: string;
+    callbackUrl: string;
+    screenshotsEnabled?: boolean;
+    timeout?: number;
+  }): Promise<void> {
+    // Use /send endpoint for async execution (same pattern as PortScanner)
+    const url = `${this.baseUrl}/Httpx/probe/send`;
+
+    logger.info('Starting async HTTPx probe in Restate', {
+      url,
+      target: input.target,
+      ports: input.ports,
+      portCount: input.ports.length,
+    });
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(input),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Restate httpx invocation failed: ${response.status} ${errorText}`);
+      }
+
+      const invocationId = response.headers.get('x-restate-invocation-id');
+
+      logger.info('HTTPx probe started successfully', {
+        target: input.target,
+        portsQueued: input.ports.length,
+        invocationId,
+      });
+    } catch (error) {
+      logger.error('Failed to start HTTPx probe', {
+        error: error instanceof Error ? error.message : String(error),
+        url,
+      });
+      throw error;
+    }
+  }
 }
 
 /**

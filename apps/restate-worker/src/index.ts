@@ -1,6 +1,7 @@
 import * as restate from '@restatedev/restate-sdk';
 import { portScanner } from './port-scanner';
 import { discoveryService } from './discovery-service';
+import { httpxService } from './httpx-service';
 import { createLogger } from '@repo/logger';
 import { checkDeploymentStatus, logDeploymentGuidance } from './deployment-checker';
 
@@ -32,7 +33,8 @@ const IDENTITY_KEYS = process.env.RESTATE_IDENTITY_KEYS
 const endpoint = restate
   .endpoint()
   .bind(portScanner)
-  .bind(discoveryService);
+  .bind(discoveryService)
+  .bind(httpxService);
 
 endpoint
   .listen(PORT)
@@ -46,6 +48,10 @@ endpoint
       {
         name: 'Discovery',
         handlers: ['discover', 'getState'],
+      },
+      {
+        name: 'Httpx',
+        handlers: ['probe', 'getState'],
       },
     ];
 

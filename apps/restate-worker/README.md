@@ -107,6 +107,73 @@ curl -X POST https://<YOUR-ENV>.restate.cloud/PortScanner/scan \
 
 ## Available Services
 
+### Httpx
+
+#### `probe(input)`
+
+Probes HTTP/HTTPS services using httpx CLI tool. Captures screenshots, HTTP metadata, and technology detection.
+
+**Input:**
+```typescript
+{
+  target: string;             // IP or domain
+  ports: number[];            // List of ports to probe (e.g., [80, 443, 8080])
+  scanRunId: string;          // Scan run ID for linking results
+  deviceId: string;           // Device ID
+  organizationId: string;     // Tenant ID
+  callbackUrl: string;        // Where to POST results
+  screenshotsEnabled?: boolean; // Enable screenshot capture (default: true)
+  timeout?: number;           // Per-request timeout in seconds (default: 10)
+}
+```
+
+**Output:**
+```typescript
+{
+  scanId: string;
+  target: string;
+  probes: Array<{
+    port: number;
+    url: string;
+    status: 'SUCCESS' | 'FAILED';
+    // On SUCCESS:
+    scheme?: string;
+    statusCode?: number;
+    title?: string;
+    screenshot?: string;      // Local file path
+    webServer?: string;
+    responseTime?: number;
+    technologies?: Array<{name: string, confidence: string}>;
+    // On FAILED:
+    error?: string;
+    errorType?: 'CONNECTION_REFUSED' | 'TIMEOUT' | 'DNS_ERROR' | 'SSL_ERROR' | 'UNKNOWN';
+  }>;
+  totalProbes: number;
+  successCount: number;
+  failedCount: number;
+  duration: number;
+  completedAt: string;
+}
+```
+
+**Screenshot Storage:**
+- Screenshots are saved locally by httpx to `~/.config/httpx/screenshot/`
+- File paths are stored in the database
+- Future: Upload to R2 for persistent storage
+
+#### `getState(input)`
+
+Get probe state/progress (for polling).
+
+**Input:**
+```typescript
+{
+  scanId: string;
+}
+```
+
+---
+
 ### PortScanner
 
 #### `scan(input)`
@@ -200,12 +267,70 @@ cp .env.example .env
 - `RESTATE_PORT` - Port to listen on (default: 9080)
 - `RESTATE_IDENTITY_KEYS` - Comma-separated public keys from Restate Cloud (for security)
 
+## Remote Deployment with Tunnel
+
+For deploying the worker on a private server connected to Restate Cloud via tunnel:
+
+### 1. Setup Tunnel (Docker)
+
+```bash
+# Create env file
+cat > tunnel.env << 'EOF'
+RESTATE_ENVIRONMENT_ID=env_YOUR_ENV_ID
+RESTATE_BEARER_TOKEN=key_YOUR_API_KEY
+RESTATE_TUNNEL_NAME=prod-tunnel
+RESTATE_SIGNING_PUBLIC_KEY=publickeyv1_YOUR_PUBLIC_KEY
+RESTATE_CLOUD_REGION=us
+EOF
+
+# Start tunnel with host networking
+docker run --network host --env-file tunnel.env -d --restart unless-stopped \
+  ghcr.io/restatedev/restate-cloud-tunnel-client:latest
+```
+
+### 2. Configure Worker
+
+Create `.env`:
+
+```bash
+RESTATE_PORT=9080
+RESTATE_IDENTITY_KEYS=publickeyv1_YOUR_PUBLIC_KEY
+WORKER_API_KEY=your-secret-key
+POSTBACK_URL=https://your-app.workers.dev/api/internal/scan-results
+```
+
+### 3. Start Worker & Register
+
+```bash
+# Start worker
+pnpm dev
+
+# Register via tunnel (from local machine with restate CLI)
+restate deployments register https://tunnel.us.restate.cloud:9080/YOUR_ENV_ID/prod-tunnel/http/localhost/9080
+```
+
+Get credentials from: https://cloud.restate.dev → Your Environment → Settings
+
+---
+
 ## Production Deployment
 
 ### Prerequisites
 
 - Node.js 18+
 - nmap installed (`apt-get install nmap` or `brew install nmap`)
+- httpx installed (`go install -v github.com/projectdiscovery/httpx-toolkit/cmd/httpx@latest`)
+- Google Chrome (required for httpx screenshots):
+  ```bash
+  # Ubuntu/Debian
+  echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" | sudo tee /etc/apt/sources.list.d/google-chrome.list
+  wget -q -O - https://dl.google.com/linux/linux_signing_key.pub | sudo apt-key add -
+  sudo apt-get update
+  sudo apt-get install -y google-chrome-stable
+
+  # Verify installation
+  google-chrome --version
+  ```
 - Network access to scan targets
 
 ### Deploy Steps
@@ -291,6 +416,17 @@ CMD ["node", "dist/index.js"]
 - Increase `timeout` in scan input
 - Check network access to target
 - Verify nmap is working: `nmap -V`
+
+**httpx screenshots not working:**
+- Install Chrome: See Prerequisites section above
+- Verify Chrome: `google-chrome --version`
+- Test httpx: `httpx -json -ss -system-chrome http://example.com`
+- Check Chrome dependencies are installed (see httpx service section)
+
+**httpx not found:**
+- Install: `go install -v github.com/projectdiscovery/httpx-toolkit/cmd/httpx@latest`
+- Check PATH: `echo $PATH | grep go/bin`
+- Verify: `httpx -version`
 
 ## Next Steps
 
