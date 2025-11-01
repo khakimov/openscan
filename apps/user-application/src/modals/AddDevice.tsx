@@ -49,6 +49,14 @@ export default function AddDevice() {
   const createDeviceMutation = useCreateDevicesFromDiscoveryMutation();
 
   const onSubmit = async (data: AddDeviceFormData) => {
+    // ✅ Enforce projectId at runtime (compile-time already enforced by mutation hook)
+    if (!projectId) {
+      toast.error("Project required", {
+        description: "Cannot add devices without a project context. Please navigate to a project first.",
+      });
+      return;
+    }
+
     // Parse targets from textarea (one per line)
     const targets = data.targets
       .split('\n')
@@ -59,7 +67,7 @@ export default function AddDevice() {
     createDeviceMutation.mutate(
       {
         targets,
-        projectId, // ✅ FIX: Pass projectId from route params
+        projectId, // ✅ TypeScript knows this is string (not undefined) after guard above
       },
       {
         onSuccess: async (response) => {

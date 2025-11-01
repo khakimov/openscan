@@ -145,11 +145,11 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
     const hasProject = onboarding.step >= 3 && Boolean(onboarding.projectId);
     const continueTarget = hasProject
       ? {
-          to: "/onboarding/$projectId/connect",
+          to: "/onboarding/$projectId/notifications",
           params: { projectId: onboarding.projectId! },
         }
       : { to: "/onboarding/project" };
-    const continueLabel = hasProject ? "Continue to monitoring setup" : "Continue to workspace setup";
+    const continueLabel = hasProject ? "Continue to notification setup" : "Continue to workspace setup";
 
     return (
       <OnboardingContentLayout

@@ -33,6 +33,16 @@ export * from './auth/setup';
 
 // Export queries
 export * from './queries/devices';
+
+// Explicitly export device creation schemas and types for visibility
+export {
+  CreateDevicesInProjectSchema,
+  CreateDevicesFromDiscoverySchema,
+  createDevicesInProject,
+  type CreateDevicesInProjectInput,
+  type CreateDevicesFromDiscoveryInput,
+} from './queries/devices';
+
 export * from './queries/scans';
 export * from './queries/projects';
 export * from './queries/organizations';

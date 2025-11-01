@@ -186,8 +186,7 @@ export function OnboardingDiscovery({
     saveDevicesMutation.mutate(
       {
         targets: targetsData,
-        organizationId: organizationId || undefined,
-        projectId,
+        projectId: projectId!,  // ✅ Onboarding flow guarantees projectId exists
         options: {
           source: "DISCOVERY",
           scope: "EXTERNAL",

@@ -1,10 +1,92 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies } from '../schema';
+import { createInsertSchema } from 'drizzle-zod';
+import { z } from 'zod';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
   return (timestamp !== null && timestamp !== undefined) ? new Date(timestamp) : undefined;
+}
+
+// ============================================================================
+// Schema Contracts (Generated from Drizzle + Validation Overrides)
+// ============================================================================
+
+/**
+ * Schema for creating devices from UI flows (modals, onboarding, etc.)
+ *
+ * Key requirement: projectId is REQUIRED
+ * Use this when users are explicitly creating devices in a project context.
+ */
+export const CreateDevicesInProjectSchema = z.object({
+  targets: z.array(z.object({
+    host: z.string().min(1, 'Host is required'),
+    ip: z.string().optional(),  // IP validation happens at data-ops layer
+  })).min(1, 'At least one target is required'),
+  projectId: z.string().min(1, 'Project ID is required'),
+  organizationId: z.string().min(1, 'Organization ID is required'),
+  options: z.object({
+    source: z.string().optional(),
+    scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
+    verificationStatus: z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']).optional(),
+  }).optional(),
+});
+
+export type CreateDevicesInProjectInput = z.infer<typeof CreateDevicesInProjectSchema>;
+
+/**
+ * Schema for creating devices from discovery/worker flows
+ *
+ * Key difference: projectId is OPTIONAL
+ * Use this for automated ingestion where devices may not belong to a project yet.
+ */
+export const CreateDevicesFromDiscoverySchema = z.object({
+  targets: z.array(z.object({
+    host: z.string().min(1, 'Host is required'),
+    ip: z.string().optional(),  // IP validation happens at data-ops layer
+  })).min(1, 'At least one target is required'),
+  projectId: z.string().min(1).optional().nullable(),
+  organizationId: z.string().min(1, 'Organization ID is required'),
+  options: z.object({
+    source: z.string().optional(),
+    scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
+    verificationStatus: z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']).optional(),
+  }).optional(),
+});
+
+export type CreateDevicesFromDiscoveryInput = z.infer<typeof CreateDevicesFromDiscoverySchema>;
+
+// ============================================================================
+// Device Creation Functions
+// ============================================================================
+
+/**
+ * Create devices from UI flows (modals, onboarding)
+ *
+ * This is the STRICT version that REQUIRES projectId.
+ * Use this when users are explicitly creating devices in a project context.
+ *
+ * @throws {ZodError} If input validation fails
+ * @throws {Error} If project not found or access denied
+ */
+export async function createDevicesInProject(
+  input: CreateDevicesInProjectInput
+) {
+  // ✅ Runtime validation (throws ZodError if invalid)
+  const validated = CreateDevicesInProjectSchema.parse(input);
+
+  // Delegate to the underlying implementation
+  return createMultipleDevicesFromDiscovery(
+    validated.targets,
+    validated.organizationId,
+    {
+      projectId: validated.projectId,  // ✅ TypeScript guarantees this is defined
+      source: validated.options?.source,
+      scope: validated.options?.scope,
+      verificationStatus: validated.options?.verificationStatus,
+    }
+  );
 }
 
 // Types

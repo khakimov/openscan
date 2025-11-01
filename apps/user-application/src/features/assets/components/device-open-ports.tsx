@@ -443,24 +443,32 @@ export function DeviceOpenPorts({
                                     </Button>
                                   </div>
 
-                                  {/* Screenshot Display */}
+                                  {/* Screenshot Thumbnail */}
                                   {port.httpxProbe.screenshot && deviceDetail?.id && (
                                     <div className="space-y-2">
                                       <Badge variant="outline" className="text-xs">
                                         Screenshot
                                       </Badge>
-                                      <div className="border rounded-md overflow-hidden bg-muted/30">
+                                      <a
+                                        href={`/api/screenshots?r2Key=${encodeURIComponent(port.httpxProbe.screenshot)}&deviceId=${encodeURIComponent(deviceDetail.id)}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="block border rounded-md overflow-hidden bg-muted/30 hover:ring-2 hover:ring-primary/50 transition-all max-w-xs"
+                                      >
                                         <img
                                           src={`/api/screenshots?r2Key=${encodeURIComponent(port.httpxProbe.screenshot)}&deviceId=${encodeURIComponent(deviceDetail.id)}`}
                                           alt={`Screenshot of ${port.httpxProbe.scheme}://${deviceDetail.name || deviceDetail.ip}:${port.port}`}
-                                          className="w-full h-auto"
+                                          className="w-full h-auto object-cover max-h-48"
                                           loading="lazy"
                                           onError={(e) => {
                                             // Hide image if it fails to load
                                             e.currentTarget.style.display = 'none';
                                           }}
                                         />
-                                      </div>
+                                      </a>
+                                      <p className="text-xs text-muted-foreground">
+                                        Click to view full size
+                                      </p>
                                     </div>
                                   )}
 
