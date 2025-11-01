@@ -1,8 +1,14 @@
 /**
  * HTTPx Postback Handler
  *
- * Handles postback callbacks from screenshot-worker for httpx probing workflows.
+ * Handles postback callbacks from restate-worker for httpx probing workflows.
  * Stores HTTP probe results, technology detections, and screenshots in the database.
+ *
+ * Screenshot Flow:
+ * 1. restate-worker captures screenshots via httpx CLI (local filesystem)
+ * 2. Screenshots read and base64 encoded in postback payload
+ * 3. This handler decodes and uploads to R2
+ * 4. R2 key stored in httpx_probes.screenshot field
  */
 
 import { z } from 'zod';
@@ -19,6 +25,11 @@ import {
   buildSuccessAnalytics,
   buildFailureAnalytics,
 } from '../analytics';
+import {
+  uploadScreenshot,
+  generateR2Key,
+} from '@/server/services/r2-storage';
+import { env } from 'cloudflare:workers';
 
 /**
  * Zod schema for httpx probe result validation
@@ -44,7 +55,8 @@ const HttpxProbeResultSchema = z.object({
   webServer: z.string().optional(),
 
   // Screenshot
-  screenshot: z.string().optional(),
+  screenshot: z.string().optional(), // Local file path (for debugging)
+  screenshotBase64: z.string().optional(), // Base64 encoded screenshot for R2 upload
 
   // Tech detection
   technologies: z.array(z.object({
@@ -144,14 +156,60 @@ export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
           status: probe.status,
         });
 
-        // Step 2: If probe succeeded, create httpx probe record
+        // Step 2: If probe succeeded, upload screenshot and create httpx probe record
         if (probe.status === 'SUCCESS') {
+          let r2Key: string | undefined;
+
+          // Upload screenshot to R2 if base64 data is present
+          if (probe.screenshotBase64 && env.SCREENSHOTS) {
+            try {
+              // Decode base64 to buffer
+              const buffer = Buffer.from(probe.screenshotBase64, 'base64');
+
+              // Generate R2 key
+              const key = generateR2Key(
+                organizationId,
+                deviceId,
+                scanRunId,
+                probe.port
+              );
+
+              // Upload to R2
+              r2Key = await uploadScreenshot(
+                env.SCREENSHOTS,
+                key,
+                buffer,
+                {
+                  organizationId,
+                  deviceId,
+                  scanRunId,
+                  port: probe.port,
+                  url: probe.url,
+                  capturedAt: payload.timestamp,
+                  fileSize: buffer.byteLength,
+                }
+              );
+
+              ctx.logger.info('Screenshot uploaded to R2', {
+                key: r2Key,
+                port: probe.port,
+                sizeBytes: buffer.byteLength,
+              });
+            } catch (error) {
+              // Non-critical - log error and continue without screenshot
+              ctx.logger.error('Failed to upload screenshot to R2', {
+                port: probe.port,
+                error: error instanceof Error ? error.message : String(error),
+              });
+            }
+          }
+
           const httpxProbe = await createHttpxProbe({
             artifactId: artifact.id,
             scheme: probe.scheme,
             statusCode: probe.statusCode,
             title: probe.title,
-            screenshot: probe.screenshot,
+            screenshot: r2Key || probe.screenshot, // Use R2 key if uploaded, fallback to local path
             headers: probe.headers,
             responseTime: probe.responseTime,
             contentLength: probe.contentLength,

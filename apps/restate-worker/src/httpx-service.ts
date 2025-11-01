@@ -10,14 +10,18 @@
  * This service is triggered after port scanning completes for ports likely to be HTTP/HTTPS.
  *
  * Screenshot Storage:
- * - Currently: Local file paths stored in database (e.g., ~/.config/httpx/screenshot/example.com_443.png)
- * - Future: Upload to R2 and store R2 keys (requires S3-compatible client or separate upload worker)
+ * - Screenshots captured locally by httpx CLI (e.g., ~/.config/httpx/screenshot/example.com_443.png)
+ * - Files read and encoded as base64
+ * - Posted to user-application via postback payload
+ * - user-application uploads to R2 and stores R2 keys in database
  */
 
 import * as restate from '@restatedev/restate-sdk';
 import { spawn } from 'child_process';
 import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
+import { readFile } from 'fs/promises';
+import { existsSync } from 'fs';
 
 const logger = createLogger({ name: 'restate-httpx' });
 
@@ -189,53 +193,80 @@ export const httpxService = restate.service({
           }
         });
 
-        // Step 2: Process and format results
-        const processedProbes = probeResults.map((result) => {
-          // Ensure port is a number (httpx might return it as string)
-          const port = typeof result.port === 'string' ? parseInt(result.port, 10) : (result.port || 0);
+        // Step 2: Process and format results with screenshot encoding
+        const processedProbes = await Promise.all(
+          probeResults.map(async (result) => {
+            // Ensure port is a number (httpx might return it as string)
+            const port = typeof result.port === 'string' ? parseInt(result.port, 10) : (result.port || 0);
 
-          if (result.failed) {
+            if (result.failed) {
+              return {
+                port,
+                url: result.url,
+                status: 'FAILED' as const,
+                error: result.error || 'Unknown error',
+                errorType: detectErrorType(result.error),
+              };
+            }
+
+            // Extract response time in milliseconds
+            const responseTime = result.response_time
+              ? parseInt(result.response_time.replace('ms', ''))
+              : undefined;
+
+            // Validate screenshot path (prevent path traversal)
+            let screenshotPath = result.screenshot_path;
+            let screenshotBase64: string | undefined;
+
+            if (screenshotPath) {
+              if (screenshotPath.includes('..')) {
+                logger.warn('Suspicious screenshot path detected', { path: screenshotPath });
+                screenshotPath = undefined;
+              } else {
+                // Read screenshot file and encode as base64
+                try {
+                  if (existsSync(screenshotPath)) {
+                    const buffer = await readFile(screenshotPath);
+                    screenshotBase64 = buffer.toString('base64');
+                    logger.info('Screenshot encoded', {
+                      path: screenshotPath,
+                      sizeBytes: buffer.length,
+                      base64Length: screenshotBase64.length,
+                    });
+                  } else {
+                    logger.warn('Screenshot file not found', { path: screenshotPath });
+                  }
+                } catch (error) {
+                  logger.error('Failed to read screenshot file', {
+                    path: screenshotPath,
+                    error: error instanceof Error ? error.message : String(error),
+                  });
+                }
+              }
+            }
+
             return {
               port,
               url: result.url,
-              status: 'FAILED' as const,
-              error: result.error || 'Unknown error',
-              errorType: detectErrorType(result.error),
+              status: 'SUCCESS' as const,
+              scheme: result.scheme,
+              statusCode: result.status_code,
+              title: result.title,
+              headers: result.header ? flattenHeaders(result.header) : undefined,
+              responseTime,
+              contentLength: result.content_length,
+              finalUrl: result.final_url,
+              tlsVersion: result.tls?.version,
+              webServer: result.webserver,
+              screenshot: screenshotPath, // Original file path for debugging
+              screenshotBase64, // Base64 encoded screenshot for R2 upload
+              technologies: result.tech?.map((name) => ({
+                name,
+                confidence: 'medium' as const, // httpx doesn't provide confidence
+              })),
             };
-          }
-
-          // Extract response time in milliseconds
-          const responseTime = result.response_time
-            ? parseInt(result.response_time.replace('ms', ''))
-            : undefined;
-
-          // Validate screenshot path (prevent path traversal)
-          let screenshotPath = result.screenshot_path;
-          if (screenshotPath && screenshotPath.includes('..')) {
-            logger.warn('Suspicious screenshot path detected', { path: screenshotPath });
-            screenshotPath = undefined;
-          }
-
-          return {
-            port,
-            url: result.url,
-            status: 'SUCCESS' as const,
-            scheme: result.scheme,
-            statusCode: result.status_code,
-            title: result.title,
-            headers: result.header ? flattenHeaders(result.header) : undefined,
-            responseTime,
-            contentLength: result.content_length,
-            finalUrl: result.final_url,
-            tlsVersion: result.tls?.version,
-            webServer: result.webserver,
-            screenshot: screenshotPath, // Absolute file path (e.g., /root/openscan/apps/restate-worker/output/screenshot/example.com/hash.png)
-            technologies: result.tech?.map((name) => ({
-              name,
-              confidence: 'medium' as const, // httpx doesn't provide confidence
-            })),
-          };
-        });
+          })
+        );
 
         const successCount = processedProbes.filter((p) => p.status === 'SUCCESS').length;
         const failedCount = processedProbes.filter((p) => p.status === 'FAILED').length;

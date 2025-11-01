@@ -442,6 +442,28 @@ export function DeviceOpenPorts({
                                       <Copy className="w-3 h-3" />
                                     </Button>
                                   </div>
+
+                                  {/* Screenshot Display */}
+                                  {port.httpxProbe.screenshot && deviceDetail?.id && (
+                                    <div className="space-y-2">
+                                      <Badge variant="outline" className="text-xs">
+                                        Screenshot
+                                      </Badge>
+                                      <div className="border rounded-md overflow-hidden bg-muted/30">
+                                        <img
+                                          src={`/api/screenshots?r2Key=${encodeURIComponent(port.httpxProbe.screenshot)}&deviceId=${encodeURIComponent(deviceDetail.id)}`}
+                                          alt={`Screenshot of ${port.httpxProbe.scheme}://${deviceDetail.hostname}:${port.port}`}
+                                          className="w-full h-auto"
+                                          loading="lazy"
+                                          onError={(e) => {
+                                            // Hide image if it fails to load
+                                            e.currentTarget.style.display = 'none';
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
+
                                   <pre className="text-xs bg-muted/50 p-3 rounded-md border overflow-auto max-h-64 font-mono">
                                     {JSON.stringify(port.httpxProbe, null, 2)}
                                   </pre>
@@ -475,9 +497,8 @@ export function DeviceOpenPorts({
                                         total)
                                       </span>
                                     </div>
-                                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                                    <div className="space-y-2 max-h-96 overflow-y-auto">
                                       {port.service.fingerprintMatches
-                                        .slice(0, 3)
                                         .map((fp, idx) => (
                                           <div
                                             key={idx}
@@ -498,15 +519,6 @@ export function DeviceOpenPorts({
                                             )}
                                           </div>
                                         ))}
-                                      {port.service.fingerprintMatches.length >
-                                        3 && (
-                                        <div className="text-xs text-muted-foreground text-center py-2">
-                                          ... and{" "}
-                                          {port.service.fingerprintMatches
-                                            .length - 3}{" "}
-                                          more probes
-                                        </div>
-                                      )}
                                     </div>
                                   </div>
                                 )}
