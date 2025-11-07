@@ -53,22 +53,28 @@ ctx.key = "org-123:device-abc"
    - Handle it at the configuration level (e.g., "run THOROUGH on weekends, QUICK on weekdays")?
 3. Does the keying strategy affect Restate billing/performance?
 
+**Decision**:
+- ✅ Key Virtual Objects by `scheduleId`, allowing many schedules per device while keeping state isolated (`docs/SCHEDULE.md:366`–`docs/SCHEDULE.md:540`).
+- ✅ Persist canonical interval config in DB (`interval_config` jsonb) and cache a human label for queries (`docs/SCHEDULE.md:104`–`docs/SCHEDULE.md:140`).
+- ✅ Generate scheduleId in server layer and pass as Restate key to keep DB + VO aligned (`docs/SCHEDULE.md:704`–`docs/SCHEDULE.md:752`).
+- 🔗 Device-level queries now use `getSchedulesForDevice` plus UI filtering for variants (`docs/SCHEDULE.md:150`–`docs/SCHEDULE.md:214`).
+
 ---
 
 ## Question 2: Timer Rescheduling Pattern
 
-**Current Design**: Each `executeScan()` reschedules the next timer at the end
+**Current Design**: Each `executeScan()` reschedules the next timer at the end using `ctx.objectSendClient(...)`
 
 ```typescript
 async executeScan(ctx) {
-  // 1. Run scan
   await ctx.run('scan', () => invokePortScan(...));
 
-  // 2. Calculate next run
   const nextRunAt = calculateNextRun(new Date(), state.interval);
+  const delayMs = Math.max(0, nextRunAt.getTime() - Date.now());
 
-  // 3. Schedule next execution
-  ctx.objectSendDelayed('DeviceScanner', deviceId, 'executeScan', delay, {});
+  ctx
+    .objectSendClient(DeviceScanner, ctx.key)
+    .executeScan(restate.rpc.sendOpts({ delay: { milliseconds: delayMs } }));
 }
 ```
 
@@ -87,7 +93,10 @@ async executeScan(ctx) {
 async executeScan(ctx) {
   // 1. Schedule next run FIRST
   const nextRunAt = calculateNextRun(new Date(), state.interval);
-  ctx.objectSendDelayed('DeviceScanner', deviceId, 'executeScan', delay, {});
+  const delayMs = Math.max(0, nextRunAt.getTime() - Date.now());
+  ctx
+    .objectSendClient(DeviceScanner, ctx.key)
+    .executeScan(restate.rpc.sendOpts({ delay: { milliseconds: delayMs } }));
 
   // 2. Then run scan
   await ctx.run('scan', () => invokePortScan(...));
@@ -105,13 +114,13 @@ ctx.scheduleRecurring('executeScan', { interval: state.interval });
 ❌ Cons: Need to check if Restate supports this pattern
 
 **Questions**:
-1. What happens if `ctx.objectSendDelayed()` throws an error? Does Restate retry?
+1. What happens if the send (`ctx.objectSendClient(...).executeScan(...)`) fails? Does Restate retry?
 2. Should we reschedule BEFORE or AFTER scan execution?
 3. How do we prevent schedule drift (e.g., scan takes 10 minutes, so "every 1 hour" becomes every 1h10m)?
 4. Is there a Restate-native pattern for recurring jobs that I missed?
 
 **Decision**:
-- ✅ Adopt **reschedule-first with idempotent timer guard** (`docs/SCHEDULE.md:252`–`docs/SCHEDULE.md:445`).
+- ✅ Adopt **reschedule-first with idempotent timer guard** (`docs/SCHEDULE.md:366`–`docs/SCHEDULE.md:756`).
 - ✅ Guard against drift by anchoring next run on `state.pendingTimer.runAt` and using `calculateNextRun({ lastScheduledAt })`.
 - ⚠️ If `acquireScanSlot` rejects due to concurrency, retry with jittered delay (≤ interval) and log.
 - 🔗 See helper utilities `scheduleNextInvocation`, `buildTimerCallId`, and `intervalToMs` in `docs/SCHEDULE.md:592`.
@@ -299,6 +308,12 @@ function calculateNextRun(from: Date, interval: string): Date {
 ✅ Pros: Type-safe, supports all use cases
 ❌ Cons: Verbose, complex to store
 
+**Decision**:
+- ✅ Adopt discriminated `ScheduleInterval` union: durations (minutes/hours/days) and daily anchors with timezone (`docs/SCHEDULE.md:391`–`docs/SCHEDULE.md:420`).
+- ✅ Persist JSON config + derived label for fast queries; helper `formatIntervalLabel` keeps UI human-readable (`docs/SCHEDULE.md:104`–`docs/SCHEDULE.md:150`, `docs/SCHEDULE.md:536`–`docs/SCHEDULE.md:612`).
+- ✅ Validation via Zod schema in server layer; UI sends structured payload and pre-built presets map to config (`docs/SCHEDULE.md:692`–`docs/SCHEDULE.md:756`).
+- ⚠️ Cron-like expressions deferred; add new interval kind when needed (backed by same union).
+
 ---
 
 ## Question 6: Concurrency & Resource Limits
@@ -384,6 +399,12 @@ async executeScan(ctx) {
 ❓ Interval is within allowed range (min 1h, max 30d)?
 ```
 
+**Decision**:
+- ✅ Require `scan_schedules:manage` permission (granted to org admins by default) and block cross-org access (`docs/SCHEDULE.md:1381`–`docs/SCHEDULE.md:1415`).
+- ✅ Enforce quotas: max 5 schedules/device + semaphore-backed org concurrency limit (`docs/SCHEDULE.md:700`–`docs/SCHEDULE.md:756`, `docs/SCHEDULE.md:720`–`docs/SCHEDULE.md:728`).
+- ✅ Reject unverified devices unless elevated permission present; log audit events for every mutation (`docs/SCHEDULE.md:1389`–`docs/SCHEDULE.md:1405`).
+- ⚠️ Rate limiting + billing-tier quotas tracked as follow-up (documented for future integration).
+
 ---
 
 ## Question 8: Migration & Backward Compatibility
@@ -400,6 +421,10 @@ async executeScan(ctx) {
 3. What's the rollback strategy if scheduling causes issues?
    - Can we disable scheduling globally via feature flag?
    - How do we clean up orphaned Restate timers?
+
+**Decision**:
+- ✅ No migration/compat needed for greenfield project; schedules only exist once feature ships. Documented cleanup script handles dev resets if needed.
+- ✅ Keep feature behind `scan_scheduling.enabled` flag until UI + worker ready; flipping flag requires no data migrations.
 
 ---
 
@@ -426,6 +451,12 @@ async executeScan(ctx) {
 4. Should we implement canary releases?
    - Roll out to 1% of organizations first
    - Monitor failure rates before full rollout
+
+**Decision**:
+- ✅ 90% coverage target across worker + server layers using Restate TestDriver for deterministic time travel (`docs/SCHEDULE.md:1204`–`docs/SCHEDULE.md:1260`).
+- ✅ Integration suite exercises saga + quota + concurrency paths; chaos tests simulate lease exhaustion and worker restarts (`docs/SCHEDULE.md:1262`–`docs/SCHEDULE.md:1298`).
+- ✅ Environments: local (TestDriver), CI (Vitest + coverage), staging (feature flag) with nightly chaos run for durability (`docs/SCHEDULE.md:1300`–`docs/SCHEDULE.md:1314`).
+- ⚠️ Migration tests not needed (greenfield), but reconciliation job verified via integration tests.
 
 ---
 

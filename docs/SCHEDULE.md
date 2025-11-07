@@ -57,7 +57,7 @@ We'll use **Restate's durable timers** (not cron) because:
 │  │   - scheduleId: string                                   │ │
 │  │   - deviceId: string                                     │ │
 │  │   - organizationId: string                               │ │
-│  │   - interval: string (e.g., "12h", "1d")                 │ │
+│  │   - interval: ScheduleInterval (duration/daily)          │ │
 │  │   - isActive: boolean                                    │ │
 │  │   - nextRunAt: Date                                      │ │
 │  │   - lastRunAt: Date | null                               │ │
@@ -111,11 +111,12 @@ export const scanSchedules = sqliteTable('scan_schedules', {
 export const scanSchedules = sqliteTable('scan_schedules', {
   id: cuidText().primaryKey(),
   scheduleId: text('schedule_id').notNull().unique(),
-  deviceId: text('device_id').notNull().references(() => devices.id, { onDelete: 'cascade' }).unique(),
+  deviceId: text('device_id').notNull().references(() => devices.id, { onDelete: 'cascade' }),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
 
   // Scheduling config
-  interval: text('interval').notNull().default('1d'),         // "12h", "1d", "2d", "7d", "30d"
+  intervalConfig: jsonb('interval_config').notNull(),         // { kind: 'duration', value: 12, unit: 'hours' }
+  interval: text('interval').notNull().default('1d'),         // Cached label for UI ("Every 12 hours")
   preset: text('preset').notNull().default('STANDARD'),       // "QUICK", "STANDARD", "THOROUGH"
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(1),
 
@@ -146,10 +147,11 @@ export const scanSchedules = sqliteTable('scan_schedules', {
 ```typescript
 // Create schedule
 export async function createScanSchedule(input: {
+  scheduleId: string;
   deviceId: string;
   organizationId: string;
-  interval: string;
-  preset: 'QUICK' | 'STANDARD' | 'THOROUGH';
+  interval: ScheduleInterval;
+  preset: SchedulePreset;
   nextRunAt: Date;
   createdBy: string;
 }): Promise<ScanSchedule>;
@@ -157,6 +159,17 @@ export async function createScanSchedule(input: {
 // Get schedule by device
 export async function getScanScheduleByDeviceId(
   deviceId: string,
+  organizationId: string
+): Promise<ScanSchedule | null>;
+
+export async function getSchedulesForDevice(
+  deviceId: string,
+  organizationId: string
+): Promise<ScanSchedule[]>;
+
+// Get schedule by ID
+export async function getScanScheduleById(
+  scheduleId: string,
   organizationId: string
 ): Promise<ScanSchedule | null>;
 
@@ -207,15 +220,16 @@ export async function getSchedulesForOrganization(
 
 - ✅ **Source of truth**: `scan_schedules` table stores configuration and last-known execution metadata. Restate keeps only the minimal runtime cache.
 - ✅ **All database writes happen inside the Virtual Object** via `ctx.run(...)`, making retries idempotent.
-- ⚠️ **Edge case**: If the DB call succeeds but `objectSendDelayed` fails, Restate will replay the handler. `createScanSchedule` must therefore be implemented with `ON CONFLICT DO UPDATE`.
+- ⚠️ **Edge case**: If the DB call succeeds but `objectSendClient(... sendOpts)` fails, Restate will replay the handler. `createScanSchedule` must therefore be implemented with `ON CONFLICT DO UPDATE`.
 - 💡 **Reconciliation job** runs hourly to detect drift (Restate object missing DB row or vice versa).
 
 ```typescript
 // data-ops/src/queries/scan-schedules.ts
 export async function createScanSchedule(input: {
+  scheduleId: string;
   deviceId: string;
   organizationId: string;
-  interval: string;
+  interval: ScheduleInterval;
   preset: 'QUICK' | 'STANDARD' | 'THOROUGH';
   nextRunAt: Date;
   createdBy: string;
@@ -223,18 +237,23 @@ export async function createScanSchedule(input: {
   return db
     .insert(scanSchedules)
     .values({
+      scheduleId: input.scheduleId,
       deviceId: input.deviceId,
       organizationId: input.organizationId,
-      interval: input.interval,
+      intervalConfig: input.interval, // jsonb column
+      interval: formatIntervalLabel(input.interval),
       preset: input.preset,
       nextRunAt: input.nextRunAt,
       status: 'ACTIVE',
       createdBy: input.createdBy,
     })
     .onConflictDoUpdate({
-      target: [scanSchedules.organizationId, scanSchedules.deviceId],
+      target: scanSchedules.scheduleId,
       set: {
-        interval: input.interval,
+        deviceId: input.deviceId,
+        organizationId: input.organizationId,
+        intervalConfig: input.interval,
+        interval: formatIntervalLabel(input.interval),
         preset: input.preset,
         nextRunAt: input.nextRunAt,
         status: 'ACTIVE',
@@ -310,30 +329,31 @@ export async function autoPauseScanSchedule(input: {
 
 // workers/reconciliation/src/restate-db-reconciler.ts
 export async function reconcileRestateSchedules() {
-  const restateState = await restateClient.listObjects<'DeviceScanner'>('DeviceScanner');
+  const restateState = await restateClient.listObjects<'DeviceScanner'>('DeviceScanner'); // returns { key, state }
   const dbSchedules = await listActiveSchedulesFromDb(); // Map keyed by scheduleId
 
   // ❌ Restate object without DB row → pause and alert
-  for (const orphan of restateState.filter((entry) => !dbSchedules.has(entry.scheduleId))) {
+  for (const orphan of restateState.filter((entry) => !dbSchedules.has(entry.key))) {
     await restateClient.objectSend({
       name: 'DeviceScanner',
-      key: orphan.deviceId,
+      key: orphan.key,
       handler: 'pauseSchedule',
     });
   }
 
   // ❌ DB row without Restate object → recreate timer (if still ACTIVE)
   for (const schedule of dbSchedules.values()) {
-    const exists = restateState.some((entry) => entry.scheduleId === schedule.scheduleId);
+    const exists = restateState.some((entry) => entry.key === schedule.scheduleId);
     if (!exists && schedule.status === 'ACTIVE') {
       await restateClient.objectSend({
         name: 'DeviceScanner',
-        key: schedule.deviceId,
+        key: schedule.scheduleId,
         handler: 'scheduleDeviceScan',
         payload: {
+          scheduleId: schedule.scheduleId,
           deviceId: schedule.deviceId,
           organizationId: schedule.organizationId,
-          interval: schedule.interval,
+          interval: schedule.intervalConfig,
           preset: schedule.preset,
           target: schedule.target,
           createdBy: SYSTEM_USER_ID,
@@ -357,7 +377,7 @@ export async function reconcileRestateSchedules() {
 | **Use Case** | One-off scans | Recurring schedules |
 | **Concurrency** | Many parallel invocations | One active per key |
 
-**Decision**: Use Virtual Object keyed by `deviceId` to enable durable timers for recurring scans.
+**Decision**: Use Virtual Object keyed by `scheduleId` so each schedule has isolated state while a device can own multiple schedules.
 
 ### Virtual Object Implementation
 
@@ -365,6 +385,7 @@ export async function reconcileRestateSchedules() {
 
 ```typescript
 import * as restate from '@restatedev/restate-sdk';
+import { DateTime } from 'luxon';
 import { createLogger } from '@repo/logger';
 import { invokePortScan } from './port-scanner-service';
 import { sendPostback } from './utils/postback-client';
@@ -389,6 +410,21 @@ const logger = createLogger({ name: 'device-scanner' });
 
 type SchedulePreset = 'QUICK' | 'STANDARD' | 'THOROUGH';
 
+type DurationInterval = {
+  kind: 'duration';
+  value: number;
+  unit: 'minutes' | 'hours' | 'days';
+};
+
+type DailyInterval = {
+  kind: 'daily';
+  hour: number;    // 0-23
+  minute: number;  // 0-59
+  timezone: string;
+};
+
+type ScheduleInterval = DurationInterval | DailyInterval;
+
 const FAILURE_THRESHOLDS: Record<SchedulePreset, number> = {
   QUICK: 3,
   STANDARD: 5,
@@ -403,7 +439,7 @@ interface DeviceScannerState {
   scheduleId: string;
   deviceId: string;
   organizationId: string;
-  interval: string;          // "12h", "1d", etc.
+  interval: ScheduleInterval;
   preset: SchedulePreset;
   isActive: boolean;
   nextRunAt: string;         // ISO 8601 timestamp
@@ -427,20 +463,26 @@ export const deviceScanner = restate.object({
   handlers: {
     /**
      * Schedule a recurring scan for a device
-     * Key: deviceId (ensures one schedule per device)
+     * Key: scheduleId (allows multiple schedules per device)
      */
     async scheduleDeviceScan(ctx: restate.ObjectContext, input: {
+      scheduleId: string;
       deviceId: string;
       organizationId: string;
-      interval: string;
-      preset: 'QUICK' | 'STANDARD' | 'THOROUGH';
+      interval: ScheduleInterval;
+      preset: SchedulePreset;
       target: string;
       createdBy: string;
     }): Promise<{ success: boolean; scheduleId: string; nextRunAt: string }> {
-      const deviceId = ctx.key; // Virtual object key = deviceId
+      const scheduleId = ctx.key; // Virtual object key = scheduleId
+
+      if (scheduleId !== input.scheduleId) {
+        throw new Error(`Schedule key mismatch: expected ${scheduleId}, received ${input.scheduleId}`);
+      }
 
       logger.info('Scheduling device scan', {
-        deviceId,
+        scheduleId,
+        deviceId: input.deviceId,
         organizationId: input.organizationId,
         interval: input.interval,
       });
@@ -454,6 +496,7 @@ export const deviceScanner = restate.object({
       const nextRunIso = nextRunAt.toISOString();
       const schedule = await ctx.run('db:create-schedule', () =>
         createScanSchedule({
+          scheduleId,
           deviceId: input.deviceId,
           organizationId: input.organizationId,
           interval: input.interval,
@@ -462,10 +505,10 @@ export const deviceScanner = restate.object({
           createdBy: input.createdBy,
         })
       );
-      const timerCallId = buildTimerCallId(schedule.scheduleId, nextRunAt);
+      const timerCallId = buildTimerCallId(scheduleId, nextRunAt);
 
       const state: DeviceScannerState = {
-        scheduleId: schedule.scheduleId,
+        scheduleId,
         deviceId: input.deviceId,
         organizationId: input.organizationId,
         interval: input.interval,
@@ -484,17 +527,17 @@ export const deviceScanner = restate.object({
       ctx.set('state', state);
 
       // ✅ RECOMMENDED: schedule next run before returning so retries remain idempotent
-      scheduleNextInvocation(ctx, deviceId, nextRunAt, timerCallId);
+      scheduleNextInvocation(ctx, scheduleId, nextRunAt, timerCallId);
 
       logger.info('Device scan scheduled', {
-        deviceId,
+        scheduleId,
+        deviceId: input.deviceId,
         nextRunAt: nextRunIso,
-        scheduleId: schedule.scheduleId,
       });
 
       return {
         success: true,
-        scheduleId: schedule.scheduleId,
+        scheduleId,
         nextRunAt: nextRunIso,
       };
     },
@@ -504,19 +547,20 @@ export const deviceScanner = restate.object({
      * Called by durable timer
      */
     async executeScan(ctx: restate.ObjectContext): Promise<void> {
-      const deviceId = ctx.key;
+      const scheduleId = ctx.key;
       const state = await ctx.get<DeviceScannerState>('state');
 
       if (!state) {
-        logger.warn('No state found for scheduled scan', { deviceId });
+        logger.warn('No state found for scheduled scan', { scheduleId });
         return;
       }
 
       if (!state.isActive) {
-        logger.info('Schedule is paused, skipping execution', { deviceId });
+        logger.info('Schedule is paused, skipping execution', { scheduleId });
         return;
       }
 
+      const deviceId = state.deviceId;
       const now = new Date();
       const startTimestamp = Date.now();
       if (state.deferUntil) {
@@ -527,12 +571,12 @@ export const deviceScanner = restate.object({
             state.pendingTimer = { callId: deferCallId, runAt: deferUntil.toISOString() };
             state.nextRunAt = deferUntil.toISOString();
             ctx.set('state', state);
-            scheduleNextInvocation(ctx, deviceId, deferUntil, deferCallId);
+            scheduleNextInvocation(ctx, scheduleId, deferUntil, deferCallId);
           }
 
           logger.info('Skipping execution during backoff window', {
+            scheduleId,
             deviceId,
-            scheduleId: state.scheduleId,
             deferUntil: state.deferUntil,
           });
           return;
@@ -553,7 +597,7 @@ export const deviceScanner = restate.object({
       // Idempotent scheduling: only enqueue a new timer if callId changed
       const timerAlreadyScheduled = state.pendingTimer?.callId === timerCallId;
       if (!timerAlreadyScheduled) {
-        scheduleNextInvocation(ctx, deviceId, nextRunAt, timerCallId);
+        scheduleNextInvocation(ctx, scheduleId, nextRunAt, timerCallId);
         state.pendingTimer = { callId: timerCallId, runAt: nextRunIso };
         state.nextRunAt = nextRunIso;
         ctx.set('state', state);
@@ -600,11 +644,11 @@ export const deviceScanner = restate.object({
           state.nextRunAt = retryAt.toISOString();
           ctx.set('state', state);
 
-          scheduleNextInvocation(ctx, deviceId, retryAt, retryCallId);
+          scheduleNextInvocation(ctx, scheduleId, retryAt, retryCallId);
 
           logger.info('Concurrency limit reached, deferring scheduled scan', {
+            scheduleId,
             deviceId,
-            scheduleId: state.scheduleId,
             retryAt: retryAt.toISOString(),
           });
           return;
@@ -618,8 +662,8 @@ export const deviceScanner = restate.object({
       ctx.set('state', state);
 
       logger.info('Executing scheduled scan', {
+        scheduleId,
         deviceId,
-        scheduleId: state.scheduleId,
         target: state.target,
         scanId,
       });
@@ -646,6 +690,7 @@ export const deviceScanner = restate.object({
           ctx.set('state', state);
 
           logger.info('Scheduled scan completed successfully', {
+            scheduleId,
             deviceId,
             scanId: scanResult.scanId,
           });
@@ -721,8 +766,8 @@ export const deviceScanner = restate.object({
             });
 
             logger.warn('Permanent failure detected, auto-pausing schedule', {
+              scheduleId,
               deviceId,
-              scheduleId: state.scheduleId,
               reason: classification.reason,
             });
           } else {
@@ -731,6 +776,7 @@ export const deviceScanner = restate.object({
             ctx.set('state', state);
 
             logger.error('Scheduled scan failed', {
+              scheduleId,
               deviceId,
               error: error instanceof Error ? error.message : String(error),
               classification,
@@ -786,8 +832,8 @@ export const deviceScanner = restate.object({
               });
 
               logger.warn('Auto-paused schedule after consecutive failures', {
+                scheduleId,
                 deviceId,
-                scheduleId: state.scheduleId,
                 failureThreshold,
               });
             } else {
@@ -802,7 +848,7 @@ export const deviceScanner = restate.object({
               state.pendingTimer = { callId: deferCallId, runAt: state.deferUntil };
               state.nextRunAt = state.deferUntil;
               ctx.set('state', state);
-              scheduleNextInvocation(ctx, deviceId, deferUntil, deferCallId);
+              scheduleNextInvocation(ctx, scheduleId, deferUntil, deferCallId);
 
               await ctx.run('db:update-runtime', () =>
                 updateScheduleRuntime({
@@ -837,18 +883,18 @@ export const deviceScanner = restate.object({
      * Pause schedule (stops future executions)
      */
     async pauseSchedule(ctx: restate.ObjectContext): Promise<{ success: boolean }> {
-      const deviceId = ctx.key;
+      const scheduleId = ctx.key;
       const state = await ctx.get<DeviceScannerState>('state');
 
       if (!state) {
-        throw new Error(`No schedule found for device ${deviceId}`);
+        throw new Error(`No schedule found for schedule ${scheduleId}`);
       }
 
       state.isActive = false;
       delete state.pendingTimer;
       ctx.set('state', state);
 
-      logger.info('Schedule paused', { deviceId, scheduleId: state.scheduleId });
+      logger.info('Schedule paused', { scheduleId, deviceId: state.deviceId });
 
       return { success: true };
     },
@@ -857,11 +903,11 @@ export const deviceScanner = restate.object({
      * Resume schedule (restarts executions)
      */
     async resumeSchedule(ctx: restate.ObjectContext): Promise<{ success: boolean; nextRunAt: string }> {
-      const deviceId = ctx.key;
+      const scheduleId = ctx.key;
       const state = await ctx.get<DeviceScannerState>('state');
 
       if (!state) {
-        throw new Error(`No schedule found for device ${deviceId}`);
+        throw new Error(`No schedule found for schedule ${scheduleId}`);
       }
 
       state.isActive = true;
@@ -881,11 +927,11 @@ export const deviceScanner = restate.object({
       state.pendingTimer = { callId: timerCallId, runAt: nextRunIso };
       ctx.set('state', state);
 
-      scheduleNextInvocation(ctx, deviceId, nextRunAt, timerCallId);
+      scheduleNextInvocation(ctx, scheduleId, nextRunAt, timerCallId);
 
       logger.info('Schedule resumed', {
-        deviceId,
-        scheduleId: state.scheduleId,
+        scheduleId,
+        deviceId: state.deviceId,
         nextRunAt: nextRunIso,
       });
 
@@ -899,7 +945,7 @@ export const deviceScanner = restate.object({
      * Delete schedule (cleanup state)
      */
     async deleteSchedule(ctx: restate.ObjectContext): Promise<{ success: boolean }> {
-      const deviceId = ctx.key;
+      const scheduleId = ctx.key;
       const state = await ctx.get<DeviceScannerState>('state');
 
       if (!state) {
@@ -909,7 +955,7 @@ export const deviceScanner = restate.object({
       // Clear state (cancels future timers automatically)
       ctx.clear('state');
 
-      logger.info('Schedule deleted', { deviceId, scheduleId: state.scheduleId });
+      logger.info('Schedule deleted', { scheduleId, deviceId: state.deviceId });
 
       return { success: true };
     },
@@ -923,29 +969,29 @@ export const deviceScanner = restate.object({
   },
 });
 
+export const DeviceScanner: typeof deviceScanner = { name: 'DeviceScanner' };
+
 function scheduleNextInvocation(
   ctx: restate.ObjectContext,
-  deviceId: string,
+  scheduleId: string,
   runAt: Date,
   callId: string
 ) {
   const delayMs = Math.max(0, runAt.getTime() - Date.now());
 
   try {
-    // 🔗 REFERENCE: apps/restate-worker/src/port-scanner-service.ts (delayed invocation helper)
-    ctx.objectSendDelayed(
-      { name: 'DeviceScanner' },
-      deviceId,
-      'executeScan',
-      delayMs,
-      {
-        scheduledAt: runAt.toISOString(),
-        callId, // Included for observability; guard duplicates via state.pendingTimer
+    const sendOpts = restate.rpc.sendOpts({
+      delay: { milliseconds: delayMs },
+      idempotencyKey: callId,
+      headers: {
+        'x-scheduled-at': runAt.toISOString(),
       },
-    );
+    });
+
+    ctx.objectSendClient(DeviceScanner, scheduleId).executeScan(sendOpts);
   } catch (error) {
     logger.error('Failed to schedule next invocation', {
-      deviceId,
+      scheduleId,
       runAt: runAt.toISOString(),
       error: error instanceof Error ? error.message : String(error),
     });
@@ -957,24 +1003,36 @@ function buildTimerCallId(scheduleId: string, runAt: Date): string {
   return `scan:${scheduleId}:${runAt.getTime()}`;
 }
 
-function intervalToMs(interval: string): number {
-  const match = interval.match(/^(\d+)([hd])$/);
-  if (!match) {
-    throw new Error(`Invalid interval format: ${interval}`);
+function intervalToMs(interval: ScheduleInterval): number {
+  if (interval.kind === 'duration') {
+    const multiplier =
+      interval.unit === 'minutes'
+        ? 60 * 1000
+        : interval.unit === 'hours'
+        ? 60 * 60 * 1000
+        : 24 * 60 * 60 * 1000;
+
+    return interval.value * multiplier;
   }
 
-  const value = Number(match[1]);
-  const unit = match[2];
+  // Daily schedules repeat every 24h
+  return 24 * 60 * 60 * 1000;
+}
 
-  if (unit === 'h') {
-    return value * 60 * 60 * 1000;
+function formatIntervalLabel(interval: ScheduleInterval): string {
+  if (interval.kind === 'duration') {
+    const unitLabel =
+      interval.unit === 'minutes'
+        ? interval.value === 1 ? 'minute' : 'minutes'
+        : interval.unit === 'hours'
+        ? interval.value === 1 ? 'hour' : 'hours'
+        : interval.value === 1 ? 'day' : 'days';
+    return `Every ${interval.value} ${unitLabel}`;
   }
 
-  if (unit === 'd') {
-    return value * 24 * 60 * 60 * 1000;
-  }
-
-  throw new Error(`Unsupported interval unit: ${unit}`);
+  const hour = interval.hour.toString().padStart(2, '0');
+  const minute = interval.minute.toString().padStart(2, '0');
+  return `Daily at ${hour}:${minute} ${interval.timezone}`;
 }
 
 /**
@@ -984,21 +1042,43 @@ function intervalToMs(interval: string): number {
  */
 function calculateNextRun(input: {
   from: Date;
-  interval: string;
+  interval: ScheduleInterval;
   lastScheduledAt?: string;
 }): Date {
-  const intervalMs = intervalToMs(input.interval);
-  const anchor = input.lastScheduledAt
-    ? new Date(input.lastScheduledAt)
-    : input.from;
+  if (input.interval.kind === 'duration') {
+    const intervalMs = intervalToMs(input.interval);
+    const anchor = input.lastScheduledAt
+      ? new Date(input.lastScheduledAt)
+      : input.from;
 
-  const candidateTs = anchor.getTime() + intervalMs;
-  const minNextTs = input.from.getTime() + intervalMs;
+    const candidateTs = anchor.getTime() + intervalMs;
+    const minNextTs = input.from.getTime() + intervalMs;
 
-  // Prevent going backwards if anchor + interval is already in the past
-  const nextTs = Math.max(candidateTs, minNextTs);
+    // Prevent going backwards if anchor + interval is already in the past
+    const nextTs = Math.max(candidateTs, minNextTs);
 
-  return new Date(nextTs);
+    return new Date(nextTs);
+  }
+
+  const { hour, minute, timezone } = input.interval;
+  const nowTz = DateTime.fromJSDate(input.from).setZone(timezone);
+  let next: DateTime;
+
+  if (input.lastScheduledAt) {
+    const last = DateTime.fromISO(input.lastScheduledAt).setZone(timezone);
+    next = last.plus({ days: 1 }).set({ hour, minute, second: 0, millisecond: 0 });
+  } else {
+    next = nowTz.set({ hour, minute, second: 0, millisecond: 0 });
+    if (next <= nowTz) {
+      next = next.plus({ days: 1 });
+    }
+  }
+
+  while (next <= nowTz) {
+    next = next.plus({ days: 1 });
+  }
+
+  return next.toUTC().toJSDate();
 }
 
 interface FailureClassification {
@@ -1176,6 +1256,8 @@ import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
 import {
   getScanScheduleByDeviceId,
+  getSchedulesForDevice,
+  getScanScheduleById,
   pauseScanSchedule,
   resumeScanSchedule,
   deleteScanSchedule,
@@ -1183,13 +1265,28 @@ import {
 } from '@repo/data-ops';
 import { getCurrentOrganizationId, getCurrentUser } from './utils/auth';
 import { RestateOrchestrator } from './discovery/services/workflow-orchestrator-restate';
+import { createId } from '@paralleldrive/cuid2';
 import { z } from 'zod';
 
 const logger = createLogger({ name: 'scan-schedules-server' });
 
+const ScheduleIntervalSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('duration'),
+    value: z.number().int().positive().max(1440),
+    unit: z.enum(['minutes', 'hours', 'days']),
+  }),
+  z.object({
+    kind: z.literal('daily'),
+    hour: z.number().int().min(0).max(23),
+    minute: z.number().int().min(0).max(59),
+    timezone: z.string().min(1),
+  }),
+]);
+
 const CreateScheduleSchema = z.object({
   deviceId: z.string().min(1),
-  interval: z.string().regex(/^\d+[hd]$/, 'Invalid interval format (use 12h, 1d, etc.)'),
+  interval: ScheduleIntervalSchema,
   preset: z.enum(['QUICK', 'STANDARD', 'THOROUGH']),
 });
 
@@ -1209,15 +1306,18 @@ export const createDeviceScanSchedule = createServerFn({ method: 'POST' })
         throw new Error('Device not found or access denied');
       }
 
-      // Check if schedule already exists
-      const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
-      if (existingSchedule) {
-        throw new Error('Schedule already exists for this device');
+      // Enforce max schedules per device (default 5)
+      const existingSchedules = await getSchedulesForDevice(data.deviceId, organizationId);
+      const MAX_SCHEDULES_PER_DEVICE = 5;
+      if (existingSchedules.length >= MAX_SCHEDULES_PER_DEVICE) {
+        throw new Error(`Device already has ${existingSchedules.length} schedules (limit ${MAX_SCHEDULES_PER_DEVICE})`);
       }
 
       // Call Restate to create schedule, persist, and start durable timer (saga)
       const orchestrator = new RestateOrchestrator();
+      const scheduleId = createId();
       const result = await orchestrator.scheduleDeviceScan({
+        scheduleId,
         deviceId: device.id,
         organizationId,
         interval: data.interval,
@@ -1226,7 +1326,7 @@ export const createDeviceScanSchedule = createServerFn({ method: 'POST' })
         createdBy: user.id,
       });
 
-      const schedule = await getScanScheduleByDeviceId(device.id, organizationId);
+      const schedule = await getScanScheduleById(scheduleId, organizationId);
       if (!schedule) {
         throw new Error('Schedule persisted in Restate but missing in DB (reconciliation required)');
       }
@@ -1252,13 +1352,13 @@ export const createDeviceScanSchedule = createServerFn({ method: 'POST' })
  * Pause a scan schedule
  */
 export const pauseDeviceScanSchedule = createServerFn({ method: 'POST' })
-  .inputValidator((data: { deviceId: string }) => data)
+  .inputValidator((data: { scheduleId: string }) => data)
   .handler(async ({ data }) => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
 
-      const schedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
+      const schedule = await getScanScheduleById(data.scheduleId, organizationId);
       if (!schedule) {
         throw new Error('Schedule not found');
       }
@@ -1268,7 +1368,7 @@ export const pauseDeviceScanSchedule = createServerFn({ method: 'POST' })
 
       // Pause in Restate
       const orchestrator = new RestateOrchestrator();
-      await orchestrator.pauseSchedule(data.deviceId);
+      await orchestrator.pauseSchedule(schedule.scheduleId);
 
       logger.info('Scan schedule paused', { scheduleId: schedule.scheduleId });
 
@@ -1281,6 +1381,67 @@ export const pauseDeviceScanSchedule = createServerFn({ method: 'POST' })
 
 // Similar handlers for resume, delete, getSchedule...
 ```
+
+**Restate Orchestrator helper**:
+
+```typescript
+import { connect as connectRestate } from '@restatedev/restate-sdk-clients';
+
+export class RestateOrchestrator {
+  private client = connectRestate({ url: process.env.RESTATE_URL ?? 'http://localhost:8080' });
+
+  async scheduleDeviceScan(input: {
+    scheduleId: string;
+    deviceId: string;
+    organizationId: string;
+    interval: ScheduleInterval;
+    preset: SchedulePreset;
+    target: string;
+    createdBy: string;
+  }) {
+    return this.client
+      .objectClient(DeviceScanner, input.scheduleId)
+      .scheduleDeviceScan(input);
+  }
+
+  async pauseSchedule(scheduleId: string) {
+    return this.client.objectClient(DeviceScanner, scheduleId).pauseSchedule();
+  }
+}
+```
+
+## Authorization & Governance
+
+- ✅ **Role-based access**: Only organization admins (or members with `scan_schedules:manage`) can create/edit/delete schedules.
+- ✅ **Quota enforcement**:
+  - Per-device cap of 5 schedules (feature flag adjustable) (`docs/SCHEDULE.md:720`–`docs/SCHEDULE.md:728`).
+  - Organization-wide semaphore ensures no more than N concurrent scans (`docs/SCHEDULE.md:700`–`docs/SCHEDULE.md:756`).
+- ✅ **Verification guard**: Reject scheduling on unverified devices unless caller holds `scan_schedules:manage_unverified`.
+- ✅ **Audit trail**: Every mutation records a `scan_schedule_events` entry with actor + metadata.
+
+```typescript
+function assertCanManageSchedules(user: CurrentUser, orgId: string) {
+  if (!user.permissions.includes('scan_schedules:manage')) {
+    throw new Error('Insufficient permissions to manage schedules');
+  }
+  if (user.organizationId !== orgId) {
+    throw new Error('Cross-organization access denied');
+  }
+}
+
+export const createDeviceScanSchedule = createServerFn({ method: 'POST' })
+  .inputValidator(CreateScheduleSchema.parse)
+  .handler(async ({ data }) => {
+    const organizationId = await getCurrentOrganizationId();
+    const user = await getCurrentUser();
+
+    assertCanManageSchedules(user, organizationId);
+
+    // ... existing workflow
+  });
+```
+
+- ⚠️ **Future work**: integrate billing limits (e.g., schedules per plan) and expose remaining quota via API for UI to show warnings.
 
 ## UI Components
 
@@ -1453,49 +1614,111 @@ export type ScheduledScanPostback =
 
 ## Testing Strategy
 
-### Unit Tests
+- ✅ **Unit coverage (90% target)**: isolate helpers (`calculateNextRun`, `classifyFailure`, `intervalToMs`) with plain Vitest + mocks.
+- ✅ **Integration tests**: spin up `RestateTestEnvironment` (Testcontainers) alongside SQLite to verify DB + VO saga, concurrency limits, and failure auto-pause logic.
+- ✅ **Chaos suite**: nightly job injects random failures (timeouts, lease exhaustion) using containerized Restate + fault-injection hooks.
+- ✅ **Time control**: keep test intervals short (seconds/minutes) and poll via helper `waitUntil`; no built-in time-travel in SDK 1.9.
 
 ```typescript
 // apps/restate-worker/src/__tests__/device-scanner.test.ts
+import { RestateTestEnvironment } from '@restatedev/restate-sdk-testcontainers';
+import * as restate from '@restatedev/restate-sdk';
+import { DeviceScanner, deviceScanner } from '../device-scanner-service';
 
-describe('DeviceScanner', () => {
-  it('should schedule initial scan with durable timer', async () => {
-    // Test scheduleDeviceScan creates timer
+describe('DeviceScanner - scheduler', () => {
+  let env: RestateTestEnvironment;
+  let client: ReturnType<typeof restate.connect>;
+
+  beforeAll(async () => {
+    env = await RestateTestEnvironment.start({ objects: [deviceScanner] });
+    client = restate.connect({ url: env.baseUrl() });
   });
 
-  it('should reschedule after successful execution', async () => {
-    // Test executeScan reschedules next run
+  afterAll(async () => {
+    await client.close();
+    await env.stop();
   });
 
-  it('should auto-pause after 5 consecutive failures', async () => {
-    // Test failure threshold behavior
-  });
+  it('reschedules before scan and survives handler failure', async () => {
+    const scheduleId = 'sched-123';
+    await client
+      .objectClient(DeviceScanner, scheduleId)
+      .scheduleDeviceScan({
+        scheduleId,
+        deviceId: 'device-1',
+        organizationId: 'org-1',
+        interval: { kind: 'duration', value: 1, unit: 'minutes' },
+        preset: 'STANDARD',
+        target: '1.1.1.1',
+        createdBy: 'user-1',
+      });
 
-  it('should calculate next run time correctly for different intervals', async () => {
-    // Test calculateNextRun utility
+    // Simulate a failure by marking the downstream port scan as failing once (stubbed dependency)
+    // ...
+
+    await waitUntil(async () => {
+      const state = await env.stateOf(DeviceScanner, scheduleId).getAll();
+      return state?.consecutiveFailures === 1;
+    });
   });
 });
-```
 
-### Integration Tests
+async function waitUntil(predicate: () => Promise<boolean>, opts: { timeout?: number; interval?: number } = {}) {
+  const timeout = opts.timeout ?? 5000;
+  const interval = opts.interval ?? 50;
+  const start = Date.now();
+
+  while (Date.now() - start < timeout) {
+    if (await predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+
+  throw new Error(`waitUntil timed out after ${timeout}ms`);
+}
+```
 
 ```typescript
 // apps/user-application/src/server/__tests__/scan-schedules.integration.test.ts
 
-describe('Scan Schedule Integration', () => {
-  it('should create schedule in DB and Restate', async () => {
-    // Test full create flow
+describe('Scan Schedule API', () => {
+  it('saves schedule via saga and starts timer', async () => {
+    const response = await createDeviceScanSchedule({
+      deviceId: 'device-1',
+      interval: { kind: 'duration', value: 12, unit: 'hours' },
+      preset: 'STANDARD',
+    });
+
+    expect(response.success).toBe(true);
+    const schedule = await getScanScheduleById(response.schedule.scheduleId, organizationId);
+    expect(schedule?.intervalConfig).toMatchObject({ kind: 'duration', value: 12, unit: 'hours' });
   });
 
-  it('should execute scan at scheduled time', async () => {
-    // Test timer fires and scan executes
-  });
-
-  it('should persist schedule across worker restarts', async () => {
-    // Test durability
+  it('enforces per-device quota', async () => {
+    await expect(
+      createDeviceScanSchedule({
+        deviceId: 'device-1',
+        interval: { kind: 'duration', value: 1, unit: 'hours' },
+        preset: 'QUICK',
+      }),
+    ).rejects.toThrow(/limit/);
   });
 });
 ```
+
+### Chaos & Failure Scenarios
+
+- **Worker restart**: kill worker mid-execution in TestDriver (`driver.restartWorker()`) and assert timer survives.
+- **Lease exhaustion**: seed `scan_schedule_leases` with `MAX_CONCURRENT_SCANS_PER_ORG` rows and verify handler defers + reschedules.
+- **Database outage**: mock `ctx.run('db:update-runtime')` to throw and ensure handler retries + reconciliation job resolves state.
+
+### Environments
+
+- **Local**: Restate TestDriver + SQLite (default). Use `pnpm test scheduler`.
+- **CI**: GitHub Actions job runs unit + integration suites in parallel; publishes coverage badge (`reports/schedule-coverage`).
+- **Staging**: Deploy to Restate Cloud `staging` namespace with feature flag on limited orgs, run synthetic cron to validate timer accuracy.
+- **Chaos**: Nightly cron executes chaos suite against staging to validate resilience.
 
 ## Monitoring & Observability
 
@@ -1608,46 +1831,18 @@ ORDER BY hour_bucket DESC;
 - Use `ctx.startChildSpan('invokePortScan')` to capture scanner duration separately.
 - Store `traceId` on `scan_schedule_events` table for audit trail queries.
 
-## Migration Path
+## Rollout Plan
 
-### Phase 1: Database Schema (Current PR)
-- ✅ `scan_schedules` table already exists
-- Add enhanced columns (nextRunAt, lastRunAt, consecutiveFailures, etc.)
-- Migration script in `packages/data-ops/drizzle/`
-
-### Phase 2: Restate Virtual Object
-- Implement `DeviceScanner` virtual object
-- Add durable timer logic
-- Test with manual invocations
-
-### Phase 3: Server Functions
-- Add CRUD endpoints for schedules
-- Integrate with existing device detail pages
-- Add schedule list view
-
-### Phase 4: UI Components
-- Toggle in device detail page
-- Schedule configuration modal
-- Schedule list with status indicators
-
-### Phase 5: Monitoring & Alerts
-- Analytics events for scheduled scans
-- Email/webhook alerts for auto-paused schedules
-- Dashboard widget showing schedule health
+- Greenfield feature: no legacy schedules to migrate.
+- Ship behind `scan_scheduling.enabled` feature flag; enable per-org once worker + UI deployed.
+- Use staging environment to validate with synthetic orgs before toggling in production.
+- Reconciliation job handles any partially-created schedules during development resets.
 
 ## Open Questions
 
-1. **Timezone Handling**: Should "daily at 2am" be user's timezone or UTC?
-   - **Proposal**: Store interval (12h, 1d) and calculate next run from last run (timezone-agnostic)
-
-2. **Concurrent Scan Limit**: Should we limit concurrent scheduled scans per org?
-   - **Proposal**: Implement queue with max concurrency (e.g., 5 concurrent scans)
-
-3. **Schedule Ownership**: Who can edit/delete schedules?
-   - **Proposal**: Organization admins + creator
-
-4. **Billing Implications**: Should scheduled scans count toward usage quotas?
-   - **Decision needed**: Pricing team input required
+1. **Cron/Larger Intervals**: Do we need a third `ScheduleInterval` kind (weekly/cron) for advanced users?
+2. **Organization quotas**: How should plan tiers map to per-device/per-org schedule limits (beyond defaults)?
+3. **Billing Implications**: Should scheduled scans count toward usage quotas? (pricing team input required)
 
 ## References
 

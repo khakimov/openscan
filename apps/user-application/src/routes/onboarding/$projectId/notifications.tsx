@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingNotifications } from "@/features/onboarding";
-import { getOnboardingStatus } from "@/server/organization";
+import { getOnboardingStatus, updateOnboardingStep } from "@/server/organization";
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
   // Guard: Require authentication before accessing step 4
@@ -17,6 +17,16 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
     console.log("[OnboardingNotifications] Loader executing");
     const status = await getOnboardingStatus();
     console.log("[OnboardingNotifications] Status fetched:", status);
+
+    // Update max step reached to 4 (notifications)
+    if (status.organizationId) {
+      await updateOnboardingStep({
+        data: {
+          organizationId: status.organizationId,
+          step: 4,
+        },
+      });
+    }
 
     // TODO: Fetch existing notification preferences from user settings
     // For now, we'll use the default values in the component

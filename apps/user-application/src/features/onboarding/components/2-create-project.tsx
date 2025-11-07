@@ -246,6 +246,11 @@ export function OnboardingCreateProject({
                     aria-invalid={field.state.meta.errors.length > 0}
                     required
                   />
+                  {projectId && (
+                    <p className="text-xs text-muted-foreground">
+                      Updating this will rename your existing project.
+                    </p>
+                  )}
                   {field.state.meta.isTouched && field.state.meta.errors.length > 0 && (
                     <p className="text-sm text-red-600">
                       {field.state.meta.errors[0]}

@@ -287,13 +287,55 @@ export const getDevicesData = createServerFn({
       projectId: data?.projectId
     })
 
-    // Get session for organization context
-    const organizationId = await getCurrentOrganizationId()
-    logger.info('Fetching devices for organization', {
-      organizationId,
-      verificationStatus: data?.verificationStatus,
-      projectId: data?.projectId
-    })
+    // ✅ VULN-001 FIX: Validate projectId before using it
+    const user = await getCurrentUser();
+    let organizationId: string;
+    let validatedProjectId: string | undefined = undefined;
+
+    if (data?.projectId) {
+      // Derive organizationId from projectId (don't trust client's session)
+      const derivedOrgId = await getOrganizationIdFromProject(data.projectId);
+
+      if (!derivedOrgId) {
+        logger.warn('Invalid projectId provided to getDevicesData', {
+          projectId: data.projectId,
+          userId: user.id,
+        });
+        throw new Error('Project not found or access denied');
+      }
+
+      // Validate user has access to BOTH project AND organization
+      const access = await validateProjectAccess(
+        user.id,
+        data.projectId,
+        derivedOrgId
+      );
+
+      if (!access) {
+        logger.warn('Project access validation failed in getDevicesData', {
+          userId: user.id,
+          projectId: data.projectId,
+          derivedOrgId,
+        });
+        throw new Error('Project not found or access denied');
+      }
+
+      organizationId = access.organization.id;
+      validatedProjectId = access.project.id;
+
+      logger.info('Validated projectId for device listing', {
+        projectId: data.projectId,
+        organizationId,
+        userId: user.id,
+      });
+    } else {
+      // No projectId provided - use session organizationId
+      organizationId = await getCurrentOrganizationId();
+      logger.info('Fetching devices for organization from session', {
+        organizationId,
+        verificationStatus: data?.verificationStatus,
+      });
+    }
 
     // Query database with organization filter and verification status
     const queryParams: DeviceQueryParams = {
@@ -302,7 +344,7 @@ export const getDevicesData = createServerFn({
       sortColumn: 'discoveredAt',
       sortDirection: 'desc',
       verificationStatus: data?.verificationStatus,
-      projectId: data?.projectId
+      projectId: validatedProjectId  // ✅ Only use validated projectId
     }
 
     const devicesResponse = await getDevicesForTenant(organizationId, queryParams)

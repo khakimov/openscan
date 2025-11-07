@@ -357,6 +357,104 @@ export const updateOrganizationOnboarding = createServerFn({
   });
 
 /**
+ * Update the maximum onboarding step reached
+ */
+export const updateOnboardingStep = createServerFn({
+  method: "POST",
+})
+  .inputValidator((data: { organizationId: string; step: number }) => {
+    if (!data?.organizationId) {
+      throw new Error("Organization ID is required");
+    }
+    if (typeof data?.step !== 'number' || data.step < 1 || data.step > 4) {
+      throw new Error("Step must be between 1 and 4");
+    }
+    return data;
+  })
+  .handler(async ({ data }) => {
+    try {
+      const user = await getCurrentUser();
+
+      const orgAccess = await validateOrganizationAccess(
+        user.id,
+        data.organizationId
+      );
+
+      if (!orgAccess) {
+        logger.warn("Organization access denied when updating onboarding step", {
+          userId: user.id,
+          organizationId: data.organizationId,
+        });
+        throw new Error("Organization not found or access denied");
+      }
+
+      // Get existing organization and metadata
+      const org = await getOrgByIdData(orgAccess.id);
+      let metadata: Record<string, unknown> = {};
+
+      if (org?.metadata) {
+        try {
+          metadata = JSON.parse(org.metadata);
+        } catch (err) {
+          logger.warn("Failed to parse organization metadata", {
+            organizationId: orgAccess.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
+      // Update maxOnboardingStep only if new step is higher
+      const currentMaxStep = typeof metadata.maxOnboardingStep === 'number'
+        ? metadata.maxOnboardingStep
+        : 1;
+
+      if (data.step > currentMaxStep) {
+        metadata.maxOnboardingStep = data.step;
+
+        // Update organization metadata
+        await updateOrgOnboardingData(
+          orgAccess.id,
+          org?.name ?? "Organization",
+          typeof metadata.timezone === 'string' ? metadata.timezone : null
+        );
+
+        // Manually update metadata since updateOrgOnboardingData doesn't handle maxOnboardingStep
+        const db = (await import("@repo/data-ops/database/setup")).getDb();
+        const { organization } = await import("@repo/data-ops/drizzle/auth-schema");
+        const { eq } = await import("drizzle-orm");
+
+        await db
+          .update(organization)
+          .set({
+            metadata: JSON.stringify(metadata),
+          })
+          .where(eq(organization.id, orgAccess.id));
+
+        logger.info("Onboarding step updated", {
+          organizationId: orgAccess.id,
+          step: data.step,
+          userId: user.id,
+        });
+      }
+
+      return {
+        success: true,
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error("Failed to update onboarding step", {
+        error: errorMessage,
+        data,
+      });
+
+      return {
+        success: false,
+        error: errorMessage,
+      };
+    }
+  });
+
+/**
  * Mark onboarding as complete for the organization (REFACTORED - sec-85)
  *
  * Now uses data-ops markOnboardingComplete function
@@ -556,9 +654,21 @@ export const getOnboardingStatus = createServerFn({
     // Check if onboarding is complete from organization metadata
     const onboardingCompleted = organizationMetadata?.onboardingCompleted === true;
 
+    // Track the highest step reached - stored in metadata or inferred from data
+    // Step 1: Account created (always true if we have user)
+    // Step 2: Organization exists
+    // Step 3: Project exists
+    // Step 4: Reached notifications (stored in metadata.maxOnboardingStep)
+    const storedMaxStep = typeof organizationMetadata?.maxOnboardingStep === 'number'
+      ? organizationMetadata.maxOnboardingStep
+      : undefined;
+
+    const inferredStep = hasProject ? 3 : 2;
+    const maxStep = storedMaxStep !== undefined ? Math.max(storedMaxStep, inferredStep) : inferredStep;
+
     return {
       success: true,
-      step: hasProject ? 3 : 2,
+      step: maxStep,
       organizationId: primaryOrganizationId,
       projectId: defaultProject?.id ?? null,
       user: currentUser,

@@ -57,7 +57,7 @@ export const deviceScanner = restate.object({
 ### Q2: Timer Rescheduling Pattern
 **Add to document**:
 - Definitive pattern for rescheduling (before/after/native)
-- How Restate handles `ctx.objectSendDelayed()` failures
+- How Restate handles `ctx.objectSendClient(...).executeScan(...)` failures
 - Pattern for preventing schedule drift
 - Code showing recovery from worker restart mid-execution
 
@@ -69,11 +69,16 @@ async executeScan(ctx: ObjectContext) {
 
   // 1. Calculate and schedule NEXT run first (survives failures)
   const nextRunAt = calculateNextRun(new Date(), state.interval);
-  const delay = nextRunAt.getTime() - Date.now();
-
-  // 2. Idempotent timer (won't create duplicates if this handler retries)
+  const delayMs = Math.max(0, nextRunAt.getTime() - Date.now());
   const timerId = `scan-${state.deviceId}-${nextRunAt.getTime()}`;
-  ctx.objectSendDelayed('DeviceScanner', ctx.key, 'executeScan', delay, {}, timerId);
+  ctx
+    .objectSendClient(DeviceScanner, ctx.key)
+    .executeScan(
+      restate.rpc.sendOpts({
+        delay: { milliseconds: delayMs },
+        idempotencyKey: timerId,
+      }),
+    );
 
   // 3. NOW run the scan (if this fails, timer already scheduled)
   try {

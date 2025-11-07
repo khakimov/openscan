@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { OrDivider } from "@/components/ui/or-divider";
 import { GoogleOAuthButton } from "@/features/auth/components/google-oauth-button";
+import { GitHubOAuthButton } from "@/features/auth/components/github-oauth-button";
 import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
 import { useState } from "react";
 import { CheckCircle, AlertCircle } from "lucide-react";
@@ -275,7 +276,9 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
     >
       <div className="space-y-4">
         <GoogleOAuthButton />
+        <GitHubOAuthButton />
 
+        {/* Email signup temporarily disabled
         <OrDivider className="my-6" />
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -351,6 +354,7 @@ export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
             Create account
           </Button>
         </form>
+        */}
       </div>
     </OnboardingContentLayout>
   );

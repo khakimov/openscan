@@ -30,10 +30,11 @@ import { Route as AppOrganizationIdProjectIdIndexRouteImport } from './routes/_a
 import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
 import { Route as AuthAppPolarPortalRouteImport } from './routes/_auth/app/polar/portal'
 import { Route as AppOrganizationIdProjectIdScansRouteImport } from './routes/_app.$organizationId.$projectId.scans'
-import { Route as AppOrganizationIdProjectIdAssetsRouteImport } from './routes/_app.$organizationId.$projectId.assets'
 import { Route as AppOrganizationIdProjectIdDeviceIdRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId'
 import { Route as AppOrganizationIdProjectIdDeviceIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.index'
 import { Route as AuthAppPolarCheckoutSuccessRouteImport } from './routes/_auth/app/polar/checkout.success'
+import { Route as AppOrganizationIdProjectIdAssetsVerifiedRouteImport } from './routes/_app.$organizationId.$projectId.assets.verified'
+import { Route as AppOrganizationIdProjectIdAssetsDiscoveryRouteImport } from './routes/_app.$organizationId.$projectId.assets.discovery'
 import { Route as AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.vulnerabilities'
 import { Route as AppOrganizationIdProjectIdDeviceIdScansRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.scans'
 
@@ -146,12 +147,6 @@ const AppOrganizationIdProjectIdScansRoute =
     path: '/scans',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsRoute =
-  AppOrganizationIdProjectIdAssetsRouteImport.update({
-    id: '/assets',
-    path: '/assets',
-    getParentRoute: () => AppOrganizationIdProjectIdRoute,
-  } as any)
 const AppOrganizationIdProjectIdDeviceIdRoute =
   AppOrganizationIdProjectIdDeviceIdRouteImport.update({
     id: '/$deviceId',
@@ -169,6 +164,18 @@ const AuthAppPolarCheckoutSuccessRoute =
     id: '/_auth/app/polar/checkout/success',
     path: '/app/polar/checkout/success',
     getParentRoute: () => rootRouteImport,
+  } as any)
+const AppOrganizationIdProjectIdAssetsVerifiedRoute =
+  AppOrganizationIdProjectIdAssetsVerifiedRouteImport.update({
+    id: '/assets/verified',
+    path: '/assets/verified',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
+  } as any)
+const AppOrganizationIdProjectIdAssetsDiscoveryRoute =
+  AppOrganizationIdProjectIdAssetsDiscoveryRouteImport.update({
+    id: '/assets/discovery',
+    path: '/assets/discovery',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
 const AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute =
   AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRouteImport.update({
@@ -200,13 +207,14 @@ export interface FileRoutesByFullPath {
   '/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
-  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
   '/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
+  '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
   '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
   '/$organizationId/$projectId/$deviceId/': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
 }
@@ -223,13 +231,14 @@ export interface FileRoutesByTo {
   '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/$organizationId': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
-  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdIndexRoute
   '/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
+  '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
   '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
 }
@@ -253,13 +262,14 @@ export interface FileRoutesById {
   '/_app/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_app/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
-  '/_app/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
   '/_app/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
   '/_auth/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/_auth/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/_app/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
   '/_app/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/_app/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
+  '/_app/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  '/_app/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
   '/_auth/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
   '/_app/$organizationId/$projectId/$deviceId/': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
 }
@@ -282,13 +292,14 @@ export interface FileRouteTypes {
     | '/$organizationId/'
     | '/app'
     | '/$organizationId/$projectId/$deviceId'
-    | '/$organizationId/$projectId/assets'
     | '/$organizationId/$projectId/scans'
     | '/app/polar/portal'
     | '/app/polar/subscriptions'
     | '/$organizationId/$projectId/'
     | '/$organizationId/$projectId/$deviceId/scans'
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
+    | '/$organizationId/$projectId/assets/discovery'
+    | '/$organizationId/$projectId/assets/verified'
     | '/app/polar/checkout/success'
     | '/$organizationId/$projectId/$deviceId/'
   fileRoutesByTo: FileRoutesByTo
@@ -305,13 +316,14 @@ export interface FileRouteTypes {
     | '/onboarding/$projectId/notifications'
     | '/$organizationId'
     | '/app'
-    | '/$organizationId/$projectId/assets'
     | '/$organizationId/$projectId/scans'
     | '/app/polar/portal'
     | '/app/polar/subscriptions'
     | '/$organizationId/$projectId'
     | '/$organizationId/$projectId/$deviceId/scans'
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
+    | '/$organizationId/$projectId/assets/discovery'
+    | '/$organizationId/$projectId/assets/verified'
     | '/app/polar/checkout/success'
     | '/$organizationId/$projectId/$deviceId'
   id:
@@ -334,13 +346,14 @@ export interface FileRouteTypes {
     | '/_app/$organizationId/'
     | '/_auth/app/'
     | '/_app/$organizationId/$projectId/$deviceId'
-    | '/_app/$organizationId/$projectId/assets'
     | '/_app/$organizationId/$projectId/scans'
     | '/_auth/app/polar/portal'
     | '/_auth/app/polar/subscriptions'
     | '/_app/$organizationId/$projectId/'
     | '/_app/$organizationId/$projectId/$deviceId/scans'
     | '/_app/$organizationId/$projectId/$deviceId/vulnerabilities'
+    | '/_app/$organizationId/$projectId/assets/discovery'
+    | '/_app/$organizationId/$projectId/assets/verified'
     | '/_auth/app/polar/checkout/success'
     | '/_app/$organizationId/$projectId/$deviceId/'
   fileRoutesById: FileRoutesById
@@ -508,13 +521,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdProjectIdScansRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
-    '/_app/$organizationId/$projectId/assets': {
-      id: '/_app/$organizationId/$projectId/assets'
-      path: '/assets'
-      fullPath: '/$organizationId/$projectId/assets'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdRoute
-    }
     '/_app/$organizationId/$projectId/$deviceId': {
       id: '/_app/$organizationId/$projectId/$deviceId'
       path: '/$deviceId'
@@ -535,6 +541,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/polar/checkout/success'
       preLoaderRoute: typeof AuthAppPolarCheckoutSuccessRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_app/$organizationId/$projectId/assets/verified': {
+      id: '/_app/$organizationId/$projectId/assets/verified'
+      path: '/assets/verified'
+      fullPath: '/$organizationId/$projectId/assets/verified'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
+    }
+    '/_app/$organizationId/$projectId/assets/discovery': {
+      id: '/_app/$organizationId/$projectId/assets/discovery'
+      path: '/assets/discovery'
+      fullPath: '/$organizationId/$projectId/assets/discovery'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
     '/_app/$organizationId/$projectId/$deviceId/vulnerabilities': {
       id: '/_app/$organizationId/$projectId/$deviceId/vulnerabilities'
@@ -594,19 +614,22 @@ const AppOrganizationIdProjectIdDeviceIdRouteWithChildren =
 
 interface AppOrganizationIdProjectIdRouteChildren {
   AppOrganizationIdProjectIdDeviceIdRoute: typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
-  AppOrganizationIdProjectIdAssetsRoute: typeof AppOrganizationIdProjectIdAssetsRoute
   AppOrganizationIdProjectIdScansRoute: typeof AppOrganizationIdProjectIdScansRoute
   AppOrganizationIdProjectIdIndexRoute: typeof AppOrganizationIdProjectIdIndexRoute
+  AppOrganizationIdProjectIdAssetsDiscoveryRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  AppOrganizationIdProjectIdAssetsVerifiedRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
 }
 
 const AppOrganizationIdProjectIdRouteChildren: AppOrganizationIdProjectIdRouteChildren =
   {
     AppOrganizationIdProjectIdDeviceIdRoute:
       AppOrganizationIdProjectIdDeviceIdRouteWithChildren,
-    AppOrganizationIdProjectIdAssetsRoute:
-      AppOrganizationIdProjectIdAssetsRoute,
     AppOrganizationIdProjectIdScansRoute: AppOrganizationIdProjectIdScansRoute,
     AppOrganizationIdProjectIdIndexRoute: AppOrganizationIdProjectIdIndexRoute,
+    AppOrganizationIdProjectIdAssetsDiscoveryRoute:
+      AppOrganizationIdProjectIdAssetsDiscoveryRoute,
+    AppOrganizationIdProjectIdAssetsVerifiedRoute:
+      AppOrganizationIdProjectIdAssetsVerifiedRoute,
   }
 
 const AppOrganizationIdProjectIdRouteWithChildren =

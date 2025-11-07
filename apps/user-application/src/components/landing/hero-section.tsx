@@ -6,11 +6,11 @@ export function HeroSection() {
   return (
     <section className="relative px-6 lg:px-8 py-24 sm:py-32">
       <div className="mx-auto max-w-4xl text-center">
-        <h1 className="text-[5rem]/[1.2] tracking-tight text-foreground mt-16 mb-8">
+        <h1 className="landing-header mt-16 mb-8">
           sec.🤘
         </h1>
 
-        <p className="mt-8 mb-4 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
+        <p className="landing-caption mt-8 mb-4 max-w-2xl mx-auto opacity-90">
           We discover, monitor, and help you fix exposed internet-facing
           services, known vulnerabilities, and misconfigurations across your
           apps, websites, and servers — before attackers exploit them.

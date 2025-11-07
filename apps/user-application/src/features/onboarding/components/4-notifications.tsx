@@ -258,11 +258,10 @@ export function OnboardingNotifications({
             </form.Subscribe>
           </div>
 
-          {/* Skip Option */}
-          <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/30 p-4">
-            <p className="text-sm text-muted-foreground text-center">
-              You can skip this step and configure notifications later in your{" "}
-              <span className="font-medium text-foreground">account settings</span>
+          {/* Skip Option - Styled like step 2 info box */}
+          <div className="space-y-2">
+            <p className="text-xs text-muted-foreground">
+              You can skip this step and configure notifications later in your account settings.
             </p>
           </div>
         </div>

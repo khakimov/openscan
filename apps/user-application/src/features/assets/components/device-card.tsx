@@ -69,7 +69,8 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
     // Detect completion: had scans → no scans
     if (hadScans && !nowHasScans) {
       console.log('🔄 Scan completed - invalidating device queries', { deviceId: device.id });
-      queryClient.invalidateQueries({ queryKey: deviceQueries.detail(device.id).queryKey });
+      // Invalidate all detail queries for this device (partial matching on queryKey)
+      queryClient.invalidateQueries({ queryKey: ['device-detail', device.id] });
       queryClient.invalidateQueries({ queryKey: ['devices'] });
     }
 

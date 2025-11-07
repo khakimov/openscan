@@ -14,6 +14,7 @@ import { NotFound } from "@/components/not-found";
 import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
 import { ModalProvider } from "@/modals";
 import appCss from "@/styles.css?url";
+import landingCss from "@/landing.css?url";
 import { seo } from "@/utils/seo";
 import { Toaster } from "sonner";
 
@@ -45,6 +46,22 @@ export const Route = createRootRouteWithContext<{
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: landingCss },
+      // Preload landing page fonts for better performance
+      {
+        rel: "preload",
+        href: "/fonts/TT-Firs-Neue-Var Roman.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: "/fonts/UncutSans-Variable.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
       // SVG favicon for modern browsers (scales perfectly at any size)
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       // Fallback favicons for older browsers
