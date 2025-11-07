@@ -62,7 +62,7 @@ export const scanSchedules = sqliteTable('scan_schedules', {
   }>(),
   interval: text('interval').notNull().default('1d'), // Cached label for UI ("Every 12 hours")
   preset: text('preset').notNull().default('STANDARD'), // "QUICK", "STANDARD", "THOROUGH"
-  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(1),
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
 
   // Execution tracking
   nextRunAt: integer('next_run_at', { mode: 'timestamp_ms' }),
