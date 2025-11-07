@@ -8,7 +8,6 @@ import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
-import { useAppParams } from "@/hooks/use-app-params";
 import { useQuery } from "@tanstack/react-query";
 import { getOrganizationProjects } from "@/server/projects";
 
@@ -46,7 +45,7 @@ function getNavigationItems(
       {
         name: "Assets",
         icon: Shield,
-        href: `/${orgIdentifier}/${projectId}/assets`,
+        href: `/${orgIdentifier}/${projectId}/assets/discovery`,
       },
       {
         name: "Scans",
@@ -108,9 +107,34 @@ export function Sidebar({
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Get projectId from URL if on a project-scoped route
-  const params = useAppParams();
-  const projectId = params.projectId;
+  // Get organizationId and projectId from URL if on project-scoped route
+  // Use routerState.matches to reliably extract params from any matched route in the tree
+  const matchWithOrg = routerState.matches.find((match) =>
+    'organizationId' in match.params
+  );
+  const organizationIdFromUrl = matchWithOrg && 'organizationId' in matchWithOrg.params
+    ? matchWithOrg.params.organizationId as string
+    : undefined;
+
+  const matchWithProject = routerState.matches.find((match) =>
+    'projectId' in match.params
+  );
+  const projectId = matchWithProject && 'projectId' in matchWithProject.params
+    ? matchWithProject.params.projectId as string
+    : undefined;
+
+  // Fallback to URL-based organization if activeOrganization is null
+  // This happens when user logs in via OAuth and lands on /:organizationId/:projectId
+  // but the session hasn't been updated with the active organization yet
+  const effectiveOrganization: SidebarOrganization | null = activeOrganization ?? (
+    organizationIdFromUrl
+      ? {
+          id: organizationIdFromUrl,
+          name: organizations.find(o => o.id === organizationIdFromUrl || o.slug === organizationIdFromUrl)?.name ?? null,
+          slug: organizations.find(o => o.id === organizationIdFromUrl || o.slug === organizationIdFromUrl)?.slug ?? null,
+        }
+      : null
+  );
 
   // Use TanStack Query for projects with SSR initialData
   // This allows the AddProject modal to invalidate and refresh just the projects list
@@ -130,8 +154,8 @@ export function Sidebar({
     ? user.name.charAt(0).toUpperCase()
     : user?.email?.charAt(0).toUpperCase() || "U";
 
-  // Build navigation items based on active organization and current project
-  const navigationItems = getNavigationItems(activeOrganization, projectId);
+  // Build navigation items based on effective organization and current project
+  const navigationItems = getNavigationItems(effectiveOrganization, projectId);
 
   // Auto-close mobile menu on navigation using router.subscribe (proper TanStack Router pattern)
   useEffect(() => {
@@ -160,7 +184,7 @@ export function Sidebar({
                   align="start"
                   projects={projects}
                   organizations={organizations}
-                  tenant={activeOrganization}
+                  tenant={effectiveOrganization}
                   isLoading={false}
                 />
               </div>
@@ -317,8 +341,8 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
+        {/* Navigation - Shrink to fit content, not flex-1 */}
+        <ScrollArea className="flex-shrink px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
               // Dashboard (org root) should only match exactly
@@ -353,8 +377,8 @@ export function Sidebar({
           </nav>
         </ScrollArea>
 
-        {/* User Profile */}
-        <div className="border-t border-border p-4">
+        {/* User Profile - Always visible at bottom */}
+        <div className="mt-auto border-t border-border p-4">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50">
             <AccountDialog user={user}>
               <Button

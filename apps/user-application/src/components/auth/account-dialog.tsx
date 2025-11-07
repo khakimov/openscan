@@ -8,8 +8,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { authClient } from "@/lib/auth-client";
-import { LogOut, Palette } from "lucide-react";
+import { LogOut, Palette, Loader2 } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { useRouter } from "@tanstack/react-router";
+import { useState } from "react";
 
 export interface AccountDialogUser {
   id: string;
@@ -24,8 +26,20 @@ interface AccountDialogProps {
 }
 
 export function AccountDialog({ children, user }: AccountDialogProps) {
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
   const signOut = async () => {
-    await authClient.signOut();
+    setIsSigningOut(true);
+    try {
+      await authClient.signOut();
+      // Use TanStack Router to navigate to home page
+      // This preserves SPA benefits while clearing the session
+      await router.navigate({ to: "/" });
+    } catch (error) {
+      console.error("Sign out failed:", error);
+      setIsSigningOut(false);
+    }
   };
 
   if (!user) {
@@ -76,9 +90,19 @@ export function AccountDialog({ children, user }: AccountDialogProps) {
               variant="outline"
               size="lg"
               className="w-full gap-2"
+              disabled={isSigningOut}
             >
-              <LogOut className="h-5 w-5" />
-              Sign Out
+              {isSigningOut ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Signing Out...
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-5 w-5" />
+                  Sign Out
+                </>
+              )}
             </Button>
           </div>
         </div>
