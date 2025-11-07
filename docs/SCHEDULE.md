@@ -434,7 +434,14 @@ const FAILURE_THRESHOLDS: Record<SchedulePreset, number> = {
 const MAX_FAILURE_BACKOFF_MULTIPLIER = 8; // 8x interval
 const MAX_BACKOFF_DELAY_MS = 6 * 60 * 60 * 1000; // 6 hours cap
 
-// State interface
+/**
+ * Virtual Object state for DeviceScanner
+ *
+ * 🔗 STATE MANAGEMENT PATTERN:
+ * - See ctx.get/ctx.set usage in:
+ *   /Users/nailert/Projects/current/automate/ui/restate/examples/typescript/end-to-end-applications/food-ordering/app/src/order-app/order_workflow/impl.ts:35-45
+ * - State survives worker restarts and can be queried from external handlers
+ */
 interface DeviceScannerState {
   scheduleId: string;
   deviceId: string;
@@ -527,6 +534,8 @@ export const deviceScanner = restate.object({
       ctx.set('state', state);
 
       // ✅ RECOMMENDED: schedule next run before returning so retries remain idempotent
+      // 🔗 PATTERN: /Users/nailert/Projects/current/automate/ui/restate/examples/typescript/patterns-use-cases/src/schedulingtasks/payment_reminders.ts:23-29
+      // Shows delayed send with objectSendClient + sendOpts pattern
       scheduleNextInvocation(ctx, scheduleId, nextRunAt, timerCallId);
 
       logger.info('Device scan scheduled', {
@@ -971,6 +980,15 @@ export const deviceScanner = restate.object({
 
 export const DeviceScanner: typeof deviceScanner = { name: 'DeviceScanner' };
 
+/**
+ * Schedule the next scan invocation with durable timer
+ *
+ * 🔗 PATTERN REFERENCES:
+ * - Delayed send with objectSendClient:
+ *   /Users/nailert/Projects/current/automate/ui/restate/examples/typescript/patterns-use-cases/src/schedulingtasks/payment_reminders.ts:23-29
+ * - Timer delays via sendOpts:
+ *   /Users/nailert/Projects/current/automate/ui/restate/examples/typescript/basics/src/1_building_blocks.ts:57-59
+ */
 function scheduleNextInvocation(
   ctx: restate.ObjectContext,
   scheduleId: string,
@@ -1619,6 +1637,12 @@ export type ScheduledScanPostback =
 - ✅ **Chaos suite**: nightly job injects random failures (timeouts, lease exhaustion) using containerized Restate + fault-injection hooks.
 - ✅ **Time control**: keep test intervals short (seconds/minutes) and poll via helper `waitUntil`; no built-in time-travel in SDK 1.9.
 
+🔗 **TIMER TESTING REFERENCES**:
+- Timer patterns with `ctx.sleep()` and `RestatePromise.race()`:
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/tutorials/tour-of-workflows-typescript/src/workflows/signup-with-timers.ts:19-28`
+- Timeout pattern with awakeables:
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/tutorials/tour-of-orchestration-typescript/src/timers/service.ts:20-25`
+
 ```typescript
 // apps/restate-worker/src/__tests__/device-scanner.test.ts
 import { RestateTestEnvironment } from '@restatedev/restate-sdk-testcontainers';
@@ -1846,7 +1870,22 @@ ORDER BY hour_bucket DESC;
 
 ## References
 
+### Official Restate Docs
 - Restate Durable Timers: https://docs.restate.dev/develop/ts/awakeable-timers
 - Virtual Objects: https://docs.restate.dev/develop/ts/virtual-objects
+
+### Restate Example Code (Local Reference)
+- **Delayed send pattern** (payment reminders):
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/patterns-use-cases/src/schedulingtasks/payment_reminders.ts`
+- **Timer building blocks** (ctx.sleep, sendOpts):
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/basics/src/1_building_blocks.ts`
+- **Workflow timers** (RestatePromise.race, orTimeout):
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/tutorials/tour-of-workflows-typescript/src/workflows/signup-with-timers.ts`
+- **Awakeable timeouts**:
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/tutorials/tour-of-orchestration-typescript/src/timers/service.ts`
+- **Virtual Object state management** (food ordering workflow):
+  `/Users/nailert/Projects/current/automate/ui/restate/examples/typescript/end-to-end-applications/food-ordering/app/src/order-app/order_workflow/impl.ts`
+
+### Internal Codebase
 - Existing Port Scanner: `apps/restate-worker/src/port-scanner-service.ts`
 - Postback System: `apps/user-application/src/server/postback/`

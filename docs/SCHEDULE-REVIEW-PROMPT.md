@@ -93,6 +93,8 @@ async executeScan(ctx: ObjectContext) {
 // Pattern: Check `lastRunAt` before starting scan, skip if < interval elapsed
 
 // 🔗 RESTATE DOCS: https://docs.restate.dev/develop/ts/awakeable-timers#delayed-calls
+// 🔗 EXAMPLE: Delayed send pattern - restate/examples/typescript/patterns-use-cases/src/schedulingtasks/payment_reminders.ts:23-29
+// 🔗 EXAMPLE: Timer building blocks - restate/examples/typescript/basics/src/1_building_blocks.ts:57-59
 ```
 
 ---
@@ -879,6 +881,8 @@ describe('Integration Tests', () => {
 
 // 🔗 RESTATE TEST DOCS: https://docs.restate.dev/develop/ts/testing
 // 🔗 REFERENCE: Similar testing in apps/restate-worker/src/__tests__/
+// 🔗 EXAMPLE: Timer testing patterns - restate/examples/typescript/tutorials/tour-of-workflows-typescript/src/workflows/signup-with-timers.ts:19-28
+// 🔗 EXAMPLE: Awakeable timeouts - restate/examples/typescript/tutorials/tour-of-orchestration-typescript/src/timers/service.ts:20-25
 ```
 
 ---
