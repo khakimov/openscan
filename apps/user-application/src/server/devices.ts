@@ -315,6 +315,20 @@ export const getDevicesData = createServerFn({
     // Transform devices to match UI expectations
     const transformedDevices = devicesResponse.items.map(transformDeviceForUI)
 
+    // Debug logging: Check for suspicious IDs
+    const suspiciousIds = transformedDevices.filter(d =>
+      d.id.includes('/') || d.id.includes('?') || d.id.includes('&')
+    );
+    if (suspiciousIds.length > 0) {
+      logger.error('Found devices with suspicious IDs', {
+        suspiciousDevices: suspiciousIds.map(d => ({
+          id: d.id,
+          name: d.name,
+          ip: d.ip
+        }))
+      });
+    }
+
     return {
       items: transformedDevices,
       totalCount: devicesResponse.totalCount,
@@ -351,15 +365,20 @@ export const getDeviceDetailData = createServerFn({
     if (!data || !data.deviceId) {
       throw new Error('Device ID is required');
     }
+    // Validate deviceId format (should not contain URL characters)
+    if (data.deviceId.includes('/') || data.deviceId.includes('?') || data.deviceId.includes('&')) {
+      logger.warn('Invalid deviceId format', { deviceId: data.deviceId });
+      throw new Error('Invalid device ID format');
+    }
     return data;
   })
   .handler(async ({ data }) => {
   const { deviceId } = data;
   try {
-    logger.info('Fetching device detail', { deviceId })
+    // Get organization from session (not from client params)
+    const organizationId = await getCurrentOrganizationId();
+    logger.info('Fetching device detail', { deviceId, organizationId })
 
-    // Get session for organization context
-    const organizationId = await getCurrentOrganizationId()
     const deviceDetail = await getDeviceById(deviceId, organizationId)
 
     if (!deviceDetail) {

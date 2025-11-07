@@ -50,6 +50,7 @@ export const deviceQueries = {
 
   /**
    * Single device detail query
+   * Note: organizationId is retrieved from session on the server, not passed from client
    */
   detail: (deviceId: string) =>
     queryOptions({
@@ -217,7 +218,8 @@ export const useUpdateDeviceMutation = (deviceId: string) => {
     onSuccess: () => {
       // Invalidate all device queries
       queryClient.invalidateQueries({ queryKey: ['devices'] });
-      queryClient.invalidateQueries({ queryKey: deviceQueries.detail(deviceId).queryKey });
+      // Invalidate all detail queries for this device (partial matching on queryKey)
+      queryClient.invalidateQueries({ queryKey: ['device-detail', deviceId] });
       queryClient.invalidateQueries({ queryKey: ['deviceTagSuggestions'] });
     },
   });

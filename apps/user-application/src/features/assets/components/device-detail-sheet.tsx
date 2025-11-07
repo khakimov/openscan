@@ -27,6 +27,18 @@ interface DeviceDetailSheetProps {
 }
 
 export function DeviceDetailSheet({ devices, newlyAddedIds }: DeviceDetailSheetProps) {
+  // Debug: Log device IDs to catch corruption
+  const suspiciousDevices = devices.filter(d =>
+    d.id.includes('/') || d.id.includes('?') || d.id.includes('&')
+  );
+  if (suspiciousDevices.length > 0) {
+    console.error('[DeviceDetailSheet] Found devices with suspicious IDs:', suspiciousDevices.map(d => ({
+      id: d.id,
+      name: d.name,
+      ip: d.ip
+    })));
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {devices.map((device) => (
@@ -51,14 +63,23 @@ function DeviceDetailSheetItem({
   const params = useParams({ strict: false });
   const organizationId = 'organizationId' in params ? params.organizationId as string : null;
   const projectId = 'projectId' in params ? params.projectId as string : null;
+
+  // Validate device.id is actually a valid ID (not a URL path)
+  const isValidDeviceId = Boolean(device.id && !device.id.includes('/') && !device.id.includes('?'));
+
   // Each device has its own Sheet with its own data loading using queryOptions
+  // Note: organizationId comes from session on server, not passed as parameter
+  const shouldFetch = isValidDeviceId;
+
   const { data: deviceDetail, isLoading: isLoadingDetail } = useQuery({
     ...deviceQueries.detail(device.id),
+    enabled: shouldFetch,
   });
 
   // Fetch scan history to get CVE enrichment data
   const { data: scanHistoryData } = useQuery({
     ...deviceQueries.scanHistory(device.id, 1), // Get latest scan only
+    enabled: shouldFetch,
   });
 
   // Extract CVE enrichment data from the latest scan

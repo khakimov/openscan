@@ -10,9 +10,10 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId
 });
 
 function DeviceOverview() {
-  const { deviceId } = Route.useParams();
+  const { deviceId, organizationId } = Route.useParams();
 
   // Load device detail with suspense (already prefetched by parent)
+  // Note: organizationId comes from session on server, not from params
   const { data: device } = useSuspenseQuery(deviceQueries.detail(deviceId));
 
   // Fetch scan history to get CVE enrichment data

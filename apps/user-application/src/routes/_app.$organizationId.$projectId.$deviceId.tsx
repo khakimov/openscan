@@ -11,7 +11,14 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId")({
   loader: async ({ context: { queryClient }, params }) => {
+    // Guard: Validate deviceId doesn't look like a route segment or URL
+    if (params.deviceId.includes('/') || params.deviceId.includes('?') || params.deviceId.includes('&')) {
+      console.error('[deviceId route loader] Invalid deviceId detected:', params.deviceId);
+      throw new Error(`Invalid device ID: ${params.deviceId}`);
+    }
+
     // Prefetch device detail for SSR
+    // Note: organizationId comes from session on server, not from params
     await queryClient.ensureQueryData(deviceQueries.detail(params.deviceId));
   },
   component: DevicePage,
@@ -21,6 +28,7 @@ function DevicePage() {
   const { organizationId, projectId, deviceId } = Route.useParams();
 
   // Load device detail with suspense
+  // Note: organizationId comes from session on server, not from params
   const { data: device } = useSuspenseQuery(deviceQueries.detail(deviceId));
 
   // Scan mutation
