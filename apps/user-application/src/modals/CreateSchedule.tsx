@@ -3,6 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -15,20 +16,34 @@ import { ModalContent, ModalHeader } from "./Modal/Container";
 import { useCreateScheduleMutation } from "@/queries";
 import { Loader2, Clock } from "lucide-react";
 import { toast } from "sonner";
-import { useState } from "react";
-import {
-  ScheduleIntervalPicker,
-  type ScheduleInterval,
-  intervalToCron,
-  getIntervalDescription,
-} from "@/components/shared/schedule-interval-picker";
 
 // Form validation schema
 const CreateScheduleSchema = z.object({
   preset: z.enum(['QUICK', 'STANDARD', 'THOROUGH'], {
     required_error: "Please select a scan preset",
   }),
-});
+  scheduleFrequency: z.enum([
+    'EVERY_30_MINUTES',
+    'EVERY_HOUR',
+    'EVERY_6_HOURS',
+    'EVERY_12_HOURS',
+    'DAILY',
+  ], {
+    required_error: "Please select a schedule frequency",
+  }),
+  dailyTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
+}).refine(
+  (data) => {
+    if (data.scheduleFrequency === 'DAILY' && !data.dailyTime) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'Time is required for daily schedules',
+    path: ['dailyTime'],
+  }
+);
 
 type CreateScheduleFormData = z.infer<typeof CreateScheduleSchema>;
 
@@ -48,41 +63,37 @@ export default function CreateSchedule({
     formState: { errors },
     setValue,
     watch,
+    register,
   } = useForm<CreateScheduleFormData>({
     resolver: zodResolver<CreateScheduleFormData, any, CreateScheduleFormData>(
       CreateScheduleSchema
     ),
     defaultValues: {
       preset: 'STANDARD',
+      scheduleFrequency: 'DAILY',
+      dailyTime: '02:00',
     },
   });
 
-  // Interval state (managed separately from react-hook-form)
-  const [interval, setInterval] = useState<ScheduleInterval>({
-    type: 'DAILY',
-    dailyTime: '02:00',
-  });
-
   const selectedPreset = watch('preset');
+  const selectedFrequency = watch('scheduleFrequency');
 
   const createMutation = useCreateScheduleMutation();
 
   const onSubmit = async (data: CreateScheduleFormData) => {
-    const cronExpression = intervalToCron(interval);
-    const description = getIntervalDescription(interval);
-
     createMutation.mutate(
       {
         deviceId,
         preset: data.preset,
-        interval: cronExpression,
+        scheduleFrequency: data.scheduleFrequency,
+        dailyTime: data.dailyTime,
         startImmediately: true,
       },
       {
         onSuccess: (response) => {
           if (response.success) {
             toast.success("Schedule created successfully", {
-              description: `${deviceName || 'Device'} will be scanned ${description.toLowerCase()}`,
+              description: `${deviceName || 'Device'} will be scanned ${getFrequencyDescription(data.scheduleFrequency, data.dailyTime)}`,
             });
             onSuccess?.();
             popModal("CreateSchedule");
@@ -150,8 +161,48 @@ export default function CreateSchedule({
           )}
         </div>
 
-        {/* Schedule Interval */}
-        <ScheduleIntervalPicker value={interval} onChange={setInterval} />
+        {/* Schedule Frequency */}
+        <div className="space-y-2">
+          <Label htmlFor="scheduleFrequency">Schedule Frequency *</Label>
+          <Select
+            value={selectedFrequency}
+            onValueChange={(value) =>
+              setValue('scheduleFrequency', value as any)
+            }
+          >
+            <SelectTrigger id="scheduleFrequency">
+              <SelectValue placeholder="Select frequency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="EVERY_30_MINUTES">Every 30 Minutes</SelectItem>
+              <SelectItem value="EVERY_HOUR">Every Hour</SelectItem>
+              <SelectItem value="EVERY_6_HOURS">Every 6 Hours</SelectItem>
+              <SelectItem value="EVERY_12_HOURS">Every 12 Hours</SelectItem>
+              <SelectItem value="DAILY">Daily at Specific Time</SelectItem>
+            </SelectContent>
+          </Select>
+          {errors.scheduleFrequency && (
+            <p className="text-sm text-red-500">{errors.scheduleFrequency.message}</p>
+          )}
+        </div>
+
+        {/* Daily Time (only shown for DAILY frequency) */}
+        {selectedFrequency === 'DAILY' && (
+          <div className="space-y-2">
+            <Label htmlFor="dailyTime">Daily Run Time (UTC) *</Label>
+            <Input
+              id="dailyTime"
+              type="time"
+              {...register('dailyTime')}
+            />
+            {errors.dailyTime && (
+              <p className="text-sm text-red-500">{errors.dailyTime.message}</p>
+            )}
+            <p className="text-xs text-muted-foreground">
+              Scans will run once per day at this time (UTC timezone)
+            </p>
+          </div>
+        )}
 
         {/* Summary */}
         <div className="rounded-lg border border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950/20 p-4">
@@ -163,7 +214,7 @@ export default function CreateSchedule({
               </p>
               <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
                 <strong>{selectedPreset || 'Selected'}</strong> scan will run{' '}
-                <strong>{getIntervalDescription(interval).toLowerCase()}</strong>
+                <strong>{getFrequencyDescription(selectedFrequency, watch('dailyTime'))}</strong>
               </p>
               <p className="text-xs text-blue-600 dark:text-blue-400 mt-2">
                 First scan will start immediately after creation
@@ -204,4 +255,27 @@ export default function CreateSchedule({
       </form>
     </ModalContent>
   );
+}
+
+/**
+ * Get human-readable description of schedule frequency
+ */
+function getFrequencyDescription(
+  frequency: string,
+  dailyTime?: string
+): string {
+  switch (frequency) {
+    case 'EVERY_30_MINUTES':
+      return 'every 30 minutes';
+    case 'EVERY_HOUR':
+      return 'every hour';
+    case 'EVERY_6_HOURS':
+      return 'every 6 hours';
+    case 'EVERY_12_HOURS':
+      return 'every 12 hours';
+    case 'DAILY':
+      return `daily at ${dailyTime || '02:00'} UTC`;
+    default:
+      return 'on the selected schedule';
+  }
 }

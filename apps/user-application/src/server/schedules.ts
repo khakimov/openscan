@@ -198,12 +198,45 @@ const restateClient = new RestateScheduleClient();
 // Validation schemas
 const CreateScheduleSchema = z.object({
   deviceId: z.string().min(1),
-  interval: z.string().min(1), // Cron expression from UI
   preset: z.enum(['QUICK', 'STANDARD', 'THOROUGH']),
+  scheduleFrequency: z.enum([
+    'EVERY_30_MINUTES',
+    'EVERY_HOUR',
+    'EVERY_6_HOURS',
+    'EVERY_12_HOURS',
+    'DAILY',
+  ]),
+  dailyTime: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Invalid time format (must be HH:mm)')
+    .optional(), // Required only if scheduleFrequency === 'DAILY'
   startImmediately: z.boolean().optional().default(false),
-});
+}).refine(
+  (data) => {
+    // If DAILY, dailyTime is required
+    if (data.scheduleFrequency === 'DAILY' && !data.dailyTime) {
+      return false;
+    }
+    return true;
+  },
+  {
+    message: 'dailyTime is required when scheduleFrequency is DAILY',
+    path: ['dailyTime'],
+  }
+);
 
 export type CreateScheduleInput = z.infer<typeof CreateScheduleSchema>;
+
+/**
+ * Server-controlled frequency mapping
+ * Client sends semantic intent, server controls exact values
+ */
+const FREQUENCY_TO_INTERVAL = {
+  EVERY_30_MINUTES: { kind: 'duration', value: 30, unit: 'minutes' } as const,
+  EVERY_HOUR: { kind: 'duration', value: 1, unit: 'hours' } as const,
+  EVERY_6_HOURS: { kind: 'duration', value: 6, unit: 'hours' } as const,
+  EVERY_12_HOURS: { kind: 'duration', value: 12, unit: 'hours' } as const,
+} as const;
 
 const ScheduleActionSchema = z.object({
   scheduleId: z.string().min(1),
@@ -235,11 +268,27 @@ export const createScheduleData = createServerFn({
         throw new Error('Device has no IP or hostname to scan');
       }
 
+      // Map frequency to interval configuration (server controls exact values)
+      let intervalConfig: ScheduleInterval;
+
+      if (data.scheduleFrequency === 'DAILY') {
+        const [hourStr, minuteStr] = (data.dailyTime || '02:00').split(':');
+        intervalConfig = {
+          kind: 'daily',
+          hour: parseInt(hourStr, 10),
+          minute: parseInt(minuteStr, 10),
+          timezone: 'UTC',
+        };
+      } else {
+        intervalConfig = FREQUENCY_TO_INTERVAL[data.scheduleFrequency];
+      }
+
       logger.info('Creating scan schedule', {
         deviceId: data.deviceId,
         deviceTarget,
         preset: data.preset,
-        interval: data.interval,
+        scheduleFrequency: data.scheduleFrequency,
+        intervalConfig,
         organizationId,
         userId: user.id,
       });
@@ -247,14 +296,10 @@ export const createScheduleData = createServerFn({
       // Generate schedule ID
       const scheduleId = `schedule-${data.deviceId}-${Date.now()}`;
 
-      // Parse cron interval to ScheduleInterval object
-      const cronInterval = data.interval;
-      const intervalConfig = parseCronToInterval(cronInterval);
-
-      // Calculate next run time from cron
+      // Calculate next run time from interval
       const nextRunAt = data.startImmediately
         ? new Date()
-        : new Date(Date.now() + 60000); // TODO: Parse cron for accurate next run
+        : calculateNextExecutionTime(intervalConfig);
 
       // Step 1: Create in database
       const dbSchedule = await createScanSchedule({
@@ -622,33 +667,3 @@ function convertToMilliseconds(value: number, unit: 'minutes' | 'hours' | 'days'
   return value * multipliers[unit];
 }
 
-/**
- * Helper: Parse cron expression to ScheduleInterval object
- * Supports common patterns from the UI's ScheduleIntervalPicker
- */
-function parseCronToInterval(cron: string): ScheduleInterval {
-  const parts = cron.split(' ');
-
-  // Pattern: */N * * * * (every N minutes)
-  if (parts[0].startsWith('*/') && parts[1] === '*') {
-    const minutes = parseInt(parts[0].slice(2));
-    return { kind: 'duration', value: minutes, unit: 'minutes' };
-  }
-
-  // Pattern: 0 */N * * * (every N hours)
-  if (parts[0] === '0' && parts[1].startsWith('*/')) {
-    const hours = parseInt(parts[1].slice(2));
-    return { kind: 'duration', value: hours, unit: 'hours' };
-  }
-
-  // Pattern: M H * * * (daily at specific time)
-  if (parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
-    const minute = parseInt(parts[0]);
-    const hour = parseInt(parts[1]);
-    return { kind: 'daily', hour, minute };
-  }
-
-  // Fallback to hourly if pattern doesn't match
-  logger.warn('Unrecognized cron pattern, defaulting to hourly', { cron });
-  return { kind: 'duration', value: 1, unit: 'hours' };
-}
