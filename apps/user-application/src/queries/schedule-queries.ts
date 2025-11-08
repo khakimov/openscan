@@ -28,7 +28,7 @@ import { createOptimisticScheduleDeleteHandlers } from '@/lib/optimistic-updates
  */
 export const scheduleQueries = {
   /**
-   * All schedules query (with optional filtering)
+   * All schedules query (excludes DELETED schedules by default)
    */
   all: (params?: {
     status?: 'ACTIVE' | 'PAUSED';
@@ -46,7 +46,8 @@ export const scheduleQueries = {
         if (!result.success) {
           throw new Error('Failed to fetch schedules');
         }
-        return result.schedules || [];
+        // Filter out deleted schedules (soft-deleted in DB but not yet purged)
+        return (result.schedules || []).filter((s: any) => s.status !== 'DELETED');
       },
       ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
     }),
@@ -68,7 +69,7 @@ export const scheduleQueries = {
     }),
 
   /**
-   * Schedules for a specific device
+   * Schedules for a specific device (excludes DELETED schedules)
    */
   forDevice: (deviceId: string) =>
     queryOptions({
@@ -78,7 +79,8 @@ export const scheduleQueries = {
         if (!result.success) {
           throw new Error('Failed to fetch device schedules');
         }
-        return result.schedules || [];
+        // Filter out deleted schedules (soft-deleted in DB but not yet purged)
+        return (result.schedules || []).filter((s: any) => s.status !== 'DELETED');
       },
       ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
     }),

@@ -15,10 +15,19 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Clock, Play, Pause, Trash2, Plus, Loader2 } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useState } from "react";
 
 interface DeviceScheduleListProps {
   deviceId: string;
@@ -37,6 +46,10 @@ export function DeviceScheduleList({
   const pauseMutation = usePauseScheduleMutation();
   const resumeMutation = useResumeScheduleMutation();
   const deleteMutation = useDeleteScheduleMutation();
+
+  // Delete confirmation dialog state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
 
   const handleCreateSchedule = () => {
     pushModal("CreateSchedule", {
@@ -75,19 +88,36 @@ export function DeviceScheduleList({
     );
   };
 
-  const handleDelete = (scheduleId: string) => {
+  const handleDeleteClick = (schedule: any) => {
+    setScheduleToDelete(schedule);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!scheduleToDelete) return;
+
     deleteMutation.mutate(
-      { scheduleId },
+      { scheduleId: scheduleToDelete.scheduleId },
       {
         onSuccess: (result) => {
           if (result.success) {
             toast.success("Schedule deleted");
+            setDeleteDialogOpen(false);
+            setScheduleToDelete(null);
           } else {
             toast.error("Failed to delete schedule");
           }
         },
+        onError: () => {
+          toast.error("Failed to delete schedule");
+        },
       }
     );
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteDialogOpen(false);
+    setScheduleToDelete(null);
   };
 
   // Get friendly interval description from cron
@@ -233,7 +263,7 @@ export function DeviceScheduleList({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(schedule.scheduleId)}
+                        onClick={() => handleDeleteClick(schedule)}
                         disabled={deleteMutation.isPending}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
@@ -257,6 +287,67 @@ export function DeviceScheduleList({
           </p>
         </div>
       )}
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete Schedule</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this schedule?
+            </DialogDescription>
+          </DialogHeader>
+
+          {scheduleToDelete && (
+            <div className="py-4 space-y-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Preset:</span>
+                <Badge
+                  variant={
+                    scheduleToDelete.preset === 'QUICK'
+                      ? 'secondary'
+                      : scheduleToDelete.preset === 'STANDARD'
+                        ? 'default'
+                        : 'outline'
+                  }
+                >
+                  {scheduleToDelete.preset}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Interval:</span>
+                <span className="text-sm font-medium">
+                  {getIntervalDescription(scheduleToDelete.interval)}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={handleCancelDelete}
+              disabled={deleteMutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={deleteMutation.isPending}
+            >
+              {deleteMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
