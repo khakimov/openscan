@@ -371,7 +371,7 @@ export const deviceScanner = restate.object({
             organizationId: input.organizationId,
             timestamp: new Date().toISOString(),
             status: 'SUCCESS',
-            callbackUrl: `${TANSTACK_APP_URL}/api/postback/schedule-execution`,
+            callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
             deviceId: input.deviceId,
             data: {
               scheduleId: input.scheduleId,
@@ -718,7 +718,7 @@ async function handleFailure(
         organizationId: config.organizationId,
         timestamp: new Date().toISOString(),
         status: 'FAILED',
-        callbackUrl: `${TANSTACK_APP_URL}/api/postback/schedule-execution`,
+        callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
         deviceId: config.deviceId,
         data: {
           scheduleId: config.scheduleId,
@@ -748,7 +748,7 @@ async function handleFailure(
       organizationId: config.organizationId,
       timestamp: new Date().toISOString(),
       status: 'FAILED',
-      callbackUrl: `${TANSTACK_APP_URL}/api/postback/schedule-execution`,
+      callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
       deviceId: config.deviceId,
       data: {
         scheduleId: config.scheduleId,

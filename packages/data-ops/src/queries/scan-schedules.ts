@@ -55,6 +55,7 @@ export async function createScanSchedule(input: {
       nextRunAt: input.nextRunAt,
       status: 'ACTIVE',
       isActive: true,
+      consecutiveFailures: 0,
       createdBy: input.createdBy,
     })
     .onConflictDoUpdate({
@@ -68,6 +69,7 @@ export async function createScanSchedule(input: {
         nextRunAt: input.nextRunAt,
         status: 'ACTIVE',
         isActive: true,
+        consecutiveFailures: 0,
         updatedAt: new Date(),
       },
     })

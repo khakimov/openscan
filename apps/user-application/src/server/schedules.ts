@@ -56,16 +56,18 @@ class RestateScheduleClient {
    */
   async scheduleDeviceScan(
     scheduleId: string,
-    config: {
-      scheduleId: string;
-      deviceId: string;
-      deviceTarget: string;
-      organizationId: string;
-      interval: ScheduleInterval;
-      preset: SchedulePreset;
-      createdBy: string;
-    },
-    startImmediately?: boolean
+    input: {
+      config: {
+        scheduleId: string;
+        deviceId: string;
+        deviceTarget: string;
+        organizationId: string;
+        interval: ScheduleInterval;
+        preset: SchedulePreset;
+        createdBy: string;
+      };
+      startImmediately?: boolean;
+    }
   ): Promise<{ success: true; scheduleId: string; nextRunAt: string }> {
     const url = `${this.baseUrl}/DeviceScanner/${scheduleId}/scheduleDeviceScan`;
 
@@ -74,10 +76,7 @@ class RestateScheduleClient {
     const response = await fetch(url, {
       method: 'POST',
       headers: this.headers,
-      body: JSON.stringify({
-        config,
-        startImmediately,
-      }),
+      body: JSON.stringify(input),
     });
 
     if (!response.ok) {
@@ -322,15 +321,17 @@ export const createScheduleData = createServerFn({
         const restateResult = await restateClient.scheduleDeviceScan(
           scheduleId,
           {
-            scheduleId: dbSchedule.scheduleId,
-            deviceId: data.deviceId,
-            deviceTarget,
-            organizationId,
-            interval: intervalConfig,
-            preset: data.preset,
-            createdBy: user.id,
-          },
-          data.startImmediately
+            config: {
+              scheduleId: dbSchedule.scheduleId,
+              deviceId: data.deviceId,
+              deviceTarget,
+              organizationId,
+              interval: intervalConfig,
+              preset: data.preset,
+              createdBy: user.id,
+            },
+            startImmediately: data.startImmediately,
+          }
         );
 
         logger.info('Restate timer started', {
