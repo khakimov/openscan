@@ -27,6 +27,8 @@ import { Route as ApiInternalScanResultsRouteImport } from './routes/api/interna
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppOrganizationIdProjectIdRouteImport } from './routes/_app.$organizationId.$projectId'
 import { Route as AppOrganizationIdProjectIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.index'
+import { Route as ApiInternalSchedulesReleaseSlotRouteImport } from './routes/api/internal/schedules/release-slot'
+import { Route as ApiInternalSchedulesCanExecuteRouteImport } from './routes/api/internal/schedules/can-execute'
 import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
 import { Route as AuthAppPolarPortalRouteImport } from './routes/_auth/app/polar/portal'
 import { Route as AppOrganizationIdProjectIdScansRouteImport } from './routes/_app.$organizationId.$projectId.scans'
@@ -130,6 +132,18 @@ const AppOrganizationIdProjectIdIndexRoute =
     path: '/',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
+const ApiInternalSchedulesReleaseSlotRoute =
+  ApiInternalSchedulesReleaseSlotRouteImport.update({
+    id: '/api/internal/schedules/release-slot',
+    path: '/api/internal/schedules/release-slot',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiInternalSchedulesCanExecuteRoute =
+  ApiInternalSchedulesCanExecuteRouteImport.update({
+    id: '/api/internal/schedules/can-execute',
+    path: '/api/internal/schedules/can-execute',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthAppPolarSubscriptionsRoute =
   AuthAppPolarSubscriptionsRouteImport.update({
     id: '/_auth/app/polar/subscriptions',
@@ -210,6 +224,8 @@ export interface FileRoutesByFullPath {
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
+  '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
+  '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
   '/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
@@ -234,6 +250,8 @@ export interface FileRoutesByTo {
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
   '/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
+  '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
+  '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdIndexRoute
   '/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
@@ -265,6 +283,8 @@ export interface FileRoutesById {
   '/_app/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
   '/_auth/app/polar/portal': typeof AuthAppPolarPortalRoute
   '/_auth/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
+  '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
+  '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/_app/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
   '/_app/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/_app/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
@@ -295,6 +315,8 @@ export interface FileRouteTypes {
     | '/$organizationId/$projectId/scans'
     | '/app/polar/portal'
     | '/app/polar/subscriptions'
+    | '/api/internal/schedules/can-execute'
+    | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId/'
     | '/$organizationId/$projectId/$deviceId/scans'
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
@@ -319,6 +341,8 @@ export interface FileRouteTypes {
     | '/$organizationId/$projectId/scans'
     | '/app/polar/portal'
     | '/app/polar/subscriptions'
+    | '/api/internal/schedules/can-execute'
+    | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId'
     | '/$organizationId/$projectId/$deviceId/scans'
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
@@ -349,6 +373,8 @@ export interface FileRouteTypes {
     | '/_app/$organizationId/$projectId/scans'
     | '/_auth/app/polar/portal'
     | '/_auth/app/polar/subscriptions'
+    | '/api/internal/schedules/can-execute'
+    | '/api/internal/schedules/release-slot'
     | '/_app/$organizationId/$projectId/'
     | '/_app/$organizationId/$projectId/$deviceId/scans'
     | '/_app/$organizationId/$projectId/$deviceId/vulnerabilities'
@@ -369,6 +395,8 @@ export interface RootRouteChildren {
   AuthAppIndexRoute: typeof AuthAppIndexRoute
   AuthAppPolarPortalRoute: typeof AuthAppPolarPortalRoute
   AuthAppPolarSubscriptionsRoute: typeof AuthAppPolarSubscriptionsRoute
+  ApiInternalSchedulesCanExecuteRoute: typeof ApiInternalSchedulesCanExecuteRoute
+  ApiInternalSchedulesReleaseSlotRoute: typeof ApiInternalSchedulesReleaseSlotRoute
   AuthAppPolarCheckoutSuccessRoute: typeof AuthAppPolarCheckoutSuccessRoute
 }
 
@@ -499,6 +527,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/$organizationId/$projectId/'
       preLoaderRoute: typeof AppOrganizationIdProjectIdIndexRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
+    }
+    '/api/internal/schedules/release-slot': {
+      id: '/api/internal/schedules/release-slot'
+      path: '/api/internal/schedules/release-slot'
+      fullPath: '/api/internal/schedules/release-slot'
+      preLoaderRoute: typeof ApiInternalSchedulesReleaseSlotRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/internal/schedules/can-execute': {
+      id: '/api/internal/schedules/can-execute'
+      path: '/api/internal/schedules/can-execute'
+      fullPath: '/api/internal/schedules/can-execute'
+      preLoaderRoute: typeof ApiInternalSchedulesCanExecuteRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_auth/app/polar/subscriptions': {
       id: '/_auth/app/polar/subscriptions'
@@ -684,6 +726,8 @@ const rootRouteChildren: RootRouteChildren = {
   AuthAppIndexRoute: AuthAppIndexRoute,
   AuthAppPolarPortalRoute: AuthAppPolarPortalRoute,
   AuthAppPolarSubscriptionsRoute: AuthAppPolarSubscriptionsRoute,
+  ApiInternalSchedulesCanExecuteRoute: ApiInternalSchedulesCanExecuteRoute,
+  ApiInternalSchedulesReleaseSlotRoute: ApiInternalSchedulesReleaseSlotRoute,
   AuthAppPolarCheckoutSuccessRoute: AuthAppPolarCheckoutSuccessRoute,
 }
 export const routeTree = rootRouteImport

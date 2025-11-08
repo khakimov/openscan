@@ -171,6 +171,68 @@ export interface HttpxPostback extends BasePostback {
 }
 
 /**
+ * Scheduled scan execution postback - sent when a scheduled scan completes
+ */
+export interface ScheduledScanExecutedPostback extends BasePostback {
+  type: 'SCHEDULED_SCAN_EXECUTED';
+
+  /** Device ID that was scanned */
+  deviceId: string;
+
+  /** Execution results data */
+  data: {
+    /** Schedule ID that triggered this scan */
+    scheduleId: string;
+
+    /** Execution status */
+    status: 'SUCCESS' | 'FAILED';
+
+    /** Error message if status is FAILED */
+    error?: string;
+
+    /** Error classification */
+    errorType?: 'TRANSIENT' | 'PERMANENT' | 'CONCURRENCY_LIMIT';
+
+    /** Consecutive failure count */
+    consecutiveFailures: number;
+
+    /** Last run timestamp */
+    lastRunAt: string;
+
+    /** Next scheduled run timestamp */
+    nextRunAt: string;
+
+    /** Whether exponential backoff was applied */
+    backoffApplied?: boolean;
+
+    /** Backoff duration in milliseconds */
+    backoffMs?: number;
+  };
+}
+
+/**
+ * Schedule auto-paused postback - sent when a schedule is auto-paused due to failures
+ */
+export interface ScheduleAutoPausedPostback extends BasePostback {
+  type: 'SCHEDULE_AUTO_PAUSED';
+
+  /** Device ID that was scanned */
+  deviceId: string;
+
+  /** Auto-pause event data */
+  data: {
+    /** Schedule ID that was paused */
+    scheduleId: string;
+
+    /** Reason for auto-pause */
+    reason: string;
+
+    /** Consecutive failure count */
+    consecutiveFailures: number;
+  };
+}
+
+/**
  * Discriminated union of all postback types
  *
  * TypeScript will narrow the type based on the 'type' field:
@@ -189,7 +251,9 @@ export interface HttpxPostback extends BasePostback {
 export type PostbackPayload =
   | PortScanPostback
   | DiscoveryPostback
-  | HttpxPostback;
+  | HttpxPostback
+  | ScheduledScanExecutedPostback
+  | ScheduleAutoPausedPostback;
   // Add new postback types here:
   // | WebScanPostback
   // | VulnerabilityScanPostback

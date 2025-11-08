@@ -11,6 +11,7 @@
 export { deviceQueries } from './device-queries';
 export { scanQueries } from './scan-queries';
 export { discoveryQueries } from './discovery-queries';
+export { scheduleQueries } from './schedule-queries';
 
 // Device mutation hooks
 export {
@@ -34,3 +35,11 @@ export {
   useCreateProjectMutation,
   useUpdateOrganizationMutation,
 } from './organization-queries';
+
+// Schedule mutation hooks
+export {
+  useCreateScheduleMutation,
+  usePauseScheduleMutation,
+  useResumeScheduleMutation,
+  useDeleteScheduleMutation,
+} from './schedule-queries';

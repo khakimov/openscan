@@ -4,6 +4,7 @@ import { deviceQueries } from "@/queries/device-queries";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { TransformedDevice } from "@/server/devices";
+import { DeviceScheduleList } from "@/components/shared/device-schedule-list";
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/")({
   component: DeviceOverview,
@@ -39,6 +40,12 @@ function DeviceOverview() {
         deviceDetail={device as TransformedDevice}
         isLoading={false}
         cveEnrichment={cveEnrichment}
+      />
+
+      {/* Scan Schedules Section */}
+      <DeviceScheduleList
+        deviceId={deviceId}
+        deviceName={device.name}
       />
 
       {/* CVE Enrichment Data - Raw Display */}

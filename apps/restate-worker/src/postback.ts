@@ -14,15 +14,15 @@ const logger = createLogger({ name: 'restate-postback' });
  * Format with type discrimination for routing to appropriate handlers
  */
 export interface UniversalPostbackPayload {
-  type: 'PORT_SCAN' | 'DISCOVERY' | 'HTTPX';
+  type: 'PORT_SCAN' | 'DISCOVERY' | 'HTTPX' | 'SCHEDULED_SCAN_EXECUTED' | 'SCHEDULE_AUTO_PAUSED';
   scanId: string;
   organizationId: string;
   timestamp: string;
-  status: 'SUCCESS' | 'FAILURE';
+  status: 'SUCCESS' | 'FAILURE' | 'FAILED';
   callbackUrl: string;
-  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY, probes for HTTPX)
-  deviceId?: string; // For PORT_SCAN and HTTPX
-  error?: string; // Only for FAILURE status
+  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY, probes for HTTPX, schedule updates for SCHEDULED_SCAN)
+  deviceId?: string; // For PORT_SCAN, HTTPX, and SCHEDULED_SCAN
+  error?: string; // Only for FAILURE/FAILED status
 }
 
 /**

@@ -2,6 +2,7 @@ import * as restate from '@restatedev/restate-sdk';
 import { portScanner } from './port-scanner';
 import { discoveryService } from './discovery-service';
 import { httpxService } from './httpx-service';
+import { deviceScanner } from './device-scanner-service';
 import { createLogger } from '@repo/logger';
 import { checkDeploymentStatus, logDeploymentGuidance } from './deployment-checker';
 
@@ -34,7 +35,8 @@ const endpoint = restate
   .endpoint()
   .bind(portScanner)
   .bind(discoveryService)
-  .bind(httpxService);
+  .bind(httpxService)
+  .bind(deviceScanner);
 
 endpoint
   .listen(PORT)
@@ -52,6 +54,10 @@ endpoint
       {
         name: 'Httpx',
         handlers: ['probe', 'getState'],
+      },
+      {
+        name: 'DeviceScanner',
+        handlers: ['scheduleDeviceScan', 'executeScan', 'pauseSchedule', 'resumeSchedule', 'deleteSchedule', 'getScheduleState'],
       },
     ];
 
