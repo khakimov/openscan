@@ -9,7 +9,6 @@ import {
   getDeviceScanHistory,
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
-  getScanScheduleByDeviceId,
   getOrganizationIdFromProject,  // ✅ VULN-003 FIX
   validateProjectAccess,
   validateOrganizationAccess,  // ✅ VULN-004 FIX

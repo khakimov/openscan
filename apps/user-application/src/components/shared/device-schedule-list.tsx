@@ -1,5 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { scheduleQueries } from "@/queries";
+import {
+  scheduleQueries,
+  usePauseScheduleMutation,
+  useResumeScheduleMutation,
+  useDeleteScheduleMutation,
+} from "@/queries/schedule-queries";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -12,11 +17,6 @@ import {
 } from "@/components/ui/table";
 import { Clock, Play, Pause, Trash2, Plus, Loader2 } from "lucide-react";
 import { pushModal } from "@/modals";
-import {
-  usePauseScheduleMutation,
-  useResumeScheduleMutation,
-  useDeleteScheduleMutation,
-} from "@/queries";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
