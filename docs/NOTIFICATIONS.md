@@ -356,15 +356,18 @@ function diffPorts(
     const isNowOpen = port.state === 'open';
 
     if (isNowOpen && !wasOpen) {
+      // Extract service name (service can be object or string)
+      const serviceName = port.service?.name || port.service?.product || port.service || 'service';
+
       changes.push({
         type: 'NEW_PORT',
         severity: determinePortSeverity(port.port),
-        title: `New ${port.service || 'service'} on port ${port.port} discovered`,
+        title: `New ${serviceName} on port ${port.port} discovered`,
         message: getPortSecurityMessage(port),
         data: {
           port: port.port,
           protocol: port.protocol,
-          service: port.service,
+          service: serviceName,
           state: port.state,
           version: port.version,
         },
@@ -380,15 +383,18 @@ function diffPorts(
     const isNowOpen = currPort && currPort.state === 'open';
 
     if (wasOpen && !isNowOpen) {
+      // Extract service name (service can be object or string)
+      const serviceName = prevPort.service?.name || prevPort.service?.product || prevPort.service || 'unknown';
+
       changes.push({
         type: 'CLOSED_PORT',
         severity: 'LOW', // Port closing is usually less urgent
-        title: `Port ${prevPort.port} (${prevPort.service || 'unknown'}) is now closed`,
+        title: `Port ${prevPort.port} (${serviceName}) is now closed`,
         message: undefined,
         data: {
           port: prevPort.port,
           protocol: prevPort.protocol,
-          service: prevPort.service,
+          service: serviceName,
           previousState: prevPort.state,
         },
         fingerprint: `closed_port:${deviceId}:${prevPort.port}:${prevPort.protocol}`,
@@ -446,8 +452,9 @@ function diffCVEs(
   const previousCVEs = extractCVEsFromEnrichment(previous.cveEnrichment);
 
   // Build CVE maps: cveId → CVE object
-  const prevCVEMap = new Map(previousCVEs.map(cve => [cve.id, cve]));
-  const currCVEMap = new Map(currentCVEs.map(cve => [cve.id, cve]));
+  // IMPORTANT: Use cve.cveId (not cve.id) to match safeParseCVEEnrichment schema
+  const prevCVEMap = new Map(previousCVEs.map(cve => [cve.cveId, cve]));
+  const currCVEMap = new Map(currentCVEs.map(cve => [cve.cveId, cve]));
 
   // Detect NEW CVEs (not in previous scan)
   for (const [cveId, cve] of currCVEMap) {
@@ -503,9 +510,10 @@ function diffCVEs(
 
 /**
  * Extract flat list of CVEs from enrichment structure
+ * Returns normalized CVE objects with cveId field (matches safeParseCVEEnrichment)
  */
 function extractCVEsFromEnrichment(enrichment: any): Array<{
-  id: string;
+  cveId: string;
   severity: string;
   cvssScore: number;
   description?: string;
@@ -586,7 +594,7 @@ export async function getLastSuccessfulScanForDevice(
   const [baseline] = await db
     .select()
     .from(scanRuns)
-    .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.scanRunId))
+    .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId)) // Fixed: runId not scanRunId
     .where(and(...conditions))
     .orderBy(desc(scanRuns.completedAt))
     .limit(1);
@@ -1933,6 +1941,65 @@ Fetches baseline scan for change detection.
 
 ---
 
-**Last Updated**: 2025-11-08
-**Status**: Ready for implementation
+## Review Feedback & Decisions
+
+### Technical Corrections (Implemented)
+
+1. **CVE Diff Map Keys** ✅
+   - **Issue**: Used `cve.id` but enrichment exposes `cveId`
+   - **Fix**: Changed maps to `cve.cveId` in lines 450-451
+   - **Impact**: CVE diffs will now work correctly; prevents all CVEs appearing as "new" on every scan
+
+2. **Baseline Query Join Column** ✅
+   - **Issue**: Joined on `scanRunDevices.scanRunId` but actual column is `runId`
+   - **Fix**: Changed to `scanRunDevices.runId` in line 591
+   - **Impact**: Baseline query will execute without throwing
+
+3. **Service Name Interpolation** ✅
+   - **Issue**: `port.service` can be object, would render `[object Object]`
+   - **Fix**: Extract with `port.service?.name || port.service?.product || port.service || 'service'`
+   - **Impact**: Notification titles will be human-readable
+
+### Reviewer Decisions
+
+#### Noise Controls (Approved)
+- **Suppress windows**: 6h for ports, 24h for CVEs confirmed as reasonable defaults
+- **Rate limiting**: Add 10/day per-device cap when schema lands
+- **Closed ports**: Gate behind future "monitored port" list (not MVP)
+- **Flapping detection**: Track last N state changes, drop events after multiple transitions in one day
+
+#### User Targeting & Delivery (Approved)
+- **Storage**: Org-wide (userId = null) for MVP
+- **Email triggers**: CRITICAL/HIGH only (immediate); MEDIUM stays in-app only
+- **Batching**: Multiple changes from same scan → single notification payload
+- **Email format**: Plain text for MVP (no HTML)
+
+#### Data Model Refinements (To Implement)
+- **Index optimization**: Add `(organizationId, suppressUntil)` composite index for faster suppress checks
+- **Retention**: Auto-expire read notifications after 60-90 days (not 30)
+
+#### Change Detection Enhancements (Future)
+- **Port severity overrides**: Add per-org override table or service-name heuristics
+- **Baseline filtering**: Filter by `scanType` to avoid comparing port scan vs discovery scan
+- **CVE threshold**: HIGH/CRITICAL only for MVP (confirmed)
+
+#### Implementation Priorities (Confirmed)
+- **Week 1-3 plan**: Approved as-is
+- **MVP scope**: In-app + email only; Slack deferred to Phase 2
+- **Testing strategy**: Miniflare integration tests + fixture scans + one E2E "new critical CVE" happy path
+
+### Open Items Resolved
+
+| Question | Decision |
+|----------|----------|
+| Email delivery for MEDIUM? | No - in-app only |
+| Closed port notifications? | Not in MVP - add "monitored ports" feature later |
+| Suppress duration configurable? | Not yet - use defaults, add preferences in Phase 2 |
+| Retention policy? | 60-90 days for read notifications |
+| Real-time delivery? | 30s polling for MVP, WebSockets in Phase 2 |
+
+---
+
+**Last Updated**: 2025-11-08 (Updated with review feedback)
+**Status**: Ready for implementation with corrections applied
 **Next Action**: Create migration + data-ops queries (Week 1, Task 1.1)
