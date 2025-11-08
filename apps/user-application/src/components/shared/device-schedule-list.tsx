@@ -213,7 +213,7 @@ export function DeviceScheduleList({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handlePause(schedule.id)}
+                          onClick={() => handlePause(schedule.scheduleId)}
                           disabled={pauseMutation.isPending}
                           className="h-8 w-8 p-0"
                         >
@@ -223,7 +223,7 @@ export function DeviceScheduleList({
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleResume(schedule.id)}
+                          onClick={() => handleResume(schedule.scheduleId)}
                           disabled={resumeMutation.isPending}
                           className="h-8 w-8 p-0"
                         >
@@ -233,7 +233,7 @@ export function DeviceScheduleList({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(schedule.id)}
+                        onClick={() => handleDelete(schedule.scheduleId)}
                         disabled={deleteMutation.isPending}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       >
