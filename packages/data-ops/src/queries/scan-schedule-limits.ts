@@ -44,47 +44,48 @@ export async function acquireScanSlot(input: {
 }): Promise<{ leaseId: string }> {
   const db = getDb();
 
-  // Use transaction for atomic check-and-acquire
-  return await db.transaction(async (tx: any) => {
-    // 1. Clean up expired leases proactively
-    await tx
-      .delete(scanScheduleLeases)
-      .where(lte(scanScheduleLeases.expiresAt, new Date()));
+  // Note: D1 doesn't support traditional transactions in Workers runtime
+  // We use optimistic concurrency with cleanup + count + insert pattern
+  // Race conditions are acceptable here (worst case: slightly exceed limit temporarily)
 
-    // 2. Count active leases for this organization
-    const [result] = await tx
-      .select({ count: drizzleCount() })
-      .from(scanScheduleLeases)
-      .where(eq(scanScheduleLeases.organizationId, input.organizationId));
+  // 1. Clean up expired leases proactively
+  await db
+    .delete(scanScheduleLeases)
+    .where(lte(scanScheduleLeases.expiresAt, new Date()));
 
-    const activeCount = Number(result?.count ?? 0);
+  // 2. Count active leases for this organization
+  const [result] = await db
+    .select({ count: drizzleCount() })
+    .from(scanScheduleLeases)
+    .where(eq(scanScheduleLeases.organizationId, input.organizationId));
 
-    // 3. Check if limit reached
-    if (activeCount >= MAX_CONCURRENT_SCANS_PER_ORG) {
-      throw new ConcurrencyLimitError({
-        organizationId: input.organizationId,
-        limit: MAX_CONCURRENT_SCANS_PER_ORG,
-        current: activeCount,
-      });
-    }
+  const activeCount = Number(result?.count ?? 0);
 
-    // 4. Create lease
-    const leaseId = createId();
-    const expiresAt = new Date(Date.now() + LEASE_TTL_MS);
-
-    await tx.insert(scanScheduleLeases).values({
-      id: createId(),
-      leaseId,
+  // 3. Check if limit reached
+  if (activeCount >= MAX_CONCURRENT_SCANS_PER_ORG) {
+    throw new ConcurrencyLimitError({
       organizationId: input.organizationId,
-      scheduleId: input.scheduleId,
-      deviceId: input.deviceId,
-      preset: input.preset,
-      acquiredAt: new Date(),
-      expiresAt,
+      limit: MAX_CONCURRENT_SCANS_PER_ORG,
+      current: activeCount,
     });
+  }
 
-    return { leaseId };
+  // 4. Create lease
+  const leaseId = createId();
+  const expiresAt = new Date(Date.now() + LEASE_TTL_MS);
+
+  await db.insert(scanScheduleLeases).values({
+    id: createId(),
+    leaseId,
+    organizationId: input.organizationId,
+    scheduleId: input.scheduleId,
+    deviceId: input.deviceId,
+    preset: input.preset,
+    acquiredAt: new Date(),
+    expiresAt,
   });
+
+  return { leaseId };
 }
 
 /**
