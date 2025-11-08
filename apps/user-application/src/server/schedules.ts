@@ -247,8 +247,9 @@ export const createScheduleData = createServerFn({
       // Generate schedule ID
       const scheduleId = `schedule-${data.deviceId}-${Date.now()}`;
 
-      // Parse interval as cron expression (coming from UI)
+      // Parse cron interval to ScheduleInterval object
       const cronInterval = data.interval;
+      const intervalConfig = parseCronToInterval(cronInterval);
 
       // Calculate next run time from cron
       const nextRunAt = data.startImmediately
@@ -260,7 +261,7 @@ export const createScheduleData = createServerFn({
         scheduleId,
         deviceId: data.deviceId,
         organizationId,
-        interval: cronInterval,
+        interval: intervalConfig,
         preset: data.preset,
         nextRunAt,
         createdBy: user.id,
@@ -280,7 +281,7 @@ export const createScheduleData = createServerFn({
             deviceId: data.deviceId,
             deviceTarget,
             organizationId,
-            interval: { kind: 'duration', value: 30, unit: 'minutes' } as ScheduleInterval, // TODO: Parse cron to interval
+            interval: intervalConfig,
             preset: data.preset,
             createdBy: user.id,
           },
@@ -619,4 +620,35 @@ function convertToMilliseconds(value: number, unit: 'minutes' | 'hours' | 'days'
     days: 24 * 60 * 60 * 1000,
   };
   return value * multipliers[unit];
+}
+
+/**
+ * Helper: Parse cron expression to ScheduleInterval object
+ * Supports common patterns from the UI's ScheduleIntervalPicker
+ */
+function parseCronToInterval(cron: string): ScheduleInterval {
+  const parts = cron.split(' ');
+
+  // Pattern: */N * * * * (every N minutes)
+  if (parts[0].startsWith('*/') && parts[1] === '*') {
+    const minutes = parseInt(parts[0].slice(2));
+    return { kind: 'duration', value: minutes, unit: 'minutes' };
+  }
+
+  // Pattern: 0 */N * * * (every N hours)
+  if (parts[0] === '0' && parts[1].startsWith('*/')) {
+    const hours = parseInt(parts[1].slice(2));
+    return { kind: 'duration', value: hours, unit: 'hours' };
+  }
+
+  // Pattern: M H * * * (daily at specific time)
+  if (parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+    const minute = parseInt(parts[0]);
+    const hour = parseInt(parts[1]);
+    return { kind: 'daily', hour, minute };
+  }
+
+  // Fallback to hourly if pattern doesn't match
+  logger.warn('Unrecognized cron pattern, defaulting to hourly', { cron });
+  return { kind: 'duration', value: 1, unit: 'hours' };
 }
