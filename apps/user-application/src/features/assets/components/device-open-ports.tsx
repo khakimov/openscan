@@ -219,6 +219,9 @@ export function DeviceOpenPorts({
 
   const openPorts =
     scanPortDetails.length > 0 ? scanPortDetails : fallbackDetails;
+  // TODO(sec-8sh): Migrate to portSnapshots (sec-zg2 breaking change)
+  // - Replace deviceDetail.scanStats.portsStoredCount with deviceDetail.scanStats.portSnapshots.length
+  // - Read port data from portSnapshots array instead of ports array
   // Use portsStoredCount (services detected) for accurate count
   const openPortCount =
     deviceDetail?.scanStats?.portsStoredCount ?? openPorts.length;

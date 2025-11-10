@@ -11,7 +11,7 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId
 });
 
 function DeviceOverview() {
-  const { deviceId, organizationId } = Route.useParams();
+  const { deviceId } = Route.useParams();
 
   // Load device detail with suspense (already prefetched by parent)
   // Note: organizationId comes from session on server, not from params

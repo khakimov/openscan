@@ -1,8 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { OrDivider } from "@/components/ui/or-divider";
 import { GoogleOAuthButton } from "@/features/auth/components/google-oauth-button";
 import { GitHubOAuthButton } from "@/features/auth/components/github-oauth-button";
 import { OnboardingContentLayout, OnboardingDescription } from "@/components/onboarding/onboarding-layout";
@@ -18,20 +15,6 @@ type OnboardingWelcomeProps = {
 export function OnboardingWelcome({ onboarding }: OnboardingWelcomeProps) {
   const navigate = useNavigate();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [formData, setFormData] = useState({
-    firstName: "",
-    lastName: "",
-    email: "",
-    password: "",
-    confirmPassword: "",
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    // Handle account creation
-    navigate({ to: "/onboarding/project" });
-  };
-
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {

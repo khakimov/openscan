@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, Link } from "@tanstack/react-router";
+import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
@@ -26,6 +26,7 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId
 
 function DevicePage() {
   const { organizationId, projectId, deviceId } = Route.useParams();
+  const location = useLocation();
 
   // Load device detail with suspense
   // Note: organizationId comes from session on server, not from params
@@ -33,6 +34,12 @@ function DevicePage() {
 
   // Scan mutation
   const scanMutation = useStartDeviceScanMutation(deviceId);
+
+  // Determine active tab based on current pathname
+  const pathname = location.pathname;
+  const isOverviewActive = pathname === `/${organizationId}/${projectId}/${deviceId}` || pathname === `/${organizationId}/${projectId}/${deviceId}/`;
+  const isScansActive = pathname.includes('/scans');
+  const isVulnerabilitiesActive = pathname.includes('/vulnerabilities');
 
   // Action handlers
   const handleEdit = () => {
@@ -87,7 +94,10 @@ function DevicePage() {
       {/* Header with back button and actions */}
       <div className="mb-4">
         <div className="flex items-center gap-3 mb-4">
-          <Link to={`/${organizationId}/${projectId}/assets` as any}>
+          <Link
+            to="/$organizationId/$projectId/assets/verified"
+            params={{ organizationId, projectId }}
+          >
             <Button variant="ghost" size="sm" className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Assets
@@ -139,13 +149,13 @@ function DevicePage() {
         {/* Navigation Tabs */}
         <div className="flex items-center gap-3 mt-6">
           <PageTabs>
-            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}`} isActive={true}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}`} isActive={isOverviewActive}>
               Overview
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/scans`} isActive={false}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/scans`} isActive={isScansActive}>
               Scans
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/vulnerabilities`} isActive={false}>
+            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/vulnerabilities`} isActive={isVulnerabilitiesActive}>
               Vulnerabilities
             </PageTabsLink>
           </PageTabs>
