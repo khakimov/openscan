@@ -14,8 +14,8 @@ import {
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
-import type { CVEEnrichment } from '@repo/data-ops';
-import { safeParseCVEEnrichment } from '@repo/data-ops';
+import type { CVEEnrichment, PortSnapshot } from '@repo/data-ops';
+import { safeParseCVEEnrichment, buildPortEnrichmentMap } from '@repo/data-ops';
 import {
   AnalyticsEventTypes,
   buildSuccessAnalytics,
@@ -341,27 +341,48 @@ export class PortScanPostbackHandler
       });
     }
 
-    // Step 4: Store results in scan run with port details and CVE enrichment
+    // Step 4: Build unified port snapshots (sec-zg2)
+    // Create protocol map for enrichment helper
+    const portProtocolMap = new Map<number, 'tcp' | 'udp'>();
+    for (const port of openPorts) {
+      portProtocolMap.set(port.port, port.protocol);
+    }
+
+    // Get per-port CVE enrichment summaries
+    const enrichmentMap = buildPortEnrichmentMap(cveEnrichment, portProtocolMap);
+
+    // Transform ports into unified PortSnapshot structure
+    const portSnapshots: PortSnapshot[] = openPorts.map((port) => {
+      const key = `${port.protocol}/${port.port}`;
+      return {
+        port: port.port,
+        protocol: port.protocol,
+        state: port.state,
+        service: port.service ? {
+          name: port.service.name,
+          product: port.service.product ?? null,
+          version: port.service.version ?? null,
+          cpe: null, // TODO(sec-8sh): Extract from CVE enrichment CPE strings
+          method: port.service.method,
+          confidence: port.service.confidence,
+        } : null,
+        metadata: {
+          lastSeenAt: timestamp, // Handler always sets lastSeenAt
+          // firstSeenAt and lastChangedAt will be set by change detector (sec-8sh)
+        },
+        enrichment: enrichmentMap.get(key), // Per-port CVE summary
+      };
+    });
+
+    // Store results with new unified structure (sec-zg2)
     const resultSummary = {
       target: data.target,
-
-      // Port statistics
-      openPortCount: allOpenPorts.length,
-      portsStoredCount: openPorts.length,
-      portsFilteredCount: portsWithoutService,
-      ports: openPorts, // Only ports with services
-
-      // Detection metadata for UI
-      serviceDetectionRate,
-      suspiciousAllPortsOpen,
-      scanPattern: suspiciousAllPortsOpen ? 'WAF/Proxy' : 'Normal',
-
-      // Standard fields
+      portSnapshots, // ✅ Single authoritative structure
       timing: data.timing,
       scanMetadata: data.scanMetadata,
       osInfo: data.osInfo,
       completedAt: timestamp,
-      cveEnrichment,
+      cveEnrichment, // ✅ Keep canonical CVE data at top level
     };
 
     // Validate result summary size before storing
@@ -370,7 +391,7 @@ export class PortScanPostbackHandler
 
     ctx.logger.info('Storing result summary', {
       scanRunId: scanRun.id,
-      portsStored: openPorts.length,
+      portSnapshotsStored: portSnapshots.length,
       resultSizeMB: resultSizeMB.toFixed(2),
     });
 
@@ -379,7 +400,7 @@ export class PortScanPostbackHandler
       ctx.logger.warn('Large result summary detected', {
         scanId,
         resultSizeMB: resultSizeMB.toFixed(2),
-        portsStored: openPorts.length,
+        portSnapshotsStored: portSnapshots.length,
       });
     }
 
@@ -484,9 +505,82 @@ export class PortScanPostbackHandler
       deviceId,
       scanId,
       scanRunId: scanRun.id,
-      portsStored: openPorts.length,
+      portSnapshotsStored: portSnapshots.length,
       httpxPortsQueued: portsForHttpx.length,
     });
+
+    // Step 8: Change Detection & Notification Creation
+    try {
+      const { detectScanChanges } = await import('@/server/notifications/change-detector');
+      const { createNotifications } = await import('@repo/data-ops');
+
+      // CRITICAL: Pass fresh scan data with updated resultSummary
+      // The scanRun fetched at line 220 has stale/null resultSummary
+      const freshScanData = {
+        ...scanRun,
+        resultSummary, // Use the freshly built resultSummary from line 345
+      };
+
+      const changes = await detectScanChanges({
+        deviceId,
+        currentScan: freshScanData,
+        organizationId,
+      });
+
+      if (changes.length > 0) {
+        ctx.logger.info('[Notifications] Changes detected, creating notifications', {
+          scanId,
+          deviceId,
+          changeCount: changes.length,
+          changes: changes.map((c) => ({ type: c.type, severity: c.severity })),
+        });
+
+        // Calculate suppress window based on change type
+        const now = Date.now();
+        const notificationInputs = changes.map((change) => ({
+          organizationId,
+          deviceId,
+          scanRunId: scanRun.id,
+          type: change.type,
+          severity: change.severity,
+          module: change.module,
+          title: change.title,
+          message: change.message || undefined,
+          data: change.data,
+          fingerprint: change.fingerprint,
+          // Suppress windows: 6h for ports, 24h for CVEs
+          suppressUntil: new Date(
+            now +
+              (change.type.includes('PORT')
+                ? 6 * 60 * 60 * 1000 // 6 hours
+                : 24 * 60 * 60 * 1000) // 24 hours
+          ),
+        }));
+
+        const createdNotifications = await createNotifications(notificationInputs);
+
+        ctx.logger.info('[Notifications] Notifications created', {
+          scanId,
+          deviceId,
+          requested: changes.length,
+          created: createdNotifications.length,
+          suppressed: changes.length - createdNotifications.length,
+        });
+      } else {
+        ctx.logger.debug('[Notifications] No changes detected', {
+          scanId,
+          deviceId,
+        });
+      }
+    } catch (error) {
+      // Don't fail postback if notification creation fails
+      ctx.logger.error('[Notifications] Failed to create notifications', {
+        scanId,
+        deviceId,
+        error: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+      });
+    }
 
     // Build analytics with CVE count
     const analytics = buildSuccessAnalytics(
@@ -495,7 +589,7 @@ export class PortScanPostbackHandler
         scanId,
         entityId: deviceId,
         organizationId,
-        resultCount: openPorts.length,
+        resultCount: portSnapshots.length,
       }
     );
 
