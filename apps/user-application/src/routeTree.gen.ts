@@ -29,12 +29,10 @@ import { Route as AppOrganizationIdProjectIdRouteImport } from './routes/_app.$o
 import { Route as AppOrganizationIdProjectIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.index'
 import { Route as ApiInternalSchedulesReleaseSlotRouteImport } from './routes/api/internal/schedules/release-slot'
 import { Route as ApiInternalSchedulesCanExecuteRouteImport } from './routes/api/internal/schedules/can-execute'
-import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
-import { Route as AuthAppPolarPortalRouteImport } from './routes/_auth/app/polar/portal'
 import { Route as AppOrganizationIdProjectIdScansRouteImport } from './routes/_app.$organizationId.$projectId.scans'
 import { Route as AppOrganizationIdProjectIdDeviceIdRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId'
+import { Route as AppOrganizationIdProjectIdAssetsIndexRouteImport } from './routes/_app.$organizationId.$projectId.assets.index'
 import { Route as AppOrganizationIdProjectIdDeviceIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.index'
-import { Route as AuthAppPolarCheckoutSuccessRouteImport } from './routes/_auth/app/polar/checkout.success'
 import { Route as AppOrganizationIdProjectIdAssetsVerifiedRouteImport } from './routes/_app.$organizationId.$projectId.assets.verified'
 import { Route as AppOrganizationIdProjectIdAssetsDiscoveryRouteImport } from './routes/_app.$organizationId.$projectId.assets.discovery'
 import { Route as AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.vulnerabilities'
@@ -144,17 +142,6 @@ const ApiInternalSchedulesCanExecuteRoute =
     path: '/api/internal/schedules/can-execute',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AuthAppPolarSubscriptionsRoute =
-  AuthAppPolarSubscriptionsRouteImport.update({
-    id: '/_auth/app/polar/subscriptions',
-    path: '/app/polar/subscriptions',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AuthAppPolarPortalRoute = AuthAppPolarPortalRouteImport.update({
-  id: '/_auth/app/polar/portal',
-  path: '/app/polar/portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AppOrganizationIdProjectIdScansRoute =
   AppOrganizationIdProjectIdScansRouteImport.update({
     id: '/scans',
@@ -167,17 +154,17 @@ const AppOrganizationIdProjectIdDeviceIdRoute =
     path: '/$deviceId',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
+const AppOrganizationIdProjectIdAssetsIndexRoute =
+  AppOrganizationIdProjectIdAssetsIndexRouteImport.update({
+    id: '/assets/',
+    path: '/assets/',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
+  } as any)
 const AppOrganizationIdProjectIdDeviceIdIndexRoute =
   AppOrganizationIdProjectIdDeviceIdIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AppOrganizationIdProjectIdDeviceIdRoute,
-  } as any)
-const AuthAppPolarCheckoutSuccessRoute =
-  AuthAppPolarCheckoutSuccessRouteImport.update({
-    id: '/_auth/app/polar/checkout/success',
-    path: '/app/polar/checkout/success',
-    getParentRoute: () => rootRouteImport,
   } as any)
 const AppOrganizationIdProjectIdAssetsVerifiedRoute =
   AppOrganizationIdProjectIdAssetsVerifiedRouteImport.update({
@@ -222,8 +209,6 @@ export interface FileRoutesByFullPath {
   '/app': typeof AuthAppIndexRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
-  '/app/polar/portal': typeof AuthAppPolarPortalRoute
-  '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
   '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
@@ -231,8 +216,8 @@ export interface FileRoutesByFullPath {
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
   '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
   '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
   '/$organizationId/$projectId/$deviceId/': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
+  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -248,8 +233,6 @@ export interface FileRoutesByTo {
   '/$organizationId': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
-  '/app/polar/portal': typeof AuthAppPolarPortalRoute
-  '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
   '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdIndexRoute
@@ -257,8 +240,8 @@ export interface FileRoutesByTo {
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
   '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
   '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
+  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -281,8 +264,6 @@ export interface FileRoutesById {
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_app/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
   '/_app/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
-  '/_auth/app/polar/portal': typeof AuthAppPolarPortalRoute
-  '/_auth/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
   '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
   '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/_app/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
@@ -290,8 +271,8 @@ export interface FileRoutesById {
   '/_app/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
   '/_app/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
   '/_app/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  '/_auth/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
   '/_app/$organizationId/$projectId/$deviceId/': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
+  '/_app/$organizationId/$projectId/assets/': typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -313,8 +294,6 @@ export interface FileRouteTypes {
     | '/app'
     | '/$organizationId/$projectId/$deviceId'
     | '/$organizationId/$projectId/scans'
-    | '/app/polar/portal'
-    | '/app/polar/subscriptions'
     | '/api/internal/schedules/can-execute'
     | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId/'
@@ -322,8 +301,8 @@ export interface FileRouteTypes {
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
     | '/$organizationId/$projectId/assets/discovery'
     | '/$organizationId/$projectId/assets/verified'
-    | '/app/polar/checkout/success'
     | '/$organizationId/$projectId/$deviceId/'
+    | '/$organizationId/$projectId/assets'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -339,8 +318,6 @@ export interface FileRouteTypes {
     | '/$organizationId'
     | '/app'
     | '/$organizationId/$projectId/scans'
-    | '/app/polar/portal'
-    | '/app/polar/subscriptions'
     | '/api/internal/schedules/can-execute'
     | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId'
@@ -348,8 +325,8 @@ export interface FileRouteTypes {
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
     | '/$organizationId/$projectId/assets/discovery'
     | '/$organizationId/$projectId/assets/verified'
-    | '/app/polar/checkout/success'
     | '/$organizationId/$projectId/$deviceId'
+    | '/$organizationId/$projectId/assets'
   id:
     | '__root__'
     | '/'
@@ -371,8 +348,6 @@ export interface FileRouteTypes {
     | '/_auth/app/'
     | '/_app/$organizationId/$projectId/$deviceId'
     | '/_app/$organizationId/$projectId/scans'
-    | '/_auth/app/polar/portal'
-    | '/_auth/app/polar/subscriptions'
     | '/api/internal/schedules/can-execute'
     | '/api/internal/schedules/release-slot'
     | '/_app/$organizationId/$projectId/'
@@ -380,8 +355,8 @@ export interface FileRouteTypes {
     | '/_app/$organizationId/$projectId/$deviceId/vulnerabilities'
     | '/_app/$organizationId/$projectId/assets/discovery'
     | '/_app/$organizationId/$projectId/assets/verified'
-    | '/_auth/app/polar/checkout/success'
     | '/_app/$organizationId/$projectId/$deviceId/'
+    | '/_app/$organizationId/$projectId/assets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -393,11 +368,8 @@ export interface RootRouteChildren {
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
   AuthAppIndexRoute: typeof AuthAppIndexRoute
-  AuthAppPolarPortalRoute: typeof AuthAppPolarPortalRoute
-  AuthAppPolarSubscriptionsRoute: typeof AuthAppPolarSubscriptionsRoute
   ApiInternalSchedulesCanExecuteRoute: typeof ApiInternalSchedulesCanExecuteRoute
   ApiInternalSchedulesReleaseSlotRoute: typeof ApiInternalSchedulesReleaseSlotRoute
-  AuthAppPolarCheckoutSuccessRoute: typeof AuthAppPolarCheckoutSuccessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -542,20 +514,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalSchedulesCanExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_auth/app/polar/subscriptions': {
-      id: '/_auth/app/polar/subscriptions'
-      path: '/app/polar/subscriptions'
-      fullPath: '/app/polar/subscriptions'
-      preLoaderRoute: typeof AuthAppPolarSubscriptionsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/_auth/app/polar/portal': {
-      id: '/_auth/app/polar/portal'
-      path: '/app/polar/portal'
-      fullPath: '/app/polar/portal'
-      preLoaderRoute: typeof AuthAppPolarPortalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_app/$organizationId/$projectId/scans': {
       id: '/_app/$organizationId/$projectId/scans'
       path: '/scans'
@@ -570,19 +528,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdProjectIdDeviceIdRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
+    '/_app/$organizationId/$projectId/assets/': {
+      id: '/_app/$organizationId/$projectId/assets/'
+      path: '/assets'
+      fullPath: '/$organizationId/$projectId/assets'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsIndexRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
+    }
     '/_app/$organizationId/$projectId/$deviceId/': {
       id: '/_app/$organizationId/$projectId/$deviceId/'
       path: '/'
       fullPath: '/$organizationId/$projectId/$deviceId/'
       preLoaderRoute: typeof AppOrganizationIdProjectIdDeviceIdIndexRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdDeviceIdRoute
-    }
-    '/_auth/app/polar/checkout/success': {
-      id: '/_auth/app/polar/checkout/success'
-      path: '/app/polar/checkout/success'
-      fullPath: '/app/polar/checkout/success'
-      preLoaderRoute: typeof AuthAppPolarCheckoutSuccessRouteImport
-      parentRoute: typeof rootRouteImport
     }
     '/_app/$organizationId/$projectId/assets/verified': {
       id: '/_app/$organizationId/$projectId/assets/verified'
@@ -660,6 +618,7 @@ interface AppOrganizationIdProjectIdRouteChildren {
   AppOrganizationIdProjectIdIndexRoute: typeof AppOrganizationIdProjectIdIndexRoute
   AppOrganizationIdProjectIdAssetsDiscoveryRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
   AppOrganizationIdProjectIdAssetsVerifiedRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
+  AppOrganizationIdProjectIdAssetsIndexRoute: typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 
 const AppOrganizationIdProjectIdRouteChildren: AppOrganizationIdProjectIdRouteChildren =
@@ -672,6 +631,8 @@ const AppOrganizationIdProjectIdRouteChildren: AppOrganizationIdProjectIdRouteCh
       AppOrganizationIdProjectIdAssetsDiscoveryRoute,
     AppOrganizationIdProjectIdAssetsVerifiedRoute:
       AppOrganizationIdProjectIdAssetsVerifiedRoute,
+    AppOrganizationIdProjectIdAssetsIndexRoute:
+      AppOrganizationIdProjectIdAssetsIndexRoute,
   }
 
 const AppOrganizationIdProjectIdRouteWithChildren =
@@ -724,11 +685,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
   AuthAppIndexRoute: AuthAppIndexRoute,
-  AuthAppPolarPortalRoute: AuthAppPolarPortalRoute,
-  AuthAppPolarSubscriptionsRoute: AuthAppPolarSubscriptionsRoute,
   ApiInternalSchedulesCanExecuteRoute: ApiInternalSchedulesCanExecuteRoute,
   ApiInternalSchedulesReleaseSlotRoute: ApiInternalSchedulesReleaseSlotRoute,
-  AuthAppPolarCheckoutSuccessRoute: AuthAppPolarCheckoutSuccessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -27,7 +27,63 @@
       "idx": 3,
       "version": "6",
       "when": 1762532619595,
-      "tag": "0003_needy_sleepwalker",
+      "tag": "0003_httpx_probes_simplification",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1762599522220,
+      "tag": "0004_needy_sleepwalker",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1762600893257,
+      "tag": "0005_notifications_table",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1762655192032,
+      "tag": "0006_flippant_luckman",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1762663842726,
+      "tag": "0007_jittery_agent_zero",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1762673280000,
+      "tag": "0008_backfill_message_hash",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1762673360000,
+      "tag": "0009_add_notification_module",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1762673420000,
+      "tag": "0010_composite_fingerprint_index",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "6",
+      "when": 1762673480000,
+      "tag": "0011_fix_composite_index_rollback",
       "breakpoints": true
     }
   ]

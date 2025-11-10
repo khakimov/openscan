@@ -3,8 +3,8 @@ PRAGMA foreign_keys=OFF;--> statement-breakpoint
 CREATE TABLE `__new_scan_runs` (
 	`id` text PRIMARY KEY NOT NULL,
 	`organization_id` text NOT NULL,
-	`restate_workflow_id` text NOT NULL,
-	`workflow_kind` text NOT NULL,
+	`restate_workflow_id` text DEFAULT 'legacy' NOT NULL,
+	`workflow_kind` text DEFAULT 'PORT_SCAN' NOT NULL,
 	`workflow_status` text DEFAULT 'PENDING' NOT NULL,
 	`workflow_started_at` integer,
 	`workflow_finished_at` integer,
@@ -23,7 +23,9 @@ CREATE TABLE `__new_scan_runs` (
 	FOREIGN KEY (`requested_by_id`) REFERENCES `auth_user`(`id`) ON UPDATE no action ON DELETE no action
 );
 --> statement-breakpoint
-INSERT INTO `__new_scan_runs`("id", "organization_id", "restate_workflow_id", "workflow_kind", "workflow_status", "workflow_started_at", "workflow_finished_at", "workflow_cancel_requested_at", "workflow_metadata", "scope", "scan_type", "target", "requested_by_id", "created_at", "started_at", "completed_at", "status", "result_summary") SELECT "id", "organization_id", "restate_workflow_id", "workflow_kind", "workflow_status", "workflow_started_at", "workflow_finished_at", "workflow_cancel_requested_at", "workflow_metadata", "scope", "scan_type", "target", "requested_by_id", "created_at", "started_at", "completed_at", "status", "result_summary" FROM `scan_runs`;--> statement-breakpoint
+-- Note: Original table has scan_workflow_id, new columns get DEFAULT values for migration
+INSERT INTO `__new_scan_runs`("id", "organization_id", "scope", "scan_type", "target", "requested_by_id", "created_at", "started_at", "completed_at", "status", "result_summary")
+SELECT "id", "organization_id", "scope", "scan_type", "target", "requested_by_id", "created_at", "started_at", "completed_at", "status", "result_summary" FROM `scan_runs`;--> statement-breakpoint
 DROP TABLE `scan_runs`;--> statement-breakpoint
 ALTER TABLE `__new_scan_runs` RENAME TO `scan_runs`;--> statement-breakpoint
 PRAGMA foreign_keys=ON;--> statement-breakpoint
