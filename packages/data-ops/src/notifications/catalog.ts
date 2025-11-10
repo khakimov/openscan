@@ -17,7 +17,7 @@
 // ============================================================================
 
 export type NotificationSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-export type NotificationType = 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE';
+export type NotificationType = 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'SERVICE_DRIFT';
 export type NotificationModule = 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'GENERAL';
 
 interface NotificationDescriptor {
@@ -156,6 +156,86 @@ export function createCVESeverityIncreaseNotification(params: {
     module: 'VULNERABILITY_MANAGEMENT',
     title: `${cveId} severity upgraded to ${newSeverity}${affectedText}`,
     message: `Vulnerability ${cveId} severity increased from ${oldSeverity} to ${newSeverity} (CVSS ${cvssScore}): ${descText}`,
+  };
+}
+
+/**
+ * Create SERVICE_DRIFT notification descriptor
+ *
+ * Mirrors legacy Daemon.compare_parameters behavior (daemon.py:57-87)
+ * - Product changes: MEDIUM severity (suspicious, like APP_PRODUCT priority 70)
+ * - Version/name changes: INFO severity (informational, like APP_VERSION priority 70)
+ *
+ * Legacy message templates:
+ * - Product: "Application product %s detected on host %s is currently listening on port %s,
+ *   which was previously in use by application %s"
+ * - Version: "Application %s with actual version %s changed from %s for product detected on
+ *   host %s and running on port %s"
+ */
+export function createServiceDriftNotification(params: {
+  port: number;
+  protocol: string;
+  oldService?: {
+    name?: string;
+    product?: string | null;
+    version?: string | null;
+  } | null;
+  newService?: {
+    name?: string;
+    product?: string | null;
+    version?: string | null;
+  } | null;
+}): NotificationDescriptor {
+  const { port, protocol, oldService, newService } = params;
+
+  // Normalize nulls for comparison
+  const oldProduct = oldService?.product ?? undefined;
+  const newProduct = newService?.product ?? undefined;
+  const oldVersion = oldService?.version ?? undefined;
+  const newVersion = newService?.version ?? undefined;
+  const oldName = oldService?.name ?? undefined;
+  const newName = newService?.name ?? undefined;
+
+  // Determine drift type and severity
+  const productChanged = oldProduct !== newProduct;
+  const versionChanged = oldVersion !== newVersion;
+  const nameChanged = oldName !== newName;
+
+  // Product change = suspicious (MEDIUM severity, mirrors legacy priority 70)
+  // Version/name change only = informational (INFO severity)
+  const severity: NotificationSeverity = productChanged ? 'MEDIUM' : 'INFO';
+
+  // Build human-readable title (inspired by legacy messages)
+  let title: string;
+  let message: string;
+
+  if (productChanged) {
+    // Product change (suspicious - could be attack or misconfiguration)
+    const oldLabel = oldProduct || 'unknown';
+    const newLabel = newProduct || 'unknown';
+    title = `Service on port ${port}/${protocol} switched from ${oldLabel} → ${newLabel}`;
+    message = `Port ${port}/${protocol} was previously running ${oldLabel}${oldVersion ? ` ${oldVersion}` : ''}, now running ${newLabel}${newVersion ? ` ${newVersion}` : ''}`;
+  } else if (versionChanged) {
+    // Version upgrade/downgrade (informational)
+    const productLabel = newProduct || newName || 'service';
+    title = `${productLabel} on port ${port}/${protocol} version changed: ${oldVersion || 'unknown'} → ${newVersion || 'unknown'}`;
+    message = `${productLabel} version updated from ${oldVersion || 'unknown'} to ${newVersion || 'unknown'} on port ${port}/${protocol}`;
+  } else if (nameChanged) {
+    // Service name changed (rare, usually service detection improved)
+    title = `Service name on port ${port}/${protocol} changed: ${oldName || 'unknown'} → ${newName || 'unknown'}`;
+    message = `Service detection updated on port ${port}/${protocol}`;
+  } else {
+    // Fallback (shouldn't happen if hasServiceDrift is correct)
+    title = `Service metadata changed on port ${port}/${protocol}`;
+    message = `Service configuration on port ${port}/${protocol} was modified`;
+  }
+
+  return {
+    type: 'SERVICE_DRIFT',
+    severity,
+    module: 'NETWORK_SECURITY',
+    title,
+    message,
   };
 }
 

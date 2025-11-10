@@ -35,7 +35,7 @@ export const CreateNotificationSchema = z.object({
   userId: z.string().min(1).optional().nullable(),
   deviceId: z.string().min(1).optional().nullable(),
   scanRunId: z.string().min(1).optional().nullable(),
-  type: z.enum(['NEW_PORT', 'CLOSED_PORT', 'NEW_CVE', 'CVE_SEVERITY_INCREASE']),
+  type: z.enum(['NEW_PORT', 'CLOSED_PORT', 'NEW_CVE', 'CVE_SEVERITY_INCREASE', 'SERVICE_DRIFT']),
   severity: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']),
   module: z.enum(['NETWORK_SECURITY', 'VULNERABILITY_MANAGEMENT', 'GENERAL']),
   title: z.string().min(1),
