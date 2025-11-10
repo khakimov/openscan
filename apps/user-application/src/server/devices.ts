@@ -91,10 +91,19 @@ export type TransformedDevice = {
     scanCount: number;
     totalScans?: number;
     lastScanAt: string | null;
+    /** Total open ports discovered by scanner (pre-filtering) */
+    totalOpenPorts?: number;
+    /** Ports with service information detected */
+    portsWithService?: number;
+    /** Ports stored in database (after filtering & capping) */
+    portsStored?: number;
+    /** @deprecated Use totalOpenPorts for raw count */
     openPortCount?: number;
+    /** @deprecated Use portsStored instead */
     totalPortCount?: number;
-    // Smart metadata for UI (port filtering, WAF/proxy detection)
+    /** @deprecated Use portsStored instead */
     portsStoredCount?: number;
+    // Smart metadata for UI (port filtering, WAF/proxy detection)
     scanPattern?: 'WAF/Proxy' | 'Possible WAF/Proxy' | 'Normal';
     suspiciousAllPortsOpen?: boolean;
     serviceDetectionRate?: number;
@@ -168,8 +177,11 @@ function transformDeviceForUI(dbDevice: any) {
         scanCount: number;
         totalScans?: number;
         lastScanAt: number | null;  // Database returns timestamp as number (milliseconds)
-        openPortCount?: number;
-        totalPortCount?: number;
+        totalOpenPorts?: number;  // Raw scanner discovery count
+        portsWithService?: number;  // Ports with service info
+        portsStored?: number;  // Actually persisted
+        openPortCount?: number;  // Legacy field
+        totalPortCount?: number;  // Legacy field
         ports?: Array<{
           port: number;
           protocol: string;
@@ -233,6 +245,11 @@ function transformDeviceForUI(dbDevice: any) {
         totalScans,
         scanCount: scanStats?.scanCount ?? totalScans,
         lastScanAt: lastScanIso,
+        // New fields: expose raw counts
+        totalOpenPorts: scanStats?.totalOpenPorts,
+        portsWithService: scanStats?.portsWithService,
+        portsStored: scanStats?.portsStored,
+        // Legacy fields for backward compatibility
         openPortCount,
         totalPortCount,
         ports: openPortEntries,
