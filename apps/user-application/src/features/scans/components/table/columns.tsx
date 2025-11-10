@@ -174,6 +174,9 @@ export function useColumns(): ColumnDef<Scan>[] {
             (scan.resultSummary as any)?.portScanStats
           );
           const ports = portStats.ports;
+          const storedCount = portStats.portsStored ?? ports.length;
+          const discoveredCount = portStats.totalOpenPorts;
+          const detectionRate = portStats.serviceDetectionRate;
 
           if (ports.length === 0) {
             if (scan.status === "RUNNING" || scan.status === "PENDING") {
@@ -190,17 +193,21 @@ export function useColumns(): ColumnDef<Scan>[] {
             return <span className="text-muted-foreground">No ports</span>;
           }
 
-          const openPorts = portStats.openPortCount;
-
           return (
             <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="font-semibold text-green-600">
-                  {openPorts}
+              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                <span className="text-sm font-semibold text-green-600">
+                  {storedCount}
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  / {ports.length} total
-                </span>
+                <span>stored</span>
+                {discoveredCount !== storedCount && (
+                  <span>{discoveredCount} discovered</span>
+                )}
+                {typeof detectionRate === "number" && (
+                  <span>
+                    {Math.round(detectionRate)}% detection
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-1">
                 {ports.slice(0, 4).map((port, idx) => (

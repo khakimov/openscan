@@ -25,8 +25,14 @@ export const CreateDevicesInProjectSchema = z.object({
     host: z.string().min(1, 'Host is required'),
     ip: z.string().optional(),  // IP validation happens at data-ops layer
   })).min(1, 'At least one target is required'),
-  projectId: z.string().min(1, 'Project ID is required'),
-  organizationId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string({
+    required_error: 'Project ID is required',
+    invalid_type_error: 'Project ID is required',
+  }).min(1, 'Project ID is required'),
+  organizationId: z.string({
+    required_error: 'Organization ID is required',
+    invalid_type_error: 'Organization ID is required',
+  }).min(1, 'Organization ID is required'),
   options: z.object({
     source: z.string().optional(),
     scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
@@ -48,7 +54,10 @@ export const CreateDevicesFromDiscoverySchema = z.object({
     ip: z.string().optional(),  // IP validation happens at data-ops layer
   })).min(1, 'At least one target is required'),
   projectId: z.string().min(1).optional().nullable(),
-  organizationId: z.string().min(1, 'Organization ID is required'),
+  organizationId: z.string({
+    required_error: 'Organization ID is required',
+    invalid_type_error: 'Organization ID is required',
+  }).min(1, 'Organization ID is required'),
   options: z.object({
     source: z.string().optional(),
     scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
