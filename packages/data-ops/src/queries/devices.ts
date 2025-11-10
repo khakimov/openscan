@@ -3,6 +3,7 @@ import { getDb } from '../database/setup';
 import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies } from '../schema';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
+import { derivePortStats } from '../types/cve-enrichment';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
@@ -259,21 +260,25 @@ export async function getDevicesForTenant(
     for (const stat of scanStats) {
       const latestScan = latestScanMap.get(stat.deviceId);
       const resultSummary = latestScan?.resultSummary as any;
-      const ports = resultSummary?.ports || [];
-      const openPortCount = resultSummary?.openPortCount || ports.length || 0;
+
+      // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+      const portStats = derivePortStats(
+        resultSummary?.portSnapshots,
+        resultSummary?.portScanStats
+      );
 
       scanStatsMap.set(stat.deviceId, {
         scanCount: Number(stat.scanCount),
         totalScans: Number(stat.scanCount),
         lastScanAt: toDateOrUndefined(stat.lastScanAt),
-        openPortCount,
-        totalPortCount: openPortCount,
-        ports,
+        openPortCount: portStats.openPortCount,
+        totalPortCount: portStats.openPortCount,
+        ports: portStats.ports,
         // Smart metadata for UI (port filtering, WAF/proxy detection)
-        portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
-        scanPattern: resultSummary?.scanPattern,
-        suspiciousAllPortsOpen: resultSummary?.suspiciousAllPortsOpen ?? false,
-        serviceDetectionRate: resultSummary?.serviceDetectionRate,
+        portsStoredCount: portStats.portsStoredCount,
+        scanPattern: portStats.scanPattern,
+        suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
+        serviceDetectionRate: portStats.serviceDetectionRate,
       });
     }
   }
@@ -363,8 +368,12 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
   if (scanStatsResult.length > 0 && scanStatsResult[0].scanCount > 0 && scanStatsResult[0].lastScanAt !== null) {
     const stat = scanStatsResult[0];
     const resultSummary = latestScan[0]?.resultSummary as any;
-    const ports = resultSummary?.ports || [];
-    const openPortCount = resultSummary?.openPortCount || ports.length || 0;
+
+    // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+    const portStats = derivePortStats(
+      resultSummary?.portSnapshots,
+      resultSummary?.portScanStats
+    );
 
     // Fetch httpx probes for this device's latest scan
     let httpxProbesMap = new Map();
@@ -420,7 +429,7 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     }
 
     // Merge httpx data into ports array
-    const portsWithHttpx = ports.map((port: any) => ({
+    const portsWithHttpx = portStats.ports.map((port: any) => ({
       ...port,
       httpxProbe: httpxProbesMap.get(port.port) || undefined,
     }));
@@ -429,14 +438,14 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
       scanCount: Number(stat.scanCount),
       totalScans: Number(stat.scanCount),
       lastScanAt: toDateOrUndefined(stat.lastScanAt),
-      openPortCount,
-      totalPortCount: openPortCount,
+      openPortCount: portStats.openPortCount,
+      totalPortCount: portStats.openPortCount,
       ports: portsWithHttpx,
       // Smart metadata for UI (port filtering, WAF/proxy detection)
-      portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
-      scanPattern: resultSummary?.scanPattern,
-      suspiciousAllPortsOpen: resultSummary?.suspiciousAllPortsOpen ?? false,
-      serviceDetectionRate: resultSummary?.serviceDetectionRate,
+      portsStoredCount: portStats.portsStoredCount,
+      scanPattern: portStats.scanPattern,
+      suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
+      serviceDetectionRate: portStats.serviceDetectionRate,
     };
   }
 

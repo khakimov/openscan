@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from "recharts";
 import { format } from "date-fns";
+import { derivePortStats } from "@repo/data-ops";
 
 export interface ScanHistoryItem {
   id: string;
@@ -39,10 +40,12 @@ export function DeviceScanChart({
     const sortedHistory = [...scanHistory].reverse();
 
     return sortedHistory.map((scan, index) => {
-      // Extract ports from resultSummary
-      const ports = scan.resultSummary?.ports || [];
-      const openPorts = ports
-        .filter(p => p.state === 'open')
+      // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+      const portStats = derivePortStats(
+        (scan.resultSummary as any)?.portSnapshots,
+        (scan.resultSummary as any)?.portScanStats
+      );
+      const openPorts = portStats.ports
         .map(p => p.port)
         .sort((a, b) => a - b);
 

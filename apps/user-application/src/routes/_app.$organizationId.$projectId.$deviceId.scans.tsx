@@ -4,6 +4,7 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { derivePortStats } from "@repo/data-ops";
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/scans")({
   loader: async ({ context: { queryClient }, params }) => {
@@ -37,8 +38,12 @@ function DeviceScansPage() {
 
       <div className="grid gap-4">
         {scanHistory.map((scan: any) => {
-          const ports = scan.resultSummary?.ports || [];
-          const openPorts = ports.filter((p: any) => p.state === 'open');
+          // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+          const portStats = derivePortStats(
+            (scan.resultSummary as any)?.portSnapshots,
+            (scan.resultSummary as any)?.portScanStats
+          );
+          const openPorts = portStats.ports;
           const cveEnrichment = (scan.resultSummary as any)?.cveEnrichment;
 
           return (

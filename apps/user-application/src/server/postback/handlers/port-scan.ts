@@ -374,10 +374,21 @@ export class PortScanPostbackHandler
       };
     });
 
+    // ✅ Build port scan stats (pre-filtering metrics that can't be derived post-hoc)
+    const portScanStats = {
+      totalOpenPorts: allOpenPorts.length,
+      portsWithService: portsWithService.length,
+      portsStored: portSnapshots.length,
+      serviceDetectionRate,
+      suspiciousAllPortsOpen,
+      scanPattern: suspiciousAllPortsOpen ? 'Possible WAF/Proxy' : 'Normal',
+    };
+
     // Store results with new unified structure (sec-zg2)
     const resultSummary = {
       target: data.target,
       portSnapshots, // ✅ Single authoritative structure
+      portScanStats, // ✅ Pre-filtering metrics (can't be derived later)
       timing: data.timing,
       scanMetadata: data.scanMetadata,
       osInfo: data.osInfo,

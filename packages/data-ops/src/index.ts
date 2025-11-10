@@ -91,6 +91,7 @@ export type {
   // sec-zg2: Port snapshot types
   PortSnapshot,
   PortEnrichmentSummary,
+  PortScanStats,
 } from './types/cve-enrichment';
 
 // Export Zod schemas for runtime validation
@@ -104,6 +105,7 @@ export {
   // sec-zg2: Port snapshot schemas
   PortEnrichmentSummarySchema,
   PortSnapshotSchema,
+  PortScanStatsSchema,
   EnrichedScanResultSummarySchema,
 } from './types/cve-enrichment';
 
@@ -119,6 +121,7 @@ export {
   safeParseCVEEnrichment,
   // sec-zg2: Port snapshot helpers
   buildPortEnrichmentMap,
+  derivePortStats,
 } from './types/cve-enrichment';
 
 // Export notification catalog (sec-or9 refactor)

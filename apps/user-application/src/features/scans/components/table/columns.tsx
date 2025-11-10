@@ -14,6 +14,7 @@ import {
   AlertCircleIcon,
 } from "lucide-react";
 import type { Scan } from "./index";
+import { derivePortStats } from "@repo/data-ops";
 
 function formatDate(value?: Date | string | null) {
   if (!value) return "—";
@@ -166,7 +167,13 @@ export function useColumns(): ColumnDef<Scan>[] {
         size: 180,
         cell: ({ row }) => {
           const scan = row.original;
-          const ports = scan.resultSummary?.ports || [];
+
+          // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+          const portStats = derivePortStats(
+            (scan.resultSummary as any)?.portSnapshots,
+            (scan.resultSummary as any)?.portScanStats
+          );
+          const ports = portStats.ports;
 
           if (ports.length === 0) {
             if (scan.status === "RUNNING" || scan.status === "PENDING") {
@@ -183,7 +190,7 @@ export function useColumns(): ColumnDef<Scan>[] {
             return <span className="text-muted-foreground">No ports</span>;
           }
 
-          const openPorts = ports.filter((p) => p.state === "open").length;
+          const openPorts = portStats.openPortCount;
 
           return (
             <div className="flex flex-col gap-1">

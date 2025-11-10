@@ -4,6 +4,8 @@
  * Provides reusable scan result summaries for testing notification change detection.
  * Covers: new/closed ports, service changes, CVE additions, severity increases.
  *
+ * ✅ Updated to use portSnapshots schema (sec-zg2)
+ *
  * Usage:
  * ```typescript
  * import { SCAN_FIXTURES } from './fixtures/notifications';
@@ -25,13 +27,15 @@ import type { EnrichedScanResultSummary } from '../../../types/cve-enrichment';
  */
 export const PORT_SCAN_SSH_ONLY: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 22,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'ssh' },
+      service: { name: 'ssh', product: null, version: null, cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T10:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T10:00:00Z').toISOString(),
@@ -43,19 +47,24 @@ export const PORT_SCAN_SSH_ONLY: EnrichedScanResultSummary = {
  */
 export const PORT_SCAN_SSH_RDP: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 2,
-  ports: [
+  portSnapshots: [
     {
       port: 22,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'ssh' },
+      service: { name: 'ssh', product: null, version: null, cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T11:00:00Z').toISOString(),
+      },
     },
     {
       port: 3389,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'ms-wbt-server', version: '10.0' },
+      service: { name: 'ms-wbt-server', product: null, version: '10.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T11:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T11:00:00Z').toISOString(),
@@ -66,13 +75,15 @@ export const PORT_SCAN_SSH_RDP: EnrichedScanResultSummary = {
  */
 export const PORT_SCAN_HTTP_OPEN: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 80,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'http' },
+      service: { name: 'http', product: null, version: null, cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T12:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T12:00:00Z').toISOString(),
@@ -84,13 +95,15 @@ export const PORT_SCAN_HTTP_OPEN: EnrichedScanResultSummary = {
  */
 export const PORT_SCAN_HTTP_CLOSED: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 0,
-  ports: [
+  portSnapshots: [
     {
       port: 80,
       protocol: 'tcp',
       state: 'closed',
-      service: { name: 'http' },
+      service: { name: 'http', product: null, version: null, cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T13:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T13:00:00Z').toISOString(),
@@ -101,13 +114,15 @@ export const PORT_SCAN_HTTP_CLOSED: EnrichedScanResultSummary = {
  */
 export const PORT_SCAN_NGINX: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 443,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'https', product: 'nginx', version: '1.18.0' },
+      service: { name: 'https', product: 'nginx', version: '1.18.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T14:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T14:00:00Z').toISOString(),
@@ -119,13 +134,15 @@ export const PORT_SCAN_NGINX: EnrichedScanResultSummary = {
  */
 export const PORT_SCAN_NGINX_UPGRADED: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 443,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'https', product: 'nginx', version: '1.19.0' },
+      service: { name: 'https', product: 'nginx', version: '1.19.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T15:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T15:00:00Z').toISOString(),
@@ -140,13 +157,15 @@ export const PORT_SCAN_NGINX_UPGRADED: EnrichedScanResultSummary = {
  */
 export const CVE_SCAN_NO_VULNS: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 22,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'ssh' },
+      service: { name: 'ssh', product: null, version: null, cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T15:00:00Z').toISOString(),
+      },
     },
   ],
   completedAt: new Date('2025-01-15T15:00:00Z').toISOString(),
@@ -170,13 +189,30 @@ export const CVE_SCAN_NO_VULNS: EnrichedScanResultSummary = {
  */
 export const CVE_SCAN_CRITICAL_OPENSSH: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 22,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'ssh', product: 'OpenSSH', version: '7.4' },
+      service: { name: 'ssh', product: 'OpenSSH', version: '7.4', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T16:00:00Z').toISOString(),
+      },
+      enrichment: {
+        summary: {
+          cveCount: 1,
+          criticalCount: 1,
+          highCount: 0,
+          maxCvssScore: 9.8,
+        },
+        topCves: [
+          {
+            cveId: 'CVE-2024-1234',
+            severity: 'CRITICAL',
+            cvssScore: 9.8,
+          },
+        ],
+      },
     },
   ],
   completedAt: new Date('2025-01-15T16:00:00Z').toISOString(),
@@ -218,13 +254,30 @@ export const CVE_SCAN_CRITICAL_OPENSSH: EnrichedScanResultSummary = {
  */
 export const CVE_SCAN_MEDIUM_NGINX: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 443,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'https', product: 'nginx', version: '1.18.0' },
+      service: { name: 'https', product: 'nginx', version: '1.18.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T17:00:00Z').toISOString(),
+      },
+      enrichment: {
+        summary: {
+          cveCount: 1,
+          criticalCount: 0,
+          highCount: 0,
+          maxCvssScore: 5.3,
+        },
+        topCves: [
+          {
+            cveId: 'CVE-2024-5678',
+            severity: 'MEDIUM',
+            cvssScore: 5.3,
+          },
+        ],
+      },
     },
   ],
   completedAt: new Date('2025-01-15T17:00:00Z').toISOString(),
@@ -267,13 +320,30 @@ export const CVE_SCAN_MEDIUM_NGINX: EnrichedScanResultSummary = {
  */
 export const CVE_SCAN_CRITICAL_NGINX: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 443,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'https', product: 'nginx', version: '1.18.0' },
+      service: { name: 'https', product: 'nginx', version: '1.18.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T18:00:00Z').toISOString(),
+      },
+      enrichment: {
+        summary: {
+          cveCount: 1,
+          criticalCount: 1,
+          highCount: 0,
+          maxCvssScore: 9.1,
+        },
+        topCves: [
+          {
+            cveId: 'CVE-2024-5678',
+            severity: 'CRITICAL',
+            cvssScore: 9.1,
+          },
+        ],
+      },
     },
   ],
   completedAt: new Date('2025-01-15T18:00:00Z').toISOString(),
@@ -316,13 +386,30 @@ export const CVE_SCAN_CRITICAL_NGINX: EnrichedScanResultSummary = {
  */
 export const CVE_SCAN_LOW_APACHE: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 80,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'http', product: 'apache', version: '2.4.0' },
+      service: { name: 'http', product: 'apache', version: '2.4.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T19:00:00Z').toISOString(),
+      },
+      enrichment: {
+        summary: {
+          cveCount: 1,
+          criticalCount: 0,
+          highCount: 0,
+          maxCvssScore: 2.1,
+        },
+        topCves: [
+          {
+            cveId: 'CVE-2024-LOW',
+            severity: 'LOW',
+            cvssScore: 2.1,
+          },
+        ],
+      },
     },
   ],
   completedAt: new Date('2025-01-15T19:00:00Z').toISOString(),
@@ -365,13 +452,30 @@ export const CVE_SCAN_LOW_APACHE: EnrichedScanResultSummary = {
  */
 export const CVE_SCAN_HIGH_POSTGRES: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 1,
-  ports: [
+  portSnapshots: [
     {
       port: 5432,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'postgresql', product: 'PostgreSQL', version: '12.0' },
+      service: { name: 'postgresql', product: 'PostgreSQL', version: '12.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T20:00:00Z').toISOString(),
+      },
+      enrichment: {
+        summary: {
+          cveCount: 1,
+          criticalCount: 0,
+          highCount: 1,
+          maxCvssScore: 7.5,
+        },
+        topCves: [
+          {
+            cveId: 'CVE-2024-9999',
+            severity: 'HIGH',
+            cvssScore: 7.5,
+          },
+        ],
+      },
     },
   ],
   completedAt: new Date('2025-01-15T20:00:00Z').toISOString(),
@@ -418,19 +522,39 @@ export const CVE_SCAN_HIGH_POSTGRES: EnrichedScanResultSummary = {
  */
 export const SCAN_MULTIPLE_CHANGES: EnrichedScanResultSummary = {
   target: 'test-device',
-  openPortCount: 2,
-  ports: [
+  portSnapshots: [
     {
       port: 22,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'ssh', product: 'OpenSSH', version: '8.0' },
+      service: { name: 'ssh', product: 'OpenSSH', version: '8.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T21:00:00Z').toISOString(),
+      },
     },
     {
       port: 80,
       protocol: 'tcp',
       state: 'open',
-      service: { name: 'http', product: 'nginx', version: '1.20.0' },
+      service: { name: 'http', product: 'nginx', version: '1.20.0', cpe: null },
+      metadata: {
+        lastSeenAt: new Date('2025-01-15T21:00:00Z').toISOString(),
+      },
+      enrichment: {
+        summary: {
+          cveCount: 1,
+          criticalCount: 1,
+          highCount: 0,
+          maxCvssScore: 9.0,
+        },
+        topCves: [
+          {
+            cveId: 'CVE-2024-MULTI',
+            severity: 'CRITICAL',
+            cvssScore: 9.0,
+          },
+        ],
+      },
     },
   ],
   completedAt: new Date('2025-01-15T21:00:00Z').toISOString(),
