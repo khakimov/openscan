@@ -1,4 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
+import { BackgroundPaths } from "@/components/landing/background-paths";
 import { HeroSection } from "@/components/landing/hero-section";
 import { getCurrentUser } from "@/server/auth";
 import { getActiveOrganization } from "@/server/organization";
@@ -38,12 +39,15 @@ export const Route = createFileRoute("/")({
 
 function LandingPage() {
   return (
-    <div className="landing-page">
-      {/*<NavigationBar />*/}
-      <main>
-        <HeroSection />
-      </main>
-      {/*<Footer />*/}
+    <div className="landing-page relative overflow-hidden">
+      <BackgroundPaths className="opacity-80" svgClassName="text-white/60" />
+      <div className="relative z-10">
+        {/*<NavigationBar />*/}
+        <main>
+          <HeroSection />
+        </main>
+        {/*<Footer />*/}
+      </div>
     </div>
   );
 }

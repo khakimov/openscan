@@ -71,3 +71,46 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+/* Easter egg: rock emoji wiggle */
+@keyframes rock-emoji-swing {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-18deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+  80% {
+    transform: rotate(-10deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.rock-emoji {
+  display: inline-block;
+  margin-left: 0.35rem;
+  cursor: pointer;
+  transform-origin: 55% 65%;
+  transition: transform 0.2s ease;
+}
+
+.rock-emoji:hover,
+.rock-emoji:focus-visible {
+  animation: rock-emoji-swing 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rock-emoji {
+    transition: none;
+  }
+
+  .rock-emoji:hover,
+  .rock-emoji:focus-visible {
+    animation: none;
+  }
+}
