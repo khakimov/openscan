@@ -668,7 +668,7 @@ export const getOnboardingStatus = createServerFn({
 
     return {
       success: true,
-      step: maxStep,
+      step: maxStep as 2 | 3, // Type assertion: maxStep is calculated from 2 or 3
       organizationId: primaryOrganizationId,
       projectId: defaultProject?.id ?? null,
       user: currentUser,

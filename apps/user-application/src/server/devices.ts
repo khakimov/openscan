@@ -357,12 +357,12 @@ export const getDevicesData = createServerFn({
     const transformedDevices = devicesResponse.items.map(transformDeviceForUI)
 
     // Debug logging: Check for suspicious IDs
-    const suspiciousIds = transformedDevices.filter(d =>
+    const suspiciousIds = transformedDevices.filter((d: TransformedDevice) =>
       d.id.includes('/') || d.id.includes('?') || d.id.includes('&')
     );
     if (suspiciousIds.length > 0) {
       logger.error('Found devices with suspicious IDs', {
-        suspiciousDevices: suspiciousIds.map(d => ({
+        suspiciousDevices: suspiciousIds.map((d: TransformedDevice) => ({
           id: d.id,
           name: d.name,
           ip: d.ip
@@ -1082,15 +1082,14 @@ export const toggleDeviceVerification = createServerFn({
         };
       } else {
         // UNVERIFY: Delete schedule and update device status
-        const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
-
-        if (existingSchedule) {
-          // TODO: Delete Restate schedule when implemented
-          logger.info('Schedule exists but scheduling not implemented yet', {
-            deviceId: device.id,
-            scheduleId: existingSchedule.scheduleId
-          });
-        }
+        // TODO (sec-xx): Implement getScanScheduleByDeviceId and delete Restate schedule
+        // const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
+        // if (existingSchedule) {
+        //   logger.info('Schedule exists but scheduling not implemented yet', {
+        //     deviceId: device.id,
+        //     scheduleId: existingSchedule.scheduleId
+        //   });
+        // }
 
         // Unverify device (also deletes schedule record in DB)
         await unverifyDeviceDB(data.deviceId, organizationId);
