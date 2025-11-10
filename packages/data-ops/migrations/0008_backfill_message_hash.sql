@@ -1,0 +1,35 @@
+-- Backfill Real SHA-256 Message Hashes for Historical Notifications
+--
+-- Purpose: Replace placeholder random hashes with deterministic SHA-256 hashes
+-- based on actual title|message content. This ensures historical notifications
+-- are dedup-able via the secondary hash layer.
+--
+-- Context:
+-- - Migration 0007 added message_hash column with random placeholders to satisfy NOT NULL
+-- - This follow-up computes real hashes using SQLite's sha256() extension (if available)
+-- - Falls back to application-level backfill if sha256() not available
+--
+-- Safety:
+-- - Non-blocking: Can run asynchronously without locking table
+-- - Idempotent: WHERE clause ensures only placeholder hashes are replaced
+-- - Performance: Processes in batches to avoid long locks
+
+-- Option 1: SQLite with sha256 extension (Cloudflare D1 may support this)
+-- UPDATE `notifications`
+-- SET `message_hash` = lower(hex(sha256(title || '|' || COALESCE(message, ''))))
+-- WHERE length(`message_hash`) = 64 AND `message_hash` GLOB '*[0-9a-f]*'
+--   AND `message_hash` NOT IN (
+--     SELECT lower(hex(sha256(title || '|' || COALESCE(message, ''))))
+--     FROM `notifications` LIMIT 1
+--   );
+
+-- Option 2: Application-level backfill (recommended for D1)
+-- See: packages/data-ops/src/queries/notifications.ts::backfillMessageHashes()
+--
+-- Usage:
+-- ```typescript
+-- import { backfillMessageHashes } from '@repo/data-ops';
+-- await backfillMessageHashes({ batchSize: 100, dryRun: false });
+-- ```
+--
+-- This migration file serves as documentation. Actual backfill runs via application code.

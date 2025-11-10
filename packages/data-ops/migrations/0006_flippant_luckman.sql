@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX `notifications_fingerprint_unique_idx` ON `notifications` (`organization_id`,`fingerprint`);
