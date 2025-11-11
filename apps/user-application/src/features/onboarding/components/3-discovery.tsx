@@ -321,6 +321,8 @@ export function OnboardingDiscovery({
             onContinue={handleContinue}
             onSkip={handleSkip}
             showSkipButton={true}
+            isContinuePending={saveDevicesMutation.isPending || completeOnboardingMutation.isPending}
+            isSkipPending={completeOnboardingMutation.isPending}
           />
         )}
       </div>
