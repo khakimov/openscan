@@ -68,21 +68,24 @@ export async function detectScanChanges(params: {
     2 // Fetch 2 scans: N-1 and N-2
   );
 
-  // Edge Case: First successful scan - no baseline to compare against
-  if (recentScans.length === 0) {
-    logger.info('[Change Detection] No baseline scan found - first successful scan', {
+  // First successful scan - treat as discovery (legacy behavior)
+  // Legacy system (footprint_app) always issued NEW_DEVICE + per-service notifications
+  // on first scan, treating "no baseline" as baseline of 0 ports/0 CVEs.
+  // See: docs/NOTIFICATIONS/first-scan-notifications.md
+  const baseline = recentScans.length > 0 ? recentScans[0] : null; // Most recent (scan N-1)
+  const previousPrevious = recentScans.length > 1 ? recentScans[1] : null; // Second most recent (scan N-2)
+
+  if (!baseline) {
+    logger.info('[Change Detection] No baseline scan found - treating as first-time discovery', {
       deviceId,
       scanRunId: currentScan.id,
+      note: 'All ports/CVEs will be treated as "new" (legacy parity)',
     });
-    return [];
   }
-
-  const baseline = recentScans[0]; // Most recent (scan N-1)
-  const previousPrevious = recentScans.length > 1 ? recentScans[1] : null; // Second most recent (scan N-2)
 
   // Step 2: Extract result summaries
   const currentSummary = currentScan.resultSummary as EnrichedScanResultSummary | null;
-  const baselineSummary = baseline.resultSummary as EnrichedScanResultSummary | null;
+  const baselineSummary = baseline?.resultSummary as EnrichedScanResultSummary | null;
   const prevPrevSummary = previousPrevious?.resultSummary as EnrichedScanResultSummary | null;
 
   if (!currentSummary) {
@@ -102,7 +105,7 @@ export async function detectScanChanges(params: {
   logger.info('[Change Detection] Changes detected', {
     deviceId,
     currentScanId: currentScan.id,
-    baselineScanId: baseline.id,
+    baselineScanId: baseline?.id || 'none (first scan)',
     previousPreviousScanId: previousPrevious?.id,
     portChanges: portChanges.length,
     cveChanges: cveChanges.length,
