@@ -70,9 +70,12 @@ CREATE INDEX `scan_schedules_device_idx` ON `scan_schedules` (`device_id`);--> s
 CREATE UNIQUE INDEX `scan_schedules_schedule_id_uq` ON `scan_schedules` (`schedule_id`);--> statement-breakpoint
 CREATE INDEX `scan_schedules_next_run_idx` ON `scan_schedules` (`next_run_at`,`is_active`);--> statement-breakpoint
 CREATE INDEX `scan_schedules_status_idx` ON `scan_schedules` (`status`);--> statement-breakpoint
-ALTER TABLE `httpx_probes` ADD `metadata` text;--> statement-breakpoint
-ALTER TABLE `httpx_probes` DROP COLUMN `headers`;--> statement-breakpoint
-ALTER TABLE `httpx_probes` DROP COLUMN `content_length`;--> statement-breakpoint
-ALTER TABLE `httpx_probes` DROP COLUMN `final_url`;--> statement-breakpoint
-ALTER TABLE `httpx_probes` DROP COLUMN `tls_version`;--> statement-breakpoint
-CREATE UNIQUE INDEX `scan_artifacts_idempotency_uq` ON `scan_artifacts` (`device_id`,`port`,`scan_run_id`,`tool_name`);
+-- Note: All httpx_probes schema changes already handled in migration 0003
+-- These columns were already dropped/added in migration 0003, skip duplicates
+-- ALTER TABLE `httpx_probes` ADD `metadata` text;--> statement-breakpoint
+-- ALTER TABLE `httpx_probes` DROP COLUMN `headers`;--> statement-breakpoint
+-- ALTER TABLE `httpx_probes` DROP COLUMN `content_length`;--> statement-breakpoint
+-- ALTER TABLE `httpx_probes` DROP COLUMN `final_url`;--> statement-breakpoint
+-- ALTER TABLE `httpx_probes` DROP COLUMN `tls_version`;--> statement-breakpoint
+-- Note: scan_artifacts_idempotency_uq index already created in migration 0003
+-- CREATE UNIQUE INDEX `scan_artifacts_idempotency_uq` ON `scan_artifacts` (`device_id`,`port`,`scan_run_id`,`tool_name`);

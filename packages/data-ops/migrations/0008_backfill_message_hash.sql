@@ -24,7 +24,7 @@
 --   );
 
 -- Option 2: Application-level backfill (recommended for D1)
--- See: packages/data-ops/src/queries/notifications.ts::backfillMessageHashes()
+-- See: packages/data-ops/src/queries/notifications/maintenance.ts::backfillMessageHashes()
 --
 -- Usage:
 -- ```typescript

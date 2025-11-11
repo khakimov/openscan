@@ -85,6 +85,13 @@
       "when": 1762673480000,
       "tag": "0011_fix_composite_index_rollback",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "6",
+      "when": 1762822766070,
+      "tag": "0012_aromatic_epoch",
+      "breakpoints": true
     }
   ]
 }

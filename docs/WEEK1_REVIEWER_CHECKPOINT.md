@@ -86,7 +86,7 @@ export function hashMessage(title: string, message?: string | null): string {
 
 ## 2. New Helper Function: `upsertNotification`
 
-**Location:** `packages/data-ops/src/queries/notifications.ts:188-261`
+**Location:** `packages/data-ops/src/queries/notifications/crud.ts`
 
 ### 2.1 Implementation
 
@@ -407,7 +407,7 @@ describe.skip('Notification Persistence', () => {
 
 ### 7.2 Modified Files
 
-1. `packages/data-ops/src/queries/notifications.ts` - Enhanced with logging and upsertNotification
+1. `packages/data-ops/src/queries/notifications/` - Enhanced with logging and upsertNotification
 2. `apps/user-application/src/server/notifications/change-detector.ts` - Refactored to use catalog
 3. `packages/data-ops/src/index.ts` - Added catalog and helpers exports
 4. `packages/data-ops/package.json` - Added @repo/logger dependency
@@ -438,7 +438,7 @@ describe.skip('Notification Persistence', () => {
 
 **Resolution:**
 - ✅ Created migration 0008_backfill_message_hash.sql (documentation)
-- ✅ Implemented `backfillMessageHashes()` function in `packages/data-ops/src/queries/notifications.ts:633-731`
+- ✅ Implemented `backfillMessageHashes()` function in `packages/data-ops/src/queries/notifications/maintenance.ts`
 - ✅ Exported function for maintenance tasks
 
 **Backfill Function Features:**

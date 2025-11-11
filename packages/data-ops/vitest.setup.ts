@@ -100,8 +100,18 @@ try {
       FOREIGN KEY ("scan_run_id") REFERENCES "scan_runs"("id") ON DELETE CASCADE
     );
 
+    CREATE TABLE IF NOT EXISTS "organization_notification_settings" (
+      "id" text PRIMARY KEY NOT NULL,
+      "organization_id" text NOT NULL UNIQUE,
+      "email_allowed_severities" text DEFAULT '["CRITICAL","HIGH"]' NOT NULL,
+      "created_at" integer DEFAULT (unixepoch('now') * 1000) NOT NULL,
+      "updated_at" integer DEFAULT (unixepoch('now') * 1000) NOT NULL,
+      FOREIGN KEY ("organization_id") REFERENCES "organization"("id") ON DELETE CASCADE
+    );
+
     CREATE INDEX IF NOT EXISTS "notifications_org_idx" ON "notifications" ("organization_id");
     CREATE INDEX IF NOT EXISTS "notifications_dedup_idx" ON "notifications" ("organization_id", "fingerprint", "suppress_until");
+    CREATE INDEX IF NOT EXISTS "org_notification_settings_org_idx" ON "organization_notification_settings" ("organization_id");
 
     -- Partial unique index: Allows multiple inactive rows, only ONE active row per (org_id, fingerprint)
     -- Matches production schema (migration 0010_composite_fingerprint_index.sql)

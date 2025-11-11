@@ -88,7 +88,7 @@ ON `notifications` (`organization_id`, `fingerprint`, `is_active`);
 module: text('module').notNull(), // 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'GENERAL'
 ```
 
-**Validation** (`src/queries/notifications.ts:39`):
+**Validation** (`src/queries/notifications/schemas.ts`):
 ```typescript
 module: z.enum(['NETWORK_SECURITY', 'VULNERABILITY_MANAGEMENT', 'GENERAL']),
 ```
@@ -222,7 +222,7 @@ it('should allow fingerprint reuse after suppress window expires', async () => {
 ### Schema & Core
 - `src/schema/notifications.ts` (added module field, updated docs)
 - `src/notifications/catalog.ts` (updated 4 builders)
-- `src/queries/notifications.ts` (validation, ON CONFLICT, helper refined)
+- `src/queries/notifications/` (validation, ON CONFLICT, helper refined)
 - `src/index.ts` (exported NotificationModule type)
 
 ### Integration

@@ -65,7 +65,12 @@ export async function getScanHistory(
     .orderBy(desc(scanRuns.completedAt))
     .limit(limit);
 
-  return results.map((r) => r.scan_runs);
+  type ScanJoinRow = {
+    scan_runs: typeof scanRuns.$inferSelect;
+    scan_run_devices: typeof scanRunDevices.$inferSelect;
+  };
+
+  return results.map((r: ScanJoinRow) => r.scan_runs);
 }
 
 /**

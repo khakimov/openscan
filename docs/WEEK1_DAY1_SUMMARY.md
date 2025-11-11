@@ -29,7 +29,7 @@ WHERE suppress_until > CURRENT_TIMESTAMP;
 ---
 
 ### 2. `sec-sd0` - messageHash Column (Full SHA-256)
-**File**: `packages/data-ops/src/queries/notifications.ts:72-75`
+**File**: `packages/data-ops/src/queries/notifications/dedupe.ts`
 
 ```typescript
 export function hashMessage(title: string, message?: string | null): string {
@@ -47,7 +47,7 @@ export function hashMessage(title: string, message?: string | null): string {
 ---
 
 ### 3. `sec-t4z` - onConflictDoUpdate Implementation
-**File**: `packages/data-ops/src/queries/notifications.ts:177-217`
+**File**: `packages/data-ops/src/queries/notifications/crud.ts`
 
 ```typescript
 export async function upsertNotification(input: CreateNotificationInput) {

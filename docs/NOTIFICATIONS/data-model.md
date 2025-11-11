@@ -87,6 +87,41 @@ ON `notifications` (`organization_id`, `fingerprint`);
 | `NEW_CVE` | New vulnerability detected (wasn't in previous scan) | CVE severity | `new_cve:{deviceId}:{cve_id}` |
 | `CVE_SEVERITY_INCREASE` | Existing CVE severity upgraded | New severity | `cve_upgrade:{deviceId}:{cve_id}` |
 
+### Schema: `organization_notification_settings` Table
+
+**File**: `packages/data-ops/src/schema/notifications.ts`
+
+Stores per-organization email alert preferences introduced in **sec-1y2**.
+
+```typescript
+export const organizationNotificationSettings = sqliteTable(
+  'organization_notification_settings',
+  {
+    id: cuidText().primaryKey(),
+    organizationId: text('organization_id')
+      .notNull()
+      .unique()
+      .references(() => organization.id, { onDelete: 'cascade' }),
+    emailAllowedSeverities: text('email_allowed_severities', { mode: 'json' })
+      .$type<Array<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'>>()
+      .notNull()
+      .default(sql`'["CRITICAL","HIGH"]'`),
+    createdAt: now(),
+    updatedAt: updatedAt(),
+  },
+  (t) => ({
+    orgIdx: index('org_notification_settings_org_idx').on(t.organizationId),
+  })
+);
+```
+
+Key points:
+
+- **One row per organization** (unique on `organizationId`).
+- `emailAllowedSeverities` holds the currently permitted severities (empty array = alerts disabled).
+- Queried via `resolveEmailSeverities()` to gate email delivery.
+- Mutated through `updateEmailSeveritiesOrDisable()` / `resetEmailSeveritiesToDefaults()`.
+
 ### Port Severity Mapping
 
 **File**: `packages/data-ops/src/notifications/catalog.ts`

@@ -110,9 +110,9 @@ This makes duration adjustments easy and prevents magic number duplication.
    - Upsert row when emitting CVE_FIXED
    - Query history when evaluating "new" CVEs → emit CVE_REGRESSED if recently fixed
    - Update `diff-cves.ts` header comment to describe persisted path + compatibility fallback
-3. **Notification router integration**: Wire up the new notification types with proper suppression
+2. **Notification router integration**: Wire up the new notification types with proper suppression
 
 ## See Also
 
-- [NOTIFICATIONS.md](../../../docs/NOTIFICATIONS.md) - Complete algorithm documentation
+- [Notification System Docs](../../../docs/NOTIFICATIONS/README.md) - Complete algorithm documentation
 - [postback-architecture.md](../../../docs/postback-architecture.md) - Postback system integration

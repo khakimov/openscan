@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingNotifications } from "@/features/onboarding";
 import { getOnboardingStatus, updateOnboardingStep } from "@/server/organization";
+import { getNotificationPreferences } from "@/server/preferences";
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
   // Guard: Require authentication before accessing step 4
@@ -28,11 +29,13 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
       });
     }
 
-    // TODO: Fetch existing notification preferences from user settings
-    // For now, we'll use the default values in the component
+    // Fetch existing notification preferences
+    const preferencesResult = await getNotificationPreferences();
+    const preferences = preferencesResult.success ? preferencesResult.data : undefined;
 
     return {
       onboarding: status,
+      preferences,
     };
   },
   component: OnboardingNotificationsPage,
@@ -40,7 +43,7 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
 
 function OnboardingNotificationsPage() {
   const { projectId } = Route.useParams();
-  const { onboarding } = Route.useLoaderData();
+  const { onboarding, preferences } = Route.useLoaderData();
 
   console.log("[OnboardingNotificationsPage] Rendering with:", {
     projectId,
@@ -57,7 +60,7 @@ function OnboardingNotificationsPage() {
       <OnboardingNotifications
         projectId={projectId}
         organizationId={onboarding.organizationId}
-        // TODO: Pass initialValues from user settings once we implement fetching
+        initialValues={preferences}
       />
     </OnboardingLayout>
   );

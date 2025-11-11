@@ -247,8 +247,8 @@ Test Files  1 passed (1)
 - `src/schema/notifications.ts` - Documentation updated (lines 67-72)
 
 ### Application Logic
-- `src/queries/notifications.ts:250` - Updated ON CONFLICT target to include `isActive`
-- `src/queries/notifications.ts:113` - Added `isActive = true` filter to `checkDuplicateNotification`
+- `src/queries/notifications/crud.ts` - Updated ON CONFLICT target to include `isActive`
+- `src/queries/notifications/dedupe.ts` - Added `isActive = true` filter to `checkDuplicateNotification`
 
 ### Test Infrastructure
 - `vitest.setup.ts:109` - Updated test schema to use composite index
@@ -296,7 +296,7 @@ After deployment, monitor:
 - **Original Issue**: Partial index incompatibility with SQLite ON CONFLICT
 - **User Feedback**: "Notification Fingerprint Reuse – Constraint Alignment Plan"
 - **Related Docs**:
-  - `docs/NOTIFICATIONS.md` - Notification system architecture
+  - `docs/NOTIFICATIONS/README.md` - Notification system architecture
   - `docs/D1_COMPATIBILITY_VERIFICATION.md` - D1 concurrency testing
   - `docs/SEC-XP0_MODULE_TAXONOMY_IMPLEMENTATION.md` - Module field implementation
 

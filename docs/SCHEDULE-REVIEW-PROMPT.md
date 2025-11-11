@@ -4,7 +4,7 @@
 
 I'm designing a recurring device scan scheduling system for our security platform using Restate (durable workflow orchestration). I've created two documents:
 
-1. **[docs/SCHEDULE.md](./SCHEDULE.md)** - Full design specification
+1. **[docs/SCHEDULE/README.md](./SCHEDULE/README.md)** - Full design specification
 2. **[docs/SCHEDULE-REVIEW.md](./SCHEDULE-REVIEW.md)** - 10 open questions with alternatives
 
 ## What I Need
@@ -1123,7 +1123,7 @@ For each of the 10 questions above, please:
 
 ## Where to Add Content
 
-- **Primary**: Update [docs/SCHEDULE.md](./SCHEDULE.md) sections with chosen patterns
+- **Primary**: Update [docs/SCHEDULE/README.md](./SCHEDULE/README.md) sections with chosen patterns
 - **Secondary**: Keep [docs/SCHEDULE-REVIEW.md](./SCHEDULE-REVIEW.md) as decision log (record why we chose X over Y)
 
 ## Format Preference

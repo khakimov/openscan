@@ -51,7 +51,7 @@ SQLite requires `ON CONFLICT` targets to be non-partial constraints. Our product
 
 **Schema & Validation**:
 - `src/schema/notifications.ts` - Added module field
-- `src/queries/notifications.ts` - Zod validation, ON CONFLICT target, helper refinement
+- `src/queries/notifications/` - Zod validation, ON CONFLICT target, helper refinement
 
 **Catalog Integration**:
 - `src/notifications/catalog.ts` - Updated all 4 notification builders
@@ -90,8 +90,8 @@ SQLite requires `ON CONFLICT` targets to be non-partial constraints. Our product
 - Test validates fresh row insertion after expiry
 
 **Files**:
-- `src/queries/notifications.ts:212-224` (manual expiry logic)
-- `src/queries/notifications.ts:250` (ON CONFLICT target)
+- `src/queries/notifications/crud.ts` (manual expiry logic)
+- `src/queries/notifications/crud.ts` (ON CONFLICT target)
 - `src/queries/__tests__/notifications.test.ts:123-174` (fingerprint reuse test)
 
 **Key Code**:
@@ -170,7 +170,7 @@ Catalog Builder → ScanChange → Postback Mapper → CreateNotificationInput �
 - Maintains original behavior for active notifications
 
 **File**:
-- `src/queries/notifications.ts:113`
+- `src/queries/notifications/dedupe.ts`
 
 **Before**:
 ```typescript

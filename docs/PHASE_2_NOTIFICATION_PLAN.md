@@ -111,7 +111,7 @@ WHERE suppress_until > CURRENT_TIMESTAMP;
 
 **Estimated Effort**: 2 hours
 **Files**: `packages/data-ops/migrations/*.sql`, schema validation
-**References**: `docs/NOTIFICATIONS.md#full-unique-index-vs-partial-index`
+**References**: `docs/NOTIFICATIONS/design-decisions.md#full-unique-index-vs-partial-index`
 
 ---
 
@@ -194,7 +194,7 @@ const [notification] = await db
 **Dependencies**: Requires `sec-z7r` (unique index) completed first
 
 **Estimated Effort**: 4 hours (includes Drizzle API research + testing)
-**Files**: `packages/data-ops/src/queries/notifications.ts:157`
+**Files**: `packages/data-ops/src/queries/notifications/crud.ts`
 **References**: [Drizzle onConflictDoUpdate](https://orm.drizzle.team/docs/insert#on-conflict-do-update)
 
 ---
@@ -846,7 +846,7 @@ for (const [key, port] of currPortMap) {
 
 **Implementation**:
 ```typescript
-// packages/data-ops/src/queries/notifications.ts
+// packages/data-ops/src/queries/notifications/
 export async function upsertNotification(
   input: CreateNotificationInput
 ): Promise<typeof notifications.$inferSelect | null> {
@@ -900,7 +900,7 @@ export async function upsertNotification(
 **Dependencies**: Requires `sec-t4z` (INSERT...ON CONFLICT) completed first
 
 **Estimated Effort**: 3 hours
-**Files**: `packages/data-ops/src/queries/notifications.ts`
+**Files**: `packages/data-ops/src/queries/notifications/`
 
 ---
 
@@ -1055,7 +1055,7 @@ export async function getUnreadNotifications(params: {
 
 **Estimated Effort**: 4 hours (if per-user tracking needed), 1 hour (if validation only)
 **Files**: Documentation, schema (if per-user), queries (if per-user)
-**References**: `docs/NOTIFICATIONS.md#org-wide-vs-user-scoped-read-state`
+**References**: `docs/NOTIFICATIONS/design-decisions.md#org-wide-vs-user-scoped-read-state`
 
 ---
 
@@ -1152,7 +1152,7 @@ await db.delete(notifications).where(
 
 **Enhanced (Batched)**:
 ```typescript
-// packages/data-ops/src/queries/notifications.ts
+// packages/data-ops/src/queries/notifications/
 export async function deleteOldNotifications(
   organizationId: string,
   daysOld: number = 90,
@@ -1225,7 +1225,7 @@ export default {
 - Mirrors legacy chunked delete pattern
 
 **Estimated Effort**: 3 hours
-**Files**: `packages/data-ops/src/queries/notifications.ts`, worker cron handler
+**Files**: `packages/data-ops/src/queries/notifications/`, worker cron handler
 **References**: `docs/LEGACY_NOTIFICATIONS.md#table-maintenance`
 
 ---
@@ -1235,7 +1235,7 @@ export default {
 
 **Implementation**:
 ```typescript
-// packages/data-ops/src/queries/notifications.ts
+// packages/data-ops/src/queries/notifications/
 export async function createNotifications(
   inputs: CreateNotificationInput[]
 ): Promise<{
@@ -1294,7 +1294,7 @@ LIMIT 30;
 ```
 
 **Estimated Effort**: 2 hours
-**Files**: `packages/data-ops/src/queries/notifications.ts`
+**Files**: `packages/data-ops/src/queries/notifications/`
 **Priority**: P3 (nice to have, not critical)
 
 ---
@@ -1777,11 +1777,11 @@ All other tasks can run in parallel after these foundation pieces.
 
 ## References
 
-- **Main Documentation**: `docs/NOTIFICATIONS.md`
+- **Main Documentation**: `docs/NOTIFICATIONS/README.md`
 - **Legacy Patterns**: `docs/LEGACY_NOTIFICATIONS.md`
 - **Notification Catalog**: `packages/data-ops/src/notifications/catalog.ts`
 - **Schema**: `packages/data-ops/src/schema/notifications.ts`
-- **Queries**: `packages/data-ops/src/queries/notifications.ts`
+- **Queries**: `packages/data-ops/src/queries/notifications/`
 
 ---
 

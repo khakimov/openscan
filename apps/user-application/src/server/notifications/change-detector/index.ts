@@ -11,7 +11,7 @@
  * - types.ts: Shared type definitions
  * - utils.ts: Common helper functions
  *
- * See: docs/NOTIFICATIONS.md for complete algorithm documentation
+ * See: docs/NOTIFICATIONS/change-detection.md for complete algorithm documentation
  */
 
 import type { EnrichedScanResultSummary } from '@repo/data-ops';

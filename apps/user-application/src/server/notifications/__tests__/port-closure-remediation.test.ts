@@ -289,8 +289,11 @@ describe('Port Closure Remediation Context (sec-acw)', () => {
 
       // Legacy would only say "is offline"
       // We add remediation: "Good security practice - Telnet is insecure..."
-      expect(changes[0].message).not.toBe('Port 23/tcp (telnet) is no longer accessible');
-      expect(changes[0].message.length).toBeGreaterThan(50); // Has substantial guidance
+      expect(changes).toHaveLength(1);
+      const change = changes[0]!;
+      const message = change.message ?? '';
+      expect(message).not.toBe('Port 23/tcp (telnet) is no longer accessible');
+      expect(message.length).toBeGreaterThan(50); // Has substantial guidance
     });
   });
 });

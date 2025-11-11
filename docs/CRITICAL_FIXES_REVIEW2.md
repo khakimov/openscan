@@ -32,7 +32,7 @@ WHERE suppress_until > (unixepoch('now') * 1000)
 ### Files Changed
 - `packages/data-ops/src/schema/notifications.ts` - Added `isActive` column
 - `packages/data-ops/migrations/0007_jittery_agent_zero.sql` - Added `is_active` column, changed WHERE clause
-- `packages/data-ops/src/queries/notifications.ts` - Added `expireNotifications()` function, updated `upsertNotification` ON CONFLICT set
+- `packages/data-ops/src/queries/notifications/` - Added `expireNotifications()` function, updated `upsertNotification` ON CONFLICT set
 - `packages/data-ops/src/index.ts` - Exported `expireNotifications`
 
 ### New Cleanup Job
@@ -87,7 +87,7 @@ Changed `upsertNotification()` to return a `{ notification, wasDuplicate }` resu
 This eliminates the need for a pre-check SELECT.
 
 ### Files Changed
-- `packages/data-ops/src/queries/notifications.ts`:
+- `packages/data-ops/src/queries/notifications/`:
   - Added `UpsertNotificationResult` interface
   - Changed `upsertNotification()` return type
   - Removed duplicate `checkDuplicateNotification()` call
@@ -170,7 +170,7 @@ for (const input of inputs) {
    ```
 
 ### Files Changed
-- `packages/data-ops/src/queries/notifications.ts` - Rewrote `backfillMessageHashes()`
+- `packages/data-ops/src/queries/notifications/maintenance.ts` - Rewrote `backfillMessageHashes()`
 
 **Benefits:**
 - Accurate dry-run statistics (reports only rows needing backfill)

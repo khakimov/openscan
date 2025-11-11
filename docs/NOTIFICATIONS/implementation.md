@@ -24,6 +24,13 @@
 - [x] Builder functions: `createNewPortNotification()`, `createClosedPortNotification()`, `createNewCVENotification()`, `createCVESeverityIncreaseNotification()`
 - [x] Helper functions: `mapCVESeverityToNotificationSeverity()`, `getSeverityOrder()`
 
+#### Email Preferences & Gating
+- [x] Org-level email severity settings (`organization_notification_settings`)
+- [x] Data access layer (`resolveEmailSeverities`, caching with 5‑minute TTL)
+- [x] Server functions (`getNotificationPreferences`, `saveNotificationPreferences`)
+- [x] UI integrations: onboarding step + account dialog toggle/checkboxes
+- [x] Empty-array contract (alerts disabled) with test coverage & docs
+
 #### Deduplication & Race Conditions
 - [x] **Critical Fix**: Atomic check-and-insert with database transactions
 - [x] **Belt-and-Suspenders**: Unique constraint on `(organizationId, fingerprint)`
@@ -43,7 +50,7 @@
 
 ### 📋 Pending Features (Future Phases)
 
-- [ ] Email delivery for CRITICAL/HIGH notifications
+- [ ] Email delivery worker (SMTP integration + batching)
 - [ ] Refactor change detector to use catalog functions (currently uses inline messages)
 - [ ] Partial unique index with `WHERE suppressUntil > CURRENT_TIMESTAMP` (currently full index)
 - [ ] Message hashing for secondary deduplication (fingerprints are structured strings)

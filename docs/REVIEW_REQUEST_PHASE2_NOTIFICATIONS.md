@@ -13,7 +13,7 @@ I've completed the planning phase for **Phase 2: Notification System Hardening**
 
 1. **26 tracked issues** in beads (epic `sec-erx`)
 2. **Complete implementation plan** in `docs/PHASE_2_NOTIFICATION_PLAN.md`
-3. **Updated architecture documentation** in `docs/NOTIFICATIONS.md`
+3. **Updated architecture documentation** in `docs/NOTIFICATIONS/README.md`
 4. **3-week implementation roadmap** with clear priorities
 
 **Key Question**: Does this plan align with your vision? Are there any priorities I should adjust or features I should add/remove?
@@ -35,7 +35,7 @@ I've completed the planning phase for **Phase 2: Notification System Hardening**
 
 ### Current State
 - **Status**: MVP functional but not production-hardened
-- **Documentation**: Complete (`docs/NOTIFICATIONS.md` - 1550 lines)
+- **Documentation**: Complete (`docs/NOTIFICATIONS/*.md` - modular set)
 - **Remaining Phase 1 Task**: End-to-end testing (one scan → verify notifications appear)
 
 ---
@@ -549,7 +549,7 @@ it('should prevent duplicate inserts with same fingerprint (unique index enforce
 ### Sample 1: Proposed `upsertNotification` Helper
 
 ```typescript
-// packages/data-ops/src/queries/notifications.ts
+// packages/data-ops/src/queries/notifications/crud.ts
 export async function upsertNotification(
   input: CreateNotificationInput
 ): Promise<typeof notifications.$inferSelect | null> {
@@ -803,7 +803,7 @@ function diffPorts(...): Array<CreateNotificationInput> {
 ## 📚 Reference Documents
 
 ### Must-Read Before Implementation
-1. **`docs/NOTIFICATIONS.md`** (1550 lines) - Complete Phase 1 architecture
+1. **`docs/NOTIFICATIONS/README.md`** (+ supporting files) - Complete Phase 1 architecture
    - Sections to review:
      - `#architecture-overview` - High-level flow
      - `#deduplication-strategy` - Current dedupe approach (to be improved)
@@ -824,7 +824,7 @@ function diffPorts(...): Array<CreateNotificationInput> {
 ### Supporting Files
 4. **`packages/data-ops/src/notifications/catalog.ts`** - Notification message templates
 5. **`packages/data-ops/src/schema/notifications.ts`** - Database schema
-6. **`packages/data-ops/src/queries/notifications.ts`** - Current CRUD operations (to be refactored)
+6. **`packages/data-ops/src/queries/notifications/`** - Current CRUD operations (to be refactored)
 7. **`apps/user-application/src/server/notifications/change-detector.ts`** - Change detection logic (to be refactored)
 
 ---
@@ -886,7 +886,7 @@ function diffPorts(...): Array<CreateNotificationInput> {
 
 Please review and confirm:
 
-- [ ] I've read `docs/NOTIFICATIONS.md` (Phase 1 architecture)
+- [ ] I've read the `docs/NOTIFICATIONS` documentation set (Phase 1 architecture)
 - [ ] I've read `docs/PHASE_2_NOTIFICATION_PLAN.md` (detailed implementation plan)
 - [ ] I've reviewed the critical questions (D1 support, onConflictDoUpdate, messageHash priority)
 - [ ] I've reviewed the code samples (upsertNotification, catalog integration, service drift)

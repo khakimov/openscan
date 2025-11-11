@@ -91,4 +91,27 @@ export const notificationPreferences = sqliteTable('notification_preferences', {
 });
 ```
 
+### Email Alert Severity Gating
+
+**Decision**: Gate email delivery by **organization-configurable severity list**.
+
+**Why**:
+- Legacy footprint stored CSV severity preferences per user (`raw_new_vulns_emails`); we needed org-wide parity.
+- Different maturity levels require different noise thresholds (CRITICAL-only vs MEDIUM+).
+- Enables UI toggles without redeploying backend.
+
+**Implementation**:
+- `organization_notification_settings` table holds `emailAllowedSeverities` JSON array (empty array = alerts disabled).
+- Read path: `resolveEmailSeverities()` (5-minute cached) → `getPendingEmailNotifications()` (returns [] when list empty).
+- Write path: `updateEmailSeveritiesOrDisable()` with atomic upsert + cache invalidation.
+- UI: onboarding step + account dialog call `saveNotificationPreferences()` / `getNotificationPreferences()`.
+
+**Defaults**:
+- Fresh orgs start with `['CRITICAL', 'HIGH']` (legacy behavior).
+- Toggle off → empty array → worker skips email sends.
+
+**Future Enhancement**:
+- Expose channel-specific preferences (email vs Slack) in same row or companion table.
+- Allow severity-specific suppression windows or per-module overrides.
+
 ---

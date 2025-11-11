@@ -60,7 +60,7 @@ export function createNewPortNotification(params: NotifyNewPortParams): Notifica
 
 ### 3. Validation Schema
 
-**File**: `packages/data-ops/src/queries/notifications.ts:39`
+**File**: `packages/data-ops/src/queries/notifications/schemas.ts`
 
 ```typescript
 export const CreateNotificationSchema = z.object({
@@ -243,7 +243,7 @@ it('should allow fingerprint reuse after suppress window expires', async () => {
 ### Core Implementation
 - `packages/data-ops/src/schema/notifications.ts` - Added module field
 - `packages/data-ops/src/notifications/catalog.ts` - Updated all builders
-- `packages/data-ops/src/queries/notifications.ts` - Added validation and DB ops
+- `packages/data-ops/src/queries/notifications/` - Added validation and DB ops
 - `packages/data-ops/migrations/0009_add_notification_module.sql` - New migration
 - `packages/data-ops/src/index.ts` - Exported NotificationModule type
 

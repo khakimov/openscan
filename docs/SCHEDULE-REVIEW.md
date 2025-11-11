@@ -2,7 +2,7 @@
 
 ## Context
 
-I've created a design document for implementing recurring device scan schedules in our security platform. The full design is available in [docs/SCHEDULE.md](./SCHEDULE.md).
+I've created a design document for implementing recurring device scan schedules in our security platform. The full design is available in [docs/SCHEDULE/README.md](./SCHEDULE/README.md).
 
 **Key architectural decision**: Use Restate Virtual Objects with durable timers instead of traditional cron jobs or external schedulers.
 
@@ -54,10 +54,10 @@ ctx.key = "org-123:device-abc"
 3. Does the keying strategy affect Restate billing/performance?
 
 **Decision**:
-- ✅ Key Virtual Objects by `scheduleId`, allowing many schedules per device while keeping state isolated (`docs/SCHEDULE.md:366`–`docs/SCHEDULE.md:540`).
-- ✅ Persist canonical interval config in DB (`interval_config` jsonb) and cache a human label for queries (`docs/SCHEDULE.md:104`–`docs/SCHEDULE.md:140`).
-- ✅ Generate scheduleId in server layer and pass as Restate key to keep DB + VO aligned (`docs/SCHEDULE.md:704`–`docs/SCHEDULE.md:752`).
-- 🔗 Device-level queries now use `getSchedulesForDevice` plus UI filtering for variants (`docs/SCHEDULE.md:150`–`docs/SCHEDULE.md:214`).
+- ✅ Key Virtual Objects by `scheduleId`, allowing many schedules per device while keeping state isolated (see `docs/SCHEDULE/architecture.md`).
+- ✅ Persist canonical interval config in DB (`interval_config` jsonb) and cache a human label for queries (documented in `docs/SCHEDULE/data-model.md`).
+- ✅ Generate scheduleId in server layer and pass as Restate key to keep DB + VO aligned (see Restate integration notes in `docs/SCHEDULE/api.md`).
+- 🔗 Device-level queries now use `getSchedulesForDevice` plus UI filtering for variants (`docs/SCHEDULE/ui.md`).
 
 ---
 
@@ -120,10 +120,10 @@ ctx.scheduleRecurring('executeScan', { interval: state.interval });
 4. Is there a Restate-native pattern for recurring jobs that I missed?
 
 **Decision**:
-- ✅ Adopt **reschedule-first with idempotent timer guard** (`docs/SCHEDULE.md:366`–`docs/SCHEDULE.md:756`).
+- ✅ Adopt **reschedule-first with idempotent timer guard** (documented in `docs/SCHEDULE/architecture.md`).
 - ✅ Guard against drift by anchoring next run on `state.pendingTimer.runAt` and using `calculateNextRun({ lastScheduledAt })`.
 - ⚠️ If `acquireScanSlot` rejects due to concurrency, retry with jittered delay (≤ interval) and log.
-- 🔗 See helper utilities `scheduleNextInvocation`, `buildTimerCallId`, and `intervalToMs` in `docs/SCHEDULE.md:592`.
+- 🔗 See helper utilities `scheduleNextInvocation`, `buildTimerCallId`, and `intervalToMs` in `docs/SCHEDULE/architecture.md`.
 
 ---
 
@@ -179,9 +179,9 @@ if (error.type === 'DNS_RESOLUTION_FAILED' || error.type === 'HOST_UNREACHABLE')
 - More complex to implement
 
 **Decision**:
-- ✅ Tiered thresholds (`QUICK=3`, `STANDARD=5`, `THOROUGH=8`) with exponential backoff capped at 6h (`docs/SCHEDULE.md:320`–`docs/SCHEDULE.md:437`).
-- ✅ `classifyFailure()` maps scanner error codes to permanent vs transient behaviour (`docs/SCHEDULE.md:618`–`docs/SCHEDULE.md:666`).
-- ✅ `state.deferUntil` defers execution without cancelling timers, avoiding drift while respecting durable scheduling (`docs/SCHEDULE.md:300`–`docs/SCHEDULE.md:332`).
+- ✅ Tiered thresholds (`QUICK=3`, `STANDARD=5`, `THOROUGH=8`) with exponential backoff capped at 6h (see `docs/SCHEDULE/operations.md`).
+- ✅ `classifyFailure()` maps scanner error codes to permanent vs transient behaviour (`docs/SCHEDULE/architecture.md`).
+- ✅ `state.deferUntil` defers execution without cancelling timers, avoiding drift while respecting durable scheduling (covered in `docs/SCHEDULE/architecture.md`).
 - ⚠️ Auto-pause emits both failure + auto-pause postbacks so UX can display context.
 
 ---
@@ -246,9 +246,9 @@ async scheduleDeviceScan(ctx, input) {
 - More complex, more database roundtrips
 
 **Decision**:
-- ✅ Database is the **source of truth**; Restate writes runtime updates back via `ctx.run(...)` (`docs/SCHEDULE.md:248`–`docs/SCHEDULE.md:452`).
-- ✅ `createScanSchedule` uses `ON CONFLICT DO UPDATE` semantics so handler retries stay idempotent (`docs/SCHEDULE.md:210`–`docs/SCHEDULE.md:278`).
-- ✅ Hourly reconciliation job compares Restate objects vs DB rows and pauses/recreates as needed (`docs/SCHEDULE.md:278`–`docs/SCHEDULE.md:338`).
+- ✅ Database is the **source of truth**; Restate posts runtime updates back via `updateScheduleRuntime` (see `docs/SCHEDULE/data-model.md`).
+- ✅ `createScanSchedule` uses `ON CONFLICT DO UPDATE` semantics so handler retries stay idempotent (see `docs/SCHEDULE/api.md`).
+- ✅ Hourly reconciliation job compares Restate objects vs DB rows and pauses/recreates as needed (`docs/SCHEDULE/operations.md`).
 - ⚠️ If timer scheduling fails post-DB-write, Restate retry + reconciliation catch drift automatically.
 
 ---
@@ -309,9 +309,9 @@ function calculateNextRun(from: Date, interval: string): Date {
 ❌ Cons: Verbose, complex to store
 
 **Decision**:
-- ✅ Adopt discriminated `ScheduleInterval` union: durations (minutes/hours/days) and daily anchors with timezone (`docs/SCHEDULE.md:391`–`docs/SCHEDULE.md:420`).
-- ✅ Persist JSON config + derived label for fast queries; helper `formatIntervalLabel` keeps UI human-readable (`docs/SCHEDULE.md:104`–`docs/SCHEDULE.md:150`, `docs/SCHEDULE.md:536`–`docs/SCHEDULE.md:612`).
-- ✅ Validation via Zod schema in server layer; UI sends structured payload and pre-built presets map to config (`docs/SCHEDULE.md:692`–`docs/SCHEDULE.md:756`).
+- ✅ Adopt discriminated `ScheduleInterval` union: durations (minutes/hours/days) and daily anchors with timezone (see `docs/SCHEDULE/api.md`).
+- ✅ Persist JSON config + derived label for fast queries; helper `formatIntervalLabel` keeps UI human-readable (`docs/SCHEDULE/data-model.md`).
+- ✅ Validation via Zod schema in server layer; UI sends structured payload and pre-built presets map to config (`docs/SCHEDULE/ui.md`).
 - ⚠️ Cron-like expressions deferred; add new interval kind when needed (backed by same union).
 
 ---
@@ -363,9 +363,9 @@ async executeScan(ctx) {
 - Requires distributed queue (Redis, Restate queue service?)
 
 **Decision**:
-- ✅ Enforce per-organization semaphore (default 5 leases) using `scan_schedule_leases` table and `acquireScanSlot`/`releaseScanSlot` wrappers (`docs/SCHEDULE.md:700`–`docs/SCHEDULE.md:764`).
-- ✅ Restate handler acquires lease before invoking scans and defers with jitter if limit reached (`docs/SCHEDULE.md:328`–`docs/SCHEDULE.md:430`).
-- ⚠️ Lease TTL (30m) auto-extends via worker heartbeat; nightly cleanup job purges expired leases (`docs/SCHEDULE.md:732`–`docs/SCHEDULE.md:756`).
+- ✅ Enforce per-organization semaphore (default 5 leases) using `scan_schedule_leases` table and `acquireScanSlot`/`releaseScanSlot` wrappers (`docs/SCHEDULE/operations.md`).
+- ✅ Restate handler acquires lease before invoking scans and defers with jitter if limit reached (`docs/SCHEDULE/architecture.md`).
+- ⚠️ Lease TTL (30m) auto-extends via worker heartbeat; nightly cleanup job purges expired leases (`docs/SCHEDULE/operations.md`).
 - 🔗 Manual scans request higher priority via the same semaphore to avoid starvation (follow-up work).
 
 ---
@@ -400,9 +400,9 @@ async executeScan(ctx) {
 ```
 
 **Decision**:
-- ✅ Require `scan_schedules:manage` permission (granted to org admins by default) and block cross-org access (`docs/SCHEDULE.md:1381`–`docs/SCHEDULE.md:1415`).
-- ✅ Enforce quotas: max 5 schedules/device + semaphore-backed org concurrency limit (`docs/SCHEDULE.md:700`–`docs/SCHEDULE.md:756`, `docs/SCHEDULE.md:720`–`docs/SCHEDULE.md:728`).
-- ✅ Reject unverified devices unless elevated permission present; log audit events for every mutation (`docs/SCHEDULE.md:1389`–`docs/SCHEDULE.md:1405`).
+- ✅ Require `scan_schedules:manage` permission (granted to org admins by default) and block cross-org access (`docs/SCHEDULE/operations.md`).
+- ✅ Enforce quotas: max 5 schedules/device + semaphore-backed org concurrency limit (`docs/SCHEDULE/operations.md`).
+- ✅ Reject unverified devices unless elevated permission present; log audit events for every mutation (`docs/SCHEDULE/operations.md`).
 - ⚠️ Rate limiting + billing-tier quotas tracked as follow-up (documented for future integration).
 
 ---
@@ -453,9 +453,9 @@ async executeScan(ctx) {
    - Monitor failure rates before full rollout
 
 **Decision**:
-- ✅ 90% coverage target across worker + server layers using Restate TestDriver for deterministic time travel (`docs/SCHEDULE.md:1204`–`docs/SCHEDULE.md:1260`).
-- ✅ Integration suite exercises saga + quota + concurrency paths; chaos tests simulate lease exhaustion and worker restarts (`docs/SCHEDULE.md:1262`–`docs/SCHEDULE.md:1298`).
-- ✅ Environments: local (TestDriver), CI (Vitest + coverage), staging (feature flag) with nightly chaos run for durability (`docs/SCHEDULE.md:1300`–`docs/SCHEDULE.md:1314`).
+- ✅ 90% coverage target across worker + server layers using Restate TestDriver for deterministic time travel (`docs/SCHEDULE/testing.md`).
+- ✅ Integration suite exercises saga + quota + concurrency paths; chaos tests simulate lease exhaustion and worker restarts (`docs/SCHEDULE/testing.md`).
+- ✅ Environments: local (TestDriver), CI (Vitest + coverage), staging (feature flag) with nightly chaos run for durability (`docs/SCHEDULE/testing.md`).
 - ⚠️ Migration tests not needed (greenfield), but reconciliation job verified via integration tests.
 
 ---
@@ -488,9 +488,9 @@ async executeScan(ctx) {
 ```
 
 **Decision**:
-- ✅ Instrument OpenTelemetry counters/histograms for timer lag, scan duration, failures, and auto-pauses (`docs/SCHEDULE.md:1432`–`docs/SCHEDULE.md:1485`).
-- ✅ Build Workers Analytics queries + Grafana dashboards for success rate, timer drift, and lease saturation with alert thresholds (`docs/SCHEDULE.md:1487`–`docs/SCHEDULE.md:1519`).
-- ✅ Observable gauge reports active leases per org; reconciliation job + alerts detect starvation (`docs/SCHEDULE.md:704`–`docs/SCHEDULE.md:756`).
+- ✅ Instrument OpenTelemetry counters/histograms for timer lag, scan duration, failures, and auto-pauses (`docs/SCHEDULE/observability.md`).
+- ✅ Build Workers Analytics queries + Grafana dashboards for success rate, timer drift, and lease saturation with alert thresholds (`docs/SCHEDULE/observability.md`).
+- ✅ Observable gauge reports active leases per org; reconciliation job + alerts detect starvation (`docs/SCHEDULE/operations.md`).
 - ⚠️ Trace IDs flow through postbacks and UI health widget for end-to-end debugging.
 
 ---
@@ -522,7 +522,7 @@ Please review and provide feedback on:
 ## Next Steps
 
 Based on review feedback, I will:
-1. Revise [docs/SCHEDULE.md](./SCHEDULE.md) with final decisions
+1. Revise [docs/SCHEDULE/README.md](./SCHEDULE/README.md) with final decisions
 2. Create implementation plan with phases
 3. Begin Phase 1: Database schema migration
 4. Set up testing infrastructure for Restate Virtual Objects
