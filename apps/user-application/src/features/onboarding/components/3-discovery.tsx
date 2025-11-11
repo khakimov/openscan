@@ -179,7 +179,7 @@ export function OnboardingDiscovery({
       );
       return {
         host,
-        ip: subdomain?.ip, // Include IP if resolved during discovery
+        ip: subdomain?.ip === 'Not resolved' ? undefined : subdomain?.ip, // Don't send "Not resolved" string
       };
     });
 
@@ -199,7 +199,8 @@ export function OnboardingDiscovery({
             description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
           });
 
-          // Mark onboarding as complete
+          // TODO: Navigate to step 4 (notifications) instead of skipping to dashboard
+          // For now, mark onboarding as complete and go to dashboard
           if (organizationId) {
             await completeOnboardingMutation.mutateAsync({ organizationId });
           }

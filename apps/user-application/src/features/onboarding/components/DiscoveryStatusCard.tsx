@@ -44,11 +44,11 @@ export function DiscoveryStatusCard({
   onSkip,
   showSkipButton = false,
 }: DiscoveryStatusCardProps) {
-  // Get discovery items from result, filter out items without IP
+  // Get discovery items from result (include all, even without IP resolution)
   const discoveryItems: DiscoveryResultItem[] = discoveryStatus.result
-    ? discoveryStatus.result.uniqueSubdomains.filter((s: any) => s.ip).map((s: any) => ({
+    ? discoveryStatus.result.uniqueSubdomains.map((s: any) => ({
         host: s.subdomain,
-        ip: s.ip,
+        ip: s.ip || 'Not resolved', // Show "Not resolved" if no IP
       }))
     : [];
 
