@@ -31,9 +31,12 @@ import {
   createCVESeverityIncreaseNotification,
   createCVEFixedNotification,
   createCVERegressedNotification,
-} from './catalog';
-import { createNotifications, type CreateNotificationInput } from '../queries/notifications';
-import { createId } from '@paralleldrive/cuid2';
+} from "./catalog";
+import {
+  createNotifications,
+  type CreateNotificationInput,
+} from "../queries/notifications";
+import { createId } from "@paralleldrive/cuid2";
 
 // ============================================================================
 // Suppression Window Constants
@@ -71,7 +74,9 @@ export interface NotifyNewPortParams {
  *
  * Suppress window: 6 hours (ports change frequently)
  */
-export async function notifyNewPort(params: NotifyNewPortParams): Promise<void> {
+export async function notifyNewPort(
+  params: NotifyNewPortParams
+): Promise<void> {
   // 1. Get descriptor from catalog
   const descriptor = createNewPortNotification({
     port: params.port,
@@ -94,13 +99,15 @@ export async function notifyNewPort(params: NotifyNewPortParams): Promise<void> 
       version: params.version,
     },
     fingerprint: buildPortFingerprint({
-      kind: 'new_port',
+      kind: "new_port",
       deviceId: params.deviceId,
       port: params.port,
       protocol: params.protocol,
-      product: params.serviceProduct ?? params.service ?? params.serviceName ?? null,
+      product:
+        params.serviceProduct ?? params.service ?? params.serviceName ?? null,
       version: params.serviceVersion ?? params.version ?? null,
-      name: params.serviceName ?? params.service ?? params.serviceProduct ?? null,
+      name:
+        params.serviceName ?? params.service ?? params.serviceProduct ?? null,
     }),
     suppressUntil: new Date(Date.now() + HOURS_6_MS), // 6 hours
   };
@@ -129,7 +136,9 @@ export interface NotifyClosedPortParams {
  *
  * Suppress window: 6 hours (match NEW_PORT for symmetry)
  */
-export async function notifyClosedPort(params: NotifyClosedPortParams): Promise<void> {
+export async function notifyClosedPort(
+  params: NotifyClosedPortParams
+): Promise<void> {
   // 1. Get descriptor from catalog
   const descriptor = createClosedPortNotification({
     port: params.port,
@@ -155,13 +164,15 @@ export async function notifyClosedPort(params: NotifyClosedPortParams): Promise<
       currentState: params.currentState,
     },
     fingerprint: buildPortFingerprint({
-      kind: 'closed_port',
+      kind: "closed_port",
       deviceId: params.deviceId,
       port: params.port,
       protocol: params.protocol,
-      product: params.serviceProduct ?? params.service ?? params.serviceName ?? null,
+      product:
+        params.serviceProduct ?? params.service ?? params.serviceName ?? null,
       version: params.serviceVersion ?? null,
-      name: params.serviceName ?? params.service ?? params.serviceProduct ?? null,
+      name:
+        params.serviceName ?? params.service ?? params.serviceProduct ?? null,
     }),
     suppressUntil: new Date(Date.now() + HOURS_6_MS), // 6 hours
   };
@@ -171,7 +182,7 @@ export async function notifyClosedPort(params: NotifyClosedPortParams): Promise<
 }
 
 interface BuildPortFingerprintParams {
-  kind: 'new_port' | 'closed_port';
+  kind: "new_port" | "closed_port";
   deviceId: string;
   protocol: string;
   port: number;
@@ -183,7 +194,7 @@ interface BuildPortFingerprintParams {
 function buildPortFingerprint(params: BuildPortFingerprintParams): string {
   const normalize = (value?: string | null): string => {
     const trimmed = value?.trim();
-    return trimmed && trimmed.length > 0 ? trimmed : 'unknown';
+    return trimmed && trimmed.length > 0 ? trimmed : "unknown";
   };
 
   const product = normalize(params.product);
@@ -268,7 +279,9 @@ export interface NotifyCVESeverityIncreaseParams {
  * Suppress window: 24 hours (match NEW_CVE)
  * Fingerprint includes new severity to allow multiple upgrades
  */
-export async function notifyCVESeverityIncrease(params: NotifyCVESeverityIncreaseParams): Promise<void> {
+export async function notifyCVESeverityIncrease(
+  params: NotifyCVESeverityIncreaseParams
+): Promise<void> {
   // 1. Get descriptor from catalog
   const descriptor = createCVESeverityIncreaseNotification({
     cveId: params.cveId,
@@ -321,7 +334,9 @@ export interface NotifyCVEFixedParams {
  * Suppress window: 24 hours (good news, but don't spam if CVE flaps)
  * Severity: INFO (positive outcome)
  */
-export async function notifyCVEFixed(params: NotifyCVEFixedParams): Promise<void> {
+export async function notifyCVEFixed(
+  params: NotifyCVEFixedParams
+): Promise<void> {
   // 1. Get descriptor from catalog
   const descriptor = createCVEFixedNotification({
     cveId: params.cveId,
@@ -374,7 +389,9 @@ export interface NotifyCVERegressedParams {
  * Regression indicates a previously fixed vulnerability has returned,
  * suggesting patch reversion or service downgrade.
  */
-export async function notifyCVERegressed(params: NotifyCVERegressedParams): Promise<void> {
+export async function notifyCVERegressed(
+  params: NotifyCVERegressedParams
+): Promise<void> {
   // 1. Get descriptor from catalog
   const descriptor = createCVERegressedNotification({
     cveId: params.cveId,
