@@ -251,11 +251,13 @@ export const discoveryService = restate.workflow({
             callbackUrl: input.callbackUrl!,
             data: {
               target: input.targets[0]?.value || 'unknown', // Primary target
-              devices: serializedDevices.map((d: any) => ({
-                hostname: d.hostname,
-                ipAddress: d.ipAddress,
-                metadata: d.metadata,
-              })),
+              devices: serializedDevices
+                .filter((d: any) => d.hostname && d.hostname.trim() !== '') // Filter out devices without hostname
+                .map((d: any) => ({
+                  hostname: d.hostname,
+                  ipAddress: d.ipAddress,
+                  metadata: d.metadata,
+                })),
               totalSubdomains: uniqueDevices.length,
               executionTime: executionTimeMs,
               tools,
