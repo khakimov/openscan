@@ -51,8 +51,19 @@ export * from './queries/scan-schedules';
 export * from './queries/scan-schedule-limits';
 export * from './queries/notifications';
 
-// Explicitly export maintenance functions and types
-export { backfillMessageHashes, expireNotifications } from './queries/notifications';
+// Explicitly export notification query functions
+export {
+  getNotifications,
+  getUnreadNotificationCount,
+  getUnreadNotificationCountWithSeverity,
+  getPendingEmailNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  createNotification,
+  upsertNotification,
+  backfillMessageHashes,
+  expireNotifications,
+} from './queries/notifications';
 export type { UpsertNotificationResult } from './queries/notifications';
 
 // Export notification serializers for API responses

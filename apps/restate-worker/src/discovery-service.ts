@@ -227,7 +227,7 @@ export const discoveryService = restate.workflow({
       ctx.set('devices', serializedDevices); // IMPORTANT: Store full devices, not just count!
       ctx.set('completedAt', completedAt.toISOString());
 
-      const startedAt = await ctx.get<string>('startedAt');
+      // Retrieve state for return (startedAt already declared above)
       const processedTargets = await ctx.get<number>('processedTargets');
       const errors = await ctx.get<string[]>('errors');
 
@@ -268,7 +268,7 @@ export const discoveryService = restate.workflow({
 
       return {
         scanId,
-        startedAt: startedAt || new Date().toISOString(),
+        startedAt, // Already computed at top with ctx.date()
         completedAt: completedAt.toISOString(),
         devices: serializedDevices,
         totalTargetsProcessed: processedTargets || 0,
