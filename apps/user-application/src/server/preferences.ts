@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
 import { getCurrentUser, getCurrentOrganizationId } from "./utils/auth";
+import { updateEmailSeveritiesOrDisable, resolveEmailSeverities, type NotificationSeverity } from "@repo/data-ops/queries/notifications/settings";
 
 const logger = createLogger({ name: "preferences-server" });
 
@@ -11,13 +12,12 @@ export interface NotificationPreferences {
 }
 
 /**
- * Save notification preferences for the current user
+ * Save notification preferences for the current organization
  *
- * TODO: Implement database persistence
- * Currently logs preferences for development. Future implementation should:
- * 1. Add a notification_preferences table or JSON column to member table
- * 2. Store preferences scoped by organizationId
- * 3. Support retrieval via getNotificationPreferences()
+ * Stores email severity threshold settings in organization_notification_settings table.
+ * - If vulnerabilityAlertsEnabled is false, stores empty array (disables all alerts)
+ * - If enabled, stores the selected severities
+ * Note: weeklySummaryEnabled is logged but not yet persisted.
  */
 export const saveNotificationPreferences = createServerFn({
   method: "POST",
@@ -48,11 +48,14 @@ export const saveNotificationPreferences = createServerFn({
         preferences: data,
       });
 
-      // TODO: Persist to database
-      // Example implementation:
-      // await updateMemberPreferences(organizationId, user.id, {
-      //   notificationPreferences: data,
-      // });
+      // Save email severity thresholds or disable alerts
+      // Empty array contract: alerts disabled, email worker skips delivery
+      await updateEmailSeveritiesOrDisable({
+        organizationId,
+        emailAllowedSeverities: data.vulnerabilityAlertsEnabled
+          ? (data.alertSeverities as NotificationSeverity[])
+          : [], // Empty array = disabled
+      });
 
       logger.info("Notification preferences saved successfully", {
         userId: user.id,
@@ -74,3 +77,38 @@ export const saveNotificationPreferences = createServerFn({
       };
     }
   });
+
+/**
+ * Get notification preferences for the current organization
+ *
+ * Returns current email severity threshold settings from database.
+ * Empty array contract: alerts disabled (vulnerabilityAlertsEnabled = false)
+ */
+export const getNotificationPreferences = createServerFn({
+  method: "GET",
+}).handler(async () => {
+  try {
+    const organizationId = await getCurrentOrganizationId();
+
+    const alertSeverities = await resolveEmailSeverities(organizationId);
+
+    return {
+      success: true,
+      data: {
+        // Empty array = alerts disabled
+        vulnerabilityAlertsEnabled: alertSeverities.length > 0,
+        alertSeverities,
+        weeklySummaryEnabled: true,
+      },
+    };
+  } catch (error) {
+    logger.error("Failed to get notification preferences", {
+      error: error instanceof Error ? error.message : String(error),
+    });
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to get preferences",
+    };
+  }
+});

@@ -17,7 +17,7 @@ import { scanRuns } from './orchestration';
  * - Org-scoped storage (all users in org see the same notifications)
  * - Email delivery tracking (emailSent, emailSentAt)
  *
- * See: docs/NOTIFICATIONS.md for complete architecture
+ * See: docs/NOTIFICATIONS/data-model.md for complete architecture
  */
 export const notifications = sqliteTable('notifications', {
   id: cuidText().primaryKey(),
@@ -98,5 +98,48 @@ export const notificationsRelations = relations(notifications, ({ one }) => ({
   scanRun: one(scanRuns, {
     fields: [notifications.scanRunId],
     references: [scanRuns.id],
+  }),
+}));
+
+/**
+ * Organization Notification Settings
+ *
+ * Purpose: Configure email notification preferences at the organization level
+ *
+ * Legacy Pattern: Mirrors `UserCredentials.raw_new_vulns_emails` (CSV of severities)
+ * but stored at the org level instead of per-user.
+ *
+ * Pattern:
+ * - One row per organization (1:1 relationship)
+ * - Controls which severities trigger email alerts
+ * - Used by email worker to filter pending notifications
+ *
+ * See: docs/NOTIFICATIONS/design-decisions.md for configuration guide
+ */
+export const organizationNotificationSettings = sqliteTable('organization_notification_settings', {
+  id: cuidText().primaryKey(),
+  organizationId: text('organization_id').notNull().unique().references(() => organization.id, { onDelete: 'cascade' }),
+
+  // Email severity filtering
+  // Stores allowed severities as JSON array (e.g., ['CRITICAL', 'HIGH'])
+  // Default: ['CRITICAL', 'HIGH'] (same as legacy hardcoded filter)
+  emailAllowedSeverities: text('email_allowed_severities', { mode: 'json' })
+    .$type<Array<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'>>()
+    .notNull()
+    .default(sql`'["CRITICAL","HIGH"]'`),
+
+  // Timestamps
+  createdAt: now(),
+  updatedAt: updatedAt(),
+}, (t) => ({
+  // Query: SELECT * WHERE organizationId = ?
+  orgIdx: index('org_notification_settings_org_idx').on(t.organizationId),
+}));
+
+// Relations
+export const organizationNotificationSettingsRelations = relations(organizationNotificationSettings, ({ one }) => ({
+  organization: one(organization, {
+    fields: [organizationNotificationSettings.organizationId],
+    references: [organization.id],
   }),
 }));

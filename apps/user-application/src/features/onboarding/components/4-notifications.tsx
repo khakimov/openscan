@@ -54,9 +54,7 @@ export function OnboardingNotifications({
       setIsSubmitting(true);
 
       try {
-        console.log("[OnboardingNotifications] Saving preferences:", value);
-
-        // Call server function to save notification preferences
+        // Save preferences (backend handles disabled state via empty array)
         const result = await saveNotificationPreferences({
           data: value,
         });
