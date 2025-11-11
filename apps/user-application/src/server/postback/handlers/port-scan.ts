@@ -80,7 +80,7 @@ function extractPortsForHttpx(ports: Array<{ port: number; state: string; servic
  * Handles both successful and failed scans.
  */
 export class PortScanPostbackHandler
-  implements PostbackHandler<PortScanPostback>
+  implements PostbackHandler<PortScanPostback, typeof PortScanPostbackSchema>
 {
   readonly type = 'PORT_SCAN';
   readonly schema = PortScanPostbackSchema;

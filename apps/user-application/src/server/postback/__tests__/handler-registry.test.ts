@@ -64,8 +64,10 @@ describe('Postback Handler Registry', () => {
       expect(handler?.schema).toBeDefined();
       expect(handler?.handle).toBeDefined();
 
-      // Verify schema has safeParse method (Zod schema)
-      expect(typeof handler?.schema.safeParse).toBe('function');
+      expect(typeof handler?.schema.parse).toBe('function');
+      if (handler?.schema.safeParse) {
+        expect(typeof handler.schema.safeParse).toBe('function');
+      }
     });
 
     it('DISCOVERY handler should have required properties', () => {
@@ -76,8 +78,10 @@ describe('Postback Handler Registry', () => {
       expect(handler?.schema).toBeDefined();
       expect(handler?.handle).toBeDefined();
 
-      // Verify schema has safeParse method (Zod schema)
-      expect(typeof handler?.schema.safeParse).toBe('function');
+      expect(typeof handler?.schema.parse).toBe('function');
+      if (handler?.schema.safeParse) {
+        expect(typeof handler.schema.safeParse).toBe('function');
+      }
     });
   });
 });

@@ -4,6 +4,7 @@ import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
 import { buildPortScanPostbackPayload } from '@repo/contracts/postbacks';
+import type { PortScanPostback } from '@repo/contracts/postbacks';
 import { parseNmapXml } from './xml-parser';
 import { runMasscan } from './scanners/masscan';
 import { runRustscan } from './scanners/rustscan';
@@ -72,18 +73,17 @@ export const portScanner = restate.service({
       const startedAt = new Date(startTime).toISOString();
 
       // Initialize state
+      const sanitizedTarget = validateAndSanitizeTarget(input.target);
+
       const state: PortScanState = {
         scanId,
-        target: input.target,
+        target: sanitizedTarget,
         status: 'VALIDATING',
         startedAt,
       };
       stateStore.set(scanId, state);
 
-      logger.info('Starting port scan', { scanId, target: input.target });
-
-      // Validate and sanitize target once upfront
-      const sanitizedTarget = validateAndSanitizeTarget(input.target);
+      logger.info('Starting port scan', { scanId, target: sanitizedTarget });
 
       // Step 1 (Optional): Run prescans for fast port discovery
       // These return [] gracefully if disabled via feature flags
@@ -282,35 +282,40 @@ export const portScanner = restate.service({
       const endTime = await ctx.date.now();
       const scanDuration = endTime - startTime;
 
+      const normalizedPorts = normalizePortsForPostback(portsWithServices);
+
       // Update state with completion
       state.status = 'COMPLETED';
-      state.portsFound = portsWithServices.length;
+      state.portsFound = normalizedPorts.length;
       state.completedAt = new Date(endTime).toISOString();
       stateStore.set(scanId, state);
 
       logger.info('Port scan completed', {
         scanId,
-        target: input.target,
-        portsFound: portsWithServices.length,
+        target: sanitizedTarget,
+        portsFound: normalizedPorts.length,
         duration: scanDuration,
       });
 
       const results = {
         scanId,
-        target: input.target,
-        ports: portsWithServices,
-        totalPorts: portsWithServices.length,
+        target: sanitizedTarget,
+        ports: normalizedPorts,
+        totalPorts: normalizedPorts.length,
         scanDuration,
         completedAt: new Date(endTime).toISOString(),
       };
 
       // Step 5: Postback results if callbackUrl provided (durable)
       if (input.callbackUrl && input.deviceId) {
+        const deviceId = input.deviceId;
+        const callbackUrl = input.callbackUrl;
+
         await ctx.run('postback-results', async () => {
           logger.info('Posting scan results back to server', {
             scanId,
-            callbackUrl: input.callbackUrl,
-            deviceId: input.deviceId,
+            callbackUrl,
+            deviceId,
           });
 
           const portScanPostback = buildPortScanPostbackPayload({
@@ -319,10 +324,10 @@ export const portScanner = restate.service({
             organizationId: input.organizationId!,
             timestamp: new Date(endTime).toISOString(),
             status: 'SUCCESS',
-            deviceId: input.deviceId,
+            deviceId,
             data: {
-              target: input.target,
-              ports: portsWithServices,
+              target: sanitizedTarget,
+              ports: normalizedPorts,
               timing: {
                 start: startTime,
                 end: endTime,
@@ -331,17 +336,17 @@ export const portScanner = restate.service({
               scanMetadata: {
                 scanner: 'nmap',
                 duration: scanDuration,
-                resolvedTarget: input.target,
+                resolvedTarget: sanitizedTarget,
               },
             },
           });
 
           await postUniversalPostback({
-            callbackUrl: input.callbackUrl!,
+            callbackUrl,
             ...portScanPostback,
           });
 
-          logger.info('Postback successful', { scanId, deviceId: input.deviceId });
+          logger.info('Postback successful', { scanId, deviceId });
         });
       }
 
@@ -511,4 +516,65 @@ function buildNmapArgs(input: {
   }
 
   return args;
+}
+
+/**
+ * Normalizes port scan results to match PortScanPostback contract.
+ *
+ * This is the single normalization point for all port data before it reaches
+ * state storage or postback payloads. Ensures contract compliance by:
+ *
+ * - Protocol field variants: handles both 'protocol' and 'transportProtocol'
+ * - State type narrowing: ensures only 'open' | 'closed' | 'filtered'
+ * - Service confidence variants: normalizes 'confidence' vs 'conf' fields
+ * - Undefined stripping: removes undefined fields for clean Zod validation
+ *
+ * @param ports Raw port data from nmap/masscan/rustscan merger
+ * @returns Contract-compliant port data for postback and state storage
+ */
+function normalizePortsForPostback(
+  ports: Array<any>,
+): PortScanPostback['data']['ports'] {
+  return ports.map((port) => {
+    const protocol =
+      port.protocol === 'udp' || port.protocol === 'tcp'
+        ? port.protocol
+        : port.transportProtocol === 'udp'
+        ? 'udp'
+        : 'tcp';
+
+    const state: 'open' | 'closed' | 'filtered' =
+      port.state === 'closed' || port.state === 'filtered'
+        ? port.state
+        : 'open';
+
+    const service = port.service
+      ? {
+          name: port.service.name ?? undefined,
+          product: port.service.product ?? undefined,
+          version: port.service.version ?? undefined,
+          extraInfo: port.service.extraInfo ?? undefined,
+          method: port.service.method ?? undefined,
+          confidence:
+            typeof port.service.confidence === 'number'
+              ? port.service.confidence
+              : typeof port.service.conf === 'number'
+              ? port.service.conf
+              : undefined,
+        }
+      : undefined;
+
+    return {
+      port: Number(port.port),
+      protocol,
+      state,
+      service,
+      version:
+        typeof port.version === 'string'
+          ? port.version
+          : typeof port.service?.version === 'string'
+          ? port.service.version
+          : undefined,
+    };
+  });
 }

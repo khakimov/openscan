@@ -248,11 +248,18 @@ export const httpxService = restate.service({
               }
             }
 
+            const normalizedScheme: 'http' | 'https' | undefined =
+              result.scheme === 'https'
+                ? 'https'
+                : result.scheme === 'http'
+                ? 'http'
+                : undefined;
+
             return {
               port,
               url: result.url,
               status: 'SUCCESS' as const,
-              scheme: result.scheme,
+              scheme: normalizedScheme,
               statusCode: result.status_code,
               title: result.title,
               headers: result.header ? flattenHeaders(result.header) : undefined,
@@ -532,20 +539,22 @@ function findHttpxBinary(): string {
   // Check PATH first
   const pathBinary = 'httpx';
 
-  // Common installation locations
-  const locations = [
-    pathBinary, // In PATH
-    `${process.env.HOME}/go/bin/httpx`,
-    '/usr/local/go/bin/httpx',
-    '/usr/local/bin/httpx',
-  ];
-
   // Return first match (for now just return 'httpx' and let execFile resolve it)
   return pathBinary;
 }
 
 /**
- * Flatten header arrays to single values (httpx returns arrays)
+ * Flattens HTTPx header arrays to single string values.
+ *
+ * HTTPx returns headers as Record<string, string[]> but our contract expects
+ * Record<string, string>. Multi-value headers are joined with ', ' per HTTP spec.
+ *
+ * Example:
+ *   Input:  { 'set-cookie': ['a=1', 'b=2'], 'content-type': ['text/html'] }
+ *   Output: { 'set-cookie': 'a=1, b=2', 'content-type': 'text/html' }
+ *
+ * @param headers HTTPx header output (string arrays)
+ * @returns Contract-compliant headers (single strings)
  */
 function flattenHeaders(headers: Record<string, string[]>): Record<string, string> {
   const flattened: Record<string, string> = {};

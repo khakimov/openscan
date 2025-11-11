@@ -104,7 +104,7 @@ const HttpxProbeSchema = z.object({
   scheme: z.enum(['http', 'https']).optional(),
   statusCode: z.number().optional(),
   title: z.string().optional(),
-  headers: z.record(z.string()).optional(),
+  headers: z.record(z.string(), z.string()).optional(),
   responseTime: z.number().optional(),
   contentLength: z.number().optional(),
   finalUrl: z.string().optional(),
@@ -233,4 +233,3 @@ export function buildScheduleAutoPausedPostbackPayload(
 ): ScheduleAutoPausedPostback {
   return ScheduleAutoPausedPostbackSchema.parse(input);
 }
-

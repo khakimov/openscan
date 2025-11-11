@@ -17,9 +17,9 @@ const logger = createLogger({ name: 'restate-postback' });
  * Universal Postback Payload (Type-Safe)
  * Format with type discrimination for routing to appropriate handlers
  */
-export interface UniversalPostbackPayload extends UniversalPostback {
+export type UniversalPostbackPayload = UniversalPostback & {
   callbackUrl: string;
-}
+};
 
 /**
  * Posts results using universal postback format
@@ -39,6 +39,7 @@ export async function postUniversalPostback(payload: UniversalPostbackPayload): 
     scanId: data.scanId,
     status: data.status,
     organizationId: data.organizationId,
+    deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
   });
 
   const apiKey = process.env.WORKER_API_KEY;
@@ -65,13 +66,13 @@ export async function postUniversalPostback(payload: UniversalPostbackPayload): 
         statusText: response.statusText,
         error: errorText,
         callbackUrl,
-        deviceId: data.deviceId,
+        deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
       });
       throw new Error(`Postback failed: ${response.status} ${errorText}`);
     }
 
     logger.info('Postback successful', {
-      deviceId: data.deviceId,
+      deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
       scanId: data.scanId,
     });
   } catch (error) {
@@ -84,7 +85,7 @@ export async function postUniversalPostback(payload: UniversalPostbackPayload): 
     logger.error('Postback network error', {
       error: errorMessage,
       callbackUrl,
-      deviceId: data.deviceId,
+      deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
     });
     throw error; // Rethrow for caller to handle
   }

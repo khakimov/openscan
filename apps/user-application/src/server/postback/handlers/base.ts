@@ -5,7 +5,6 @@
  * This enables type-safe, extensible postback handling with dependency injection.
  */
 
-import type { z } from 'zod';
 import type { ILogger } from '@repo/logger';
 import type { BasePostback } from '../types';
 
@@ -67,7 +66,19 @@ export interface HandlerResult {
  *   }
  * }
  */
-export interface PostbackHandler<T extends BasePostback> {
+export interface ValidationSchema<T> {
+  parse(payload: unknown): T;
+  safeParse?(
+    payload: unknown,
+  ):
+    | { success: true; data: T }
+    | { success: false; error: unknown };
+}
+
+export interface PostbackHandler<
+  T extends BasePostback,
+  TSchema extends ValidationSchema<T> = ValidationSchema<T>,
+> {
   /**
    * Postback type identifier (e.g., 'PORT_SCAN', 'DISCOVERY')
    *
@@ -82,7 +93,7 @@ export interface PostbackHandler<T extends BasePostback> {
    * The schema ensures the payload conforms to type T.
    * Validation happens before handle() is called.
    */
-  readonly schema: z.ZodType<T>;
+  readonly schema: TSchema;
 
   /**
    * Handle the postback

@@ -26,7 +26,7 @@ import { DiscoveryPostbackSchema } from '@repo/contracts/postbacks';
  * Handles both successful and failed discovery scans.
  */
 export class DiscoveryPostbackHandler
-  implements PostbackHandler<DiscoveryPostback>
+  implements PostbackHandler<DiscoveryPostback, typeof DiscoveryPostbackSchema>
 {
   readonly type = 'DISCOVERY';
   readonly schema = DiscoveryPostbackSchema;

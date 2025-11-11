@@ -35,7 +35,9 @@ import { HttpxPostbackSchema } from '@repo/contracts/postbacks';
 /**
  * HTTPx Postback Handler
  */
-export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
+export class HttpxPostbackHandler
+  implements PostbackHandler<HttpxPostback, typeof HttpxPostbackSchema>
+{
   readonly type = 'HTTPX' as const;
   readonly schema = HttpxPostbackSchema;
 

@@ -23,7 +23,12 @@ import {
 /**
  * Handler for SCHEDULED_SCAN_EXECUTED postbacks
  */
-class ScheduledScanExecutedHandler implements PostbackHandler<ScheduledScanExecutedPostback> {
+class ScheduledScanExecutedHandler
+  implements PostbackHandler<
+    ScheduledScanExecutedPostback,
+    typeof ScheduledScanExecutedPostbackSchema
+  >
+{
   readonly type = 'SCHEDULED_SCAN_EXECUTED';
   readonly schema = ScheduledScanExecutedPostbackSchema;
 
@@ -104,7 +109,12 @@ class ScheduledScanExecutedHandler implements PostbackHandler<ScheduledScanExecu
 /**
  * Handler for SCHEDULE_AUTO_PAUSED postbacks
  */
-class ScheduleAutoPausedHandler implements PostbackHandler<ScheduleAutoPausedPostback> {
+class ScheduleAutoPausedHandler
+  implements PostbackHandler<
+    ScheduleAutoPausedPostback,
+    typeof ScheduleAutoPausedPostbackSchema
+  >
+{
   readonly type = 'SCHEDULE_AUTO_PAUSED';
   readonly schema = ScheduleAutoPausedPostbackSchema;
 
