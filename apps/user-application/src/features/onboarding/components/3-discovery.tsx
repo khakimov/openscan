@@ -18,7 +18,6 @@ import {
   useStartDiscoveryMutation,
 } from "@/queries/discovery-queries";
 import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
-import { useCompleteOnboardingMutation } from "@/queries/organization-queries";
 
 interface OnboardingDiscoveryProps {
   projectId: string;
@@ -132,36 +131,14 @@ export function OnboardingDiscovery({
   // Mutation for saving selected devices (using centralized hook)
   const saveDevicesMutation = useCreateDevicesFromDiscoveryMutation();
 
-  // Mutation for completing onboarding (using centralized hook)
-  const completeOnboardingMutation = useCompleteOnboardingMutation();
-
   const handleSkip = () => {
-    // Mark onboarding as complete and navigate
-    if (!organizationId) {
-      toast.error("No organization found");
-      return;
-    }
-
-    completeOnboardingMutation.mutate(
-      { organizationId },
-      {
-        onSuccess: () => {
-          // Skip discovery and go directly to project dashboard
-          navigate({
-            to: '/$organizationId/$projectId',
-            params: {
-              organizationId,
-              projectId,
-            },
-          });
-        },
-        onError: (error) => {
-          toast.error("Failed to complete onboarding", {
-            description: error instanceof Error ? error.message : "Please try again",
-          });
-        },
-      }
-    );
+    // Skip discovery and go to step 4 (notifications)
+    navigate({
+      to: '/onboarding/$projectId/notifications',
+      params: {
+        projectId,
+      },
+    });
   };
 
   const handleContinue = () => {
@@ -199,22 +176,13 @@ export function OnboardingDiscovery({
             description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
           });
 
-          // TODO: Navigate to step 4 (notifications) instead of skipping to dashboard
-          // For now, mark onboarding as complete and go to dashboard
-          if (organizationId) {
-            await completeOnboardingMutation.mutateAsync({ organizationId });
-          }
-
-          // Navigate to project dashboard (onboarding complete)
-          if (organizationId) {
-            navigate({
-              to: '/$organizationId/$projectId',
-              params: {
-                organizationId,
-                projectId,
-              },
-            });
-          }
+          // Navigate to step 4 (notifications setup)
+          navigate({
+            to: '/onboarding/$projectId/notifications',
+            params: {
+              projectId,
+            },
+          });
         },
         onError: (error: any) => {
           toast.error("Failed to add assets", {
@@ -296,10 +264,9 @@ export function OnboardingDiscovery({
               type="button"
               variant="outline"
               onClick={handleSkip}
-              disabled={startDiscoveryMutation.isPending || completeOnboardingMutation.isPending}
+              disabled={startDiscoveryMutation.isPending}
             >
-              {completeOnboardingMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {completeOnboardingMutation.isPending ? "Skipping..." : "Skip Discovery"}
+              Skip Discovery
             </Button>
             <Button
               type="button"
@@ -321,8 +288,8 @@ export function OnboardingDiscovery({
             onContinue={handleContinue}
             onSkip={handleSkip}
             showSkipButton={true}
-            isContinuePending={saveDevicesMutation.isPending || completeOnboardingMutation.isPending}
-            isSkipPending={completeOnboardingMutation.isPending}
+            isContinuePending={saveDevicesMutation.isPending}
+            isSkipPending={false}
           />
         )}
       </div>
