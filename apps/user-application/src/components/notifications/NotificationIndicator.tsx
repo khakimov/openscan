@@ -3,6 +3,7 @@ import { getUnreadNotificationCountData } from '@/server/notifications';
 import {
   Tooltip,
   TooltipContent,
+  TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
@@ -58,29 +59,31 @@ export function NotificationIndicator() {
   const colorClass = getColorClass();
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <div className="relative flex items-center justify-center">
-          {/* Pulsing animation (outer ring) */}
-          <div
-            className={cn(
-              'h-2 w-2 rounded-full opacity-75 transition-all',
-              colorClass,
-              unreadCount > 0 && 'animate-ping'
-            )}
-          />
-          {/* Static dot (inner) */}
-          <div
-            className={cn(
-              'absolute h-2 w-2 rounded-full transition-all',
-              colorClass
-            )}
-          />
-        </div>
-      </TooltipTrigger>
-      <TooltipContent side="right">
-        {getTooltipMessage()}
-      </TooltipContent>
-    </Tooltip>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="relative flex items-center justify-center">
+            {/* Pulsing animation (outer ring) */}
+            <div
+              className={cn(
+                'h-2 w-2 rounded-full opacity-75 transition-all',
+                colorClass,
+                unreadCount > 0 && 'animate-ping'
+              )}
+            />
+            {/* Static dot (inner) */}
+            <div
+              className={cn(
+                'absolute h-2 w-2 rounded-full transition-all',
+                colorClass
+              )}
+            />
+          </div>
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {getTooltipMessage()}
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
