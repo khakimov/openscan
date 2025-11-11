@@ -6,20 +6,18 @@ import { getNotificationPreferences } from "@/server/preferences";
 const parentRoute = getRouteApi("/onboarding");
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
-  // Guard: Require authentication before accessing step 4
-  beforeLoad: async () => {
-    const { onboarding } = await parentRoute.loader();
+  // Lightweight loader - only fetch preferences, not onboarding status
+  loader: async ({ context }) => {
+    console.log("[OnboardingNotifications] Loader executing");
 
-    // Redirect to step 1 if not authenticated
-    if (!onboarding.user) {
+    // Parent loader puts onboarding in context
+    const onboarding = (context as any).onboarding;
+
+    // Guard: Redirect if not authenticated
+    if (!onboarding?.user) {
       console.log("[OnboardingNotifications] No authenticated user, redirecting to step 1");
       throw redirect({ to: "/onboarding" });
     }
-  },
-  // Lightweight loader - only fetch preferences, not onboarding status
-  loader: async () => {
-    console.log("[OnboardingNotifications] Loader executing");
-    const { onboarding } = await parentRoute.loader();
 
     // Update max step reached to 4 (notifications)
     if (onboarding.organizationId) {

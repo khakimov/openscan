@@ -13,20 +13,18 @@ const discoverySearchSchema = z.object({
 
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
   validateSearch: zodValidator(discoverySearchSchema),
-  // Guard: Require authentication before accessing step 3
-  beforeLoad: async () => {
-    const { onboarding } = await parentRoute.loader();
+  // Lightweight loader - only fetch devices, not onboarding status
+  loader: async ({ context }) => {
+    console.log("[OnboardingDiscovery] Loader executing");
 
-    // Redirect to step 1 if not authenticated
-    if (!onboarding.user) {
+    // Parent loader puts onboarding in context
+    const onboarding = (context as any).onboarding;
+
+    // Guard: Redirect if not authenticated
+    if (!onboarding?.user) {
       console.log("[OnboardingDiscovery] No authenticated user, redirecting to step 1");
       throw redirect({ to: "/onboarding" });
     }
-  },
-  // Lightweight loader - only fetch devices, not onboarding status
-  loader: async () => {
-    console.log("[OnboardingDiscovery] Loader executing");
-    const { onboarding } = await parentRoute.loader();
 
     // Extract saved domain from project
     const savedDomain = onboarding.project?.domain;

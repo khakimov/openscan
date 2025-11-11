@@ -4,20 +4,18 @@ import { OnboardingLayout, OnboardingCreateProject } from "@/features/onboarding
 const parentRoute = getRouteApi("/onboarding");
 
 export const Route = createFileRoute("/onboarding/project")({
-  // Guard: Require authentication before accessing step 2
-  beforeLoad: async () => {
-    const { onboarding } = await parentRoute.loader();
+  // Loader runs after parent, so parent data is available in context
+  loader: async ({ context }) => {
+    console.log("[OnboardingProject] Loader executing");
 
-    // Redirect to step 1 if not authenticated
-    if (!onboarding.user) {
+    // Parent loader puts onboarding in context
+    const onboarding = (context as any).onboarding;
+
+    // Guard: Redirect if not authenticated
+    if (!onboarding?.user) {
       console.log("[OnboardingProject] No authenticated user, redirecting to step 1");
       throw redirect({ to: "/onboarding" });
     }
-  },
-  // Lightweight loader - just transform parent data
-  loader: async () => {
-    console.log("[OnboardingProject] Loader executing");
-    const { onboarding } = await parentRoute.loader();
 
     const organizations = onboarding.organizations ?? [];
     const organizationRecord = onboarding.organization;
