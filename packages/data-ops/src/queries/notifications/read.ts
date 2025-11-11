@@ -92,6 +92,57 @@ export async function getUnreadNotificationCount(
 }
 
 /**
+ * Get unread notification count with severity breakdown
+ *
+ * Returns total count plus counts per severity level for indicator color logic.
+ *
+ * @param input - Organization and optional user ID
+ * @returns Object with total and severity-specific counts
+ */
+export async function getUnreadNotificationCountWithSeverity(
+  input: GetUnreadCountInput
+): Promise<{
+  total: number;
+  criticalCount: number;
+  highCount: number;
+  mediumCount: number;
+  lowCount: number;
+  infoCount: number;
+}> {
+  const validated = GetUnreadCountSchema.parse(input);
+  const db = getDb();
+
+  const conditions = [
+    eq(notifications.organizationId, validated.organizationId),
+    isNull(notifications.readAt),
+    eq(notifications.isActive, true),
+  ];
+
+  if (validated.userId) {
+    conditions.push(
+      or(
+        eq(notifications.userId, validated.userId),
+        isNull(notifications.userId)
+      )!
+    );
+  }
+
+  const [result] = await db
+    .select({
+      total: sql<number>`count(*)`,
+      criticalCount: sql<number>`count(case when ${notifications.severity} = 'CRITICAL' then 1 end)`,
+      highCount: sql<number>`count(case when ${notifications.severity} = 'HIGH' then 1 end)`,
+      mediumCount: sql<number>`count(case when ${notifications.severity} = 'MEDIUM' then 1 end)`,
+      lowCount: sql<number>`count(case when ${notifications.severity} = 'LOW' then 1 end)`,
+      infoCount: sql<number>`count(case when ${notifications.severity} = 'INFO' then 1 end)`,
+    })
+    .from(notifications)
+    .where(and(...conditions));
+
+  return result;
+}
+
+/**
  * Get pending email notifications (filtered by org email severity settings)
  *
  * Pattern: Mirrors legacy VulnerabilityManager.filter_out_vulns_not_match_to_user

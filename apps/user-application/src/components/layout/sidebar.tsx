@@ -10,6 +10,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 import { useQuery } from "@tanstack/react-query";
 import { getOrganizationProjects } from "@/server/projects";
+import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
 
 interface NavigationItem {
   name: string;
@@ -227,6 +228,7 @@ export function Sidebar({
                   {!isCollapsed && (
                     <>
                       <span className="truncate">{item.name}</span>
+                      {item.name === "Assets" && <NotificationIndicator />}
                       {item.badge && (
                         <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
                           {item.badge}
@@ -366,6 +368,7 @@ export function Sidebar({
                 >
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
+                  {item.name === "Assets" && <NotificationIndicator />}
                   {item.badge && (
                     <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
                       {item.badge}

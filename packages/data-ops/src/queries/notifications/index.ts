@@ -21,6 +21,7 @@ export {
 export {
   getNotifications,
   getUnreadNotificationCount,
+  getUnreadNotificationCountWithSeverity,
   getPendingEmailNotifications,
 } from './read';
 

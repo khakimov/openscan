@@ -95,7 +95,11 @@ export const discoveryService = restate.workflow({
       // Use scanId from input (set via workflow key and idempotency-key)
       // Fall back to workflow key, then random UUID
       const scanId = input.scanId || ctx.key || ctx.rand.uuidv4();
-      const startTime = Date.now();
+
+      // IMPORTANT: Use ctx.date() for deterministic timestamps (Restate requirement)
+      // Using new Date() causes non-deterministic replays on retries
+      const startTime = ctx.date().getTime();
+      const startedAt = ctx.date().toISOString();
       const tools = input.tools || ['subfinder']; // Only subfinder enabled for now
 
       // Initialize state in workflow context (durable!)
@@ -104,7 +108,7 @@ export const discoveryService = restate.workflow({
       ctx.set('processedTargets', 0);
       ctx.set('devicesFound', 0);
       ctx.set('errors', []);
-      ctx.set('startedAt', new Date().toISOString());
+      ctx.set('startedAt', startedAt);
 
       // Step 1: Validate targets
       const { validTargets, errors: validationErrors } = await ctx.run('validate-targets', async () => {
@@ -176,7 +180,7 @@ export const discoveryService = restate.workflow({
               scope: target.scope,
               hostname: target.type === 'IP' ? '' : target.value,
               ipAddress: target.type === 'IP' ? target.value : undefined,
-              discoveredAt: new Date(),
+              discoveredAt: ctx.date(), // Use deterministic time
               discoveryMethod: 'direct',
               confidence: 1.0,
               metadata: {
@@ -205,8 +209,8 @@ export const discoveryService = restate.workflow({
       });
 
       // Step 4: Finalize and return
-      const completedAt = new Date();
-      const executionTimeMs = Date.now() - startTime;
+      const completedAt = ctx.date();
+      const executionTimeMs = completedAt.getTime() - startTime;
 
       // Convert devices to serializable format (Dates -> ISO strings)
       const serializedDevices = uniqueDevices.map((device) => ({
@@ -290,7 +294,7 @@ export const discoveryService = restate.workflow({
       const devicesFound = (await ctx.get<number>('devicesFound')) || 0;
       const devices = (await ctx.get<any[]>('devices')) || undefined; // Full devices array
       const errors = (await ctx.get<string[]>('errors')) || [];
-      const startedAt = (await ctx.get<string>('startedAt')) || new Date().toISOString();
+      const startedAt = (await ctx.get<string>('startedAt')) || ctx.date().toISOString();
       const completedAt = (await ctx.get<string>('completedAt')) || undefined;
 
       return {

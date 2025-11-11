@@ -4,6 +4,7 @@ import {
   markNotificationAsRead,
   markAllNotificationsAsRead,
   getUnreadNotificationCount,
+  getUnreadNotificationCountWithSeverity,
   type GetNotificationsInput,
 } from '@repo/data-ops';
 import { createLogger } from '@repo/logger';
@@ -225,7 +226,9 @@ export const markAllNotificationsAsReadData = createServerFn({
   });
 
 /**
- * Get unread notification count for badge display
+ * Get unread notification count with severity breakdown
+ *
+ * Returns total count plus counts per severity for indicator color logic.
  *
  * Usage in component:
  * ```typescript
@@ -234,6 +237,7 @@ export const markAllNotificationsAsReadData = createServerFn({
  *   queryFn: () => getUnreadNotificationCountData(),
  *   refetchInterval: 30000, // Poll every 30 seconds
  * });
+ * // data = { count: 8, criticalCount: 0, highCount: 1, mediumCount: 1, lowCount: 5, infoCount: 1 }
  * ```
  */
 export const getUnreadNotificationCountData = createServerFn({
@@ -245,7 +249,7 @@ export const getUnreadNotificationCountData = createServerFn({
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
 
-      const count = await getUnreadNotificationCount({
+      const result = await getUnreadNotificationCountWithSeverity({
         organizationId,
         userId: user.id,
       });
@@ -255,7 +259,12 @@ export const getUnreadNotificationCountData = createServerFn({
 
       return {
         success: true,
-        count,
+        count: result.total,
+        criticalCount: result.criticalCount,
+        highCount: result.highCount,
+        mediumCount: result.mediumCount,
+        lowCount: result.lowCount,
+        infoCount: result.infoCount,
       };
     } catch (error) {
       logger.error('Failed to fetch unread notification count', {
@@ -269,6 +278,11 @@ export const getUnreadNotificationCountData = createServerFn({
       return {
         success: false,
         count: 0,
+        criticalCount: 0,
+        highCount: 0,
+        mediumCount: 0,
+        lowCount: 0,
+        infoCount: 0,
       };
     }
   });
