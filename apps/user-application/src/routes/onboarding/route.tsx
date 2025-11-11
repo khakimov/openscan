@@ -4,21 +4,32 @@ import { getOnboardingStatus } from "@/server/organization";
 import { getOrCreateDefaultProject } from "@repo/data-ops";
 
 export const Route = createFileRoute("/onboarding")({
-  beforeLoad: async () => {
-    const user = await getCurrentUser();
+  // Centralized loader: fetch onboarding status ONCE for all child routes
+  loader: async () => {
+    const user = await getCurrentUser().catch(() => null);
 
-    // If no user, allow access to onboarding for signup
+    // If no user, return minimal status for signup flow
     if (!user) {
-      return;
+      return {
+        onboarding: {
+          success: true,
+          step: 1,
+          organizationId: null,
+          projectId: null,
+          user: null,
+          organizations: [],
+          onboardingCompleted: false,
+        },
+      };
     }
 
-    // Check if user has already completed onboarding
+    // Fetch onboarding status once - child routes will inherit this
     const status = await getOnboardingStatus();
+
+    // Redirect completed users to dashboard
     if (status.onboardingCompleted && status.organizationId) {
-      // Get or create default project for the organization
       const defaultProject = await getOrCreateDefaultProject(status.organizationId);
 
-      // Redirect completed users to project dashboard
       throw redirect({
         to: "/$organizationId/$projectId",
         params: {
@@ -28,7 +39,7 @@ export const Route = createFileRoute("/onboarding")({
       });
     }
 
-    // Allow users to continue through onboarding flow
+    return { onboarding: status };
   },
   component: OnboardingRouteLayout,
 });

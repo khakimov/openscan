@@ -1,28 +1,25 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingCreateProject } from "@/features/onboarding";
-import { getOnboardingStatus } from "@/server/organization";
-import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding/project")({
   // Guard: Require authentication before accessing step 2
-  beforeLoad: async () => {
-    const status = await getOnboardingStatus();
+  beforeLoad: async ({ context }) => {
+    const onboarding = context.onboarding;
 
     // Redirect to step 1 if not authenticated
-    if (!status.user) {
+    if (!onboarding.user) {
       console.log("[OnboardingProject] No authenticated user, redirecting to step 1");
       throw redirect({ to: "/onboarding" });
     }
   },
-  // Fetch organization data in loader (authentication handled in server function)
-  loader: async () => {
+  // Lightweight loader - just transform parent data
+  loader: async ({ context }) => {
     console.log("[OnboardingProject] Loader executing");
-    const status = await getOnboardingStatus();
-    console.log("[OnboardingProject] Status fetched:", status);
+    const onboarding = context.onboarding;
 
-    const organizations = status.organizations ?? [];
-    const organizationRecord = status.organization;
-    const projectRecord = status.project;
+    const organizations = onboarding.organizations ?? [];
+    const organizationRecord = onboarding.organization;
+    const projectRecord = onboarding.project;
 
     const metadata = (organizationRecord?.metadata ?? null) as Record<string, unknown> | null;
     const timezone =
@@ -39,22 +36,18 @@ export const Route = createFileRoute("/onboarding/project")({
 
     return {
       hasOrganization: organizations.length > 0,
-      onboarding: status,
       initialForm,
     };
   },
-  pendingComponent: () => (
-    <OnboardingLayout currentStep={2} isAuthenticated={true}>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    </OnboardingLayout>
-  ),
   component: OnboardingProjectPage,
 });
 
 function OnboardingProjectPage() {
-  const { hasOrganization, onboarding, initialForm } = Route.useLoaderData();
+  const { hasOrganization, initialForm } = Route.useLoaderData();
+  const onboarding = Route.useRouteContext({
+    from: "/onboarding",
+    select: (data) => data.onboarding,
+  });
 
   console.log("[OnboardingProjectPage] Rendering with:", {
     hasOrganization,

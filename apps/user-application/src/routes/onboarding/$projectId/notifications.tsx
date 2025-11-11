@@ -1,30 +1,29 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingNotifications } from "@/features/onboarding";
-import { getOnboardingStatus, updateOnboardingStep } from "@/server/organization";
+import { updateOnboardingStep } from "@/server/organization";
 import { getNotificationPreferences } from "@/server/preferences";
-import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
   // Guard: Require authentication before accessing step 4
-  beforeLoad: async () => {
-    const status = await getOnboardingStatus();
+  beforeLoad: async ({ context }) => {
+    const onboarding = context.onboarding;
 
     // Redirect to step 1 if not authenticated
-    if (!status.user) {
+    if (!onboarding.user) {
       console.log("[OnboardingNotifications] No authenticated user, redirecting to step 1");
       throw redirect({ to: "/onboarding" });
     }
   },
-  loader: async () => {
+  // Lightweight loader - only fetch preferences, not onboarding status
+  loader: async ({ context }) => {
     console.log("[OnboardingNotifications] Loader executing");
-    const status = await getOnboardingStatus();
-    console.log("[OnboardingNotifications] Status fetched:", status);
+    const onboarding = context.onboarding;
 
     // Update max step reached to 4 (notifications)
-    if (status.organizationId) {
+    if (onboarding.organizationId) {
       await updateOnboardingStep({
         data: {
-          organizationId: status.organizationId,
+          organizationId: onboarding.organizationId,
           step: 4,
         },
       });
@@ -35,23 +34,19 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
     const preferences = preferencesResult.success ? preferencesResult.data : undefined;
 
     return {
-      onboarding: status,
       preferences,
     };
   },
-  pendingComponent: () => (
-    <OnboardingLayout currentStep={4} isAuthenticated={true}>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    </OnboardingLayout>
-  ),
   component: OnboardingNotificationsPage,
 });
 
 function OnboardingNotificationsPage() {
   const { projectId } = Route.useParams();
-  const { onboarding, preferences } = Route.useLoaderData();
+  const { preferences } = Route.useLoaderData();
+  const onboarding = Route.useRouteContext({
+    from: "/onboarding",
+    select: (data) => data.onboarding,
+  });
 
   console.log("[OnboardingNotificationsPage] Rendering with:", {
     projectId,

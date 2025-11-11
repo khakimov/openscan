@@ -1,34 +1,26 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingWelcome } from "@/features/onboarding";
-import { getOnboardingStatus } from "@/server/organization";
-import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding/")({
-  loader: async () => {
-    const status = await getOnboardingStatus();
-
-    return { onboarding: status };
-  },
-  pendingComponent: () => (
-    <OnboardingLayout currentStep={1} isAuthenticated={false}>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    </OnboardingLayout>
-  ),
+  // No loader needed - inherit parent's onboarding data
   component: OnboardingIndex,
 });
 
 function OnboardingIndex() {
-  const { onboarding } = Route.useLoaderData();
+  // Access parent route's loader data
+  const parentData = Route.useRouteContext({
+    from: "/onboarding",
+    select: (data) => data.onboarding,
+  });
+
   return (
     <OnboardingLayout
       currentStep={1}
-      maxStep={onboarding.step}
-      projectId={onboarding.projectId}
-      isAuthenticated={!!onboarding.user}
+      maxStep={parentData.step}
+      projectId={parentData.projectId}
+      isAuthenticated={!!parentData.user}
     >
-      <OnboardingWelcome onboarding={onboarding} />
+      <OnboardingWelcome onboarding={parentData} />
     </OnboardingLayout>
   );
 }

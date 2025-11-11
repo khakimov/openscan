@@ -1,10 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingDiscovery } from "@/features/onboarding";
-import { getOnboardingStatus } from "@/server/organization";
 import { getDiscoveryDevices } from "@/server/devices";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { Loader2 } from "lucide-react";
 
 // Search params schema with proper validation
 const discoverySearchSchema = z.object({
@@ -14,26 +12,26 @@ const discoverySearchSchema = z.object({
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
   validateSearch: zodValidator(discoverySearchSchema),
   // Guard: Require authentication before accessing step 3
-  beforeLoad: async () => {
-    const status = await getOnboardingStatus();
+  beforeLoad: async ({ context }) => {
+    const onboarding = context.onboarding;
 
     // Redirect to step 1 if not authenticated
-    if (!status.user) {
+    if (!onboarding.user) {
       console.log("[OnboardingDiscovery] No authenticated user, redirecting to step 1");
       throw redirect({ to: "/onboarding" });
     }
   },
-  loader: async () => {
+  // Lightweight loader - only fetch devices, not onboarding status
+  loader: async ({ context }) => {
     console.log("[OnboardingDiscovery] Loader executing");
-    const status = await getOnboardingStatus();
-    console.log("[OnboardingDiscovery] Status fetched:", status);
+    const onboarding = context.onboarding;
 
     // Extract saved domain from project
-    const savedDomain = status.project?.domain;
+    const savedDomain = onboarding.project?.domain;
 
     // Fetch already-saved discovery devices
     const savedDevicesResult = await getDiscoveryDevices({
-      data: { organizationId: status.organizationId || undefined },
+      data: { organizationId: onboarding.organizationId || undefined },
     });
 
     console.log("[OnboardingDiscovery] Saved devices fetched:", {
@@ -42,25 +40,21 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
     });
 
     return {
-      onboarding: status,
       savedDomain,
       savedDevices: savedDevicesResult.devices || [],
     };
   },
-  pendingComponent: () => (
-    <OnboardingLayout currentStep={3} isAuthenticated={true}>
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    </OnboardingLayout>
-  ),
   component: OnboardingDiscoveryPage,
 });
 
 function OnboardingDiscoveryPage() {
   const { projectId } = Route.useParams();
   const { domain: searchDomain } = Route.useSearch();
-  const { onboarding, savedDomain, savedDevices } = Route.useLoaderData();
+  const { savedDomain, savedDevices } = Route.useLoaderData();
+  const onboarding = Route.useRouteContext({
+    from: "/onboarding",
+    select: (data) => data.onboarding,
+  });
 
   // Use search param domain if provided, otherwise use saved domain
   // Both can be undefined, which is fine - component will show empty input
