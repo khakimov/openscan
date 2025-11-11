@@ -7,19 +7,19 @@ const slides = [
     id: 1,
     title: "Automated Security Monitoring",
     description: "Continuous scanning and vulnerability detection for your infrastructure",
-    gradient: "from-blue-500 to-cyan-600",
+    gradient: "from-zinc-800 to-zinc-900",
   },
   {
     id: 2,
     title: "Real-time Threat Detection",
     description: "Get instant alerts when security issues are discovered",
-    gradient: "from-purple-500 to-pink-600",
+    gradient: "from-slate-800 to-slate-900",
   },
   {
     id: 3,
     title: "Comprehensive Asset Discovery",
     description: "Automatically discover and monitor all your internet-facing services",
-    gradient: "from-orange-500 to-red-600",
+    gradient: "from-gray-800 to-gray-900",
   },
 ];
 
