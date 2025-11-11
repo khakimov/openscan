@@ -16,8 +16,10 @@
 - [Notification Catalog](catalog.md)
 - [Deduplication Strategy](deduplication.md)
 - [Design Decisions](design-decisions.md)
+- [First-Scan Notifications](first-scan-notifications.md) - **Legacy parity: discovery alerts**
 - [Bug Fixes & Improvements](bug-fixes.md)
 - [Testing](testing.md)
+- [Testing Guide](TESTING_GUIDE.md) - **End-to-end validation scenarios**
 - [API Reference](api-reference.md)
 - [Future Enhancements](future-enhancements.md)
 - [Comparison: SEC vs Legacy Footprint](legacy-comparison.md)

@@ -396,7 +396,7 @@ describe("Notification Pipeline (Integration)", () => {
       console.log("✅ Detected CLOSED_PORT change:", changes[0]);
     });
 
-    it("should handle no baseline scan (first scan)", async () => {
+    it("should treat first scan as discovery (legacy parity)", async () => {
       const db = getDb();
 
       // Create device with NO previous scans
@@ -413,7 +413,7 @@ describe("Notification Pipeline (Integration)", () => {
         .returning();
       testDataIds.devices.push(device.id);
 
-      // Create first scan
+      // Create first scan with 2 ports (443 HTTPS + 22 SSH)
       const [firstScan] = await db
         .insert(scanRuns)
         .values({
@@ -447,6 +447,20 @@ describe("Notification Pipeline (Integration)", () => {
                   lastSeenAt: new Date("2025-01-15T14:05:00Z").toISOString(),
                 },
               },
+              {
+                port: 22,
+                protocol: "tcp",
+                state: "open",
+                service: {
+                  name: "ssh",
+                  product: "OpenSSH",
+                  version: "9.0",
+                  cpe: null,
+                },
+                metadata: {
+                  lastSeenAt: new Date("2025-01-15T14:05:00Z").toISOString(),
+                },
+              },
             ],
             completedAt: new Date("2025-01-15T14:05:00Z").toISOString(),
           } as EnrichedScanResultSummary,
@@ -469,10 +483,26 @@ describe("Notification Pipeline (Integration)", () => {
         organizationId: testOrgId,
       });
 
-      // Should return empty array (no baseline to compare)
-      expect(changes).toHaveLength(0);
+      // Legacy parity: First scan should create NEW_PORT notifications
+      // (treating "no baseline" as baseline of 0 ports)
+      expect(changes).toHaveLength(2);
+      expect(changes[0]).toMatchObject({
+        type: "NEW_PORT",
+        severity: "LOW", // Port 443 HTTPS
+        title: expect.stringContaining("443"),
+        fingerprint: `new_port:${device.id}:tcp:443:unknown:unknown:https`,
+      });
+      expect(changes[1]).toMatchObject({
+        type: "NEW_PORT",
+        severity: "MEDIUM", // Port 22 SSH
+        title: expect.stringContaining("22"),
+        fingerprint: `new_port:${device.id}:tcp:22:openssh:9.0:ssh`,
+      });
 
-      console.log("✅ First scan returns no changes (expected)");
+      console.log("✅ First scan treated as discovery:", {
+        totalChanges: changes.length,
+        types: changes.map(c => c.type),
+      });
     });
   });
 
