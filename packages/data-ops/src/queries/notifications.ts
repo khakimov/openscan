@@ -35,7 +35,15 @@ export const CreateNotificationSchema = z.object({
   userId: z.string().min(1).optional().nullable(),
   deviceId: z.string().min(1).optional().nullable(),
   scanRunId: z.string().min(1).optional().nullable(),
-  type: z.enum(['NEW_PORT', 'CLOSED_PORT', 'NEW_CVE', 'CVE_SEVERITY_INCREASE', 'SERVICE_DRIFT']),
+  type: z.enum([
+    'NEW_PORT',
+    'CLOSED_PORT',
+    'NEW_CVE',
+    'CVE_SEVERITY_INCREASE',
+    'CVE_FIXED',
+    'CVE_REGRESSED',
+    'SERVICE_DRIFT',
+  ]),
   severity: z.enum(['CRITICAL', 'HIGH', 'MEDIUM', 'LOW', 'INFO']),
   module: z.enum(['NETWORK_SECURITY', 'VULNERABILITY_MANAGEMENT', 'GENERAL']),
   title: z.string().min(1),
@@ -140,7 +148,7 @@ export async function checkDuplicateNotification(
  *   title: 'New SSH service on port 22 discovered',
  *   message: 'OpenSSH 8.9 detected...',
  *   data: { port: 22, protocol: 'tcp', service: 'ssh' },
- *   fingerprint: 'new_port:dev_123:22:tcp',
+ *   fingerprint: 'new_port:dev_123:tcp:22:openssh:9.6p1:ssh',
  *   suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours
  * });
  * ```

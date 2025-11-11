@@ -106,7 +106,14 @@ Updated all 4 notification builders:
 **Change Detection** (`change-detector.ts:35`):
 ```typescript
 export interface ScanChange {
-  type: 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE';
+  type:
+    | 'NEW_PORT'
+    | 'CLOSED_PORT'
+    | 'NEW_CVE'
+    | 'CVE_SEVERITY_INCREASE'
+    | 'CVE_FIXED'
+    | 'CVE_REGRESSED'
+    | 'SERVICE_DRIFT';
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
   module: 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'GENERAL'; // ← Added
   // ... other fields

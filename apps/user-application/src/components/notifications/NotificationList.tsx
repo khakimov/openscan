@@ -7,7 +7,14 @@ import { cn } from '@/lib/utils';
 // Notification type from data-ops
 export type DisplayNotification = {
   id: string;
-  type: 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE';
+  type:
+    | 'NEW_PORT'
+    | 'CLOSED_PORT'
+    | 'NEW_CVE'
+    | 'CVE_SEVERITY_INCREASE'
+    | 'CVE_FIXED'
+    | 'CVE_REGRESSED'
+    | 'SERVICE_DRIFT';
   severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
   title: string;
   message: string | null;
@@ -23,6 +30,9 @@ const ALLOWED_TYPES = new Set<DisplayNotification['type']>([
   'CLOSED_PORT',
   'NEW_CVE',
   'CVE_SEVERITY_INCREASE',
+  'CVE_FIXED',
+  'CVE_REGRESSED',
+  'SERVICE_DRIFT',
 ]);
 
 const ALLOWED_SEVERITIES = new Set<DisplayNotification['severity']>([
@@ -120,7 +130,10 @@ const typeLabels = {
   CLOSED_PORT: 'Port Closed',
   NEW_CVE: 'New CVE',
   CVE_SEVERITY_INCREASE: 'CVE Severity Increase',
-};
+  CVE_FIXED: 'CVE Fixed',
+  CVE_REGRESSED: 'CVE Regressed',
+  SERVICE_DRIFT: 'Service Drift',
+} as const;
 
 export function NotificationList({
   notifications,
@@ -193,37 +206,98 @@ export function NotificationList({
 
                 {/* Additional data (if present) */}
                 {notification.data && Object.keys(notification.data).length > 0 && (
-                  <div className="mt-2 rounded bg-muted/50 px-2 py-1.5 text-[11px] font-mono">
-                    {notification.type === 'NEW_PORT' && notification.data.port && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-muted-foreground">Port:</span>
-                        <span className="font-semibold">
-                          {notification.data.port}/{notification.data.protocol}
-                        </span>
-                        {notification.data.service && (
-                          <>
-                            <span className="text-muted-foreground">Service:</span>
-                            <span>{notification.data.service}</span>
-                          </>
-                        )}
-                      </div>
-                    )}
-                    {notification.type === 'NEW_CVE' && notification.data.cveId && (
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="text-muted-foreground">CVE:</span>
-                          <span className="font-semibold">{notification.data.cveId}</span>
-                          {notification.data.cvssScore && (
+                  <div className="mt-2 rounded bg-muted/50 px-2 py-1.5 text-[11px] font-mono space-y-1.5">
+                    {(notification.type === 'NEW_PORT' || notification.type === 'CLOSED_PORT') &&
+                      notification.data.port && (
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-muted-foreground">Port:</span>
+                          <span className="font-semibold">
+                            {notification.data.port}/{notification.data.protocol}
+                          </span>
+                          {notification.data.service && (
                             <>
-                              <span className="text-muted-foreground">CVSS:</span>
-                              <span>{notification.data.cvssScore}</span>
+                              <span className="text-muted-foreground">Service:</span>
+                              <span>{notification.data.service}</span>
+                            </>
+                          )}
+                          {notification.type === 'CLOSED_PORT' && (
+                            <>
+                              {notification.data.previousState && (
+                                <>
+                                  <span className="text-muted-foreground">Previous:</span>
+                                  <span>{notification.data.previousState}</span>
+                                </>
+                              )}
+                              {notification.data.currentState && (
+                                <>
+                                  <span className="text-muted-foreground">Current:</span>
+                                  <span>{notification.data.currentState}</span>
+                                </>
+                              )}
                             </>
                           )}
                         </div>
-                        {notification.data.affectedService && (
-                          <div className="flex items-center gap-2">
-                            <span className="text-muted-foreground">Affected:</span>
-                            <span>{notification.data.affectedService}</span>
+                      )}
+
+                    {(
+                      notification.type === 'NEW_CVE' ||
+                      notification.type === 'CVE_SEVERITY_INCREASE' ||
+                      notification.type === 'CVE_FIXED' ||
+                      notification.type === 'CVE_REGRESSED'
+                    ) &&
+                      notification.data.cveId && (
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-muted-foreground">CVE:</span>
+                            <span className="font-semibold">{notification.data.cveId}</span>
+                            {notification.data.cvssScore && (
+                              <>
+                                <span className="text-muted-foreground">CVSS:</span>
+                                <span>{notification.data.cvssScore}</span>
+                              </>
+                            )}
+                          </div>
+                          {notification.type === 'CVE_SEVERITY_INCREASE' && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-muted-foreground">Severity:</span>
+                              <span>
+                                {notification.data.oldSeverity} → {notification.data.newSeverity}
+                              </span>
+                            </div>
+                          )}
+                          {notification.data.affectedService && (
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="text-muted-foreground">Affected:</span>
+                              <span>{notification.data.affectedService}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                    {notification.type === 'SERVICE_DRIFT' && notification.data.port && (
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="text-muted-foreground">Port:</span>
+                          <span className="font-semibold">
+                            {notification.data.port}/{notification.data.protocol}
+                          </span>
+                        </div>
+                        {notification.data.oldService && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-muted-foreground">Old:</span>
+                            <span>
+                              {notification.data.oldService.product || notification.data.oldService.name || 'unknown'}
+                              {notification.data.oldService.version ? ` ${notification.data.oldService.version}` : ''}
+                            </span>
+                          </div>
+                        )}
+                        {notification.data.newService && (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-muted-foreground">New:</span>
+                            <span>
+                              {notification.data.newService.product || notification.data.newService.name || 'unknown'}
+                              {notification.data.newService.version ? ` ${notification.data.newService.version}` : ''}
+                            </span>
                           </div>
                         )}
                       </div>

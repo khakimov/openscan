@@ -25,14 +25,30 @@ export const CreateDevicesInProjectSchema = z.object({
     host: z.string().min(1, 'Host is required'),
     ip: z.string().optional(),  // IP validation happens at data-ops layer
   })).min(1, 'At least one target is required'),
-  projectId: z.string().min(1, 'Project ID is required'),
-  organizationId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string().optional(),
+  organizationId: z.string().optional(),
   options: z.object({
     source: z.string().optional(),
     scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
     verificationStatus: z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']).optional(),
   }).optional(),
-});
+}).refine(
+  (data) => typeof data.projectId === 'string' && data.projectId.length > 0,
+  {
+    message: 'Project ID is required',
+    path: ['projectId'],
+  }
+).refine(
+  (data) => typeof data.organizationId === 'string' && data.organizationId.length > 0,
+  {
+    message: 'Organization ID is required',
+    path: ['organizationId'],
+  }
+).transform((data) => ({
+  ...data,
+  projectId: data.projectId as string,  // Safe: refine guarantees this is string
+  organizationId: data.organizationId as string,  // Safe: refine guarantees this is string
+}));
 
 export type CreateDevicesInProjectInput = z.infer<typeof CreateDevicesInProjectSchema>;
 

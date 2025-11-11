@@ -31,7 +31,7 @@ export const notifications = sqliteTable('notifications', {
   scanRunId: text('scan_run_id').references(() => scanRuns.id, { onDelete: 'cascade' }),
 
   // Notification metadata
-  type: text('type').notNull(), // 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE'
+  type: text('type').notNull(), // 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT'
   severity: text('severity').notNull(), // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'
   module: text('module').notNull(), // 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'GENERAL'
 
@@ -40,7 +40,7 @@ export const notifications = sqliteTable('notifications', {
   data: text('data', { mode: 'json' }).$type<Record<string, any>>(),
 
   // Deduplication: fingerprint + time window + messageHash
-  fingerprint: text('fingerprint').notNull(), // e.g., "new_port:dev_123:22:tcp"
+  fingerprint: text('fingerprint').notNull(), // e.g., "new_port:dev_123:tcp:22:openssh:9.6p1:ssh"
   suppressUntil: integer('suppress_until', { mode: 'timestamp_ms' }).notNull(), // Suppress duplicate notifications until this timestamp
   messageHash: text('message_hash').notNull(), // Full SHA-256 of title|message for defense-in-depth deduplication
   isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true), // FALSE when suppress window expires (for partial index)

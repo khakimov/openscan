@@ -48,7 +48,7 @@ describe('Notifications - D1 Concurrency (Phase 2)', () => {
 
   describe('upsertNotification - Concurrency', () => {
     it('should handle concurrent upserts correctly (no duplicates)', async () => {
-      const fingerprint = `new_port:${createId()}:22:tcp`;
+      const fingerprint = `new_port:${createId()}:tcp:22:unknown:unknown:unknown`;
 
       const baseInput: CreateNotificationInput = {
         organizationId: orgId,
@@ -85,7 +85,7 @@ describe('Notifications - D1 Concurrency (Phase 2)', () => {
     });
 
     it('should extend suppress window on conflict', async () => {
-      const fingerprint = `new_port:${createId()}:80:tcp`;
+      const fingerprint = `new_port:${createId()}:tcp:80:unknown:unknown:unknown`;
       const db = getDb();
 
       // First insert with 1 hour suppress window
@@ -121,7 +121,7 @@ describe('Notifications - D1 Concurrency (Phase 2)', () => {
     });
 
     it('should allow fingerprint reuse after suppress window expires', async () => {
-      const fingerprint = `new_port:${createId()}:443:tcp`;
+      const fingerprint = `new_port:${createId()}:tcp:443:unknown:unknown:unknown`;
       const now = Date.now();
       const db = getDb();
 
@@ -173,7 +173,7 @@ describe('Notifications - D1 Concurrency (Phase 2)', () => {
     it('should allow 3+ notification cycles (regression test for partial index)', async () => {
       // Critical regression test: Verifies partial index allows multiple inactive rows
       // A composite index on (org_id, fingerprint, is_active) would fail on the second expiry
-      const fingerprint = `new_port:${createId()}:8080:tcp`;
+      const fingerprint = `new_port:${createId()}:tcp:8080:unknown:unknown:unknown`;
       const now = Date.now();
       const db = getDb();
 
