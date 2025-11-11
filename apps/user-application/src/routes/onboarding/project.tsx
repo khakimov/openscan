@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingCreateProject } from "@/features/onboarding";
 import { getOnboardingStatus } from "@/server/organization";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding/project")({
   // Guard: Require authentication before accessing step 2
@@ -42,6 +43,13 @@ export const Route = createFileRoute("/onboarding/project")({
       initialForm,
     };
   },
+  pendingComponent: () => (
+    <OnboardingLayout currentStep={2} isAuthenticated={true}>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    </OnboardingLayout>
+  ),
   component: OnboardingProjectPage,
 });
 

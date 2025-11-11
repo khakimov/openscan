@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingNotifications } from "@/features/onboarding";
 import { getOnboardingStatus, updateOnboardingStep } from "@/server/organization";
 import { getNotificationPreferences } from "@/server/preferences";
+import { Loader2 } from "lucide-react";
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
   // Guard: Require authentication before accessing step 4
@@ -38,6 +39,13 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
       preferences,
     };
   },
+  pendingComponent: () => (
+    <OnboardingLayout currentStep={4} isAuthenticated={true}>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    </OnboardingLayout>
+  ),
   component: OnboardingNotificationsPage,
 });
 

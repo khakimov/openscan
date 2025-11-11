@@ -4,6 +4,7 @@ import { getOnboardingStatus } from "@/server/organization";
 import { getDiscoveryDevices } from "@/server/devices";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
+import { Loader2 } from "lucide-react";
 
 // Search params schema with proper validation
 const discoverySearchSchema = z.object({
@@ -46,6 +47,13 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
       savedDevices: savedDevicesResult.devices || [],
     };
   },
+  pendingComponent: () => (
+    <OnboardingLayout currentStep={3} isAuthenticated={true}>
+      <div className="flex items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    </OnboardingLayout>
+  ),
   component: OnboardingDiscoveryPage,
 });
 
