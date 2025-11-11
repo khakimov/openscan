@@ -37,6 +37,8 @@ import {
 import {
   notifyNewPort,
   notifyNewCVE,
+  notifyCVEFixed,
+  notifyCVERegressed,
 } from '@repo/data-ops';
 import type { EnrichedScanResultSummary } from '@repo/data-ops';
 
@@ -229,7 +231,7 @@ describe('Notification Pipeline (Integration)', () => {
         type: 'NEW_PORT',
         severity: 'HIGH',
         title: expect.stringContaining('3389'),
-        fingerprint: `new_port:${testDeviceId}:3389:tcp`,
+        fingerprint: `new_port:${testDeviceId}:tcp:3389:unknown:10.0:ms-wbt-server`,
         data: {
           port: 3389,
           protocol: 'tcp',
@@ -337,7 +339,7 @@ describe('Notification Pipeline (Integration)', () => {
         type: 'CLOSED_PORT',
         severity: 'INFO', // Port closures are informational (from catalog)
         title: expect.stringContaining('80'),
-        fingerprint: `closed_port:${testDeviceId}:80:tcp`,
+        fingerprint: `closed_port:${testDeviceId}:tcp:80:unknown:unknown:http`,
         data: {
           port: 80,
           protocol: 'tcp',
@@ -831,7 +833,7 @@ describe('Notification Pipeline (Integration)', () => {
         .where(
           and(
             eq(notifications.organizationId as any, testOrgId),
-            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:8080:tcp`)
+            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:tcp:8080:http-alt:1.0:http-alt`)
           )
         );
 
@@ -844,7 +846,7 @@ describe('Notification Pipeline (Integration)', () => {
         deviceId: testDeviceId,
         scanRunId,
         userId: testUserId,
-        fingerprint: `new_port:${testDeviceId}:8080:tcp`,
+        fingerprint: `new_port:${testDeviceId}:tcp:8080:http-alt:1.0:http-alt`,
       });
 
       expect(notification.data).toMatchObject({
@@ -892,7 +894,7 @@ describe('Notification Pipeline (Integration)', () => {
         .where(
           and(
             eq(notifications.organizationId as any, testOrgId),
-            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:9090:tcp`)
+            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:tcp:9090:custom:unknown:custom`)
           )
         );
 
@@ -968,7 +970,7 @@ describe('Notification Pipeline (Integration)', () => {
         .where(
           and(
             eq(notifications.organizationId as any, testOrgId),
-            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:7070:tcp`)
+            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:tcp:7070:test-service:unknown:test-service`)
           )
         );
 
@@ -994,7 +996,7 @@ describe('Notification Pipeline (Integration)', () => {
         .where(
           and(
             eq(notifications.organizationId as any, testOrgId),
-            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:7070:tcp`)
+            eq(notifications.fingerprint as any, `new_port:${testDeviceId}:tcp:7070:test-service:unknown:test-service`)
           )
         );
 
@@ -1007,6 +1009,106 @@ describe('Notification Pipeline (Integration)', () => {
         original: originalSuppressUntil.toISOString(),
         updated: updatedSuppressUntil.toISOString(),
       });
+    });
+
+    it('should create CVE_FIXED notification with 24h suppress window', async () => {
+      const db = getDb();
+      const scanRunId = createId();
+
+      await notifyCVEFixed({
+        organizationId: testOrgId,
+        deviceId: testDeviceId,
+        scanRunId,
+        cveId: 'CVE-2024-FIXED',
+        severity: 'HIGH',
+        cvssScore: 7.5,
+        affectedService: 'nginx 1.20.0',
+        port: 443,
+        userId: testUserId,
+      });
+
+      // Verify notification created
+      const [notification] = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.organizationId as any, testOrgId),
+            eq(notifications.fingerprint as any, `cve_fixed:${testDeviceId}:CVE-2024-FIXED`)
+          )
+        );
+
+      expect(notification).toBeDefined();
+      expect(notification).toMatchObject({
+        type: 'CVE_FIXED',
+        severity: 'INFO', // CVE_FIXED is good news (INFO)
+        title: expect.stringContaining('CVE-2024-FIXED'),
+        organizationId: testOrgId,
+        deviceId: testDeviceId,
+        scanRunId,
+        fingerprint: `cve_fixed:${testDeviceId}:CVE-2024-FIXED`,
+      });
+
+      // Verify 24h suppress window
+      const expectedSuppressUntil = Date.now() + 24 * 60 * 60 * 1000;
+      const actualSuppressUntil = notification.suppressUntil.getTime();
+      const tolerance = 5000; // 5 seconds tolerance
+      expect(actualSuppressUntil).toBeGreaterThan(expectedSuppressUntil - tolerance);
+      expect(actualSuppressUntil).toBeLessThan(expectedSuppressUntil + tolerance);
+
+      testDataIds.notifications.push(notification.id);
+
+      console.log('✅ Created CVE_FIXED notification with 24h suppress window:', notification.id);
+    });
+
+    it('should create CVE_REGRESSED notification with 24h suppress window', async () => {
+      const db = getDb();
+      const scanRunId = createId();
+
+      await notifyCVERegressed({
+        organizationId: testOrgId,
+        deviceId: testDeviceId,
+        scanRunId,
+        cveId: 'CVE-2024-REGRESSED',
+        severity: 'CRITICAL',
+        cvssScore: 9.8,
+        affectedService: 'apache 2.4.0',
+        port: 80,
+        userId: testUserId,
+      });
+
+      // Verify notification created
+      const [notification] = await db
+        .select()
+        .from(notifications)
+        .where(
+          and(
+            eq(notifications.organizationId as any, testOrgId),
+            eq(notifications.fingerprint as any, `cve_regressed:${testDeviceId}:CVE-2024-REGRESSED`)
+          )
+        );
+
+      expect(notification).toBeDefined();
+      expect(notification).toMatchObject({
+        type: 'CVE_REGRESSED',
+        severity: 'CRITICAL', // Severity-based (inherited from CVE)
+        title: expect.stringContaining('CVE-2024-REGRESSED'),
+        organizationId: testOrgId,
+        deviceId: testDeviceId,
+        scanRunId,
+        fingerprint: `cve_regressed:${testDeviceId}:CVE-2024-REGRESSED`,
+      });
+
+      // Verify 24h suppress window (severity-based, currently uniform)
+      const expectedSuppressUntil = Date.now() + 24 * 60 * 60 * 1000;
+      const actualSuppressUntil = notification.suppressUntil.getTime();
+      const tolerance = 5000; // 5 seconds tolerance
+      expect(actualSuppressUntil).toBeGreaterThan(expectedSuppressUntil - tolerance);
+      expect(actualSuppressUntil).toBeLessThan(expectedSuppressUntil + tolerance);
+
+      testDataIds.notifications.push(notification.id);
+
+      console.log('✅ Created CVE_REGRESSED notification with 24h suppress window:', notification.id);
     });
   });
 

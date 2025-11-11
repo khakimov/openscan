@@ -135,4 +135,6 @@ export type {
   NotifyClosedPortParams,
   NotifyNewCVEParams,
   NotifyCVESeverityIncreaseParams,
+  NotifyCVEFixedParams,
+  NotifyCVERegressedParams,
 } from './notifications/helpers';
