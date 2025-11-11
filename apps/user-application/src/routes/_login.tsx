@@ -15,9 +15,9 @@ export const Route = createFileRoute("/_login")({
 
 function LoginLayout() {
   return (
-    <div className="relative min-h-screen grid md:grid-cols-2">
+    <div className="relative min-h-screen grid md:grid-cols-2 bg-background">
       {/* Left Panel - Desktop Only */}
-      <div className="hidden md:block">
+      <div className="hidden md:flex items-center justify-center">
         <LoginLeftPanel />
       </div>
 

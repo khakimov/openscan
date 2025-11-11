@@ -7,16 +7,19 @@ const slides = [
     id: 1,
     title: "Automated Security Monitoring",
     description: "Continuous scanning and vulnerability detection for your infrastructure",
+    gradient: "from-blue-500 to-cyan-600",
   },
   {
     id: 2,
     title: "Real-time Threat Detection",
     description: "Get instant alerts when security issues are discovered",
+    gradient: "from-purple-500 to-pink-600",
   },
   {
     id: 3,
     title: "Comprehensive Asset Discovery",
     description: "Automatically discover and monitor all your internet-facing services",
+    gradient: "from-orange-500 to-red-600",
   },
 ];
 
@@ -40,46 +43,38 @@ export function LoginLeftPanel() {
   };
 
   return (
-    <div className="relative h-screen overflow-hidden bg-gradient-to-br from-zinc-900 to-zinc-950">
+    <div className="relative h-screen overflow-hidden w-full">
       {/* Header */}
       <div className="absolute top-0 left-0 right-0 z-20 flex justify-between items-center p-8">
-        <div className="text-2xl font-bold text-white">sec.rocks</div>
+        <div className="text-2xl font-bold">sec.rocks</div>
         <a
           href="/"
-          className="text-sm text-zinc-400 hover:text-white transition-colors"
+          className="text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           Back to website →
         </a>
       </div>
 
       {/* Slides */}
-      <div className="relative h-full flex items-center justify-center p-12 pt-24 pb-24">
+      <div className="relative h-full flex items-center justify-center p-8 pt-24 pb-32">
         {slides.map((slide, index) => (
           <div
             key={slide.id}
-            className={`absolute inset-0 flex items-center justify-center p-12 pt-24 pb-24 transition-opacity duration-500 ${
+            className={`absolute inset-0 flex items-center justify-center p-8 pt-24 pb-32 transition-opacity duration-500 ${
               index === currentSlide ? "opacity-100" : "opacity-0"
             }`}
           >
-            <div className="max-w-2xl">
-              {/* Image placeholder */}
-              <div className="rounded-2xl bg-zinc-800 border border-zinc-700 shadow-2xl overflow-hidden mb-8">
-                <div className="aspect-[4/3] flex items-center justify-center bg-gradient-to-br from-zinc-800 to-zinc-900">
-                  <div className="text-center">
-                    <div className="text-6xl font-bold text-zinc-600 mb-4">
-                      {slide.id}
-                    </div>
-                    <div className="text-zinc-500 text-lg">Image {slide.id}</div>
-                  </div>
+            {/* Card container matching OpenPanel style */}
+            <div className="rounded-xl h-full w-full overflow-hidden bg-card border border-border shadow-lg">
+              <div className={`flex flex-col justify-center items-center h-full p-8 bg-gradient-to-br ${slide.gradient}`}>
+                <div className="text-center">
+                  <h2 className="text-6xl font-bold text-white drop-shadow-lg mb-4">
+                    {slide.title}
+                  </h2>
+                  <p className="text-lg text-white/80 leading-relaxed max-w-lg">
+                    {slide.description}
+                  </p>
                 </div>
-              </div>
-
-              {/* Content */}
-              <div className="text-center">
-                <h2 className="text-4xl font-bold text-white mb-4">
-                  {slide.title}
-                </h2>
-                <p className="text-lg text-zinc-400">{slide.description}</p>
               </div>
             </div>
           </div>
@@ -91,7 +86,7 @@ export function LoginLeftPanel() {
             variant="ghost"
             size="icon"
             onClick={prevSlide}
-            className="text-white hover:bg-white/10"
+            className="hover:bg-muted"
           >
             <ChevronLeft className="h-6 w-6" />
           </Button>
@@ -104,8 +99,8 @@ export function LoginLeftPanel() {
                 onClick={() => setCurrentSlide(index)}
                 className={`h-2 rounded-full transition-all ${
                   index === currentSlide
-                    ? "w-8 bg-white"
-                    : "w-2 bg-zinc-600 hover:bg-zinc-500"
+                    ? "w-8 bg-foreground"
+                    : "w-2 bg-muted-foreground hover:bg-foreground/50"
                 }`}
               />
             ))}
@@ -115,7 +110,7 @@ export function LoginLeftPanel() {
             variant="ghost"
             size="icon"
             onClick={nextSlide}
-            className="text-white hover:bg-white/10"
+            className="hover:bg-muted"
           >
             <ChevronRight className="h-6 w-6" />
           </Button>
