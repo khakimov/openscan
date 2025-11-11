@@ -176,7 +176,7 @@ describe('Notification Catalog - Port Discovery', () => {
         severity: 'INFO',
         module: 'NETWORK_SECURITY',
         title: 'ssh on port 22 is now closed',
-        message: 'Port 22/tcp (ssh) is no longer accessible',
+        message: 'Verify SSH closure was intentional. Check service status and logs if unexpected.',
       });
     });
 
@@ -205,7 +205,7 @@ describe('Notification Catalog - Port Discovery', () => {
         severity: 'INFO',
         module: 'NETWORK_SECURITY',
         title: 'service on port 8080 is now closed',
-        message: 'Port 8080/tcp (service) is no longer accessible',
+        message: 'Port 8080 closure detected. Verify this was intentional and service is accessible via alternative means if needed.',
       });
     });
   });
@@ -271,13 +271,12 @@ describe('Notification Catalog - CVE Notifications', () => {
         affectedService: 'nginx/1.18.0',
       });
 
-      expect(notification).toEqual({
-        type: 'NEW_CVE',
-        severity: 'CRITICAL',
-        module: 'VULNERABILITY_MANAGEMENT',
-        title: 'New CRITICAL vulnerability CVE-2024-1234 discovered affecting nginx/1.18.0',
-        message: 'CVE-2024-1234 (CVSS 9.8): Remote code execution vulnerability',
-      });
+      expect(notification.type).toBe('NEW_CVE');
+      expect(notification.severity).toBe('CRITICAL');
+      expect(notification.module).toBe('VULNERABILITY_MANAGEMENT');
+      expect(notification.title).toBe('New CRITICAL vulnerability CVE-2024-1234 discovered affecting nginx/1.18.0');
+      expect(notification.message).toContain('CVE-2024-1234 (CVSS 9.8): Remote code execution vulnerability');
+      expect(notification.message).toContain('Remediation:');
     });
 
     it('should create notification without affected service', () => {
@@ -288,13 +287,12 @@ describe('Notification Catalog - CVE Notifications', () => {
         description: 'Information disclosure vulnerability',
       });
 
-      expect(notification).toEqual({
-        type: 'NEW_CVE',
-        severity: 'HIGH',
-        module: 'VULNERABILITY_MANAGEMENT',
-        title: 'New HIGH vulnerability CVE-2024-5678 discovered',
-        message: 'CVE-2024-5678 (CVSS 7.5): Information disclosure vulnerability',
-      });
+      expect(notification.type).toBe('NEW_CVE');
+      expect(notification.severity).toBe('HIGH');
+      expect(notification.module).toBe('VULNERABILITY_MANAGEMENT');
+      expect(notification.title).toBe('New HIGH vulnerability CVE-2024-5678 discovered');
+      expect(notification.message).toContain('CVE-2024-5678 (CVSS 7.5): Information disclosure vulnerability');
+      expect(notification.message).toContain('Remediation:');
     });
 
     it('should handle missing description gracefully', () => {
@@ -352,13 +350,12 @@ describe('Notification Catalog - CVE Notifications', () => {
         affectedService: 'apache/2.4.41',
       });
 
-      expect(notification).toEqual({
-        type: 'CVE_SEVERITY_INCREASE',
-        severity: 'CRITICAL',
-        module: 'VULNERABILITY_MANAGEMENT',
-        title: 'CVE-2024-1234 severity upgraded to CRITICAL affecting apache/2.4.41',
-        message: 'Vulnerability CVE-2024-1234 severity increased from MEDIUM to CRITICAL (CVSS 9.1): Active exploitation detected in the wild',
-      });
+      expect(notification.type).toBe('CVE_SEVERITY_INCREASE');
+      expect(notification.severity).toBe('CRITICAL');
+      expect(notification.module).toBe('VULNERABILITY_MANAGEMENT');
+      expect(notification.title).toBe('CVE-2024-1234 severity upgraded to CRITICAL affecting apache/2.4.41');
+      expect(notification.message).toContain('Vulnerability CVE-2024-1234 severity increased from MEDIUM to CRITICAL (CVSS 9.1): Active exploitation detected in the wild');
+      expect(notification.message).toContain('Remediation:');
     });
 
     it('should create notification without affected service', () => {
@@ -369,13 +366,12 @@ describe('Notification Catalog - CVE Notifications', () => {
         cvssScore: 7.8,
       });
 
-      expect(notification).toEqual({
-        type: 'CVE_SEVERITY_INCREASE',
-        severity: 'HIGH',
-        module: 'VULNERABILITY_MANAGEMENT',
-        title: 'CVE-2024-5678 severity upgraded to HIGH',
-        message: 'Vulnerability CVE-2024-5678 severity increased from LOW to HIGH (CVSS 7.8): No description available',
-      });
+      expect(notification.type).toBe('CVE_SEVERITY_INCREASE');
+      expect(notification.severity).toBe('HIGH');
+      expect(notification.module).toBe('VULNERABILITY_MANAGEMENT');
+      expect(notification.title).toBe('CVE-2024-5678 severity upgraded to HIGH');
+      expect(notification.message).toContain('Vulnerability CVE-2024-5678 severity increased from LOW to HIGH (CVSS 7.8): No description available');
+      expect(notification.message).toContain('Remediation:');
     });
 
     it('should include both old and new severity in message', () => {
@@ -419,14 +415,400 @@ describe('Notification Catalog - CVE Notifications', () => {
       // Message should preserve original casing from input
       expect(notification.message).toContain('medium');
       expect(notification.message).toContain('critical');
+      expect(notification.message).toContain('Remediation:');
 
-      // Verify full integration with mapCVESeverityToNotificationSeverity
-      expect(notification).toEqual({
-        type: 'CVE_SEVERITY_INCREASE',
-        severity: 'CRITICAL',
-        module: 'VULNERABILITY_MANAGEMENT',
-        title: 'CVE-2024-CASE-TEST severity upgraded to critical',
-        message: 'Vulnerability CVE-2024-CASE-TEST severity increased from medium to critical (CVSS 9.2): Severity escalated due to active exploitation',
+      // Verify core fields (message now includes remediation, so not using toEqual)
+      expect(notification.type).toBe('CVE_SEVERITY_INCREASE');
+      expect(notification.module).toBe('VULNERABILITY_MANAGEMENT');
+      expect(notification.title).toBe('CVE-2024-CASE-TEST severity upgraded to critical');
+    });
+  });
+
+  describe('CVE Remediation Guidance (sec-5j6)', () => {
+    describe('Severity-based remediation', () => {
+      it('should append CRITICAL remediation for critical CVEs', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-1234',
+          severity: 'CRITICAL',
+          cvssScore: 9.8,
+          description: 'Remote code execution in foo.',
+          affectedService: 'foo',
+        });
+
+        expect(notification.message).toContain('Remediation: Apply vendor fixes immediately');
+        expect(notification.message).toContain('isolate exposed services');
+        expect(notification.message).toContain('assess for compromise');
+      });
+
+      it('should append HIGH remediation for high severity CVEs', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-5678',
+          severity: 'HIGH',
+          cvssScore: 8.6,
+          description: 'Privilege escalation vulnerability.',
+        });
+
+        expect(notification.message).toContain('Remediation: Schedule the vendor patch');
+        expect(notification.message).toContain('as soon as possible');
+        expect(notification.message).toContain('monitor for exploitation');
+      });
+
+      it('should append MEDIUM remediation for medium severity CVEs', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-9012',
+          severity: 'MEDIUM',
+          cvssScore: 5.3,
+          description: 'Information disclosure vulnerability.',
+        });
+
+        expect(notification.message).toContain('Remediation: Plan a maintenance window');
+        expect(notification.message).toContain('Track completion');
+      });
+
+      it('should append LOW remediation for low severity CVEs', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-3456',
+          severity: 'LOW',
+          cvssScore: 3.1,
+          description: 'Minor security issue.',
+        });
+
+        expect(notification.message).toContain('Remediation: Review during the next scheduled update');
+        expect(notification.message).toContain('apply fixes where practical');
+      });
+
+      it('should use generic fallback for unknown severities', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-UNKNOWN',
+          severity: 'UNKNOWN',
+          cvssScore: 0.0,
+          description: 'Unknown severity.',
+        });
+
+        expect(notification.message).toContain('Remediation: Review vendor guidance');
+        expect(notification.message).toContain('apply the recommended fix');
+      });
+    });
+
+    describe('Service-specific remediation', () => {
+      it('should use SSH-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-5678',
+          severity: 'HIGH',
+          cvssScore: 8.6,
+          description: 'Privilege escalation in ssh.',
+          affectedService: 'SSH',
+        });
+
+        expect(notification.message).toContain('Upgrade the SSH daemon');
+        expect(notification.message).toContain('rotate credentials if compromise is suspected');
+        // Should also include severity-based guidance
+        expect(notification.message).toContain('Schedule the vendor patch');
+      });
+
+      it('should use nginx-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-NGINX',
+          severity: 'CRITICAL',
+          cvssScore: 9.8,
+          description: 'RCE in nginx.',
+          affectedService: 'nginx',
+        });
+
+        expect(notification.message).toContain('Patch nginx to the recommended version');
+        expect(notification.message).toContain('reload configuration');
+        expect(notification.message).toContain('Check WAF rules');
+      });
+
+      it('should use apache-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-APACHE',
+          severity: 'HIGH',
+          cvssScore: 8.1,
+          description: 'Security bypass in Apache.',
+          affectedService: 'apache',
+        });
+
+        expect(notification.message).toContain('Apply the Apache HTTP Server update');
+        expect(notification.message).toContain('restart gracefully');
+        expect(notification.message).toContain('Verify modules');
+      });
+
+      it('should use mysql-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-MYSQL',
+          severity: 'MEDIUM',
+          cvssScore: 6.5,
+          description: 'SQL injection in MySQL.',
+          affectedService: 'mysql',
+        });
+
+        expect(notification.message).toContain('Patch the database engine');
+        expect(notification.message).toContain('restart during a maintenance window');
+        expect(notification.message).toContain('review replication health');
+      });
+
+      it('should use postgresql-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-PGSQL',
+          severity: 'MEDIUM',
+          cvssScore: 5.9,
+          description: 'Auth bypass in PostgreSQL.',
+          affectedService: 'postgresql',
+        });
+
+        expect(notification.message).toContain('Apply the vendor patch');
+        expect(notification.message).toContain('run post-upgrade checks');
+        expect(notification.message).toContain('extensions, replication, backups');
+      });
+
+      it('should use redis-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-REDIS',
+          severity: 'HIGH',
+          cvssScore: 7.5,
+          description: 'Command injection in Redis.',
+          affectedService: 'redis',
+        });
+
+        expect(notification.message).toContain('Upgrade Redis');
+        expect(notification.message).toContain('rotate authentication tokens');
+        expect(notification.message).toContain('confirm ACLs');
+      });
+
+      it('should use rdp-specific remediation when available', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-RDP',
+          severity: 'CRITICAL',
+          cvssScore: 9.8,
+          description: 'RCE in RDP.',
+          affectedService: 'rdp',
+        });
+
+        expect(notification.message).toContain('Patch the Windows host');
+        expect(notification.message).toContain('verify NLA enforcement');
+        expect(notification.message).toContain('audit remote-access policies');
+      });
+
+      it('should handle case-insensitive service matching', () => {
+        const notificationUpper = createNewCVENotification({
+          cveId: 'CVE-2024-TEST',
+          severity: 'HIGH',
+          cvssScore: 7.5,
+          affectedService: 'SSH',
+        });
+
+        const notificationLower = createNewCVENotification({
+          cveId: 'CVE-2024-TEST',
+          severity: 'HIGH',
+          cvssScore: 7.5,
+          affectedService: 'ssh',
+        });
+
+        const notificationMixed = createNewCVENotification({
+          cveId: 'CVE-2024-TEST',
+          severity: 'HIGH',
+          cvssScore: 7.5,
+          affectedService: 'Ssh',
+        });
+
+        // All should get SSH-specific remediation
+        expect(notificationUpper.message).toContain('Upgrade the SSH daemon');
+        expect(notificationLower.message).toContain('Upgrade the SSH daemon');
+        expect(notificationMixed.message).toContain('Upgrade the SSH daemon');
+      });
+
+      it('should match real-world service names via aliases - OpenSSH variants', () => {
+        const variants = [
+          'OpenSSH',
+          'openssh 9.6p1',
+          'OpenSSH 9.6p1 Ubuntu-3ubuntu13.3',
+          'openssh/9.6p1',
+        ];
+
+        for (const variant of variants) {
+          const notification = createNewCVENotification({
+            cveId: 'CVE-2024-TEST',
+            severity: 'HIGH',
+            cvssScore: 7.5,
+            affectedService: variant,
+          });
+
+          expect(notification.message).toContain('Upgrade the SSH daemon');
+        }
+      });
+
+      it('should match real-world service names via aliases - Microsoft Terminal Services', () => {
+        const variants = [
+          'Microsoft Terminal Services',
+          'microsoft terminal services',
+          'ms-wbt-server',
+        ];
+
+        for (const variant of variants) {
+          const notification = createNewCVENotification({
+            cveId: 'CVE-2024-TEST',
+            severity: 'CRITICAL',
+            cvssScore: 9.8,
+            affectedService: variant,
+          });
+
+          expect(notification.message).toContain('Patch the Windows host');
+          expect(notification.message).toContain('verify NLA enforcement');
+        }
+      });
+
+      it('should match real-world service names via aliases - Apache variants', () => {
+        const variants = [
+          'Apache',
+          'apache httpd',
+          'httpd',
+          'Apache/2.4.41 (Ubuntu)',
+        ];
+
+        for (const variant of variants) {
+          const notification = createNewCVENotification({
+            cveId: 'CVE-2024-TEST',
+            severity: 'HIGH',
+            cvssScore: 8.1,
+            affectedService: variant,
+          });
+
+          expect(notification.message).toContain('Apply the Apache HTTP Server update');
+        }
+      });
+
+      it('should match real-world service names via aliases - PostgreSQL variants', () => {
+        const variants = [
+          'PostgreSQL',
+          'postgres',
+          'pgsql',
+          'PostgreSQL 15.3',
+        ];
+
+        for (const variant of variants) {
+          const notification = createNewCVENotification({
+            cveId: 'CVE-2024-TEST',
+            severity: 'MEDIUM',
+            cvssScore: 5.9,
+            affectedService: variant,
+          });
+
+          expect(notification.message).toContain('Apply the vendor patch');
+          expect(notification.message).toContain('extensions, replication, backups');
+        }
+      });
+
+      it('should match MariaDB to MySQL remediation', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-MARIADB',
+          severity: 'MEDIUM',
+          cvssScore: 6.5,
+          description: 'SQL injection in MariaDB.',
+          affectedService: 'mariadb',
+        });
+
+        // MariaDB is a MySQL fork, should use MySQL remediation
+        expect(notification.message).toContain('Patch the database engine');
+        expect(notification.message).toContain('review replication health');
+      });
+
+      it('should prefer longer alias matches (apache httpd over httpd)', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-TEST',
+          severity: 'HIGH',
+          cvssScore: 7.5,
+          affectedService: 'apache httpd 2.4.41',
+        });
+
+        // Should match "apache httpd" not just "httpd", both map to 'apache'
+        expect(notification.message).toContain('Apply the Apache HTTP Server update');
+      });
+
+      it('should fall back to severity-based guidance for unknown services', () => {
+        // TODO(sec-5j6-ingest): Update this test when dynamic remediation plugin is available.
+        // Currently validates fallback to static severity-based guidance.
+        // Future: Should query CVE cache for vendor-provided remediation strings.
+
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-UNKNOWN',
+          severity: 'CRITICAL',
+          cvssScore: 9.8,
+          description: 'RCE in custom-app.',
+          affectedService: 'custom-app',
+        });
+
+        // Should NOT contain service-specific guidance (regression guard)
+        expect(notification.message).not.toContain('Upgrade the SSH daemon');
+        expect(notification.message).not.toContain('Patch nginx');
+
+        // Should contain severity-based guidance (current fallback behavior)
+        expect(notification.message).toContain('Remediation: Apply vendor fixes immediately');
+
+        // TODO(sec-5j6-ingest): When integrated with CVE cache, test should verify:
+        // - Query to CVE cache was attempted
+        // - Vendor-specific guidance is used when available
+        // - Fallback still works when cache has no entry
+      });
+    });
+
+    describe('CVE_SEVERITY_INCREASE remediation', () => {
+      it('should append remediation to severity increase notifications', () => {
+        const notification = createCVESeverityIncreaseNotification({
+          cveId: 'CVE-2024-1234',
+          oldSeverity: 'MEDIUM',
+          newSeverity: 'CRITICAL',
+          cvssScore: 9.1,
+          description: 'Active exploitation detected.',
+          affectedService: 'apache',
+        });
+
+        expect(notification.message).toContain('Remediation:');
+        expect(notification.message).toContain('Apply the Apache HTTP Server update');
+        expect(notification.message).toContain('Apply vendor fixes immediately');
+      });
+
+      it('should use new severity for remediation guidance', () => {
+        const notification = createCVESeverityIncreaseNotification({
+          cveId: 'CVE-2024-5678',
+          oldSeverity: 'LOW',
+          newSeverity: 'HIGH',
+          cvssScore: 7.8,
+        });
+
+        // Should use HIGH severity guidance, not LOW
+        expect(notification.message).toContain('Schedule the vendor patch or workaround as soon as possible');
+        expect(notification.message).not.toContain('Review during the next scheduled update');
+      });
+    });
+
+    describe('Remediation message structure', () => {
+      it('should keep remediation concise (under 250 chars)', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-1234',
+          severity: 'CRITICAL',
+          cvssScore: 9.8,
+          description: 'Test vulnerability.',
+          affectedService: 'SSH',
+        });
+
+        // Extract just the remediation part
+        const remediationMatch = notification.message?.match(/Remediation: (.+)/);
+        const remediationText = remediationMatch ? remediationMatch[1] : '';
+
+        expect(remediationText.length).toBeLessThan(250);
+      });
+
+      it('should format with newline before Remediation label', () => {
+        const notification = createNewCVENotification({
+          cveId: 'CVE-2024-1234',
+          severity: 'HIGH',
+          cvssScore: 7.5,
+          description: 'Test vulnerability.',
+        });
+
+        // Should have description, then newline, then Remediation
+        expect(notification.message).toMatch(/\n.*Remediation:/);
       });
     });
   });

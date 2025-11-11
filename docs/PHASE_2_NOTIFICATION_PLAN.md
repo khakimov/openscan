@@ -234,7 +234,7 @@ changes.push({
   scanRunId,
   ...descriptor, // ✅ Type: NotificationDescriptor
   data: { /* ... */ },
-  fingerprint: `new_port:${deviceId}:${port.port}:${port.protocol}`,
+  fingerprint: `new_port:${deviceId}:${port.protocol}:${port.port}:${port.service?.product || serviceName}:${port.service?.version || 'unknown'}:${serviceName}`,
   suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000),
 });
 ```
@@ -569,8 +569,8 @@ fingerprint: `new_port:${deviceId}:${port.port}:${port.protocol}` // ❌ Port + 
 
 **Enhanced Fingerprint**:
 ```typescript
-fingerprint: `new_port:${deviceId}:${port.port}:${port.protocol}:${port.service?.product}:${port.service?.version}`
-// ✅ Includes product + version
+fingerprint: `new_port:${deviceId}:${port.protocol}:${port.port}:${port.service?.product || 'unknown'}:${port.service?.version || 'unknown'}:${port.service?.name || port.service?.product || 'unknown'}`
+// ✅ Includes product + version + name (prevents false deduplication)
 ```
 
 **Benefits**:
@@ -778,6 +778,10 @@ export async function notifyNewPort(params: {
   });
 
   // 2. Build full notification input
+  const product = params.service ?? 'unknown';
+  const version = params.version ?? 'unknown';
+  const name = params.service ?? 'unknown';
+
   const input: CreateNotificationInput = {
     organizationId: params.organizationId,
     deviceId: params.deviceId,
@@ -789,7 +793,7 @@ export async function notifyNewPort(params: {
       service: params.service,
       version: params.version,
     },
-    fingerprint: `new_port:${params.deviceId}:${params.port}:${params.protocol}`,
+    fingerprint: `new_port:${params.deviceId}:${params.protocol}:${params.port}:${product}:${version}:${name}`,
     suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000),
   };
 

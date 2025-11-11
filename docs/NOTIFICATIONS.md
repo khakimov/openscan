@@ -174,7 +174,7 @@ export const notifications = sqliteTable('notifications', {
   scanRunId: text('scan_run_id').references(() => scanRuns.id, { onDelete: 'cascade' }),
 
   // Notification metadata
-  type: text('type').notNull(), // 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE'
+  type: text('type').notNull(), // 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT'
   severity: text('severity').notNull(), // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'
 
   title: text('title').notNull(),
@@ -239,8 +239,8 @@ ON `notifications` (`organization_id`, `fingerprint`);
 
 | Type | Description | Default Severity | Fingerprint Format |
 |------|-------------|-----------------|-------------------|
-| `NEW_PORT` | Previously closed/unknown port is now open | Varies by port | `new_port:{deviceId}:{port}:{protocol}` |
-| `CLOSED_PORT` | Previously open port is now closed/filtered | `INFO` | `closed_port:{deviceId}:{port}:{protocol}` |
+| `NEW_PORT` | Previously closed/unknown port is now open | Varies by port | `new_port:{deviceId}:{protocol}:{port}:{product}:{version}:{name}` |
+| `CLOSED_PORT` | Previously open port is now closed/filtered | `INFO` | `closed_port:{deviceId}:{protocol}:{port}:{product}:{version}:{name}` |
 | `NEW_CVE` | New vulnerability detected (wasn't in previous scan) | CVE severity | `new_cve:{deviceId}:{cve_id}` |
 | `CVE_SEVERITY_INCREASE` | Existing CVE severity upgraded | New severity | `cve_upgrade:{deviceId}:{cve_id}` |
 
@@ -370,6 +370,9 @@ function diffPorts(
     if (isNowOpen && !wasOpen) {
       // ✅ FIX: Extract service name from object
       const serviceName = port.service?.name || port.service?.product || port.service || 'service';
+      const product = port.service?.product || serviceName;
+      const version = port.service?.version || 'unknown';
+      const name = serviceName;
 
       changes.push({
         organizationId,
@@ -386,7 +389,7 @@ function diffPorts(
           state: port.state,
           version: port.version,
         },
-        fingerprint: `new_port:${deviceId}:${port.port}:${port.protocol}`,
+        fingerprint: `new_port:${deviceId}:${port.protocol}:${port.port}:${product}:${version}:${name}`,
         suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours
       });
     }
@@ -400,6 +403,9 @@ function diffPorts(
 
     if (wasOpen && !isNowOpen) {
       const serviceName = prevPort.service?.name || prevPort.service?.product || prevPort.service || 'unknown';
+      const product = prevPort.service?.product || serviceName;
+      const version = prevPort.service?.version || 'unknown';
+      const name = serviceName;
 
       changes.push({
         organizationId,
@@ -415,7 +421,7 @@ function diffPorts(
           service: serviceName,
           previousState: prevPort.state,
         },
-        fingerprint: `closed_port:${deviceId}:${prevPort.port}:${prevPort.protocol}`,
+        fingerprint: `closed_port:${deviceId}:${prevPort.protocol}:${prevPort.port}:${product}:${version}:${name}`,
         suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000), // 6 hours
       });
     }

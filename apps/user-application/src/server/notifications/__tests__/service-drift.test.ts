@@ -315,7 +315,7 @@ describe('diffServiceDrift', () => {
   });
 
   describe('Fingerprint (sec-11n compliance)', () => {
-    it('should include product+version in fingerprint for dedupe', () => {
+    it('should include product+version+name in fingerprint for dedupe', () => {
       const previous = createScanSummary([
         {
           port: 80,
@@ -339,6 +339,7 @@ describe('diffServiceDrift', () => {
       expect(fingerprint).toContain('80');
       expect(fingerprint).toContain('nginx');
       expect(fingerprint).toContain('1.19.0');
+      expect(fingerprint).toContain('http');
     });
 
     it('should generate different fingerprints for version increments', () => {
@@ -369,6 +370,41 @@ describe('diffServiceDrift', () => {
       expect(changes1[0].fingerprint).not.toBe(changes2[0].fingerprint);
       expect(changes1[0].fingerprint).toContain('1.19.0');
       expect(changes2[0].fingerprint).toContain('1.20.0');
+    });
+
+    it('should generate different fingerprints for name-only changes', () => {
+      const previous = createScanSummary([
+        {
+          port: 80,
+          service: { product: 'nginx', version: '1.18.0', name: 'http' },
+        },
+      ]);
+
+      const https = createScanSummary([
+        {
+          port: 80,
+          service: { product: 'nginx', version: '1.18.0', name: 'https' },
+        },
+      ]);
+
+      const backToHttp = createScanSummary([
+        {
+          port: 80,
+          service: { product: 'nginx', version: '1.18.0', name: 'http' },
+        },
+      ]);
+
+      const changes1 = diffServiceDrift(https, previous, deviceId);
+      const changes2 = diffServiceDrift(backToHttp, https, deviceId);
+
+      // Both should emit notifications (not deduped)
+      expect(changes1).toHaveLength(1);
+      expect(changes2).toHaveLength(1);
+
+      // Fingerprints should differ
+      expect(changes1[0].fingerprint).not.toBe(changes2[0].fingerprint);
+      expect(changes1[0].fingerprint).toContain(':https');
+      expect(changes2[0].fingerprint).toContain(':http');
     });
   });
 });

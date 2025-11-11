@@ -72,7 +72,7 @@ WHERE suppress_until > CURRENT_TIMESTAMP;
 **Proposed Schema**:
 ```typescript
 export const notifications = sqliteTable('notifications', {
-  fingerprint: text('fingerprint').notNull(), // Structured: "new_port:dev_123:22:tcp"
+  fingerprint: text('fingerprint').notNull(), // Structured: "new_port:dev_123:tcp:22:product:version:name"
   messageHash: text('message_hash'),          // NEW: Hash of rendered message
   // Unique index on BOTH for defense in depth
 });
@@ -162,7 +162,7 @@ changes.push({
   scanRunId,
   ...descriptor, // Type-safe notification descriptor
   data: { /* ... */ },
-  fingerprint: `new_port:${deviceId}:${port.port}:${port.protocol}`,
+  fingerprint: `new_port:${deviceId}:${port.protocol}:${port.port}:${port.service?.product || serviceName}:${port.service?.version || 'unknown'}:${serviceName}`,
   suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000),
 });
 ```
@@ -669,7 +669,7 @@ function diffPorts(...): Array<CreateNotificationInput> {
           state: port.state,
           version: port.version,
         },
-        fingerprint: `new_port:${deviceId}:${port.port}:${port.protocol}`,
+        fingerprint: `new_port:${deviceId}:${port.protocol}:${port.port}:${port.service?.product || serviceName}:${port.service?.version || 'unknown'}:${serviceName}`,
         suppressUntil: new Date(Date.now() + 6 * 60 * 60 * 1000),
       });
     }
