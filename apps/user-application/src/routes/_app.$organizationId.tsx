@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
+import { createFileRoute, Outlet, notFound, redirect } from "@tanstack/react-router";
 import { getOrganizationById } from "@/server/organization";
 
 // Reserved organization IDs that cannot be used (minimal approach from OpenPanel)
@@ -38,7 +38,7 @@ export const Route = createFileRoute("/_app/$organizationId")({
     // Note: Organization existence is validated by the loader query
     // If org doesn't exist, the query will naturally throw 404
   },
-  loader: async ({ params }) => {
+  loader: async ({ params, location }) => {
     // Validate organization exists and user has access
     // This will throw if organization doesn't exist or user doesn't have access
     const result = await getOrganizationById({ data: params.organizationId });
@@ -47,8 +47,25 @@ export const Route = createFileRoute("/_app/$organizationId")({
       throw notFound();
     }
 
+    const org = result.organization;
+
+    // Redirect from ID to slug for cleaner URLs (prevents flash of wrong URL)
+    // Only redirect if:
+    // 1. Organization has a slug
+    // 2. Current URL is using the ID (not already using the slug)
+    if (org.slug && params.organizationId === org.id) {
+      // Replace the org ID with slug in the current path
+      const newPath = location.pathname.replace(`/${org.id}`, `/${org.slug}`);
+
+      throw redirect({
+        to: newPath,
+        search: location.search as any,
+        replace: true, // Replace history to avoid back button confusion
+      });
+    }
+
     return {
-      organization: result.organization,
+      organization: org,
     };
   },
   component: OrganizationLayout,
