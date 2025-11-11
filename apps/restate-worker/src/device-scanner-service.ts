@@ -19,7 +19,7 @@
  * - State Management: ctx.get/set for durable K/V storage (runtime only)
  * - Database Sync: TanStack app owns database, Restate posts back results
  *
- * Reference: SCHEDULE.md - Architecture section
+ * Reference: docs/SCHEDULE/architecture.md
  */
 
 import * as restate from '@restatedev/restate-sdk';
