@@ -96,10 +96,10 @@ export const discoveryService = restate.workflow({
       // Fall back to workflow key, then random UUID
       const scanId = input.scanId || ctx.key || ctx.rand.uuidv4();
 
-      // IMPORTANT: Use ctx.date() for deterministic timestamps (Restate requirement)
-      // Using new Date() causes non-deterministic replays on retries
-      const startTime = ctx.date().getTime();
-      const startedAt = ctx.date().toISOString();
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      // Using new Date() or Date.now() causes non-deterministic replays on retries
+      const startTime = await ctx.date.now();
+      const startedAt = new Date(startTime).toISOString();
       const tools = input.tools || ['subfinder']; // Only subfinder enabled for now
 
       // Initialize state in workflow context (durable!)
@@ -180,7 +180,7 @@ export const discoveryService = restate.workflow({
               scope: target.scope,
               hostname: target.type === 'IP' ? '' : target.value,
               ipAddress: target.type === 'IP' ? target.value : undefined,
-              discoveredAt: ctx.date(), // Use deterministic time
+              discoveredAt: new Date(startTime), // Use deterministic time from ctx.date.now()
               discoveryMethod: 'direct',
               confidence: 1.0,
               metadata: {
@@ -209,8 +209,9 @@ export const discoveryService = restate.workflow({
       });
 
       // Step 4: Finalize and return
-      const completedAt = ctx.date();
-      const executionTimeMs = completedAt.getTime() - startTime;
+      const completedAtMs = await ctx.date.now();
+      const completedAt = new Date(completedAtMs);
+      const executionTimeMs = completedAtMs - startTime;
 
       // Convert devices to serializable format (Dates -> ISO strings)
       const serializedDevices = uniqueDevices.map((device) => ({
@@ -294,7 +295,7 @@ export const discoveryService = restate.workflow({
       const devicesFound = (await ctx.get<number>('devicesFound')) || 0;
       const devices = (await ctx.get<any[]>('devices')) || undefined; // Full devices array
       const errors = (await ctx.get<string[]>('errors')) || [];
-      const startedAt = (await ctx.get<string>('startedAt')) || ctx.date().toISOString();
+      const startedAt = (await ctx.get<string>('startedAt')) || new Date(await ctx.date.now()).toISOString();
       const completedAt = (await ctx.get<string>('completedAt')) || undefined;
 
       return {
