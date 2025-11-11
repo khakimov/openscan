@@ -214,7 +214,7 @@ function Onboarding2Notifications() {
                 <Switch
                   id="weekly-summary"
                   checked={field.state.value}
-                  onCheckedChange={(checked) => field.handleChange(checked)}
+                  onCheckedChange={(checked) => field.handleChange(checked as true)}
                 />
               </div>
             )}

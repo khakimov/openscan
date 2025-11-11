@@ -30,7 +30,7 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
       throw redirect({ to: "/onboarding" });
     }
   },
-  loader: async ({ context }) => {
+  loader: async () => {
     const savedDevicesResult = await getDiscoveryDevices({ data: {} });
     return {
       savedDevices: savedDevicesResult.devices || [],
@@ -178,7 +178,7 @@ function OnboardingDiscovery() {
             </span>
           </div>
           <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
-            {savedDevices.map((device) => (
+            {savedDevices.map((device: { id: string; name: string; ip?: string | null }) => (
               <div
                 key={device.id}
                 className="px-4 py-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors"

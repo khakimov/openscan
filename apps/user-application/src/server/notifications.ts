@@ -3,7 +3,6 @@ import {
   getNotifications,
   markNotificationAsRead,
   markAllNotificationsAsRead,
-  getUnreadNotificationCount,
   getUnreadNotificationCountWithSeverity,
   type GetNotificationsInput,
 } from '@repo/data-ops';
