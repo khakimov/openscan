@@ -26,6 +26,7 @@ import {
   type ScanScope,
 } from './discovery-tools';
 import { postUniversalPostback } from './postback';
+import { buildDiscoveryPostbackPayload } from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'discovery-service' });
 
@@ -242,27 +243,29 @@ export const discoveryService = restate.workflow({
             deviceCount: uniqueDevices.length,
           });
 
-          await postUniversalPostback({
+          const discoveryPostback = buildDiscoveryPostbackPayload({
             type: 'DISCOVERY',
             scanId,
             organizationId: input.organizationId!,
             timestamp: completedAt.toISOString(),
             status: 'SUCCESS',
-            callbackUrl: input.callbackUrl!,
             data: {
-              target: input.targets[0]?.value || 'unknown', // Primary target
-              devices: serializedDevices
-                .filter((d: any) => d.hostname && d.hostname.trim() !== '') // Filter out devices without hostname
-                .map((d: any) => ({
-                  hostname: d.hostname,
-                  ipAddress: d.ipAddress,
-                  metadata: d.metadata,
-                })),
+              target: input.targets[0]?.value || 'unknown',
+              devices: serializedDevices as Array<{
+                hostname: string;
+                ipAddress?: string;
+                metadata?: Record<string, unknown>;
+              }>,
               totalSubdomains: uniqueDevices.length,
               executionTime: executionTimeMs,
               tools,
               errors: errors || [],
             },
+          });
+
+          await postUniversalPostback({
+            callbackUrl: input.callbackUrl!,
+            ...discoveryPostback,
           });
 
           logger.info('Postback successful', { scanId, organizationId: input.organizationId });

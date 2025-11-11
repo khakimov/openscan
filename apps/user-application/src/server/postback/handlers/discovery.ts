@@ -5,7 +5,6 @@
  * Stores discovery results in the database for user review and manual device creation.
  */
 
-import { z } from 'zod';
 import {
   getScanRunByRestateWorkflowId,
   updateScanRunStatus,
@@ -18,32 +17,7 @@ import {
   buildSuccessAnalytics,
   buildFailureAnalytics,
 } from '../analytics';
-
-/**
- * Zod schema for discovery postback validation
- */
-const DiscoveryPostbackSchema = z.object({
-  type: z.literal('DISCOVERY'),
-  scanId: z.string().min(1, 'scanId is required'),
-  organizationId: z.string().min(1, 'organizationId is required'),
-  timestamp: z.string(),
-  status: z.enum(['SUCCESS', 'FAILURE']),
-  data: z.object({
-    target: z.string(),
-    devices: z.array(
-      z.object({
-        hostname: z.string(),
-        ipAddress: z.string().optional(),
-        metadata: z.record(z.string(), z.any()).optional(),
-      })
-    ),
-    totalSubdomains: z.number(),
-    executionTime: z.number(),
-    tools: z.array(z.string()),
-    errors: z.array(z.string()).optional(),
-  }),
-  error: z.string().optional(),
-});
+import { DiscoveryPostbackSchema } from '@repo/contracts/postbacks';
 
 /**
  * Discovery Postback Handler

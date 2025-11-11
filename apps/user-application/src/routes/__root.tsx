@@ -8,7 +8,6 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import * as React from "react";
-import type { QueryClient } from "@tanstack/react-query";
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
 import { NotFound } from "@/components/not-found";
 import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
@@ -17,6 +16,7 @@ import appCss from "@/styles.css?url";
 import landingCss from "@/landing.css?url";
 import { seo } from "@/utils/seo";
 import { Toaster } from "sonner";
+import type { RouterContext } from "@/router";
 
 const themeConfig = {
   attribute: "class" as const,
@@ -26,9 +26,7 @@ const themeConfig = {
   disableTransitionOnChange: false,
 };
 
-export const Route = createRootRouteWithContext<{
-  queryClient: QueryClient;
-}>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       {

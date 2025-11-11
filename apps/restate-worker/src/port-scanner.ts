@@ -3,6 +3,7 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
+import { buildPortScanPostbackPayload } from '@repo/contracts/postbacks';
 import { parseNmapXml } from './xml-parser';
 import { runMasscan } from './scanners/masscan';
 import { runRustscan } from './scanners/rustscan';
@@ -312,13 +313,12 @@ export const portScanner = restate.service({
             deviceId: input.deviceId,
           });
 
-          await postUniversalPostback({
+          const portScanPostback = buildPortScanPostbackPayload({
             type: 'PORT_SCAN',
-            scanId: scanId,
+            scanId,
             organizationId: input.organizationId!,
             timestamp: new Date(endTime).toISOString(),
             status: 'SUCCESS',
-            callbackUrl: input.callbackUrl!,
             deviceId: input.deviceId,
             data: {
               target: input.target,
@@ -334,6 +334,11 @@ export const portScanner = restate.service({
                 resolvedTarget: input.target,
               },
             },
+          });
+
+          await postUniversalPostback({
+            callbackUrl: input.callbackUrl!,
+            ...portScanPostback,
           });
 
           logger.info('Postback successful', { scanId, deviceId: input.deviceId });

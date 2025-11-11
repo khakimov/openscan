@@ -6,6 +6,10 @@
  */
 
 import { createLogger } from '@repo/logger';
+import {
+  UniversalPostback,
+  UniversalPostbackSchema,
+} from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'restate-postback' });
 
@@ -13,16 +17,8 @@ const logger = createLogger({ name: 'restate-postback' });
  * Universal Postback Payload (Type-Safe)
  * Format with type discrimination for routing to appropriate handlers
  */
-export interface UniversalPostbackPayload {
-  type: 'PORT_SCAN' | 'DISCOVERY' | 'HTTPX' | 'SCHEDULED_SCAN_EXECUTED' | 'SCHEDULE_AUTO_PAUSED';
-  scanId: string;
-  organizationId: string;
-  timestamp: string;
-  status: 'SUCCESS' | 'FAILURE' | 'FAILED';
+export interface UniversalPostbackPayload extends UniversalPostback {
   callbackUrl: string;
-  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY, probes for HTTPX, schedule updates for SCHEDULED_SCAN)
-  deviceId?: string; // For PORT_SCAN, HTTPX, and SCHEDULED_SCAN
-  error?: string; // Only for FAILURE/FAILED status
 }
 
 /**
@@ -32,7 +28,10 @@ export interface UniversalPostbackPayload {
  * Throws on failure (caller should handle retries)
  */
 export async function postUniversalPostback(payload: UniversalPostbackPayload): Promise<void> {
-  const { callbackUrl, ...data } = payload;
+  const { callbackUrl, ...body } = payload;
+
+  // Runtime validation to avoid drifting contracts
+  const data = UniversalPostbackSchema.parse(body);
 
   logger.info('Posting results to server (universal format)', {
     callbackUrl,

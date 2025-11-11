@@ -27,6 +27,10 @@ import type { ObjectContext, ObjectSharedContext } from '@restatedev/restate-sdk
 import { createLogger } from '@repo/logger';
 import { portScanner } from './port-scanner';
 import { postUniversalPostback } from './postback';
+import {
+  buildScheduledScanExecutedPostbackPayload,
+  buildScheduleAutoPausedPostbackPayload,
+} from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'device-scanner' });
 
@@ -371,13 +375,12 @@ export const deviceScanner = restate.object({
 
         // Postback success to TanStack app (updates DB)
         await ctx.run('postback-success', async () => {
-          await postUniversalPostback({
+          const successPayload = buildScheduledScanExecutedPostbackPayload({
             type: 'SCHEDULED_SCAN_EXECUTED',
             scanId: scanId!,
             organizationId: input.organizationId,
             timestamp: new Date(baseTime).toISOString(),
             status: 'SUCCESS',
-            callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
             deviceId: input.deviceId,
             data: {
               scheduleId: input.scheduleId,
@@ -386,6 +389,11 @@ export const deviceScanner = restate.object({
               lastRunAt: new Date(baseTime).toISOString(),
               nextRunAt: nextRunTime.toISOString(),
             },
+          });
+
+          await postUniversalPostback({
+            callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
+            ...successPayload,
           });
         });
 
@@ -731,19 +739,23 @@ async function handleFailure(
 
     // Postback auto-pause to TanStack app
     await ctx.run('postback-auto-pause', async () => {
-      await postUniversalPostback({
+      const autoPausedPayload = buildScheduleAutoPausedPostbackPayload({
         type: 'SCHEDULE_AUTO_PAUSED',
         scanId: `${scheduleId}-autopause`,
         organizationId: config.organizationId,
         timestamp: new Date(baseTime).toISOString(),
         status: 'FAILED',
-        callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
         deviceId: config.deviceId,
         data: {
           scheduleId: config.scheduleId,
           reason: `Auto-paused after ${newFailureCount} consecutive failures: ${error.message}`,
           consecutiveFailures: newFailureCount,
         },
+      });
+
+      await postUniversalPostback({
+        callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
+        ...autoPausedPayload,
       });
     });
 
@@ -761,13 +773,12 @@ async function handleFailure(
       ? new Date(baseTime + backoffMs)
       : calculateNextExecutionTime(config.interval, baseTime);
 
-    await postUniversalPostback({
+    const failurePayload = buildScheduledScanExecutedPostbackPayload({
       type: 'SCHEDULED_SCAN_EXECUTED',
       scanId: `${scheduleId}-${baseTime}`,
       organizationId: config.organizationId,
       timestamp: new Date(baseTime).toISOString(),
       status: 'FAILED',
-      callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
       deviceId: config.deviceId,
       data: {
         scheduleId: config.scheduleId,
@@ -780,6 +791,11 @@ async function handleFailure(
         backoffApplied: backoffMs > 0,
         backoffMs,
       },
+    });
+
+    await postUniversalPostback({
+      callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
+      ...failurePayload,
     });
   });
 

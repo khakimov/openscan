@@ -28,15 +28,20 @@ Restate Worker → Universal Router → Handler Registry → Database + Analytic
 
 ## Quick Start: Add a New Postback Type
 
-### 1. Define Type (`types.ts`)
+### 1. Define Contract (`packages/contracts/postbacks.ts`)
+
+Add your schema + builder to the shared contracts package:
 
 ```typescript
-interface WebScanPostback extends BasePostback {
-  type: 'WEB_SCAN';
-  data: { url: string; vulnerabilities: any[] };
-}
+export const WebScanPostbackSchema = BasePostbackSchema.extend({
+  type: z.literal('WEB_SCAN'),
+  data: z.object({
+    url: z.string().url(),
+    vulnerabilities: z.array(z.unknown()),
+  }),
+});
 
-type PostbackPayload = PortScanPostback | DiscoveryPostback | WebScanPostback;
+export type WebScanPostback = z.infer<typeof WebScanPostbackSchema>;
 ```
 
 ### 2. Create Handler (`handlers/web-scan.ts`)
@@ -62,7 +67,7 @@ Done! The router automatically validates and routes requests to your handler.
 ```
 postback/
 ├── index.ts              # Universal router (handles all types)
-├── types.ts              # Type definitions (discriminated unions)
+├── types.ts              # Re-exports shared contract types
 ├── auth.ts               # WORKER_API_KEY validation
 ├── analytics.ts          # Analytics Engine helpers
 ├── handlers/

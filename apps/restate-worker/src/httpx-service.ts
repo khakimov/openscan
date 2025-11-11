@@ -22,6 +22,7 @@ import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import { buildHttpxPostbackPayload } from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'restate-httpx' });
 
@@ -301,9 +302,9 @@ export const httpxService = restate.service({
             deviceId: input.deviceId,
           });
 
-          const postbackPayload: any = {
+          const httpxPostback = buildHttpxPostbackPayload({
             type: 'HTTPX',
-            scanId: scanId, // Aligned with BasePostback interface
+            scanId,
             deviceId: input.deviceId,
             organizationId: input.organizationId,
             timestamp: new Date(endTime).toISOString(),
@@ -312,20 +313,11 @@ export const httpxService = restate.service({
               target: input.target,
               probes: processedProbes,
             },
-          };
+          });
 
-          await fetch(input.callbackUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.WORKER_API_KEY}`,
-            },
-            body: JSON.stringify(postbackPayload),
-          }).then(async (response) => {
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`Postback failed: ${response.status} ${errorText}`);
-            }
+          await postUniversalPostback({
+            callbackUrl: input.callbackUrl!,
+            ...httpxPostback,
           });
 
           logger.info('Postback successful', {

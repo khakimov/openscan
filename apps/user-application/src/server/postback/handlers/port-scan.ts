@@ -5,7 +5,6 @@
  * Stores scan results in the database and updates workflow status.
  */
 
-import { z } from 'zod';
 import {
   updateDevice,
   getScanRunByRestateWorkflowId,
@@ -26,6 +25,7 @@ import {
   type NectoAPIClient,
 } from '@/server/discovery/services/necto-api-client';
 import { getRestateHttpClient } from '@/server/utils/restate-http-client';
+import { PortScanPostbackSchema } from '@repo/contracts/postbacks';
 
 /**
  * Necto API client singleton
@@ -72,62 +72,6 @@ function extractPortsForHttpx(ports: Array<{ port: number; state: string; servic
     .map((p) => p.port)
     .sort((a, b) => a - b);
 }
-
-/**
- * Zod schema for port scan postback validation
- */
-const PortScanPostbackSchema = z.object({
-  type: z.literal('PORT_SCAN'),
-  scanId: z.string().min(1, 'scanId is required'),
-  organizationId: z.string().min(1, 'organizationId is required'),
-  timestamp: z.string(),
-  status: z.enum(['SUCCESS', 'FAILURE']),
-  deviceId: z.string().min(1, 'deviceId is required'),
-  data: z.object({
-    target: z.string(),
-    ports: z.array(
-      z.object({
-        port: z.number(),
-        protocol: z.enum(['tcp', 'udp']),
-        state: z.enum(['open', 'closed', 'filtered']),
-        service: z.object({
-          name: z.string().optional(),
-          product: z.string().optional().nullable(),
-          version: z.string().optional().nullable(),
-          extraInfo: z.string().optional().nullable(),
-          method: z.string().optional(),
-          confidence: z.number().optional(),
-        }).passthrough().optional(), // Keep all service fields from Restate worker
-        version: z.string().optional(),
-      }).passthrough() // Allow extra fields like discoveredBy, firstSeen, lastSeen
-    ),
-    osInfo: z
-      .object({
-        name: z.string().optional(),
-        version: z.string().optional(),
-        accuracy: z.number().optional(),
-        cpe: z.array(z.string()).optional(),
-      })
-      .optional(),
-    timing: z
-      .object({
-        start: z.number().optional(),
-        end: z.number().optional(),
-        elapsed: z.number().optional(),
-      })
-      .optional(),
-    scanMetadata: z
-      .object({
-        scanner: z.string().optional(),
-        version: z.string().optional(),
-        arguments: z.string().optional(),
-        duration: z.number().optional(),
-        resolvedTarget: z.string().optional(),
-      })
-      .optional(),
-  }),
-  error: z.string().optional(),
-});
 
 /**
  * Port Scan Postback Handler

@@ -9,60 +9,23 @@
  * - SCHEDULE_AUTO_PAUSED: Schedule auto-paused due to consecutive failures
  */
 
-import { z } from 'zod';
 import type { PostbackHandler, HandlerResult, HandlerContext } from './base';
 import type { ScheduledScanExecutedPostback, ScheduleAutoPausedPostback } from '../types';
 import {
   updateScheduleRuntime,
   autoPauseScanSchedule,
 } from '@repo/data-ops';
-
-/**
- * Zod schema for SCHEDULED_SCAN_EXECUTED postback validation
- */
-const ScheduledScanExecutedSchema = z.object({
-  type: z.literal('SCHEDULED_SCAN_EXECUTED'),
-  scanId: z.string(),
-  organizationId: z.string(),
-  timestamp: z.string(),
-  status: z.enum(['SUCCESS', 'FAILURE']),
-  deviceId: z.string(),
-  data: z.object({
-    scheduleId: z.string(),
-    status: z.enum(['SUCCESS', 'FAILED']),
-    error: z.string().optional(),
-    errorType: z.enum(['TRANSIENT', 'PERMANENT', 'CONCURRENCY_LIMIT']).optional(),
-    consecutiveFailures: z.number(),
-    lastRunAt: z.string(),
-    nextRunAt: z.string(),
-    backoffApplied: z.boolean().optional(),
-    backoffMs: z.number().optional(),
-  }),
-});
-
-/**
- * Zod schema for SCHEDULE_AUTO_PAUSED postback validation
- */
-const ScheduleAutoPausedSchema = z.object({
-  type: z.literal('SCHEDULE_AUTO_PAUSED'),
-  scanId: z.string(),
-  organizationId: z.string(),
-  timestamp: z.string(),
-  status: z.enum(['SUCCESS', 'FAILURE']),
-  deviceId: z.string(),
-  data: z.object({
-    scheduleId: z.string(),
-    reason: z.string(),
-    consecutiveFailures: z.number(),
-  }),
-});
+import {
+  ScheduledScanExecutedPostbackSchema,
+  ScheduleAutoPausedPostbackSchema,
+} from '@repo/contracts/postbacks';
 
 /**
  * Handler for SCHEDULED_SCAN_EXECUTED postbacks
  */
 class ScheduledScanExecutedHandler implements PostbackHandler<ScheduledScanExecutedPostback> {
   readonly type = 'SCHEDULED_SCAN_EXECUTED';
-  readonly schema = ScheduledScanExecutedSchema;
+  readonly schema = ScheduledScanExecutedPostbackSchema;
 
   async handle(
     payload: ScheduledScanExecutedPostback,
@@ -143,7 +106,7 @@ class ScheduledScanExecutedHandler implements PostbackHandler<ScheduledScanExecu
  */
 class ScheduleAutoPausedHandler implements PostbackHandler<ScheduleAutoPausedPostback> {
   readonly type = 'SCHEDULE_AUTO_PAUSED';
-  readonly schema = ScheduleAutoPausedSchema;
+  readonly schema = ScheduleAutoPausedPostbackSchema;
 
   async handle(
     payload: ScheduleAutoPausedPostback,
