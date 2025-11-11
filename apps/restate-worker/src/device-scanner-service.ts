@@ -142,6 +142,9 @@ export const deviceScanner = restate.object({
       const { config, startImmediately } = input;
       const scheduleId = ctx.key; // Virtual Object key
 
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      const baseTime = await ctx.date.now();
+
       logger.info('Scheduling device scan', {
         scheduleId,
         deviceId: config.deviceId,
@@ -152,8 +155,8 @@ export const deviceScanner = restate.object({
 
       // Step 1: Calculate next execution time
       const nextRunAt = startImmediately
-        ? new Date()
-        : calculateNextExecutionTime(config.interval);
+        ? new Date(baseTime)
+        : calculateNextExecutionTime(config.interval, baseTime);
 
       // Step 2: Store config in Restate state (runtime only)
       ctx.set(STATE_KEYS.SCHEDULE_CONFIG, config);
@@ -161,7 +164,7 @@ export const deviceScanner = restate.object({
       ctx.set(STATE_KEYS.IS_PAUSED, false);
 
       // Step 3: Schedule first execution using reschedule-first pattern
-      const delay = Math.max(0, nextRunAt.getTime() - Date.now());
+      const delay = Math.max(0, nextRunAt.getTime() - baseTime);
 
       const handle = ctx
         .objectSendClient(deviceScanner, scheduleId, { delay })
@@ -207,6 +210,9 @@ export const deviceScanner = restate.object({
     ): Promise<{ success: boolean; status: string; scanId?: string }> => {
       const scheduleId = ctx.key;
 
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      const baseTime = await ctx.date.now();
+
       logger.info('Executing scheduled scan', {
         scheduleId,
         deviceId: input.deviceId,
@@ -228,8 +234,8 @@ export const deviceScanner = restate.object({
       }
 
       // RESCHEDULE-FIRST PATTERN: Schedule next execution BEFORE running current scan
-      const nextRunTime = calculateNextExecutionTime(config.interval);
-      const delay = Math.max(0, nextRunTime.getTime() - Date.now());
+      const nextRunTime = calculateNextExecutionTime(config.interval, baseTime);
+      const delay = Math.max(0, nextRunTime.getTime() - baseTime);
 
       const nextHandle = ctx
         .objectSendClient(deviceScanner, scheduleId, { delay })
@@ -329,7 +335,7 @@ export const deviceScanner = restate.object({
           error: classified.message,
         });
 
-        await handleFailure(ctx, scheduleId, config, classified);
+        await handleFailure(ctx, scheduleId, config, classified, baseTime);
       } finally {
         // Step 3: Always release slot via HTTP (TanStack app manages DB)
         if (leaseId) {
@@ -361,7 +367,7 @@ export const deviceScanner = restate.object({
       if (scanSuccess) {
         ctx.set(STATE_KEYS.CONSECUTIVE_FAILURES, 0);
         ctx.set(STATE_KEYS.LAST_RUN_STATUS, 'SUCCESS');
-        ctx.set(STATE_KEYS.LAST_RUN_AT, new Date().toISOString());
+        ctx.set(STATE_KEYS.LAST_RUN_AT, new Date(baseTime).toISOString());
 
         // Postback success to TanStack app (updates DB)
         await ctx.run('postback-success', async () => {
@@ -369,7 +375,7 @@ export const deviceScanner = restate.object({
             type: 'SCHEDULED_SCAN_EXECUTED',
             scanId: scanId!,
             organizationId: input.organizationId,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(baseTime).toISOString(),
             status: 'SUCCESS',
             callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
             deviceId: input.deviceId,
@@ -377,7 +383,7 @@ export const deviceScanner = restate.object({
               scheduleId: input.scheduleId,
               status: 'SUCCESS',
               consecutiveFailures: 0,
-              lastRunAt: new Date().toISOString(),
+              lastRunAt: new Date(baseTime).toISOString(),
               nextRunAt: nextRunTime.toISOString(),
             },
           });
@@ -440,6 +446,9 @@ export const deviceScanner = restate.object({
     ): Promise<{ success: true; nextRunAt: string }> => {
       const scheduleId = ctx.key;
 
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      const baseTime = await ctx.date.now();
+
       logger.info('Resuming schedule', { scheduleId });
 
       // Get config
@@ -449,14 +458,14 @@ export const deviceScanner = restate.object({
       }
 
       // Calculate next run time
-      const nextRunTime = calculateNextExecutionTime(config.interval);
+      const nextRunTime = calculateNextExecutionTime(config.interval, baseTime);
 
       // Update state
       ctx.set(STATE_KEYS.IS_PAUSED, false);
       ctx.set(STATE_KEYS.CONSECUTIVE_FAILURES, 0); // Reset failures on resume
 
       // Schedule next execution
-      const delay = Math.max(0, nextRunTime.getTime() - Date.now());
+      const delay = Math.max(0, nextRunTime.getTime() - baseTime);
       const handle = ctx
         .objectSendClient(deviceScanner, scheduleId, { delay })
         .executeScan({
@@ -541,9 +550,12 @@ export const deviceScanner = restate.object({
 
 /**
  * Calculate next execution time based on interval config
+ *
+ * @param interval - Schedule interval configuration
+ * @param baseTime - Deterministic base time (milliseconds since epoch)
  */
-function calculateNextExecutionTime(interval: ScheduleInterval): Date {
-  const now = new Date();
+function calculateNextExecutionTime(interval: ScheduleInterval, baseTime: number): Date {
+  const now = new Date(baseTime);
 
   if (interval.kind === 'duration') {
     const ms = convertToMilliseconds(interval.value, interval.unit);
@@ -671,19 +683,26 @@ function classifyError(error: any): ClassifiedError {
  * Handle scan failure with exponential backoff or auto-pause
  *
  * Postbacks failure info to TanStack app for database updates
+ *
+ * @param ctx - Restate context
+ * @param scheduleId - Schedule ID
+ * @param config - Schedule configuration
+ * @param error - Classified error
+ * @param baseTime - Deterministic base time (milliseconds since epoch)
  */
 async function handleFailure(
   ctx: ObjectContext,
   scheduleId: string,
   config: ScheduleConfig,
-  error: ClassifiedError
+  error: ClassifiedError,
+  baseTime: number
 ): Promise<void> {
   const currentFailures = (await ctx.get<number>(STATE_KEYS.CONSECUTIVE_FAILURES)) || 0;
   const newFailureCount = currentFailures + 1;
 
   ctx.set(STATE_KEYS.CONSECUTIVE_FAILURES, newFailureCount);
   ctx.set(STATE_KEYS.LAST_RUN_STATUS, 'FAILED');
-  ctx.set(STATE_KEYS.LAST_RUN_AT, new Date().toISOString());
+  ctx.set(STATE_KEYS.LAST_RUN_AT, new Date(baseTime).toISOString());
 
   logger.warn('Scan failed', {
     scheduleId,
@@ -716,7 +735,7 @@ async function handleFailure(
         type: 'SCHEDULE_AUTO_PAUSED',
         scanId: `${scheduleId}-autopause`,
         organizationId: config.organizationId,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(baseTime).toISOString(),
         status: 'FAILED',
         callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
         deviceId: config.deviceId,
@@ -739,14 +758,14 @@ async function handleFailure(
   // Postback failure to TanStack app (updates DB)
   await ctx.run('postback-failure', async () => {
     const nextRunTime = error.type === 'TRANSIENT'
-      ? new Date(Date.now() + backoffMs)
-      : calculateNextExecutionTime(config.interval);
+      ? new Date(baseTime + backoffMs)
+      : calculateNextExecutionTime(config.interval, baseTime);
 
     await postUniversalPostback({
       type: 'SCHEDULED_SCAN_EXECUTED',
-      scanId: `${scheduleId}-${Date.now()}`,
+      scanId: `${scheduleId}-${baseTime}`,
       organizationId: config.organizationId,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(baseTime).toISOString(),
       status: 'FAILED',
       callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
       deviceId: config.deviceId,
@@ -756,7 +775,7 @@ async function handleFailure(
         error: error.message,
         errorType: error.type,
         consecutiveFailures: newFailureCount,
-        lastRunAt: new Date().toISOString(),
+        lastRunAt: new Date(baseTime).toISOString(),
         nextRunAt: nextRunTime.toISOString(),
         backoffApplied: backoffMs > 0,
         backoffMs,

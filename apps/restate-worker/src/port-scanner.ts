@@ -65,14 +65,17 @@ export const portScanner = restate.service({
       // Use scanId from input if provided (set via idempotency-key),
       // otherwise generate a new UUID (services don't have ctx.key like workflows do)
       const scanId = input.scanId || ctx.rand.uuidv4();
-      const startTime = Date.now();
+
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      const startTime = await ctx.date.now();
+      const startedAt = new Date(startTime).toISOString();
 
       // Initialize state
       const state: PortScanState = {
         scanId,
         target: input.target,
         status: 'VALIDATING',
-        startedAt: new Date().toISOString(),
+        startedAt,
       };
       stateStore.set(scanId, state);
 
@@ -91,7 +94,7 @@ export const portScanner = restate.service({
       const currentState = stateStore.get(scanId);
       if (currentState?.cancelRequested) {
         state.status = 'CANCELLED';
-        state.completedAt = new Date().toISOString();
+        state.completedAt = new Date(await ctx.date.now()).toISOString();
         stateStore.set(scanId, state);
         throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
       }
@@ -158,7 +161,7 @@ export const portScanner = restate.service({
         const currentState = stateStore.get(scanId);
         if (currentState?.cancelRequested) {
           state.status = 'CANCELLED';
-          state.completedAt = new Date().toISOString();
+          state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
           throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
         }
@@ -186,7 +189,7 @@ export const portScanner = restate.service({
         } catch (error: any) {
           state.status = 'FAILED';
           state.error = error.message;
-          state.completedAt = new Date().toISOString();
+          state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
 
           logger.error('nmap execution failed', { scanId, error });
@@ -214,7 +217,7 @@ export const portScanner = restate.service({
         } catch (error: any) {
           state.status = 'FAILED';
           state.error = `XML parsing failed: ${error.message}`;
-          state.completedAt = new Date().toISOString();
+          state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
 
           logger.error('XML parsing failed', { scanId, error });
@@ -233,7 +236,7 @@ export const portScanner = restate.service({
       // This adds attribution (discoveredBy: ['masscan', 'rustscan', 'nmap'])
       // and includes ports found by prescans but missed by nmap
       if (prescanPorts.length > 0) {
-        const timestamp = Math.floor(Date.now() / 1000);
+        const timestamp = Math.floor(startTime / 1000);
 
         // Convert nmap ports to DiscoveredPort format
         const nmapDiscoveredPorts = portsWithServices.map((port: any) => ({
@@ -275,12 +278,13 @@ export const portScanner = restate.service({
         }));
       }
 
-      const scanDuration = Date.now() - startTime;
+      const endTime = await ctx.date.now();
+      const scanDuration = endTime - startTime;
 
       // Update state with completion
       state.status = 'COMPLETED';
       state.portsFound = portsWithServices.length;
-      state.completedAt = new Date().toISOString();
+      state.completedAt = new Date(endTime).toISOString();
       stateStore.set(scanId, state);
 
       logger.info('Port scan completed', {
@@ -296,7 +300,7 @@ export const portScanner = restate.service({
         ports: portsWithServices,
         totalPorts: portsWithServices.length,
         scanDuration,
-        completedAt: new Date().toISOString(),
+        completedAt: new Date(endTime).toISOString(),
       };
 
       // Step 5: Postback results if callbackUrl provided (durable)
@@ -312,7 +316,7 @@ export const portScanner = restate.service({
             type: 'PORT_SCAN',
             scanId: scanId,
             organizationId: input.organizationId!,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(endTime).toISOString(),
             status: 'SUCCESS',
             callbackUrl: input.callbackUrl!,
             deviceId: input.deviceId,
@@ -321,7 +325,7 @@ export const portScanner = restate.service({
               ports: portsWithServices,
               timing: {
                 start: startTime,
-                end: Date.now(),
+                end: endTime,
                 elapsed: scanDuration,
               },
               scanMetadata: {

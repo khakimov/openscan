@@ -98,14 +98,16 @@ export const httpxService = restate.service({
         }
       ) => {
         const scanId = input.scanRunId;
-        const startTime = Date.now();
+
+        // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+        const startTime = await ctx.date.now();
 
         // Initialize state
         const state: HttpxProbeState = {
           scanId,
           target: input.target,
           status: 'VALIDATING',
-          startedAt: new Date().toISOString(),
+          startedAt: new Date(startTime).toISOString(),
         };
         stateStore.set(scanId, state);
 
@@ -271,15 +273,16 @@ export const httpxService = restate.service({
         const successCount = processedProbes.filter((p) => p.status === 'SUCCESS').length;
         const failedCount = processedProbes.filter((p) => p.status === 'FAILED').length;
 
+        const endTime = await ctx.date.now();
+        const duration = endTime - startTime;
+
         // Update state
         state.status = 'COMPLETED';
         state.portsProbed = input.ports.length;
         state.successCount = successCount;
         state.failedCount = failedCount;
-        state.completedAt = new Date().toISOString();
+        state.completedAt = new Date(endTime).toISOString();
         stateStore.set(scanId, state);
-
-        const duration = Date.now() - startTime;
 
         logger.info('HTTPx probing completed', {
           scanId,
@@ -303,7 +306,7 @@ export const httpxService = restate.service({
             scanId: scanId, // Aligned with BasePostback interface
             deviceId: input.deviceId,
             organizationId: input.organizationId,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(endTime).toISOString(),
             status: 'SUCCESS',
             data: {
               target: input.target,
@@ -339,7 +342,7 @@ export const httpxService = restate.service({
           successCount,
           failedCount,
           duration,
-          completedAt: new Date().toISOString(),
+          completedAt: new Date(endTime).toISOString(),
         };
       }
     ),
