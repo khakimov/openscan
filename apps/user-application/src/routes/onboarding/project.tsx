@@ -1,10 +1,12 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, getRouteApi } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingCreateProject } from "@/features/onboarding";
+
+const parentRoute = getRouteApi("/onboarding");
 
 export const Route = createFileRoute("/onboarding/project")({
   // Guard: Require authentication before accessing step 2
-  beforeLoad: async ({ context }) => {
-    const onboarding = context.onboarding;
+  beforeLoad: async () => {
+    const { onboarding } = await parentRoute.loader();
 
     // Redirect to step 1 if not authenticated
     if (!onboarding.user) {
@@ -13,9 +15,9 @@ export const Route = createFileRoute("/onboarding/project")({
     }
   },
   // Lightweight loader - just transform parent data
-  loader: async ({ context }) => {
+  loader: async () => {
     console.log("[OnboardingProject] Loader executing");
-    const onboarding = context.onboarding;
+    const { onboarding } = await parentRoute.loader();
 
     const organizations = onboarding.organizations ?? [];
     const organizationRecord = onboarding.organization;
@@ -44,10 +46,7 @@ export const Route = createFileRoute("/onboarding/project")({
 
 function OnboardingProjectPage() {
   const { hasOrganization, initialForm } = Route.useLoaderData();
-  const onboarding = Route.useRouteContext({
-    from: "/onboarding",
-    select: (data) => data.onboarding,
-  });
+  const { onboarding } = parentRoute.useLoaderData();
 
   console.log("[OnboardingProjectPage] Rendering with:", {
     hasOrganization,

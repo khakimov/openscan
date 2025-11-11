@@ -1,5 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, getRouteApi } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingWelcome } from "@/features/onboarding";
+
+const parentRoute = getRouteApi("/onboarding");
 
 export const Route = createFileRoute("/onboarding/")({
   // No loader needed - inherit parent's onboarding data
@@ -8,19 +10,16 @@ export const Route = createFileRoute("/onboarding/")({
 
 function OnboardingIndex() {
   // Access parent route's loader data
-  const parentData = Route.useRouteContext({
-    from: "/onboarding",
-    select: (data) => data.onboarding,
-  });
+  const { onboarding } = parentRoute.useLoaderData();
 
   return (
     <OnboardingLayout
       currentStep={1}
-      maxStep={parentData.step}
-      projectId={parentData.projectId}
-      isAuthenticated={!!parentData.user}
+      maxStep={onboarding.step}
+      projectId={onboarding.projectId}
+      isAuthenticated={!!onboarding.user}
     >
-      <OnboardingWelcome onboarding={parentData} />
+      <OnboardingWelcome onboarding={onboarding} />
     </OnboardingLayout>
   );
 }

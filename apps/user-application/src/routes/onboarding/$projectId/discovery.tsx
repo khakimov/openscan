@@ -1,8 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, getRouteApi } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingDiscovery } from "@/features/onboarding";
 import { getDiscoveryDevices } from "@/server/devices";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
+
+const parentRoute = getRouteApi("/onboarding");
 
 // Search params schema with proper validation
 const discoverySearchSchema = z.object({
@@ -12,8 +14,8 @@ const discoverySearchSchema = z.object({
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
   validateSearch: zodValidator(discoverySearchSchema),
   // Guard: Require authentication before accessing step 3
-  beforeLoad: async ({ context }) => {
-    const onboarding = context.onboarding;
+  beforeLoad: async () => {
+    const { onboarding } = await parentRoute.loader();
 
     // Redirect to step 1 if not authenticated
     if (!onboarding.user) {
@@ -22,9 +24,9 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
     }
   },
   // Lightweight loader - only fetch devices, not onboarding status
-  loader: async ({ context }) => {
+  loader: async () => {
     console.log("[OnboardingDiscovery] Loader executing");
-    const onboarding = context.onboarding;
+    const { onboarding } = await parentRoute.loader();
 
     // Extract saved domain from project
     const savedDomain = onboarding.project?.domain;
@@ -51,10 +53,7 @@ function OnboardingDiscoveryPage() {
   const { projectId } = Route.useParams();
   const { domain: searchDomain } = Route.useSearch();
   const { savedDomain, savedDevices } = Route.useLoaderData();
-  const onboarding = Route.useRouteContext({
-    from: "/onboarding",
-    select: (data) => data.onboarding,
-  });
+  const { onboarding } = parentRoute.useLoaderData();
 
   // Use search param domain if provided, otherwise use saved domain
   // Both can be undefined, which is fine - component will show empty input

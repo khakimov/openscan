@@ -1,12 +1,14 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, getRouteApi } from "@tanstack/react-router";
 import { OnboardingLayout, OnboardingNotifications } from "@/features/onboarding";
 import { updateOnboardingStep } from "@/server/organization";
 import { getNotificationPreferences } from "@/server/preferences";
 
+const parentRoute = getRouteApi("/onboarding");
+
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
   // Guard: Require authentication before accessing step 4
-  beforeLoad: async ({ context }) => {
-    const onboarding = context.onboarding;
+  beforeLoad: async () => {
+    const { onboarding } = await parentRoute.loader();
 
     // Redirect to step 1 if not authenticated
     if (!onboarding.user) {
@@ -15,9 +17,9 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
     }
   },
   // Lightweight loader - only fetch preferences, not onboarding status
-  loader: async ({ context }) => {
+  loader: async () => {
     console.log("[OnboardingNotifications] Loader executing");
-    const onboarding = context.onboarding;
+    const { onboarding } = await parentRoute.loader();
 
     // Update max step reached to 4 (notifications)
     if (onboarding.organizationId) {
@@ -43,10 +45,7 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
 function OnboardingNotificationsPage() {
   const { projectId } = Route.useParams();
   const { preferences } = Route.useLoaderData();
-  const onboarding = Route.useRouteContext({
-    from: "/onboarding",
-    select: (data) => data.onboarding,
-  });
+  const { onboarding } = parentRoute.useLoaderData();
 
   console.log("[OnboardingNotificationsPage] Rendering with:", {
     projectId,
