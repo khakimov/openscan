@@ -61,7 +61,7 @@ export const useCreateProjectMutation = () =>
     successMessage: (response) =>
       `Project "${response.project.name}" created`,
     // Use exported query keys for proper invalidation
-    invalidateKeys: [['projects'], onboardingStatusQuery.queryKey],
+    invalidateKeys: [['organization-projects'], onboardingStatusQuery.queryKey],
   });
 ```
 
