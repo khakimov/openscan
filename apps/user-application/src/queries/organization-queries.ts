@@ -1,10 +1,10 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   completeOnboarding,
   createOrganizationOnboarding,
   createProjectOnboarding,
   updateOrganizationOnboarding,
 } from '@/server/organization';
+import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 /**
  * Organization mutation hooks (following TanStack Router best practice)
@@ -20,35 +20,28 @@ import {
  * completeOnboardingMutation.mutate({ organizationId: '123' });
  */
 
-export const useCompleteOnboardingMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useCompleteOnboardingMutation = () =>
+  useMutationWithToast({
     mutationKey: ['organization', 'complete-onboarding'],
     mutationFn: (data: { organizationId: string }) => completeOnboarding({ data }),
-    onSuccess: () => {
-      // Invalidate onboarding status to reflect completion
-      queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
-    },
+    successMessage: "Onboarding completed successfully!",
+    invalidateKeys: [['onboarding-status']],
   });
-};
 
-export const useCreateOrganizationMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useCreateOrganizationMutation = () =>
+  useMutationWithToast({
     mutationKey: ['organization', 'create'],
     mutationFn: (data: { name: string; slug?: string; timezone?: string }) =>
       createOrganizationOnboarding({ data }),
-    onSuccess: () => {
-      // Invalidate user organizations list
-      queryClient.invalidateQueries({ queryKey: ['organizations'] });
-      queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
-    },
+    successMessage: (response) =>
+      response.success && response.organization
+        ? `Organization "${response.organization.name}" created`
+        : "Organization created successfully",
+    invalidateKeys: [['organizations'], ['onboarding-status']],
   });
-};
 
-export const useCreateProjectMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useCreateProjectMutation = () =>
+  useMutationWithToast({
     mutationKey: ['project', 'create'],
     mutationFn: (data: {
       projectName: string;
@@ -56,24 +49,18 @@ export const useCreateProjectMutation = () => {
       projectId?: string | null;
       domain?: string;
     }) => createProjectOnboarding({ data }),
-    onSuccess: () => {
-      // Invalidate projects list and onboarding status
-      queryClient.invalidateQueries({ queryKey: ['projects'] });
-      queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
-    },
+    successMessage: (response) =>
+      response.success && response.project
+        ? `Project "${response.project.name}" created`
+        : "Project created successfully",
+    invalidateKeys: [['projects'], ['onboarding-status']],
   });
-};
 
-export const useUpdateOrganizationMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useUpdateOrganizationMutation = () =>
+  useMutationWithToast({
     mutationKey: ['organization', 'update'],
     mutationFn: (data: { organizationId: string; name: string; timezone?: string | null }) =>
       updateOrganizationOnboarding({ data }),
-    onSuccess: () => {
-      // Invalidate organization data
-      queryClient.invalidateQueries({ queryKey: ['organizations'] });
-      queryClient.invalidateQueries({ queryKey: ['onboarding-status'] });
-    },
+    successMessage: "Organization updated successfully",
+    invalidateKeys: [['organizations'], ['onboarding-status']],
   });
-};

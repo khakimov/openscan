@@ -7,12 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createProjectData } from "@/server/projects";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useAppParams } from "@/hooks/use-app-params";
+import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
 
 // Form validation schema
 const AddProjectSchema = z.object({
@@ -40,18 +40,21 @@ export default function AddProject() {
     },
   });
 
-  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const params = useAppParams();
 
   // Create project mutation
-  const createProjectMutation = useMutation({
+  const createProjectMutation = useMutationWithToast({
+    mutationKey: ["project", "create"],
     mutationFn: (data: AddProjectFormData) => createProjectData({ data }),
+    successMessage: (response) =>
+      response.success && response.project
+        ? `Project ${response.project.name} created`
+        : "Project created successfully",
+    invalidateKeys: [["organization-projects"]],
+    toastOnSuccess: false, // We'll show custom toast with navigation action
     onSuccess: async (response) => {
       if (response.success && response.project) {
-        // Invalidate projects query to refresh the list
-        await queryClient.invalidateQueries({ queryKey: ['organization-projects'] });
-
         const orgIdentifier = params.organizationId;
 
         // Show success toast with action to navigate
@@ -77,11 +80,6 @@ export default function AddProject() {
           description: response.error || "Please try again",
         });
       }
-    },
-    onError: (error: any) => {
-      toast.error("Failed to create project", {
-        description: error instanceof Error ? error.message : "Please try again",
-      });
     },
   });
 

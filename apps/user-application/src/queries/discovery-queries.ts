@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getScanWorkflowStatusDB,
@@ -6,6 +6,7 @@ import {
   startDiscoveryWorkflow,
 } from '@/server/discovery';
 import { scanQueries } from './scan-queries';
+import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 export const discoveryQueries = {
   // Workflow status (polls database for postback updates)
@@ -50,14 +51,15 @@ export const discoveryQueries = {
  * startDiscoveryMutation.mutate({ target: 'example.com' });
  */
 
-export const useStartDiscoveryMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useStartDiscoveryMutation = () =>
+  useMutationWithToast({
     mutationKey: ['discovery', 'start'],
     mutationFn: (data: { target: string }) => startDiscoveryWorkflow({ data }),
-    onSuccess: () => {
-      // Invalidate scans query in case discovery triggers scans
-      queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey });
+    successMessage: (response) => {
+      if (response.success && response.scanId) {
+        return `Discovery started for ${response.target}`;
+      }
+      return "Discovery started successfully";
     },
+    invalidateKeys: [scanQueries.list().queryKey],
   });
-};
