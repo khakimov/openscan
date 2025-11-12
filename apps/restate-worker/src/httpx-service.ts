@@ -223,7 +223,11 @@ export const httpxService = restate.service({
 
             if (screenshotPath) {
               if (screenshotPath.includes('..')) {
-                logger.warn('Suspicious screenshot path detected', { path: screenshotPath });
+                logger.warn('Suspicious screenshot path detected', {
+                  port,
+                  url: result.url,
+                  path: screenshotPath,
+                });
                 screenshotPath = undefined;
               } else {
                 // Read screenshot file and encode as base64
@@ -234,20 +238,32 @@ export const httpxService = restate.service({
                     // Skip empty screenshots (httpx sometimes creates 0-byte files)
                     if (buffer.length > 0) {
                       screenshotBase64 = buffer.toString('base64');
-                      logger.info('Screenshot encoded', {
+                      logger.info('Screenshot encoded successfully', {
+                        port,
+                        url: result.url,
                         path: screenshotPath,
                         sizeBytes: buffer.length,
                         base64Length: screenshotBase64.length,
                       });
                     } else {
-                      logger.warn('Screenshot file is empty, skipping', { path: screenshotPath });
+                      logger.warn('Screenshot file is empty (0 bytes), skipping', {
+                        port,
+                        url: result.url,
+                        path: screenshotPath,
+                      });
                       screenshotPath = undefined; // Don't store empty file path
                     }
                   } else {
-                    logger.warn('Screenshot file not found', { path: screenshotPath });
+                    logger.warn('Screenshot file not found', {
+                      port,
+                      url: result.url,
+                      path: screenshotPath,
+                    });
                   }
                 } catch (error) {
                   logger.error('Failed to read screenshot file', {
+                    port,
+                    url: result.url,
                     path: screenshotPath,
                     error: error instanceof Error ? error.message : String(error),
                   });
