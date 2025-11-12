@@ -130,6 +130,7 @@ function buildMasscanArgs(target: string, params?: MasscanConfig): string[] {
     '-',
     '--rate',
     rate.toString(),
+    '--open-only',
     '--wait',
     '0',
     `-p${portExpression}`,
@@ -209,7 +210,7 @@ function flattenMasscanJson(records: any): DiscoveredPort[] {
       ports.push({
         port: port.port,
         protocol: (port.proto || 'tcp') as 'tcp' | 'udp',
-        state: (port.status || 'open') as 'open' | 'closed' | 'filtered',
+        state: 'open',
         discoveredBy: ['masscan'],
         firstSeen: timestamp,
         lastSeen: timestamp,

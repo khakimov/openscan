@@ -57,6 +57,17 @@ const redactSensitiveInfo = (obj: any): any => {
   }, {} as any);
 };
 
+// ANSI color codes for terminal output
+const COLORS = {
+  reset: '\x1b[0m',
+  red: '\x1b[31m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  gray: '\x1b[90m',
+  white: '\x1b[37m',
+  bgRed: '\x1b[41m',
+};
+
 const formatMessage = (level: LogLevel, service: string, message: string, meta?: any) => {
   const timestamp = new Date().toISOString();
   const redactedMeta = meta ? redactSensitiveInfo(meta) : {};
@@ -100,8 +111,19 @@ export function createLogger({ name }: { name: string }): ILogger {
         meta ? formattedMessage : ''
       );
     } else {
-      // In production, use JSON logging
-      console.log(JSON.stringify(formattedMessage));
+      // In production, use JSON logging with ANSI colors
+      const colorByLevel = {
+        debug: COLORS.gray,
+        info: COLORS.blue,
+        warn: COLORS.yellow,
+        error: COLORS.red,
+        fatal: `${COLORS.bgRed}${COLORS.white}`,
+      };
+
+      const color = colorByLevel[level];
+      const jsonString = JSON.stringify(formattedMessage);
+
+      console.log(`${color}${jsonString}${COLORS.reset}`);
     }
   };
 

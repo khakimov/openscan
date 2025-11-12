@@ -15,7 +15,7 @@ function ProjectDashboard() {
     <Padding>
       <div className="mb-4 flex items-center gap-3">
         <PageTabs>
-          <PageTabsLink href={"?tab=all"} isActive={true}>
+          <PageTabsLink to="." isActive={true}>
             Dashboard
           </PageTabsLink>
         </PageTabs>

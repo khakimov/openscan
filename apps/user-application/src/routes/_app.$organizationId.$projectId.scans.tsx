@@ -35,7 +35,11 @@ function Scans() {
       {/* Page shell - renders immediately, no data needed */}
       <div className="mb-4 flex items-center gap-3">
         <PageTabs>
-          <PageTabsLink href={"?tab=all"} isActive={tab === "all"}>
+          <PageTabsLink
+            to="."
+            search={{ tab: "all" }}
+            isActive={tab === "all"}
+          >
             Scans
           </PageTabsLink>
         </PageTabs>

@@ -8,7 +8,7 @@ import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { toast } from "sonner";
 import { getCurrentUser } from "@/server/auth";
-import { getOnboardingStatus } from "@/server/organization";
+import { getOnboardingStatus, completeOnboarding } from "@/server/organization";
 import {
   getNotificationPreferences,
   saveNotificationPreferences,
@@ -75,6 +75,9 @@ function Onboarding2Notifications() {
         if (!organizationId) {
           throw new Error("Organization ID is required");
         }
+
+        // Mark onboarding as complete before navigating to dashboard
+        await completeOnboarding({ data: { organizationId } });
 
         navigate({
           to: "/$organizationId/$projectId",
@@ -240,16 +243,27 @@ function Onboarding2Notifications() {
         <Button
           type="button"
           variant="ghost"
-          onClick={() => {
+          onClick={async () => {
             if (!organizationId) {
               toast.error("Organization ID is required");
               return;
             }
 
-            navigate({
-              to: "/$organizationId/$projectId",
-              params: { organizationId, projectId },
-            });
+            setIsSubmitting(true);
+            try {
+              // Mark onboarding as complete even when skipping
+              await completeOnboarding({ data: { organizationId } });
+
+              navigate({
+                to: "/$organizationId/$projectId",
+                params: { organizationId, projectId },
+              });
+            } catch (err) {
+              const errorMessage =
+                err instanceof Error ? err.message : "Failed to complete onboarding";
+              toast.error(errorMessage);
+              setIsSubmitting(false);
+            }
           }}
           disabled={isSubmitting}
         >

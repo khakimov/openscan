@@ -49,10 +49,18 @@ function AssetsVerified() {
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <PageTabs>
-            <PageTabsLink href={`/${organizationId}/${projectId}/assets/discovery`} isActive={false}>
+            <PageTabsLink
+              to="/$organizationId/$projectId/assets/discovery"
+              params={{ organizationId, projectId }}
+              isActive={false}
+            >
               Discovery
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${projectId}/assets/verified`} isActive={true}>
+            <PageTabsLink
+              to="/$organizationId/$projectId/assets/verified"
+              params={{ organizationId, projectId }}
+              isActive={true}
+            >
               Verified
             </PageTabsLink>
           </PageTabs>

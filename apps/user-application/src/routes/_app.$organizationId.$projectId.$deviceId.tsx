@@ -149,13 +149,25 @@ function DevicePage() {
         {/* Navigation Tabs */}
         <div className="flex items-center gap-3 mt-6">
           <PageTabs>
-            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}`} isActive={isOverviewActive}>
+            <PageTabsLink
+              to="/$organizationId/$projectId/$deviceId"
+              params={{ organizationId, projectId, deviceId }}
+              isActive={isOverviewActive}
+            >
               Overview
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/scans`} isActive={isScansActive}>
+            <PageTabsLink
+              to="/$organizationId/$projectId/$deviceId/scans"
+              params={{ organizationId, projectId, deviceId }}
+              isActive={isScansActive}
+            >
               Scans
             </PageTabsLink>
-            <PageTabsLink href={`/${organizationId}/${projectId}/${deviceId}/vulnerabilities`} isActive={isVulnerabilitiesActive}>
+            <PageTabsLink
+              to="/$organizationId/$projectId/$deviceId/vulnerabilities"
+              params={{ organizationId, projectId, deviceId }}
+              isActive={isVulnerabilitiesActive}
+            >
               Vulnerabilities
             </PageTabsLink>
           </PageTabs>

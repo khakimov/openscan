@@ -21,11 +21,23 @@ export function PageTabs({
 }
 
 export function PageTabsLink({
-  href,
+  to = ".",
+  params,
+  search,
+  hash,
+  preload = "intent",
+  replace,
+  resetScroll,
   children,
   isActive = false,
 }: {
-  href: string;
+  to?: string;
+  params?: Record<string, string | number>;
+  search?: Record<string, unknown>;
+  hash?: string;
+  preload?: "intent" | "render" | "viewport" | false;
+  replace?: boolean;
+  resetScroll?: boolean;
   children: React.ReactNode;
   isActive?: boolean;
 }) {
@@ -36,7 +48,13 @@ export function PageTabsLink({
           "inline-block opacity-100 transition-transform hover:translate-y-[-1px]",
           isActive ? "opacity-100" : "opacity-50",
         )}
-        to={href}
+        to={to}
+        params={params}
+        search={search}
+        hash={hash}
+        preload={preload}
+        replace={replace}
+        resetScroll={resetScroll}
       >
         {children}
       </Link>
