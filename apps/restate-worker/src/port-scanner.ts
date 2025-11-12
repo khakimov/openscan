@@ -503,7 +503,8 @@ function buildNmapArgs(input: {
   if (input.protocol === 'udp') {
     args.push('-sU', '-sV'); // UDP scan with version detection
   } else {
-    args.push('-sT', '-sV', '-O'); // TCP connect scan + OS detection
+    // Use SYN scan so OS detection (-O) works under cap_net_raw without sudo
+    args.push('-sS', '-sV', '-O');
   }
 
   if (input.aggressive) {

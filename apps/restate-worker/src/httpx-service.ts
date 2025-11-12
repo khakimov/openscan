@@ -230,12 +230,19 @@ export const httpxService = restate.service({
                 try {
                   if (existsSync(screenshotPath)) {
                     const buffer = await readFile(screenshotPath);
-                    screenshotBase64 = buffer.toString('base64');
-                    logger.info('Screenshot encoded', {
-                      path: screenshotPath,
-                      sizeBytes: buffer.length,
-                      base64Length: screenshotBase64.length,
-                    });
+
+                    // Skip empty screenshots (httpx sometimes creates 0-byte files)
+                    if (buffer.length > 0) {
+                      screenshotBase64 = buffer.toString('base64');
+                      logger.info('Screenshot encoded', {
+                        path: screenshotPath,
+                        sizeBytes: buffer.length,
+                        base64Length: screenshotBase64.length,
+                      });
+                    } else {
+                      logger.warn('Screenshot file is empty, skipping', { path: screenshotPath });
+                      screenshotPath = undefined; // Don't store empty file path
+                    }
                   } else {
                     logger.warn('Screenshot file not found', { path: screenshotPath });
                   }
@@ -268,8 +275,8 @@ export const httpxService = restate.service({
               finalUrl: result.final_url,
               tlsVersion: result.tls?.version,
               webServer: result.webserver,
-              screenshot: screenshotPath, // Original file path for debugging
               screenshotBase64, // Base64 encoded screenshot for R2 upload
+              // Note: Don't send local screenshot path - postback handler will upload to R2 and store R2 key
               technologies: result.tech?.map((name) => ({
                 name,
                 confidence: 'medium' as const, // httpx doesn't provide confidence
