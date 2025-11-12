@@ -107,10 +107,7 @@ export const useCreateScheduleMutation = () => {
   return useMutationWithToast({
     mutationKey: ['schedules', 'create'],
     mutationFn: (data: CreateScheduleInput) => createScheduleData({ data }),
-    successMessage: (result) =>
-      result.success && result.schedule
-        ? `Scan schedule created for ${result.schedule.targetName || 'device'}`
-        : "Scan schedule created successfully",
+    successMessage: "Scan schedule created successfully",
     invalidateKeys: [['schedules']],
     onSuccess: async (_result, variables, _context) => {
       // Also invalidate device-specific schedules for immediate UI update
