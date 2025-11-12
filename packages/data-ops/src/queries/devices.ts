@@ -571,19 +571,27 @@ export async function createMultipleDevicesFromDiscovery(
   }
 
   for (const target of targets) {
-    // Check if device already exists for this organization (by name + IP combination)
-    // First get devices with matching name
+    // Check if device already exists in this specific project (or org-wide if no project)
+    // Build duplicate check conditions
+    const duplicateCheckConditions = [
+      eq(devices.organizationId, organizationId),
+      eq(devices.name, target.host)
+    ];
+
+    // If projectId is provided, scope check to that specific project
+    // This allows same hostname in different projects within same org
+    if (projectId) {
+      duplicateCheckConditions.push(eq(devices.projectId, projectId));
+    }
+
     const devicesWithSameName = await db
       .select()
       .from(devices)
-      .where(and(
-        eq(devices.organizationId, organizationId),
-        eq(devices.name, target.host)
-      ));
+      .where(and(...duplicateCheckConditions));
 
-    // If IP is provided, check if the name+IP combination exists
+    // If IP is provided, check if the name+IP combination exists in this scope
     if (target.ip && devicesWithSameName.length > 0) {
-      // Get IPs for devices with same name
+      // Get IPs for devices with same name in this project/org
       const deviceIds = devicesWithSameName.map((d: any) => d.id);
       const existingIps = await db
         .select()
@@ -594,13 +602,15 @@ export async function createMultipleDevicesFromDiscovery(
         ));
 
       if (existingIps.length > 0) {
-        // Device with same name AND IP exists, skip
-        console.log(`Device ${target.host} with IP ${target.ip} already exists, skipping`);
+        // Device with same name AND IP exists in this scope, skip
+        const scope = projectId ? `project ${projectId}` : 'organization';
+        console.log(`Device ${target.host} with IP ${target.ip} already exists in ${scope}, skipping`);
         continue;
       }
     } else if (!target.ip && devicesWithSameName.length > 0) {
-      // No IP provided, but device with same name exists - skip to avoid name-only duplicates
-      console.log(`Device ${target.host} already exists (no IP check), skipping`);
+      // No IP provided, but device with same name exists in this scope - skip
+      const scope = projectId ? `project ${projectId}` : 'organization';
+      console.log(`Device ${target.host} already exists in ${scope} (no IP check), skipping`);
       continue;
     }
 
