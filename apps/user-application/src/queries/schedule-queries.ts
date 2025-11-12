@@ -11,6 +11,7 @@ import {
   type CreateScheduleInput,
 } from '@/server/schedules';
 import { createOptimisticScheduleDeleteHandlers } from '@/lib/optimistic-updates';
+import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 /**
  * Centralized schedule query definitions using queryOptions()
@@ -103,18 +104,19 @@ export const scheduleQueries = {
 export const useCreateScheduleMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['schedules', 'create'],
     mutationFn: (data: CreateScheduleInput) => createScheduleData({ data }),
-    onSuccess: (result, variables) => {
-      if (result.success) {
-        // Invalidate all schedule queries
-        queryClient.invalidateQueries({ queryKey: ['schedules'] });
-        // Invalidate device-specific schedules
-        queryClient.invalidateQueries({
-          queryKey: ['device-schedules', variables.deviceId],
-        });
-      }
+    successMessage: (result) =>
+      result.success && result.schedule
+        ? `Scan schedule created for ${result.schedule.targetName || 'device'}`
+        : "Scan schedule created successfully",
+    invalidateKeys: [['schedules']],
+    onSuccess: async (_result, variables, _context) => {
+      // Also invalidate device-specific schedules for immediate UI update
+      queryClient.invalidateQueries({
+        queryKey: ['device-schedules', variables.deviceId],
+      });
     },
   });
 };
