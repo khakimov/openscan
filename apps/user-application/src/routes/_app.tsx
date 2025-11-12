@@ -1,4 +1,4 @@
-import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, notFound } from "@tanstack/react-router";
 import { Suspense } from "react";
 import {
   Sidebar,
@@ -14,8 +14,29 @@ import {
 } from "@/server/organization";
 import { getOrganizationProjects } from "@/server/projects";
 
+// File extensions to block from routing (must match $organizationId route)
+const FILE_EXTENSIONS = [
+  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'ico',  // Images
+  'js', 'xml', 'txt', 'json', 'webmanifest',          // Static files
+  'css', 'map', 'woff', 'woff2', 'ttf', 'eot',        // Assets
+];
+
+/**
+ * Check if path looks like a static file request
+ */
+const isStaticFile = (path: string): boolean => {
+  const pathSegments = path.split('/').filter(Boolean);
+  const lastSegment = pathSegments[pathSegments.length - 1] || '';
+  return FILE_EXTENSIONS.some((extension) => lastSegment.endsWith(`.${extension}`));
+};
+
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ location }) => {
+    // Block static file requests early (before auth checks)
+    if (isStaticFile(location.pathname)) {
+      throw notFound();
+    }
+
     const user = await getCurrentUser();
     if (!user) {
       throw redirect({
@@ -40,17 +61,27 @@ export const Route = createFileRoute("/_app")({
         slug: "slug" in org && typeof org.slug === "string" ? org.slug : null,
       }));
 
-    // Fetch active organization from session
-    const activeOrgResult = await getActiveOrganization();
+    // Fetch active organization from session (may return null, that's ok)
+    const activeOrgResult = await getActiveOrganization().catch(() => ({
+      success: false,
+      organization: null,
+    }));
+
     const activeOrganization: SidebarOrganization | null =
       activeOrgResult.success && activeOrgResult.organization
         ? activeOrgResult.organization
-        : null;
+        : organizations[0] || null; // Fallback to first org if activeOrg fails
 
     // Fetch projects for current organization
     let projects: SidebarProject[] = [];
     try {
-      const projectsResult = await getOrganizationProjects();
+      const projectsResult = await Promise.race([
+        getOrganizationProjects(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Projects fetch timeout')), 5000)
+        ),
+      ]) as Awaited<ReturnType<typeof getOrganizationProjects>>;
+
       if (projectsResult.success) {
         projects = projectsResult.projects.map((project: any) => ({
           id: project.id,
@@ -61,7 +92,6 @@ export const Route = createFileRoute("/_app")({
       }
     } catch (error) {
       // Silently fail if no organization yet (e.g., during onboarding)
-      console.error("Failed to fetch projects:", error);
     }
 
     const sidebarUser: SidebarUser | null = user

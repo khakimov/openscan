@@ -6,13 +6,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getCurrentUser } from "@/server/auth";
-import { getOnboardingStatus, completeOnboarding } from "@/server/organization";
+import { completeOnboarding } from "@/server/organization";
 import {
   getNotificationPreferences,
   saveNotificationPreferences,
 } from "@/server/preferences";
+import { onboardingStatusQuery } from "@/queries/onboarding-status";
 
 const SEVERITY_OPTIONS = [
   { value: "CRITICAL", label: "Critical", color: "text-red-500" },
@@ -27,12 +29,13 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
     if (!user) {
       throw redirect({ to: "/onboarding" });
     }
+    // Onboarding data is already loaded by parent route - no need to return anything
   },
-  loader: async () => {
-    const [preferencesResult, onboarding] = await Promise.all([
-      getNotificationPreferences(),
-      getOnboardingStatus(),
-    ]);
+  loader: async ({ context }) => {
+    // Read onboarding from parent context (no server call!)
+    const onboarding = context.onboarding!;
+
+    const preferencesResult = await getNotificationPreferences();
 
     return {
       preferences: preferencesResult.success
@@ -46,10 +49,37 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
 
 function Onboarding2Notifications() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { projectId } = Route.useParams();
   const { preferences, organizationId } = Route.useLoaderData();
+
+  // Subscribe to onboarding query for reactive updates (e.g., after mutations)
+  // Don't destructure data until we need it to avoid unused variable warnings
+  const initialOnboarding = Route.useRouteContext().onboarding;
+  useQuery({
+    ...onboardingStatusQuery,
+    initialData: initialOnboarding,
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Mutation to complete onboarding with cache seeding
+  const completeOnboardingMutation = useMutation({
+    mutationFn: (data: { organizationId: string }) => completeOnboarding({ data }),
+    onSuccess: async () => {
+      // Seed React Query cache with fresh onboarding status
+      // This marks onboardingCompleted=true across all components
+      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
+      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+
+      // Navigate to dashboard
+      navigate({
+        to: "/$organizationId/$projectId",
+        params: { organizationId: organizationId!, projectId },
+      });
+    },
+  });
 
   const form = useForm({
     defaultValues: {
@@ -71,18 +101,13 @@ function Onboarding2Notifications() {
 
         toast.success("Notification preferences saved");
 
-        // Navigate to dashboard
+        // Mark onboarding as complete before navigating to dashboard
         if (!organizationId) {
           throw new Error("Organization ID is required");
         }
 
-        // Mark onboarding as complete before navigating to dashboard
-        await completeOnboarding({ data: { organizationId } });
-
-        navigate({
-          to: "/$organizationId/$projectId",
-          params: { organizationId, projectId },
-        });
+        // Use mutation to complete onboarding and seed cache
+        await completeOnboardingMutation.mutateAsync({ organizationId });
       } catch (err) {
         const errorMessage =
           err instanceof Error ? err.message : "Failed to save preferences";
@@ -251,13 +276,8 @@ function Onboarding2Notifications() {
 
             setIsSubmitting(true);
             try {
-              // Mark onboarding as complete even when skipping
-              await completeOnboarding({ data: { organizationId } });
-
-              navigate({
-                to: "/$organizationId/$projectId",
-                params: { organizationId, projectId },
-              });
+              // Use mutation to complete onboarding and seed cache
+              await completeOnboardingMutation.mutateAsync({ organizationId });
             } catch (err) {
               const errorMessage =
                 err instanceof Error ? err.message : "Failed to complete onboarding";
@@ -265,7 +285,7 @@ function Onboarding2Notifications() {
               setIsSubmitting(false);
             }
           }}
-          disabled={isSubmitting}
+          disabled={isSubmitting || completeOnboardingMutation.isPending}
         >
           Skip for now
         </Button>

@@ -1,7 +1,43 @@
 import { Outlet, createFileRoute, useMatchRoute } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
+import { Spinner } from "@/components/ui/spinner";
+import { onboardingStatusQuery } from "@/queries/onboarding-status";
 
 export const Route = createFileRoute("/onboarding")({
+  beforeLoad: async ({ context }) => {
+    // Prefetch onboarding status into React Query cache (SSR + client navigation)
+    await context.queryClient.prefetchQuery(onboardingStatusQuery);
+
+    // Inject into router context so child routes have synchronous access
+    // Guard: fallback to fetchQuery if prefetch somehow failed
+    const onboarding = context.queryClient.getQueryData(onboardingStatusQuery.queryKey)
+      ?? await context.queryClient.fetchQuery(onboardingStatusQuery);
+
+    return {
+      context: {
+        onboarding,
+      },
+    };
+  },
+  loader: async ({ context }) => {
+    // Make onboarding available via Route.useLoaderData()
+    // Guard: fallback to fetchQuery if cache is empty
+    const onboarding = context.queryClient.getQueryData(onboardingStatusQuery.queryKey)
+      ?? await context.queryClient.fetchQuery(onboardingStatusQuery);
+
+    return {
+      onboarding,
+    };
+  },
+  pendingComponent: () => (
+    <div className="relative min-h-screen pt-32 pb-8">
+      <div className="relative z-10 border bg-background rounded-lg shadow-xl shadow-muted/50 max-w-xl mx-auto">
+        <div className="flex min-h-[280px] items-center justify-center">
+          <Spinner size="md" wait="delay-200" />
+        </div>
+      </div>
+    </div>
+  ),
   component: Onboarding2Layout,
 });
 

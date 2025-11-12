@@ -21,9 +21,25 @@ export const getActiveOrganization = createServerFn({
     const auth = getAuth();
 
     const session = await auth.api.getSession(request);
+
+    logger.debug("Session data", {
+      hasSession: !!session,
+      userId: session?.user?.id,
+      sessionData: session ? JSON.stringify(session, null, 2) : null,
+    });
+
     const activeOrgId = session ? getActiveOrganizationId(session) : null;
 
+    logger.debug("Active organization ID from session", {
+      activeOrgId,
+      sessionKeys: session ? Object.keys(session) : [],
+    });
+
     if (!activeOrgId) {
+      logger.warn("No active organization ID found in session", {
+        userId: session?.user?.id,
+      });
+
       return {
         success: false,
         organization: null,
@@ -84,7 +100,14 @@ export const getOrganizationById = createServerFn({
           userId: user.id,
           organizationIdentifier,
         });
-        throw new Error("Organization not found or access denied");
+
+        // Return specific error codes for better client-side handling
+        return {
+          success: false,
+          organization: null,
+          error: "Organization not found or access denied",
+          statusCode: 403, // Forbidden - user doesn't have access
+        };
       }
 
       logger.info("Organization accessed", {
@@ -95,13 +118,27 @@ export const getOrganizationById = createServerFn({
         userRole: org.userRole,
       });
 
+      // Parse metadata safely - invalid JSON shouldn't block access
+      // Cast to Record<string, {}> to match TanStack type expectations
+      let parsedMetadata: Record<string, {}> | null = null;
+      if (org.metadata) {
+        try {
+          parsedMetadata = JSON.parse(org.metadata) as Record<string, {}>;
+        } catch (err) {
+          logger.warn("Failed to parse organization metadata", {
+            organizationId: org.id,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       return {
         success: true,
         organization: {
           id: org.id,
           name: org.name ?? null,
           slug: org.slug ?? null,
-          metadata: org.metadata ? JSON.parse(org.metadata) : null,
+          metadata: parsedMetadata,
         },
       };
     } catch (error) {
@@ -112,7 +149,13 @@ export const getOrganizationById = createServerFn({
         error: errorMessage,
       });
 
-      throw error; // Re-throw to trigger 404
+      // Return unsuccessful result instead of throwing
+      // Throwing causes 500, returning { success: false } lets route handle 404
+      return {
+        success: false,
+        organization: null,
+        error: errorMessage,
+      };
     }
   });
 

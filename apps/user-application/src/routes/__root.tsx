@@ -17,6 +17,7 @@ import landingCss from "@/landing.css?url";
 import { seo } from "@/utils/seo";
 import { Toaster } from "sonner";
 import type { RouterContext } from "@/router";
+import { Spinner } from "@/components/ui/spinner";
 
 const themeConfig = {
   attribute: "class" as const,
@@ -72,6 +73,13 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       { rel: "manifest", href: "/site.webmanifest", color: "#ffffff" },
     ],
   }),
+  pendingComponent: () => (
+    <ThemeShell>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Spinner size="lg" wait="delay-300" />
+      </div>
+    </ThemeShell>
+  ),
   errorComponent: (props) => {
     return (
       <ThemeShell>

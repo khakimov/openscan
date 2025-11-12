@@ -17,6 +17,7 @@ import {
 } from "@/queries/discovery-queries";
 import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
 import type { DiscoveryStatus } from "@/features/onboarding/types/discovery-status";
+import { onboardingStatusQuery } from "@/queries/onboarding-status";
 
 const discoverySearchSchema = z.object({
   domain: z.string().optional(),
@@ -29,6 +30,7 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
     if (!user) {
       throw redirect({ to: "/onboarding" });
     }
+    // Onboarding data is already loaded by parent route - no need to return anything
   },
   loader: async () => {
     const savedDevicesResult = await getDiscoveryDevices({ data: {} });
@@ -44,6 +46,14 @@ function OnboardingDiscovery() {
   const { projectId } = Route.useParams();
   const { domain: searchDomain } = Route.useSearch();
   const { savedDevices } = Route.useLoaderData();
+
+  // Subscribe to onboarding query for reactive updates (e.g., after mutations)
+  // Don't destructure data until we need it to avoid unused variable warnings
+  const initialOnboarding = Route.useRouteContext().onboarding;
+  useQuery({
+    ...onboardingStatusQuery,
+    initialData: initialOnboarding,
+  });
 
   const [domain, setDomain] = useState(searchDomain || "");
   const [domainError, setDomainError] = useState<string | null>(null);

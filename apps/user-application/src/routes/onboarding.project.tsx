@@ -12,10 +12,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useForm } from "@tanstack/react-form";
+import { useQuery } from "@tanstack/react-query";
 import { getCurrentUser } from "@/server/auth";
-import { getOnboardingStatus } from "@/server/organization";
 import { validateDomain } from "@/features/onboarding/utils/validators";
 import { useOrganizationLifecycle } from "@/features/onboarding/hooks/use-organization-lifecycle";
+import { onboardingStatusQuery } from "@/queries/onboarding-status";
 
 export const Route = createFileRoute("/onboarding/project")({
   beforeLoad: async () => {
@@ -24,9 +25,11 @@ export const Route = createFileRoute("/onboarding/project")({
     if (!user) {
       throw redirect({ to: "/onboarding" });
     }
+    // Onboarding data is already loaded by parent route - no need to return anything
   },
-  loader: async () => {
-    const onboarding = await getOnboardingStatus();
+  loader: async ({ context }) => {
+    // Read onboarding from parent context (no server call!)
+    const onboarding = context.onboarding!;
     const organizations = onboarding.organizations ?? [];
     const organizationRecord = onboarding.organization;
     const projectRecord = onboarding.project;
@@ -55,6 +58,15 @@ export const Route = createFileRoute("/onboarding/project")({
 function Onboarding2Project() {
   const navigate = useNavigate();
   const { hasOrganization, organizationId, projectId, initialValues } = Route.useLoaderData();
+
+  // Subscribe to onboarding query for reactive updates (e.g., after mutations)
+  // Don't destructure data until we need it to avoid unused variable warnings
+  const initialOnboarding = Route.useRouteContext().onboarding;
+  useQuery({
+    ...onboardingStatusQuery,
+    initialData: initialOnboarding,
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Organization lifecycle hook

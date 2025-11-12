@@ -6,7 +6,6 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { scanQueries } from "@/queries/scan-queries";
 import { Spinner } from "@/components/ui/spinner";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 import { Suspense } from "react";
 
 // Search params schema with proper validation
@@ -43,8 +42,6 @@ function Scans() {
             Scans
           </PageTabsLink>
         </PageTabs>
-        {/* Hidden on mobile (shows in sidebar instead) */}
-        <InlineRouterSpinner className="hidden lg:inline-flex" />
       </div>
 
       {/* Data component - only this suspends, page shell stays visible */}

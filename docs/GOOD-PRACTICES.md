@@ -327,8 +327,174 @@ Treat this document as a living playbook—add new snippets as we scale more flo
 
 ## Additional Patterns from OpenPanel Start
 
-- **Root Context Warm-Up** – `openpanel/apps/start/src/routes/__root.tsx` fetches the session and cookies in `beforeLoad` with `Promise.all`, so every nested route receives auth/cookies without duplicate requests. Mirror this when multiple children share the same prerequisites.
-- **Server-Backed Client Stores** – `openpanel/apps/start/src/hooks/use-cookie-store.tsx` couples a `createServerFn` setter with `window.dispatchEvent` broadcasts. Use the same pattern when a preference needs to sync across tabs or SSR routes (`useCookieStore` gives a reusable shape).
-- **Lazy Session Refresh** – `openpanel/apps/start/src/hooks/use-session-extension.ts` schedules background mutations that extend auth every five minutes, deferring the first hit by 5s to avoid startup contention. Adopt this timing if we add session heartbeats.
-- **Immutable Env Queries** – `openpanel/apps/start/src/server/get-envs.ts` exposes deployment settings via `createServerFn` + `queryOptions({ staleTime: Infinity })`, guaranteeing a single fetch per session. Use this approach for truly static server data.
-- **Structured Error States** – The root route’s `errorComponent` (`openpanel/apps/start/src/routes/__root.tsx:39`) renders a branded fallback with actionable links. When adding new layout shells, centralize fatal error UI the same way instead of sprinkling toast-only errors.
+- **Root Context Warm-Up** – `openpanel/apps/start/src/routes/__root.tsx` fetches session + cookies in one shot so child routes inherit hydrated data without extra calls.
+
+```tsx
+export const Route = createRootRouteWithContext<MyRouterContext>()({
+  beforeLoad: async ({ context }) => {
+    const [session, cookies] = await Promise.all([
+      context.queryClient.ensureQueryData(
+        context.trpc.auth.session.queryOptions(),
+      ),
+      getCookiesFn().catch(() => ({})),
+    ]);
+    return { session, cookies };
+  },
+});
+```
+
+Copy this layout when several siblings need the same auth or preference bootstrap—just drop different server fns into the `Promise.all`.
+
+- **Server-Backed Client Stores** – `openpanel/apps/start/src/hooks/use-cookie-store.tsx` marries a `createServerFn` setter with a browser event bus so cookie updates stay in sync across tabs and SSR.
+
+```tsx
+const setCookieFn = createServerFn({ method: 'POST' })
+  .inputValidator(z.object({ key: z.enum(VALID_COOKIES), value: z.string() }))
+  .handler(({ data }) => setCookie(data.key, data.value));
+
+export function useCookieStore<T>(key: CookieKey, defaultValue: T) {
+  const { cookies } = useRouteContext({ strict: false });
+  const [value, setValue] = useState<T>((cookies?.[key] ?? defaultValue) as T);
+
+  return [
+    value,
+    (next: T) => {
+      setValue(next);
+      setCookieFn({ data: { key, value: String(next) } });
+      window.dispatchEvent(new CustomEvent(COOKIE_EVENT, { detail: { key, value: next } }));
+    },
+  ] as const;
+}
+```
+
+Reach for this pattern when a preference must persist server-side but react instantly client-side (theme, chart ranges, onboarding state).
+
+- **Lazy Session Refresh** – `openpanel/apps/start/src/hooks/use-session-extension.ts` delays the first extend call by five seconds, then renews auth every five minutes without blocking navigation.
+
+```tsx
+useEffect(() => {
+  if (!session) return;
+
+  const extend = () => extendMutation.mutate();
+  const timer = setTimeout(extend, 5_000);
+  const interval = setInterval(extend, 5 * 60_000);
+
+  return () => {
+    clearTimeout(timer);
+    clearInterval(interval);
+  };
+}, [session]);
+```
+
+This staggered schedule keeps background heartbeats from racing the user’s initial requests.
+
+- **Immutable Env Queries** – `openpanel/apps/start/src/server/get-envs.ts` exposes environment values with `staleTime: Infinity`, guaranteeing a single fetch per session and keeping client code type-safe.
+
+```tsx
+export const getServerEnvs = createServerFn().handler(async () => ({
+  apiUrl: process.env.API_URL!,
+  dashboardUrl: process.env.DASHBOARD_URL!,
+  isSelfHosted: Boolean(process.env.SELF_HOSTED),
+}));
+
+export const getServerEnvsQueryOptions = queryOptions({
+  queryKey: ['server-envs'],
+  queryFn: getServerEnvs,
+  staleTime: Number.POSITIVE_INFINITY,
+});
+```
+
+Use this when values never change at runtime (feature flags, build metadata).
+
+- **Structured Error States** – The root route injects a branded fallback with a recovery link instead of returning raw stack traces (`openpanel/apps/start/src/routes/__root.tsx:39`).
+
+```tsx
+errorComponent: ({ error }) => (
+  <FullPageErrorState
+    title="Something went wrong"
+    description={error.message}
+  >
+    <LinkButton href="/">Go back to home</LinkButton>
+  </FullPageErrorState>
+),
+```
+
+Adopt the same approach in our layout shells so catastrophic failures remain on-brand and help users recover quickly.
+
+- **Parallel Prefetch for Dense Views** – Profile tabs use `Promise.all` to prepare multiple datasets before rendering, eliminating spinner waterfalls (`openpanel/apps/start/src/routes/_app.$organizationId.$projectId_.profiles.$profileId._tabs.index.tsx`).
+
+```tsx
+await Promise.all([
+  context.queryClient.prefetchQuery(
+    context.trpc.profile.metrics.queryOptions({ profileId, projectId }),
+  ),
+  context.queryClient.prefetchQuery(
+    context.trpc.profile.activity.queryOptions({ profileId, projectId }),
+  ),
+  context.queryClient.prefetchQuery(
+    context.trpc.profile.mostEvents.queryOptions({ profileId, projectId }),
+  ),
+  context.queryClient.prefetchQuery(
+    context.trpc.profile.popularRoutes.queryOptions({ profileId, projectId }),
+  ),
+]);
+```
+
+Reach for this when a view needs several independent slices (metrics, charts, logs) and you want them all ready when the shell mounts.
+
+- **Query-Driven Components** – Loader + component both use typed `queryOptions`, keeping data-fetch logic centralized. Example: notifications rules tab (`openpanel/apps/start/src/routes/_app.$organizationId.$projectId_.notifications._tabs.rules.tsx`).
+
+```tsx
+await context.queryClient.prefetchQuery(
+  context.trpc.notification.rules.queryOptions({ projectId }),
+);
+
+const query = useQuery(
+  trpc.notification.rules.queryOptions({ projectId }),
+);
+```
+
+Do the same for our tables to avoid duplicating query keys and caching logic.
+
+- **zod Everywhere** – OpenPanel validates search params before hitting the server, preventing malformed URLs from ever running loaders (`openpanel/apps/start/src/routes/_steps.onboarding.project.tsx`).
+
+```tsx
+const validateSearch = z.object({ inviteId: z.string().optional() });
+
+const parsed = validateSearch.safeParse(location.search);
+if (parsed.success && parsed.data.inviteId) {
+  await context.queryClient.prefetchQuery(/* ... */);
+}
+```
+
+Mirror this in our onboarding and filters so we never rely on ad-hoc parsing.
+
+- **Typed Data Shaping** – Chart helpers generate `IChartEvent[]` arrays from raw query data with explicit fallbacks (`openpanel/apps/start/src/routes/_app.$organizationId.$projectId_.events._tabs.stats.tsx`).
+
+```tsx
+const fallback: IChartEvent[] = [
+  { id: 'A', name: '*', displayName: 'All events', segment: 'event', filters: filters ?? [] },
+];
+
+const eventsForCharts = events.length
+  ? events.map((name) => ({
+      id: name,
+      name,
+      displayName: name,
+      segment: 'event',
+      filters: filters ?? [],
+    }))
+  : fallback;
+```
+
+Keeping transformations typed keeps downstream components simple—follow suit in our device and scan visualizations.
+
+- **Mutation Invalidation Playbook** – Many OpenPanel modals finish by invalidating focused query families (`openpanel/apps/start/src/modals/add-integration.tsx`, `edit-event.tsx`) instead of hand-rolling optimistic patches.
+
+```tsx
+await queryClient.invalidateQueries(trpc.integration.list.pathFilter());
+await queryClient.invalidateQueries(trpc.client.list.pathFilter());
+```
+
+Use the same `pathFilter()` helpers when a mutation touches complex shared state.
+

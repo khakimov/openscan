@@ -12,7 +12,6 @@ import { deviceQueries } from "@/queries/device-queries";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState, Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/assets/verified")({
   loader: async ({ context: { queryClient }, params }) => {
@@ -47,7 +46,7 @@ function AssetsVerified() {
   return (
     <Padding>
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center">
           <PageTabs>
             <PageTabsLink
               to="/$organizationId/$projectId/assets/discovery"
@@ -64,7 +63,6 @@ function AssetsVerified() {
               Verified
             </PageTabsLink>
           </PageTabs>
-          <InlineRouterSpinner className="hidden lg:inline-flex" />
         </div>
         <div className="flex gap-2">
           <Button onClick={() => pushModal("AddDevice", {})}>

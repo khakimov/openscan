@@ -34,7 +34,7 @@ export const getRouter = () => {
 
     // Navigation optimization settings (prevents laggy feel)
     defaultPreload: 'intent',              // Preload on hover/focus (not click)
-    defaultPreloadStaleTime: 0,            // Always check cache freshness
+    defaultPreloadStaleTime: 10000,        // Cache preloaded data for 10s (prevents duplicate fetches)
 
     // Smooth loading state timing (prevents jarring flashes)
     defaultPendingMs: 1000,                // Show pending UI after 1s

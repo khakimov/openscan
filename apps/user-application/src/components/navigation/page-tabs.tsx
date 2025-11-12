@@ -41,6 +41,11 @@ export function PageTabsLink({
   children: React.ReactNode;
   isActive?: boolean;
 }) {
+  // During SSR and initial hydration, always use the passed preload prop
+  // This ensures consistent HTML between server and client
+  // The isActive prop (passed by parent) already indicates if this is the current route
+  const shouldPreload = isActive ? false : preload;
+
   return (
     <div className="relative">
       <Link
@@ -52,7 +57,7 @@ export function PageTabsLink({
         params={params}
         search={search}
         hash={hash}
-        preload={preload}
+        preload={shouldPreload}
         replace={replace}
         resetScroll={resetScroll}
       >

@@ -1,7 +1,6 @@
 import { createFileRoute, Outlet, Link, useLocation } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 import { Button } from "@/components/ui/button";
 import { Pencil, Trash2, Scan, ArrowLeft } from "lucide-react";
 import { pushModal } from "@/modals";
@@ -103,7 +102,6 @@ function DevicePage() {
               Back to Assets
             </Button>
           </Link>
-          <InlineRouterSpinner className="hidden lg:inline-flex" />
         </div>
 
         <div className="flex items-start justify-between">

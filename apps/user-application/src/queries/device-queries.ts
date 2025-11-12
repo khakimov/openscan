@@ -14,6 +14,7 @@ import {
 } from '@/server/devices';
 import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
 import { createOptimisticDeleteHandlers } from '@/lib/optimistic-updates';
+import { onboardingStatusQuery } from '@/queries/onboarding-status';
 
 /**
  * Centralized device query definitions using queryOptions()
@@ -327,6 +328,8 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
  * ```
  */
 export const useCreateDevicesFromDiscoveryMutation = () => {
+  const queryClient = useQueryClient();
+
   return useMutation({
     mutationKey: ['devices', 'create-from-discovery'],
     mutationFn: (data: {
@@ -338,6 +341,11 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
         verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
       };
     }) => createDevicesFromDiscovery({ data }),
-    // No invalidation needed - AddDiscovery modal handles cache update directly
+    onSuccess: async () => {
+      // Seed onboarding cache after adding devices from discovery
+      // This updates asset counts and keeps onboarding UI in sync
+      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
+      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+    },
   });
 };

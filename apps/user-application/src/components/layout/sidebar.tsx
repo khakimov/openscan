@@ -7,7 +7,6 @@ import { Home, Menu, Shield, ScanLine, XIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 import { useQuery } from "@tanstack/react-query";
 import { getOrganizationProjects } from "@/server/projects";
 import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
@@ -306,26 +305,20 @@ export function Sidebar({
           isMobileMenuOpen && "translate-x-0", // slide in when active
         )}
       >
-        {/* Toggle Button & Spinner - Positioned outside sidebar (mobile only) */}
+        {/* Toggle Button - Positioned outside sidebar (mobile only) */}
         <div className="absolute -right-16 flex h-16 items-center lg:hidden">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="h-10 w-10 bg-background"
-            >
-              {isMobileMenuOpen ? (
-                <XIcon className="h-3 w-3" />
-              ) : (
-                <Menu className="h-2 w-2" />
-              )}
-            </Button>
-            {/* Spinner positioned absolutely to not affect button position */}
-            <div className="absolute -right-8 top-1/2 -translate-y-1/2">
-              <InlineRouterSpinner size="sm" />
-            </div>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="h-10 w-10 bg-background"
+          >
+            {isMobileMenuOpen ? (
+              <XIcon className="h-3 w-3" />
+            ) : (
+              <Menu className="h-2 w-2" />
+            )}
+          </Button>
         </div>
 
         {/* Header */}
