@@ -489,6 +489,9 @@ function buildNmapArgs(input: {
 }): string[] {
   const args: string[] = ['-oX', '-']; // Output as XML to stdout
 
+  // Skip host discovery & DNS resolution; match legacy aggressiveness
+  args.push('-Pn', '-n', '-T5');
+
   if (input.ports) {
     // Validate port specification
     if (!/^[0-9,\-]+$/.test(input.ports)) {
@@ -498,13 +501,13 @@ function buildNmapArgs(input: {
   }
 
   if (input.protocol === 'udp') {
-    args.push('-sU');
+    args.push('-sU', '-sV'); // UDP scan with version detection
+  } else {
+    args.push('-sT', '-sV', '-O'); // TCP connect scan + OS detection
   }
 
   if (input.aggressive) {
     args.push('-A'); // Aggressive scan (OS detection, version detection, script scanning, traceroute)
-  } else {
-    args.push('-sV'); // Version detection
   }
 
   if (input.timeout) {
@@ -513,6 +516,9 @@ function buildNmapArgs(input: {
       throw new Error('Invalid timeout value');
     }
     args.push('--host-timeout', `${input.timeout}ms`);
+  } else {
+    // Match legacy default of 900 seconds
+    args.push('--host-timeout', '900000ms');
   }
 
   return args;
