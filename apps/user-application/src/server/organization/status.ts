@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
-import { getDefaultProject } from "@repo/data-ops";
+import { getDefaultProject, getOrganizationById as getOrgByIdData } from "@repo/data-ops";
 import { getCurrentUser } from "../utils/auth";
 import { getUserOrganizations } from "./onboarding";
 import type {
@@ -64,12 +64,31 @@ export const getOnboardingStatus = createServerFn({
       } satisfies OnboardingStatus;
     }
 
+    // CRITICAL FIX: Bypass better-auth cache and read directly from database
+    // better-auth caches organization metadata, so after completeOnboarding() is called,
+    // getUserOrganizations() still returns stale data without onboardingCompleted=true
+    const freshOrgData = await getOrgByIdData(primaryOrganizationId);
+
+    let organizationMetadata: Record<string, {}> = {};
+    if (freshOrgData?.metadata) {
+      try {
+        organizationMetadata = JSON.parse(freshOrgData.metadata);
+        logger.debug("Organization metadata from database (fresh)", {
+          organizationId: primaryOrganizationId,
+          metadata: organizationMetadata,
+          onboardingCompleted: organizationMetadata?.onboardingCompleted,
+        });
+      } catch (err) {
+        logger.warn("Failed to parse fresh organization metadata", {
+          organizationId: primaryOrganizationId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     const organizationRecord = organizationsResult.organizations.find(
       (org) => org.id === primaryOrganizationId,
     );
-
-    const organizationMetadata: Record<string, {}> =
-      organizationRecord?.metadata ?? {};
 
     const defaultProject = await getDefaultProject(primaryOrganizationId);
     const hasProject = Boolean(defaultProject);
