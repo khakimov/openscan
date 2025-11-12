@@ -6,8 +6,8 @@ import {
   type SidebarProject,
   type SidebarUser,
 } from "@/components/layout/sidebar";
+import { AppLayout, AppLayoutPending } from "@/components/layout";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
-import { SidebarSkeleton } from "@/components/shared/skeletons";
 import { getCurrentUser } from "@/server/auth";
 import {
   getUserOrganizations,
@@ -31,24 +31,8 @@ const isStaticFile = (path: string): boolean => {
   return FILE_EXTENSIONS.some((extension) => lastSegment.endsWith(`.${extension}`));
 };
 
-/**
- * Pending shell for _app route
- * Keeps sidebar chrome mounted while child loaders hydrate
- * Mirrors OpenPanel's AppShellPending pattern
- */
-const AppPendingShell = () => (
-  <div className="flex h-screen w-full bg-background">
-    <SidebarSkeleton />
-    <main className="flex-1 p-2 pt-14 lg:pt-2">
-      <div className="max-w-7xl h-full flex items-center justify-center">
-        <PageLoadingFallback />
-      </div>
-    </main>
-  </div>
-);
-
 export const Route = createFileRoute("/_app")({
-  pendingComponent: AppPendingShell,
+  pendingComponent: AppLayoutPending,
   beforeLoad: async ({ location }) => {
     // Block static file requests early (before auth checks)
     if (isStaticFile(location.pathname)) {
@@ -128,33 +112,28 @@ export const Route = createFileRoute("/_app")({
       projects,
     };
   },
-  component: AppLayout,
+  component: AppLayoutComponent,
 });
 
-function AppLayout() {
+function AppLayoutComponent() {
   const { user, activeOrganization, organizations, projects } =
     Route.useLoaderData();
 
   return (
-    <div className="flex h-screen w-full bg-background">
-      {/* Sidebar renders immediately when _app loader completes */}
-      <Sidebar
-        user={user}
-        activeOrganization={activeOrganization}
-        organizations={organizations}
-        projects={projects}
-      />
-
-      <div className="w-full flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto bg-muted/20 p-2 pt-14 lg:pt-2">
-          <div className="max-w-7xl">
-            {/* Suspense allows sidebar to render while child route loads */}
-            <Suspense fallback={<PageLoadingFallback />}>
-              <Outlet />
-            </Suspense>
-          </div>
-        </main>
-      </div>
-    </div>
+    <AppLayout
+      sidebar={
+        <Sidebar
+          user={user}
+          activeOrganization={activeOrganization}
+          organizations={organizations}
+          projects={projects}
+        />
+      }
+    >
+      {/* Suspense allows sidebar to render while child route loads */}
+      <Suspense fallback={<PageLoadingFallback />}>
+        <Outlet />
+      </Suspense>
+    </AppLayout>
   );
 }

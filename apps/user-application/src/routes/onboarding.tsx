@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, useMatchRoute } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
+import { StackedCardLayout } from "@/components/layout";
 import { onboardingStatusQuery } from "@/queries/onboarding-status";
 
 export const Route = createFileRoute("/onboarding")({
@@ -30,25 +31,20 @@ export const Route = createFileRoute("/onboarding")({
     };
   },
   pendingComponent: () => (
-    <div className="relative min-h-screen pt-32 pb-8">
-      <div className="relative z-10 border bg-background rounded-lg shadow-xl shadow-muted/50 max-w-xl mx-auto">
-        <div className="flex min-h-[280px] items-center justify-center">
-          <Spinner size="md" wait="delay-200" />
-        </div>
+    <StackedCardLayout>
+      <div className="flex min-h-[280px] items-center justify-center">
+        <Spinner size="md" wait="delay-200" />
       </div>
-    </div>
+    </StackedCardLayout>
   ),
   component: Onboarding2Layout,
 });
 
 function Onboarding2Layout() {
   return (
-    <div className="relative min-h-screen pt-32 pb-8">
-      <div className="relative z-10 border bg-background rounded-lg shadow-xl shadow-muted/50 max-w-xl mx-auto">
-        <Progress />
-        <Outlet />
-      </div>
-    </div>
+    <StackedCardLayout header={<Progress />}>
+      <Outlet />
+    </StackedCardLayout>
   );
 }
 
