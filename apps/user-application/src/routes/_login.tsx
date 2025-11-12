@@ -13,6 +13,14 @@ export const Route = createFileRoute("/_login")({
 
     const onboarding = await getOnboardingStatus().catch(() => null);
 
+    // Debug: Log what we got from getOnboardingStatus
+    console.log('[_login] Onboarding status:', {
+      success: onboarding?.success,
+      onboardingCompleted: onboarding?.onboardingCompleted,
+      organizationId: onboarding?.organizationId,
+      projectId: onboarding?.projectId,
+    });
+
     if (
       onboarding &&
       onboarding.success &&

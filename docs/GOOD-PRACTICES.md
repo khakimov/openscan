@@ -322,3 +322,13 @@ Treat this document as a living playbook—add new snippets as we scale more flo
 - **Suspense Fallback Panel** – Keep using the `Suspense` + `<Spinner size="lg" />` panel established in `src/routes/_app.$organizationId.$projectId.scans.tsx`; wrap new data tables and detail panes the same way instead of bespoke skeletons.
 - **Optimistic Mutations** – Prefer the helpers in `src/lib/optimistic-updates.ts` when mutating devices/schedules. New mutations should follow the pattern in `src/queries/device-queries.ts:182` so optimistic delete/toggle behaviour stays consistent.
 - **Query Definitions** – Centralize loader + component data fetching through `queryOptions()` factories (`src/queries/*.ts`). When adding a feature, create a query module first and call `queryClient.ensureQueryData(...)` inside the route loader like `.../assets/discovery.tsx:19` to keep SSR and client usage aligned.
+
+---
+
+## Additional Patterns from OpenPanel Start
+
+- **Root Context Warm-Up** – `openpanel/apps/start/src/routes/__root.tsx` fetches the session and cookies in `beforeLoad` with `Promise.all`, so every nested route receives auth/cookies without duplicate requests. Mirror this when multiple children share the same prerequisites.
+- **Server-Backed Client Stores** – `openpanel/apps/start/src/hooks/use-cookie-store.tsx` couples a `createServerFn` setter with `window.dispatchEvent` broadcasts. Use the same pattern when a preference needs to sync across tabs or SSR routes (`useCookieStore` gives a reusable shape).
+- **Lazy Session Refresh** – `openpanel/apps/start/src/hooks/use-session-extension.ts` schedules background mutations that extend auth every five minutes, deferring the first hit by 5s to avoid startup contention. Adopt this timing if we add session heartbeats.
+- **Immutable Env Queries** – `openpanel/apps/start/src/server/get-envs.ts` exposes deployment settings via `createServerFn` + `queryOptions({ staleTime: Infinity })`, guaranteeing a single fetch per session. Use this approach for truly static server data.
+- **Structured Error States** – The root route’s `errorComponent` (`openpanel/apps/start/src/routes/__root.tsx:39`) renders a branded fallback with actionable links. When adding new layout shells, centralize fatal error UI the same way instead of sprinkling toast-only errors.

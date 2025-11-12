@@ -11,14 +11,16 @@ export function GitHubOAuthButton() {
     setError(null);
 
     try {
+      // Let better-auth handle the redirect based on user's onboarding status
+      // by redirecting to root, which will be handled by _login.tsx or index.tsx
       console.log('[GitHubOAuthButton] Calling authClient.signIn.social', {
         provider: 'github',
-        callbackURL: '/onboarding/project',
+        callbackURL: '/', // Will be handled by router redirect logic
       });
 
       const result = await authClient.signIn.social({
         provider: 'github',
-        callbackURL: '/onboarding/project',
+        callbackURL: '/', // Redirect to root, let router handle onboarding check
       });
 
       console.log('[GitHubOAuthButton] OAuth sign in result:', result);

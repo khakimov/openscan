@@ -11,14 +11,16 @@ export function GoogleOAuthButton() {
     setError(null);
 
     try {
+      // Let better-auth handle the redirect based on user's onboarding status
+      // by not specifying a callbackURL (will use default from auth config)
       console.log('[GoogleOAuthButton] Calling authClient.signIn.social', {
         provider: 'google',
-        callbackURL: '/onboarding/project',
+        callbackURL: '/', // Will be handled by _login.tsx or index.tsx redirect logic
       });
 
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/onboarding/project',
+        callbackURL: '/', // Redirect to root, let router handle onboarding check
       });
 
       console.log('[GoogleOAuthButton] OAuth sign in result:', result);
