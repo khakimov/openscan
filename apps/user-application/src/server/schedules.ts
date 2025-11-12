@@ -26,6 +26,14 @@ import {
   type SchedulePreset,
 } from '@repo/data-ops';
 import { getCurrentOrganizationId, getCurrentUser } from './utils/auth';
+import type {
+  CreateScheduleResult,
+  PauseScheduleResult,
+  ResumeScheduleResult,
+  DeleteScheduleResult,
+  GetScheduleResult,
+  SchedulesListResult,
+} from './schedules/types';
 
 const logger = createLogger({ name: 'schedules-server' });
 
@@ -251,7 +259,7 @@ export const createScheduleData = createServerFn({
   method: 'POST',
 })
   .inputValidator(CreateScheduleSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CreateScheduleResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -382,7 +390,10 @@ export const createScheduleData = createServerFn({
         deviceId: data.deviceId,
       });
 
-      throw new Error(`Failed to create schedule: ${errorMessage}`);
+      return {
+        success: false,
+        error: `Failed to create schedule: ${errorMessage}`,
+      };
     }
   });
 
@@ -396,7 +407,7 @@ export const pauseScheduleData = createServerFn({
   method: 'POST',
 })
   .inputValidator(ScheduleActionSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<PauseScheduleResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -423,7 +434,10 @@ export const pauseScheduleData = createServerFn({
         scheduleId: data.scheduleId,
       });
 
-      throw new Error(`Failed to pause schedule: ${errorMessage}`);
+      return {
+        success: false,
+        error: `Failed to pause schedule: ${errorMessage}`,
+      };
     }
   });
 
@@ -437,7 +451,7 @@ export const resumeScheduleData = createServerFn({
   method: 'POST',
 })
   .inputValidator(ScheduleActionSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<ResumeScheduleResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -470,7 +484,10 @@ export const resumeScheduleData = createServerFn({
         scheduleId: data.scheduleId,
       });
 
-      throw new Error(`Failed to resume schedule: ${errorMessage}`);
+      return {
+        success: false,
+        error: `Failed to resume schedule: ${errorMessage}`,
+      };
     }
   });
 
@@ -484,7 +501,7 @@ export const deleteScheduleData = createServerFn({
   method: 'POST',
 })
   .inputValidator(ScheduleActionSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeleteScheduleResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -511,7 +528,10 @@ export const deleteScheduleData = createServerFn({
         scheduleId: data.scheduleId,
       });
 
-      throw new Error(`Failed to delete schedule: ${errorMessage}`);
+      return {
+        success: false,
+        error: `Failed to delete schedule: ${errorMessage}`,
+      };
     }
   });
 
@@ -522,14 +542,17 @@ export const getScheduleData = createServerFn({
   method: 'POST',
 })
   .inputValidator(ScheduleActionSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<GetScheduleResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
 
       const schedule = await getScanScheduleById(data.scheduleId, organizationId);
 
       if (!schedule) {
-        throw new Error('Schedule not found');
+        return {
+          success: false,
+          error: 'Schedule not found',
+        };
       }
 
       // Optionally get runtime state from Restate
@@ -548,6 +571,7 @@ export const getScheduleData = createServerFn({
         success: true,
         schedule: {
           ...schedule,
+          nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
           runtimeState,
         },
       };
@@ -558,7 +582,10 @@ export const getScheduleData = createServerFn({
         scheduleId: data.scheduleId,
       });
 
-      throw new Error(`Failed to get schedule: ${errorMessage}`);
+      return {
+        success: false,
+        error: `Failed to get schedule: ${errorMessage}`,
+      };
     }
   });
 
@@ -573,7 +600,7 @@ export const getSchedulesForDeviceData = createServerFn({
   method: 'POST',
 })
   .inputValidator(GetSchedulesForDeviceSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<SchedulesListResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
 
@@ -581,7 +608,10 @@ export const getSchedulesForDeviceData = createServerFn({
 
       return {
         success: true,
-        schedules,
+        schedules: schedules.map(schedule => ({
+          ...schedule,
+          nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
+        })),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -609,7 +639,7 @@ export const getSchedulesData = createServerFn({
   method: 'POST',
 })
   .inputValidator(GetSchedulesSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<SchedulesListResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
 
@@ -620,7 +650,10 @@ export const getSchedulesData = createServerFn({
 
       return {
         success: true,
-        schedules,
+        schedules: schedules.map(schedule => ({
+          ...schedule,
+          nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
+        })),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

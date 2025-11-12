@@ -7,6 +7,7 @@ import {
 } from "@repo/data-ops";
 import { getCurrentOrganizationId, getCurrentUser } from "./utils/auth";
 import { z } from "zod";
+import type { ScansListResult } from "./scans/types";
 
 const logger = createLogger({ name: "scans-server" });
 
@@ -22,7 +23,7 @@ export const getScans = createServerFn({
   method: "POST",
 })
   .inputValidator(GetScansSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<ScansListResult> => {
     try {
       // ✅ VULN-002 FIX: Validate projectId before using it
       const user = await getCurrentUser();
@@ -84,10 +85,11 @@ export const getScans = createServerFn({
         count: scansWithArtifacts.length,
       });
 
-      return {
+      const result: ScansListResult = {
         success: true,
         data: scansWithArtifacts,
       };
+      return result;
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : String(error);

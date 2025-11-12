@@ -5,6 +5,7 @@ import {
   updateOrganizationOnboarding,
 } from '@/server/organization';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
+import { onboardingStatusQuery } from '@/queries/onboarding-status';
 
 /**
  * Organization mutation hooks (following TanStack Router best practice)
@@ -23,44 +24,62 @@ import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 export const useCompleteOnboardingMutation = () =>
   useMutationWithToast({
     mutationKey: ['organization', 'complete-onboarding'],
-    mutationFn: (data: { organizationId: string }) => completeOnboarding({ data }),
+    mutationFn: async (data: { organizationId: string }) => {
+      const response = await completeOnboarding({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to complete onboarding');
+      }
+      return response;
+    },
     successMessage: "Onboarding completed successfully!",
-    invalidateKeys: [['onboarding-status']],
+    invalidateKeys: [onboardingStatusQuery.queryKey],
   });
 
 export const useCreateOrganizationMutation = () =>
   useMutationWithToast({
     mutationKey: ['organization', 'create'],
-    mutationFn: (data: { name: string; slug?: string; timezone?: string }) =>
-      createOrganizationOnboarding({ data }),
+    mutationFn: async (data: { name: string; slug?: string; timezone?: string }) => {
+      const response = await createOrganizationOnboarding({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create organization');
+      }
+      return response;
+    },
     successMessage: (response) =>
-      response.success && response.organization
-        ? `Organization "${response.organization.name}" created`
-        : "Organization created successfully",
-    invalidateKeys: [['organizations'], ['onboarding-status']],
+      `Organization "${response.organization.name}" created`,
+    invalidateKeys: [['organizations'], onboardingStatusQuery.queryKey],
   });
 
 export const useCreateProjectMutation = () =>
   useMutationWithToast({
     mutationKey: ['project', 'create'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       projectName: string;
       organizationId: string;
       projectId?: string | null;
       domain?: string;
-    }) => createProjectOnboarding({ data }),
+    }) => {
+      const response = await createProjectOnboarding({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create project');
+      }
+      return response;
+    },
     successMessage: (response) =>
-      response.success && response.project
-        ? `Project "${response.project.name}" created`
-        : "Project created successfully",
-    invalidateKeys: [['projects'], ['onboarding-status']],
+      `Project "${response.project.name}" created`,
+    invalidateKeys: [['projects'], onboardingStatusQuery.queryKey],
   });
 
 export const useUpdateOrganizationMutation = () =>
   useMutationWithToast({
     mutationKey: ['organization', 'update'],
-    mutationFn: (data: { organizationId: string; name: string; timezone?: string | null }) =>
-      updateOrganizationOnboarding({ data }),
+    mutationFn: async (data: { organizationId: string; name: string; timezone?: string | null }) => {
+      const response = await updateOrganizationOnboarding({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update organization');
+      }
+      return response;
+    },
     successMessage: "Organization updated successfully",
-    invalidateKeys: [['organizations'], ['onboarding-status']],
+    invalidateKeys: [['organizations'], onboardingStatusQuery.queryKey],
   });

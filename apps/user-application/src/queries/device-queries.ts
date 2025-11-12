@@ -202,7 +202,7 @@ export const useDeleteDeviceMutation = () => {
 export const useUpdateDeviceMutation = (deviceId: string) =>
   useMutationWithToast({
     mutationKey: ['devices', 'update', deviceId],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       deviceId: string;
       updates: {
         name?: string;
@@ -215,7 +215,13 @@ export const useUpdateDeviceMutation = (deviceId: string) =>
         tags?: string[];
         notes?: string;
       };
-    }) => updateDeviceData({ data }),
+    }) => {
+      const response = await updateDeviceData({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update device');
+      }
+      return response;
+    },
     successMessage: "Device updated successfully",
     invalidateKeys: [
       ['devices'],
@@ -227,32 +233,43 @@ export const useUpdateDeviceMutation = (deviceId: string) =>
 export const useVerifyDeviceMutation = () =>
   useMutationWithToast({
     mutationKey: ['devices', 'verify'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       deviceId: string;
       status: 'VERIFIED' | 'EXCLUDED' | 'CANDIDATE';
       note?: string;
-    }) => verifyDevice({ data }),
-    successMessage: (response) =>
-      response.success && response.message
-        ? response.message
-        : "Device verification updated",
+    }) => {
+      const response = await verifyDevice({ data });
+      if (!response.success) {
+        const errorMsg = 'error' in response && typeof response.error === 'string'
+          ? response.error
+          : 'Failed to verify device';
+        throw new Error(errorMsg);
+      }
+      return response;
+    },
+    successMessage: "Device verification updated",
     invalidateKeys: [['devices']],
   });
 
 export const useToggleDeviceVerificationMutation = () =>
   useMutationWithToast({
     mutationKey: ['devices', 'toggle-verification'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       deviceId: string;
       verify: boolean;
       interval?: string;
-    }) => toggleDeviceVerification({ data }),
-    successMessage: (response, vars) =>
-      response.success
-        ? vars.verify
-          ? "Device verified"
-          : "Device unverified"
-        : "Verification status updated",
+    }) => {
+      const response = await toggleDeviceVerification({ data });
+      if (!response.success) {
+        const errorMsg = 'error' in response && typeof response.error === 'string'
+          ? response.error
+          : 'Failed to toggle verification';
+        throw new Error(errorMsg);
+      }
+      return response;
+    },
+    successMessage: (_response, vars) =>
+      vars.verify ? "Device verified" : "Device unverified",
     invalidateKeys: [['devices']],
   });
 
@@ -332,7 +349,7 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
 
   return useMutationWithToast({
     mutationKey: ['devices', 'create-from-discovery'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       targets: Array<{ host: string; ip?: string }>;
       projectId: string;  // ✅ REQUIRED - no question mark!
       options?: {
@@ -340,11 +357,15 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
         scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
         verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
       };
-    }) => createDevicesFromDiscovery({ data }),
-    successMessage: (response, vars) => {
-      const count = response.insertedCount ?? vars.targets.length;
-      return `Added ${count} ${count === 1 ? 'device' : 'devices'}`;
+    }) => {
+      const response = await createDevicesFromDiscovery({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create devices');
+      }
+      return response;
     },
+    successMessage: (response) =>
+      `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
     invalidateKeys: [['devices']],
     onSuccess: async () => {
       // Seed onboarding cache after adding devices from discovery

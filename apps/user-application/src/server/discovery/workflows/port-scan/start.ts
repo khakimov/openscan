@@ -7,6 +7,7 @@ import { getCurrentOrganizationId, getCurrentUser } from '../../../utils/auth';
 import { portScanService } from '../../services/port-scan-service';
 
 import type { PortScanInput } from '@repo/contracts';
+import type { PortScanStartResult } from '../types';
 
 const logger = createLogger({ name: 'discovery-port-scan-start' });
 
@@ -23,7 +24,7 @@ export const startPortScanWorkflow = createServerFn({
     }
     return result.data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<PortScanStartResult> => {
     const input = data as PortScanInput;
 
     try {

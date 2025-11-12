@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { createLogger } from "@repo/logger";
 import { getCurrentUser, getCurrentOrganizationId } from "./utils/auth";
 import { updateEmailSeveritiesOrDisable, resolveEmailSeverities, type NotificationSeverity } from "@repo/data-ops/queries/notifications/settings";
+import type { NotificationPreferencesSaveResult, NotificationPreferencesFetchResult } from "./preferences/types";
 
 const logger = createLogger({ name: "preferences-server" });
 
@@ -37,7 +38,7 @@ export const saveNotificationPreferences = createServerFn({
 
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<NotificationPreferencesSaveResult> => {
     try {
       const user = await getCurrentUser();
       const organizationId = await getCurrentOrganizationId();
@@ -86,7 +87,7 @@ export const saveNotificationPreferences = createServerFn({
  */
 export const getNotificationPreferences = createServerFn({
   method: "GET",
-}).handler(async () => {
+}).handler(async (): Promise<NotificationPreferencesFetchResult> => {
   try {
     const organizationId = await getCurrentOrganizationId();
 

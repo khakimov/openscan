@@ -143,8 +143,9 @@ export default function EditDevice({
         onSuccess: async (response) => {
           console.log('🎉 EditDevice: Mutation success', response);
 
+          const deviceName = response.device?.name ?? 'Device';
           toast.success("Device updated successfully", {
-            description: `${response.device.name} has been updated.`,
+            description: `${deviceName} has been updated.`,
           });
 
           // Force route refresh

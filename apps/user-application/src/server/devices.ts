@@ -19,6 +19,15 @@ import { createLogger } from '@repo/logger'
 import { z } from 'zod'
 import { getCurrentOrganizationId, getCurrentUser } from './utils/auth'
 import { formatServerError } from './utils/errors'
+import type {
+  DevicesListResult,
+  DeviceDetailResult,
+  DeviceVulnerabilitiesResult,
+  DeleteDeviceResult,
+  DiscoveryDevicesResult,
+  CreateDevicesResult,
+  UpdateDeviceResult,
+} from './devices/types'
 
 const logger = createLogger({ name: 'devices-server' })
 
@@ -171,7 +180,7 @@ const UpdateDeviceSchema = z.object({
 })
 
 // Transform database device to match UI expectations
-function transformDeviceForUI(dbDevice: any) {
+function transformDeviceForUI(dbDevice: any): TransformedDevice {
   const scanStats = dbDevice.scanStats as
     | {
         scanCount: number;
@@ -261,7 +270,7 @@ function transformDeviceForUI(dbDevice: any) {
     name: dbDevice.name,
     ip: dbDevice.ip || '0.0.0.0',
     riskLevel: dbDevice.riskLevel.toLowerCase(), // DB uses uppercase, UI expects lowercase
-    status: dbDevice.state === 'AVAILABLE' ? 'active' : 'offline',
+    status: (dbDevice.state === 'AVAILABLE' ? 'active' : 'offline') as 'active' | 'offline',
     discoveredOn: discoveredAt.toISOString(),
     lastScanned: lastScanIso ?? undefined,
     source: dbDevice.source.toLowerCase() as 'agentless' | 'agentbased',
@@ -296,7 +305,7 @@ export const getDevicesData = createServerFn({
   method: 'POST',
 })
   .inputValidator(GetDevicesDataSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DevicesListResult> => {
   try {
     logger.info('Fetching devices from database', {
       verificationStatus: data?.verificationStatus,
@@ -430,7 +439,7 @@ export const getDeviceDetailData = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeviceDetailResult> => {
   const { deviceId } = data;
   try {
     // Get organization from session (not from client params)
@@ -465,7 +474,7 @@ export const getDeviceVulnerabilitiesData = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeviceVulnerabilitiesResult> => {
   const { deviceId, page = 1 } = data;
 
   try {
@@ -537,7 +546,7 @@ export const deleteDevice = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeleteDeviceResult> => {
   const { deviceId } = data;
 
   try {
@@ -604,7 +613,7 @@ export const getDiscoveryDevices = createServerFn({
   .inputValidator((data: { organizationId?: string }) => {
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DiscoveryDevicesResult> => {
     try {
       const user = await getCurrentUser();
       let organizationId: string;
@@ -738,7 +747,7 @@ export const createDevicesFromDiscovery = createServerFn({
 
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CreateDevicesResult> => {
     try {
       const user = await getCurrentUser();
 
@@ -819,7 +828,7 @@ export const createDevicesFromDiscovery = createServerFn({
         deviceIds: createdDevices.map(d => d.id)
       });
 
-      const response = {
+      const response: CreateDevicesResult = {
         success: true,
         devices: createdDevices.map(transformDeviceForUI),
         count: createdDevices.length
@@ -853,7 +862,7 @@ export const updateDeviceData = createServerFn({
   .inputValidator((data: { deviceId: string; updates: DeviceUpdateData }) => {
     return UpdateDeviceSchema.parse(data);
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<UpdateDeviceResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
 

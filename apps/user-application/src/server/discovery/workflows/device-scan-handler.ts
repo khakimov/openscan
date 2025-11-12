@@ -4,6 +4,7 @@ import { createLogger } from '@repo/logger';
 import { getCurrentOrganizationId } from '../../utils/auth';
 import { deviceManager } from '../services/device-manager';
 import { extractErrorMessage } from '../utils/workflow-helpers';
+import type { DeviceScanListResult } from './types';
 
 const logger = createLogger({ name: 'discovery-device-scan-handler' });
 
@@ -16,7 +17,7 @@ export const getActiveDeviceScans = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeviceScanListResult> => {
     const { deviceId } = data;
 
     try {

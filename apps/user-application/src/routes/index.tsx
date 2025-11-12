@@ -7,9 +7,9 @@ export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     const onboarding = await getOnboardingStatus().catch(() => null);
 
-    // If not authenticated, redirect to login
+    // Allow anonymous visitors to view the marketing page
     if (!onboarding?.user) {
-      throw redirect({ to: "/login" });
+      return;
     }
 
     // No organizations - redirect to onboarding

@@ -9,6 +9,12 @@ import {
 import { createLogger } from '@repo/logger';
 import { z } from 'zod';
 import { getCurrentOrganizationId, getCurrentUser } from './utils/auth';
+import type {
+  NotificationsListResult,
+  NotificationMutationResult,
+  MarkAllNotificationsResult,
+  UnreadCountResult,
+} from './notifications/types';
 
 const logger = createLogger({ name: 'notifications-server' });
 
@@ -46,7 +52,7 @@ export const getNotificationsData = createServerFn({
   method: 'POST',
 })
   .inputValidator(GetNotificationsSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<NotificationsListResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -81,7 +87,11 @@ export const getNotificationsData = createServerFn({
 
       return {
         success: true,
-        items: result.items,
+        items: result.items.map(item => ({
+          ...item,
+          createdAt: item.createdAt.toISOString(),
+          readAt: item.readAt ? item.readAt.toISOString() : null,
+        })),
         total: result.total,
         hasMore: result.hasMore,
       };
@@ -119,7 +129,7 @@ export const markNotificationAsReadData = createServerFn({
   method: 'POST',
 })
   .inputValidator(MarkAsReadSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<NotificationMutationResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -140,7 +150,10 @@ export const markNotificationAsReadData = createServerFn({
           notificationId: data.notificationId,
           organizationId,
         });
-        throw new Error('Notification not found or access denied');
+        return {
+          success: false,
+          error: 'Notification not found or access denied',
+        };
       }
 
       logger.info('Successfully marked notification as read', {
@@ -150,7 +163,11 @@ export const markNotificationAsReadData = createServerFn({
 
       return {
         success: true,
-        notification,
+        notification: {
+          ...notification,
+          createdAt: notification.createdAt.toISOString(),
+          readAt: notification.readAt ? notification.readAt.toISOString() : null,
+        },
       };
     } catch (error) {
       logger.error('Failed to mark notification as read', {
@@ -162,7 +179,10 @@ export const markNotificationAsReadData = createServerFn({
         notificationId: data.notificationId,
       });
 
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark notification as read',
+      };
     }
   });
 
@@ -189,7 +209,7 @@ export const markAllNotificationsAsReadData = createServerFn({
   method: 'POST',
 })
   .inputValidator(() => ({}))
-  .handler(async () => {
+  .handler(async (): Promise<MarkAllNotificationsResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();
@@ -220,7 +240,10 @@ export const markAllNotificationsAsReadData = createServerFn({
         } : error,
       });
 
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to mark all notifications as read',
+      };
     }
   });
 
@@ -243,7 +266,7 @@ export const getUnreadNotificationCountData = createServerFn({
   method: 'GET',
 })
   .inputValidator(() => ({}))
-  .handler(async () => {
+  .handler(async (): Promise<UnreadCountResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
       const user = await getCurrentUser();

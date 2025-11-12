@@ -5,6 +5,7 @@ import { getAuth } from "@repo/data-ops/auth/server";
 import { getActiveOrganizationId } from "@repo/data-ops/auth/organization-api";
 import { validateOrganizationAccess, getOrganizationById as getOrgByIdData } from "@repo/data-ops";
 import { getCurrentUser } from "../utils/auth";
+import type { ActiveOrganizationResult, OrganizationByIdResult } from "./types";
 
 const logger = createLogger({
   name: "organization-server:active-organization",
@@ -15,7 +16,7 @@ const logger = createLogger({
  */
 export const getActiveOrganization = createServerFn({
   method: "GET",
-}).handler(async () => {
+}).handler(async (): Promise<ActiveOrganizationResult> => {
   try {
     const request = getRequest();
     const auth = getAuth();
@@ -90,7 +91,7 @@ export const getOrganizationById = createServerFn({
     }
     return organizationIdentifier;
   })
-  .handler(async ({ data: organizationIdentifier }) => {
+  .handler(async ({ data: organizationIdentifier }): Promise<OrganizationByIdResult> => {
     try {
       const user = await getCurrentUser();
 

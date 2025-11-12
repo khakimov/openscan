@@ -4,6 +4,7 @@ import { createLogger } from '@repo/logger';
 import { CancelPortScanSchema } from '../../schemas/port-scan-schemas';
 import { portScanService } from '../../services/port-scan-service';
 import { extractErrorMessage } from '../../utils/workflow-helpers';
+import type { CancelPortScanResult, PortScanStateResult } from '../types';
 
 const logger = createLogger({ name: 'discovery-port-scan-lifecycle' });
 
@@ -11,7 +12,7 @@ export const cancelPortScanWorkflowExecution = createServerFn({
   method: 'POST',
 })
   .inputValidator((data: unknown) => CancelPortScanSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CancelPortScanResult> => {
     const { scanId, scanRunId, reason } = data as {
       scanId: string;
       scanRunId?: string;
@@ -63,7 +64,7 @@ export const getPortScanState = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<PortScanStateResult> => {
     const { scanId } = data;
 
     try {
@@ -75,7 +76,7 @@ export const getPortScanState = createServerFn({
         state: {
           scanId: state.scanId,
           status: state.status,
-          message: state.message,
+          message: state.message || '',
         },
       };
     } catch (error) {

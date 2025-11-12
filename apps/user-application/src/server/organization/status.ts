@@ -38,9 +38,11 @@ export const getOnboardingStatus = createServerFn({
     }
 
     const organizationsResult = await getUserOrganizations();
-    organizations = organizationsResult.organizations.map((org) => ({
+    // getUserOrganizations already normalizes metadata - no need to re-parse
+    // Map to OnboardingOrganizationSummary to ensure metadata is never undefined
+    organizations = organizationsResult.organizations.map(org => ({
       id: org.id,
-      name: org.name ?? null,
+      name: org.name,
       metadata: org.metadata ?? null,
     }));
 
@@ -72,7 +74,7 @@ export const getOnboardingStatus = createServerFn({
     let organizationMetadata: Record<string, {}> = {};
     if (freshOrgData?.metadata) {
       try {
-        organizationMetadata = JSON.parse(freshOrgData.metadata);
+        organizationMetadata = JSON.parse(freshOrgData.metadata) as Record<string, {}>;
         logger.debug("Organization metadata from database (fresh)", {
           organizationId: primaryOrganizationId,
           metadata: organizationMetadata,

@@ -9,6 +9,11 @@ import {
   createScanRun,
   getScanRunByRestateWorkflowId,
 } from '@repo/data-ops';
+import type {
+  DiscoveryWorkflowStartResult,
+  DiscoveryWorkflowStatusResult,
+  DiscoveryWorkflowResultsResult,
+} from './types';
 
 const logger = createLogger({ name: 'discovery-handler' });
 
@@ -30,7 +35,7 @@ export const startDiscoveryWorkflow = createServerFn({
     }
     return result.data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DiscoveryWorkflowStartResult> => {
     const { target } = data;
 
     try {
@@ -138,7 +143,7 @@ export const getScanWorkflowStatusDB = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DiscoveryWorkflowStatusResult> => {
     const { scanId } = data;
 
     try {
@@ -212,7 +217,7 @@ export const getScanWorkflowResultsDB = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DiscoveryWorkflowResultsResult> => {
     const { scanId } = data;
 
     try {

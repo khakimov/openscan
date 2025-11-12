@@ -12,7 +12,13 @@ import {
   getOrganizationById as getOrgByIdData,
 } from "@repo/data-ops";
 import { getCurrentUser } from "../utils/auth";
-import type { UserOrganizationsResult } from "./types";
+import type {
+  UserOrganizationsResult,
+  CreateOrganizationResult,
+  CreateProjectResult,
+  UpdateOrganizationResult,
+  CompleteOnboardingResult,
+} from "./types";
 
 const logger = createLogger({ name: "organization-server:onboarding" });
 
@@ -28,7 +34,7 @@ export const createOrganizationOnboarding = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CreateOrganizationResult> => {
     try {
       const request = getRequest();
       const auth = getAuth();
@@ -69,9 +75,42 @@ export const createOrganizationOnboarding = createServerFn({
         });
       }
 
+      // Map to explicit BetterAuthOrganization shape (no 'any' leakage)
+      // Guard: Better-auth may return Date or string depending on context
+      const createdAt =
+        typeof result.createdAt === "string"
+          ? result.createdAt
+          : result.createdAt?.toISOString?.() ?? new Date().toISOString();
+
+      // Normalize metadata: Better-auth may return JSON string, parse to object
+      let normalizedMetadata: Record<string, {}> | null = null;
+      if (result.metadata) {
+        if (typeof result.metadata === "string") {
+          try {
+            normalizedMetadata = JSON.parse(result.metadata) as Record<string, {}>;
+          } catch (err) {
+            logger.warn("Failed to parse created organization metadata", {
+              organizationId: result.id,
+              error: err instanceof Error ? err.message : String(err),
+            });
+          }
+        } else if (typeof result.metadata === "object") {
+          normalizedMetadata = result.metadata as Record<string, {}>;
+        }
+      }
+
+      const organization: CreateOrganizationResult['organization'] = {
+        id: result.id,
+        name: result.name,
+        slug: result.slug,
+        logo: result.logo ?? null,
+        metadata: normalizedMetadata,  // Always null or parsed object
+        createdAt,
+      };
+
       return {
         success: true,
-        organization: result,
+        organization,
       };
     } catch (error) {
       const errorMessage =
@@ -112,7 +151,7 @@ export const getUserOrganizations = createServerFn({
 
         if (org.metadata && typeof org.metadata === "string") {
           try {
-            parsedMetadata = JSON.parse(org.metadata);
+            parsedMetadata = JSON.parse(org.metadata) as Record<string, {}>;
           } catch (err) {
             logger.warn("Failed to parse organization metadata", {
               organizationId: org.id,
@@ -170,7 +209,7 @@ export const createProjectOnboarding = createServerFn({
       return data;
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CreateProjectResult> => {
     try {
       const user = await getCurrentUser();
 
@@ -274,7 +313,7 @@ export const updateOrganizationOnboarding = createServerFn({
       return data;
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<UpdateOrganizationResult> => {
     try {
       const user = await getCurrentUser();
 
@@ -336,7 +375,7 @@ export const updateOnboardingStep = createServerFn({
       return data;
     },
   )
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<UpdateOrganizationResult> => {
     try {
       const user = await getCurrentUser();
 
@@ -355,7 +394,7 @@ export const updateOnboardingStep = createServerFn({
 
       const org = await getOrgByIdData(orgAccess.id);
 
-      let metadata: Record<string, unknown> = {};
+      let metadata: Record<string, {}> = {};
 
       if (org?.metadata) {
         try {
@@ -431,7 +470,7 @@ export const completeOnboarding = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CompleteOnboardingResult> => {
     try {
       const user = await getCurrentUser();
 

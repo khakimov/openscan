@@ -4,6 +4,7 @@ import { z } from "zod";
 import { zodValidator } from "@tanstack/zod-adapter";
 import { getProjectsForOrganization, createProject, validateProjectAccess } from "@repo/data-ops";
 import { getCurrentOrganizationId, getCurrentUser } from "./utils/auth";
+import type { ProjectsListResult, ProjectAccessResult, ProjectCreateResult } from "./projects/types";
 
 const logger = createLogger({ name: "projects-server" });
 
@@ -12,7 +13,7 @@ const logger = createLogger({ name: "projects-server" });
  */
 export const getOrganizationProjects = createServerFn({
   method: "GET",
-}).handler(async () => {
+}).handler(async (): Promise<ProjectsListResult> => {
   try {
     const organizationId = await getCurrentOrganizationId();
     const projectsList = await getProjectsForOrganization(organizationId);
@@ -58,7 +59,7 @@ export const validateProjectAccessFn = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<ProjectAccessResult> => {
     try {
       const user = await getCurrentUser();
 
@@ -123,7 +124,7 @@ export const createProjectData = createServerFn({
   method: "POST",
 })
   .inputValidator(zodValidator(createProjectSchema))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<ProjectCreateResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
 

@@ -5,7 +5,6 @@ import {
   getScanWorkflowResultsDB,
   startDiscoveryWorkflow,
 } from '@/server/discovery';
-import { scanQueries } from './scan-queries';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 export const discoveryQueries = {
@@ -54,12 +53,15 @@ export const discoveryQueries = {
 export const useStartDiscoveryMutation = () =>
   useMutationWithToast({
     mutationKey: ['discovery', 'start'],
-    mutationFn: (data: { target: string }) => startDiscoveryWorkflow({ data }),
-    successMessage: (response) => {
-      if (response.success && response.scanId) {
-        return `Discovery started for ${response.target}`;
+    mutationFn: async (data: { target: string }) => {
+      const response = await startDiscoveryWorkflow({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to start discovery');
       }
-      return "Discovery started successfully";
+      return response;
     },
-    invalidateKeys: [scanQueries.list().queryKey],
+    successMessage: (response) =>
+      `Discovery started for ${response.target}`,
+    // Invalidate all scan queries (both list and table, all projectIds)
+    invalidateKeys: [['scans'], ['scans-table']],
   });

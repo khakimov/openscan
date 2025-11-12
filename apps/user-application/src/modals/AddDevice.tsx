@@ -75,8 +75,9 @@ export default function AddDevice() {
           // This ensures user sees devices immediately when modal closes
           await queryClient.refetchQueries({ queryKey: ['devices'] });
 
+          const deviceCount = response.devices?.length ?? 0;
           toast.success("Devices added successfully", {
-            description: `${response.devices.length} device(s) created and scans initiated.`,
+            description: `${deviceCount} device(s) created and scans initiated.`,
           });
           popModal("AddDevice");
         },

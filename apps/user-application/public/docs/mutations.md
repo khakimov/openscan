@@ -22,7 +22,14 @@ import { updateDevice } from '@/server/devices';
 export const useUpdateDeviceMutation = (deviceId: string) =>
   useMutationWithToast({
     mutationKey: ['devices', 'update', deviceId],
-    mutationFn: (data) => updateDevice({ data }),
+    mutationFn: async (data) => {
+      const response = await updateDevice({ data });
+      // Guard against { success: false } responses
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update device');
+      }
+      return response;
+    },
     successMessage: "Device updated successfully",
     invalidateKeys: [
       ['devices'],
@@ -31,37 +38,59 @@ export const useUpdateDeviceMutation = (deviceId: string) =>
   });
 ```
 
+**Important**: Always guard against `{ success: false }` responses in the `mutationFn`. Server functions that return discriminated unions (success/error) don't throw by default - React Query would treat them as "successful" mutations even when `success: false`. Throwing an error ensures proper error handling, toast notifications, and prevents false-positive UX.
+
 ### Dynamic Success Messages
 
-Success messages can use response data:
+Success messages can use response data (after guarding against failures):
 
 ```typescript
+import { onboardingStatusQuery } from '@/queries/onboarding-status';
+
 export const useCreateProjectMutation = () =>
   useMutationWithToast({
     mutationKey: ['project', 'create'],
-    mutationFn: (data) => createProject({ data }),
-    successMessage: (response, vars) =>
-      response.success && response.project
-        ? `Project "${response.project.name}" created`
-        : "Project created successfully",
-    invalidateKeys: [['projects'], ['onboarding-status']],
+    mutationFn: async (data) => {
+      const response = await createProject({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create project');
+      }
+      return response;
+    },
+    // Now we can safely access response.project since we threw on failure
+    successMessage: (response) =>
+      `Project "${response.project.name}" created`,
+    // Use exported query keys for proper invalidation
+    invalidateKeys: [['projects'], onboardingStatusQuery.queryKey],
   });
 ```
+
+**Key Points**:
+- Guard against `{ success: false }` before returning - this ensures `successMessage` only receives success payloads
+- Use exported query keys (e.g., `onboardingStatusQuery.queryKey`) instead of hardcoded strings to prevent invalidation mismatches
 
 ### Custom Success Handler
 
 For complex post-success logic (navigation, cache seeding, etc.):
 
 ```typescript
+import { onboardingStatusQuery } from '@/queries/onboarding-status';
+
 export const useCompleteOnboardingMutation = () => {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
   return useMutationWithToast({
     mutationKey: ['organization', 'complete-onboarding'],
-    mutationFn: (data) => completeOnboarding({ data }),
+    mutationFn: async (data) => {
+      const response = await completeOnboarding({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to complete onboarding');
+      }
+      return response;
+    },
     successMessage: "Onboarding completed!",
-    invalidateKeys: [['onboarding-status']],
+    invalidateKeys: [onboardingStatusQuery.queryKey],
     onSuccess: async (response, variables) => {
       // Seed cache for immediate UI update
       const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
@@ -72,6 +101,131 @@ export const useCompleteOnboardingMutation = () => {
     },
   });
 };
+```
+
+## Critical Pattern: Success Handling
+
+### The Problem
+
+Our server functions return discriminated unions like `{ success: true, data } | { success: false, error }`. These functions **don't throw errors** - they return `{ success: false }` as a normal response.
+
+React Query treats any non-thrown response as "success", which means:
+- ❌ Helper shows success toast even when `success: false`
+- ❌ Cache gets invalidated on failures
+- ❌ `onSuccess` callback runs on failures
+- ❌ Users see false-positive feedback
+
+### The Solution
+
+**Always guard against `{ success: false }` in `mutationFn`**:
+
+```typescript
+// ❌ WRONG - React Query treats { success: false } as success
+mutationFn: (data) => createDevice({ data }),
+
+// ✅ CORRECT - Throw on failure, ensuring proper error handling
+mutationFn: async (data) => {
+  const response = await createDevice({ data });
+  if (!response.success) {
+    throw new Error(response.error || 'Failed to create device');
+  }
+  return response;
+},
+```
+
+### Why This Works
+
+1. **Throwing converts failure to error state** - React Query's `onError` runs instead of `onSuccess`
+2. **Helper shows error toast automatically** - The thrown error message appears in the toast
+3. **Cache invalidation only on real success** - `invalidateKeys` only runs when mutation succeeds
+4. **Type narrowing in callbacks** - After the guard, TypeScript knows `response.success === true`
+
+### Example: Before vs After
+
+**Before (Broken)**:
+```typescript
+export const useCreateProjectMutation = () =>
+  useMutationWithToast({
+    mutationFn: (data) => createProject({ data }), // ❌ No guard
+    successMessage: (response) =>
+      response.success && response.project
+        ? `Project "${response.project.name}" created`
+        : "Project created successfully", // ❌ Fallback for failures!
+    invalidateKeys: [['projects']], // ❌ Invalidates even on failure
+  });
+```
+
+**After (Fixed)**:
+```typescript
+export const useCreateProjectMutation = () =>
+  useMutationWithToast({
+    mutationFn: async (data) => {
+      const response = await createProject({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create project');
+      }
+      return response; // ✅ Only success payloads reach here
+    },
+    successMessage: (response) =>
+      `Project "${response.project.name}" created`, // ✅ No need to check success
+    invalidateKeys: [['projects']], // ✅ Only invalidates on success
+  });
+```
+
+## Invalidation Key Best Practices
+
+### Use Exported Query Keys
+
+**Problem**: Hardcoded query keys can mismatch with actual query definitions, causing invalidations to silently fail.
+
+```typescript
+// ❌ WRONG - Hardcoded key doesn't match actual query
+invalidateKeys: [['onboarding-status']], // Actual key is ['onboarding', 'status']
+
+// ✅ CORRECT - Use exported query key
+import { onboardingStatusQuery } from '@/queries/onboarding-status';
+invalidateKeys: [onboardingStatusQuery.queryKey], // ['onboarding', 'status']
+```
+
+### Invalidate Broadly for Dynamic Queries
+
+**Problem**: Invalidating with specific params misses other variants of the same query.
+
+```typescript
+// ❌ WRONG - Only invalidates scans without projectId
+import { scanQueries } from '@/queries/scan-queries';
+invalidateKeys: [scanQueries.list().queryKey], // ['scans', undefined]
+
+// ✅ CORRECT - Invalidate all scan queries (list and table, all projects)
+invalidateKeys: [['scans'], ['scans-table']],
+```
+
+**When to use broad invalidation**:
+- Queries with optional filters (projectId, status, etc.)
+- Multiple query variants (list vs table, paginated vs all)
+- Mutations that affect many related queries
+
+**When to use specific invalidation**:
+- Single-resource queries (device detail, user profile)
+- Queries that won't be affected by the mutation
+
+### Example: Discovery Scan Mutation
+
+```typescript
+export const useStartDiscoveryMutation = () =>
+  useMutationWithToast({
+    mutationKey: ['discovery', 'start'],
+    mutationFn: async (data) => {
+      const response = await startDiscoveryWorkflow({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to start discovery');
+      }
+      return response;
+    },
+    successMessage: (response) => `Discovery started for ${response.target}`,
+    // Broad invalidation - catches all scan queries across all projects
+    invalidateKeys: [['scans'], ['scans-table']],
+  });
 ```
 
 ## Advanced Patterns

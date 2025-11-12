@@ -46,40 +46,36 @@ export default function AddProject() {
   // Create project mutation
   const createProjectMutation = useMutationWithToast({
     mutationKey: ["project", "create"],
-    mutationFn: (data: AddProjectFormData) => createProjectData({ data }),
-    successMessage: (response) =>
-      response.success && response.project
-        ? `Project ${response.project.name} created`
-        : "Project created successfully",
+    mutationFn: async (data: AddProjectFormData) => {
+      const response = await createProjectData({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create project');
+      }
+      return response;
+    },
     invalidateKeys: [["organization-projects"]],
     toastOnSuccess: false, // We'll show custom toast with navigation action
     onSuccess: async (response) => {
-      if (response.success && response.project) {
-        const orgIdentifier = params.organizationId;
+      const orgIdentifier = params.organizationId;
 
-        // Show success toast with action to navigate
-        toast.success("Project created successfully", {
-          description: response.project.name,
-          action: {
-            label: "View project",
-            onClick: () => {
-              navigate({
-                to: "/$organizationId/$projectId",
-                params: {
-                  organizationId: orgIdentifier,
-                  projectId: response.project.id,
-                },
-              });
-            },
+      // Show success toast with action to navigate
+      toast.success("Project created successfully", {
+        description: response.project.name,
+        action: {
+          label: "View project",
+          onClick: () => {
+            navigate({
+              to: "/$organizationId/$projectId",
+              params: {
+                organizationId: orgIdentifier,
+                projectId: response.project.id,
+              },
+            });
           },
-        });
+        },
+      });
 
-        popModal("AddProject");
-      } else {
-        toast.error("Failed to create project", {
-          description: response.error || "Please try again",
-        });
-      }
+      popModal("AddProject");
     },
   });
 

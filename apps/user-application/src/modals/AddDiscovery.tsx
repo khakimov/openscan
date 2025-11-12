@@ -196,6 +196,8 @@ export default function AddDiscovery({
       },
       {
         onSuccess: (response) => {
+          const devices = response.devices ?? [];
+
           // 1. Append new devices to Discovery tab cache (instant display)
           queryClient.setQueryData(
             ['devices', ['CANDIDATE', 'EXCLUDED'], projectId], // Discovery tab query key with projectId
@@ -204,15 +206,15 @@ export default function AddDiscovery({
 
               return {
                 ...old,
-                items: [...response.devices, ...old.items], // Prepend new devices
-                totalItems: old.totalItems + response.devices.length,
+                items: [...devices, ...old.items], // Prepend new devices
+                totalItems: old.totalItems + devices.length,
               };
             }
           );
 
           // 2. Notify parent of newly added device IDs (for animation)
-          if (onDevicesAdded && response.devices) {
-            const deviceIds = response.devices.map((d: any) => d.id);
+          if (onDevicesAdded && devices.length > 0) {
+            const deviceIds = devices.map((d: any) => d.id);
             onDevicesAdded(deviceIds);
           }
 
