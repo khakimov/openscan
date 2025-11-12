@@ -7,8 +7,70 @@ import { pushModal } from "@/modals";
 import { toast } from "sonner";
 import { deviceQueries, useStartDeviceScanMutation } from "@/queries/device-queries";
 import { useSuspenseQuery } from "@tanstack/react-query";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { DeviceHeaderSkeleton } from "@/components/shared/skeletons";
+
+/**
+ * Pending component for device detail layout
+ * Shows header skeleton and tabs while device loads
+ */
+const DevicePagePending = () => {
+  const { organizationId, projectId, deviceId } = Route.useParams();
+
+  return (
+    <Padding>
+      <div className="mb-4">
+        {/* Back button (static, always visible) */}
+        <div className="flex items-center gap-3 mb-4">
+          <Link
+            to="/$organizationId/$projectId/assets/verified"
+            params={{ organizationId, projectId }}
+          >
+            <Button variant="ghost" size="sm" className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Assets
+            </Button>
+          </Link>
+        </div>
+
+        {/* Header skeleton (reusable component) */}
+        <DeviceHeaderSkeleton />
+
+        {/* Tabs (static, always visible) */}
+        <div className="flex items-center gap-3 mt-6">
+          <PageTabs>
+            <PageTabsLink
+              to="/$organizationId/$projectId/$deviceId"
+              params={{ organizationId, projectId, deviceId }}
+              isActive={true}
+            >
+              Overview
+            </PageTabsLink>
+            <PageTabsLink
+              to="/$organizationId/$projectId/$deviceId/scans"
+              params={{ organizationId, projectId, deviceId }}
+              isActive={false}
+            >
+              Scans
+            </PageTabsLink>
+            <PageTabsLink
+              to="/$organizationId/$projectId/$deviceId/vulnerabilities"
+              params={{ organizationId, projectId, deviceId }}
+              isActive={false}
+            >
+              Vulnerabilities
+            </PageTabsLink>
+          </PageTabs>
+        </div>
+      </div>
+
+      <PageLoadingFallback compact />
+    </Padding>
+  );
+};
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId")({
+  pendingComponent: DevicePagePending,
   loader: async ({ context: { queryClient }, params }) => {
     // Guard: Validate deviceId doesn't look like a route segment or URL
     if (params.deviceId.includes('/') || params.deviceId.includes('?') || params.deviceId.includes('&')) {

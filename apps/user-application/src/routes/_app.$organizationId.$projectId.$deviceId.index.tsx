@@ -5,8 +5,16 @@ import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { TransformedDevice } from "@/server/devices";
 import { DeviceScheduleList } from "@/components/shared/device-schedule-list";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+
+/**
+ * Pending component for device overview tab
+ * Parent layout already shows tabs, so just show inline spinner
+ */
+const DeviceOverviewPending = () => <PageLoadingFallback compact />;
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/")({
+  pendingComponent: DeviceOverviewPending,
   component: DeviceOverview,
 });
 

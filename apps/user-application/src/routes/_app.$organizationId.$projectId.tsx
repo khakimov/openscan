@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { createLogger } from "@repo/logger";
 import { validateProjectAccessFn } from "@/server/projects";
+import { Spinner } from "@/components/ui/spinner";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -24,7 +25,20 @@ const RESERVED_PROJECT_IDS = [
  * - Loads project data for child routes
  * - Blocks reserved project IDs
  */
+
+/**
+ * Pending shell for project route
+ * Shows centered spinner while project loader validates access
+ * Keeps parent layouts (_app, organization) mounted
+ */
+const ProjectPendingShell = () => (
+  <div className="flex h-[60vh] items-center justify-center">
+    <Spinner size="md" wait="delay-200" />
+  </div>
+);
+
 export const Route = createFileRoute("/_app/$organizationId/$projectId")({
+  pendingComponent: ProjectPendingShell,
   beforeLoad: async ({ params }) => {
     // Block reserved project IDs (these are org-level routes)
     if (RESERVED_PROJECT_IDS.includes(params.projectId)) {

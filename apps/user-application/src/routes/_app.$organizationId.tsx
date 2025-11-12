@@ -3,6 +3,8 @@ import { getOrganizationById } from "@/server/organization";
 import { AlertTriangle, Home, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Spinner } from "@/components/ui/spinner";
+import type { OrganizationByIdResult } from "@/server/organization/types";
 
 // Reserved organization IDs that cannot be used (minimal approach from OpenPanel)
 const RESERVED_ORGANIZATION_IDS = [
@@ -26,7 +28,19 @@ const isStaticFile = (path: string): boolean => {
   return FILE_EXTENSIONS.some((extension) => path.endsWith(`.${extension}`));
 };
 
+/**
+ * Pending shell for organization route
+ * Shows centered spinner while organization loader resolves
+ * Keeps parent layout (_app) mounted
+ */
+const OrganizationPendingShell = () => (
+  <div className="flex h-[60vh] items-center justify-center">
+    <Spinner size="md" wait="delay-200" />
+  </div>
+);
+
 export const Route = createFileRoute("/_app/$organizationId")({
+  pendingComponent: OrganizationPendingShell,
   beforeLoad: async ({ params }) => {
     // Block reserved organization IDs
     if (RESERVED_ORGANIZATION_IDS.includes(params.organizationId)) {
@@ -43,16 +57,8 @@ export const Route = createFileRoute("/_app/$organizationId")({
   },
   loader: async ({ params, location }) => {
     // Validate organization exists and user has access
-    const raw = await getOrganizationById({ data: params.organizationId });
-
-    // Guard the shape before using it
-    if (!raw || typeof raw !== 'object' || !('success' in raw)) {
-      throw notFound();
-    }
-
-    const result = raw as
-      | { success: true; organization: { id: string; slug?: string | null; metadata: { [x: string]: {} } | null } }
-      | { success: false; statusCode?: number; error?: string };
+    // Type is now guaranteed by OrganizationByIdResult
+    const result: OrganizationByIdResult = await getOrganizationById({ data: params.organizationId });
 
     if (!result.success) {
       // Check if it's a permission issue (403) or not found (404)

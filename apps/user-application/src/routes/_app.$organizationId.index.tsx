@@ -4,9 +4,22 @@ import { getOrganizationProjects } from "@/server/projects";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, FolderIcon } from "lucide-react";
 import { pushModal } from "@/modals";
-import type { Project } from "@repo/data-ops";
+import { SectionHeaderSkeleton, CardGridSkeleton } from "@/components/shared/skeletons";
+import type { ProjectEntity } from "@/server/projects/types";
+
+/**
+ * Pending component for organization index
+ * Shows skeleton for project grid while loading
+ */
+const OrganizationIndexPending = () => (
+  <Padding>
+    <SectionHeaderSkeleton />
+    <CardGridSkeleton columns={3} rows={2} />
+  </Padding>
+);
 
 export const Route = createFileRoute("/_app/$organizationId/")({
+  pendingComponent: OrganizationIndexPending,
   loader: async ({ params }) => {
     // Fetch projects for this organization
     const result = await getOrganizationProjects();
@@ -71,7 +84,7 @@ function OrganizationIndex() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {projects.map((project: Project) => (
+        {projects.map((project: ProjectEntity) => (
           <a
             key={project.id}
             href={`/${organizationId}/${project.id}`}
@@ -91,9 +104,11 @@ function OrganizationIndex() {
                 {project.description}
               </p>
             )}
-            <div className="mt-4 text-xs text-muted-foreground">
-              Created {new Date(project.createdAt).toLocaleDateString()}
-            </div>
+            {project.createdAt && (
+              <div className="mt-4 text-xs text-muted-foreground">
+                Created {new Date(project.createdAt).toLocaleDateString()}
+              </div>
+            )}
           </a>
         ))}
       </div>

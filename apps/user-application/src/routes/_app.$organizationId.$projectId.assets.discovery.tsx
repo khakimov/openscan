@@ -1,19 +1,39 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
-import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
 import { TableButtons } from "@/components/shared/data-table";
 import { OverviewRange } from "@/features/overview";
 import { DeviceDetailSheet } from "@/features/assets";
 import { Shield } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { PlusIcon } from "lucide-react";
 import { pushModal } from "@/modals";
 import { deviceQueries } from "@/queries/device-queries";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { useState, Suspense } from "react";
 import { Spinner } from "@/components/ui/spinner";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { AssetsTabHeader } from "@/components/shared/assets-tab-header";
+
+/**
+ * Pending component for assets discovery tab
+ * Keeps tabs and action buttons visible with inline spinner
+ */
+const AssetsDiscoveryPending = () => {
+  const { organizationId, projectId } = Route.useParams();
+
+  return (
+    <Padding>
+      <AssetsTabHeader
+        organizationId={organizationId}
+        projectId={projectId}
+        activeTab="discovery"
+        disabled
+      />
+      <PageLoadingFallback compact />
+    </Padding>
+  );
+};
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/assets/discovery")({
+  pendingComponent: AssetsDiscoveryPending,
   loader: async ({ context: { queryClient }, params }) => {
     // Discovery tab shows CANDIDATE and EXCLUDED devices
     const verificationStatus = ["CANDIDATE", "EXCLUDED"] as ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[];
@@ -43,45 +63,21 @@ function AssetsDiscovery() {
     }, 3000);
   };
 
+  const handleStartDiscovery = () => {
+    pushModal("AddDiscovery", {
+      onConfirm: handleDiscoveryCreated,
+      onDevicesAdded: handleDevicesAdded,
+    });
+  };
+
   return (
     <Padding>
-      <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center">
-          <PageTabs>
-            <PageTabsLink
-              to="/$organizationId/$projectId/assets/discovery"
-              params={{ organizationId, projectId }}
-              isActive={true}
-            >
-              Discovery
-            </PageTabsLink>
-            <PageTabsLink
-              to="/$organizationId/$projectId/assets/verified"
-              params={{ organizationId, projectId }}
-              isActive={false}
-            >
-              Verified
-            </PageTabsLink>
-          </PageTabs>
-        </div>
-        <div className="flex gap-2">
-          <Button onClick={() => pushModal("AddDevice", {})}>
-            <PlusIcon />
-            <span className="max-sm:hidden">Add Device</span>
-          </Button>
-          <Button
-            onClick={() => {
-              pushModal("AddDiscovery", {
-                onConfirm: handleDiscoveryCreated,
-                onDevicesAdded: handleDevicesAdded,
-              });
-            }}
-          >
-            <PlusIcon />
-            <span className="max-sm:hidden">Start Discovery</span>
-          </Button>
-        </div>
-      </div>
+      <AssetsTabHeader
+        organizationId={organizationId}
+        projectId={projectId}
+        activeTab="discovery"
+        onStartDiscovery={handleStartDiscovery}
+      />
 
       <Suspense
         fallback={

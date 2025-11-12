@@ -7,8 +7,16 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Shield, AlertTriangle } from "lucide-react";
 import { useMemo } from "react";
 import type { CVEEnrichment, CVEDetail } from "@repo/data-ops";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+
+/**
+ * Pending component for device vulnerabilities tab
+ * Parent layout already shows tabs, so just show inline spinner
+ */
+const DeviceVulnerabilitiesPending = () => <PageLoadingFallback compact />;
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/vulnerabilities")({
+  pendingComponent: DeviceVulnerabilitiesPending,
   loader: async ({ context: { queryClient }, params }) => {
     // Prefetch scan history to get CVE data
     await queryClient.ensureQueryData(deviceQueries.scanHistory(params.deviceId, 1));

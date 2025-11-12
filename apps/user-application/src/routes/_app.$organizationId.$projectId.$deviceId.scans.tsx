@@ -5,8 +5,16 @@ import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { derivePortStats } from "@repo/data-ops";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+
+/**
+ * Pending component for device scans tab
+ * Parent layout already shows tabs, so just show inline spinner
+ */
+const DeviceScansPending = () => <PageLoadingFallback compact />;
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/scans")({
+  pendingComponent: DeviceScansPending,
   loader: async ({ context: { queryClient }, params }) => {
     // Prefetch scan history for SSR
     await queryClient.ensureQueryData(deviceQueries.scanHistory(params.deviceId, 50));

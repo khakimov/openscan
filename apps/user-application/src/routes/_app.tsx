@@ -7,6 +7,7 @@ import {
   type SidebarUser,
 } from "@/components/layout/sidebar";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { SidebarSkeleton } from "@/components/shared/skeletons";
 import { getCurrentUser } from "@/server/auth";
 import {
   getUserOrganizations,
@@ -30,7 +31,24 @@ const isStaticFile = (path: string): boolean => {
   return FILE_EXTENSIONS.some((extension) => lastSegment.endsWith(`.${extension}`));
 };
 
+/**
+ * Pending shell for _app route
+ * Keeps sidebar chrome mounted while child loaders hydrate
+ * Mirrors OpenPanel's AppShellPending pattern
+ */
+const AppPendingShell = () => (
+  <div className="flex h-screen w-full bg-background">
+    <SidebarSkeleton />
+    <main className="flex-1 p-2 pt-14 lg:pt-2">
+      <div className="max-w-7xl h-full flex items-center justify-center">
+        <PageLoadingFallback />
+      </div>
+    </main>
+  </div>
+);
+
 export const Route = createFileRoute("/_app")({
+  pendingComponent: AppPendingShell,
   beforeLoad: async ({ location }) => {
     // Block static file requests early (before auth checks)
     if (isStaticFile(location.pathname)) {

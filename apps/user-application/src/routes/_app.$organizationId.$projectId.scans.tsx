@@ -6,6 +6,7 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { scanQueries } from "@/queries/scan-queries";
 import { Spinner } from "@/components/ui/spinner";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Suspense } from "react";
 
 // Search params schema with proper validation
@@ -13,7 +14,25 @@ const scansSearchSchema = z.object({
   tab: fallback(z.enum(["all"]), "all").default("all"),
 });
 
+/**
+ * Pending component for scans route
+ * Keeps tabs visible with inline spinner
+ */
+const ScansPending = () => (
+  <Padding>
+    <div className="mb-4 flex items-center gap-3">
+      <PageTabs>
+        <PageTabsLink to="." search={{ tab: "all" }} isActive={true}>
+          Scans
+        </PageTabsLink>
+      </PageTabs>
+    </div>
+    <PageLoadingFallback compact />
+  </Padding>
+);
+
 export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
+  pendingComponent: ScansPending,
   validateSearch: zodValidator(scansSearchSchema),
   loader: async ({ context: { queryClient }, params }) => {
     // Populate query cache for SSR - table() uses auto-polling
@@ -21,7 +40,6 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
       scanQueries.table({ projectId: params.projectId })
     );
   },
-  // No pendingComponent - render page shell immediately, suspend only data component
   component: Scans,
 });
 
