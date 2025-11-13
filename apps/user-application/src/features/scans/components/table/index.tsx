@@ -5,24 +5,13 @@ import { scanQueries } from "@/queries/scan-queries";
 
 import { ScansDataTable } from "./scans-data-table";
 import { useColumns } from "./columns";
+import type { PortScanStats, PortSnapshot } from "@repo/data-ops";
 
-// Port scan result summary stored in scanRuns.resultSummary
+// Port scan result summary stored in scanRuns.resultSummary (sec-zg2 schema)
 export type PortScanResult = {
   target: string;
-  openPortCount: number;
-  ports: Array<{
-    port: number;
-    protocol: string;
-    state: string;
-    service?: {
-      name?: string;
-      product?: string | null;
-      version?: string | null;
-      extraInfo?: string | null;
-      method?: string;
-      confidence?: number;
-    };
-  }>;
+  portSnapshots: PortSnapshot[];
+  portScanStats?: PortScanStats;
   osInfo?: {
     name?: string;
     version?: string;
@@ -42,6 +31,7 @@ export type PortScanResult = {
     resolvedTarget?: string;
   };
   completedAt: string;
+  cveEnrichment?: any; // Full CVE enrichment data
 };
 
 export type Scan = {

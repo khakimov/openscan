@@ -5,16 +5,34 @@ import { ScansTable } from "@/features/scans";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { scanQueries } from "@/queries/scan-queries";
-import { Spinner } from "@/components/ui/spinner";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Suspense } from "react";
+import { useProject } from "@/components/layout";
 
 // Search params schema with proper validation
 const scansSearchSchema = z.object({
   tab: fallback(z.enum(["all"]), "all").default("all"),
 });
 
+/**
+ * Pending component for scans route
+ * Keeps tabs visible with inline spinner
+ */
+const ScansPending = () => (
+  <Padding>
+    <div className="mb-4 flex items-center gap-3">
+      <PageTabs>
+        <PageTabsLink to="." search={{ tab: "all" }} isActive={true}>
+          Scans
+        </PageTabsLink>
+      </PageTabs>
+    </div>
+    <PageLoadingFallback compact />
+  </Padding>
+);
+
 export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
+  pendingComponent: ScansPending,
   validateSearch: zodValidator(scansSearchSchema),
   loader: async ({ context: { queryClient }, params }) => {
     // Populate query cache for SSR - table() uses auto-polling
@@ -22,38 +40,33 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
       scanQueries.table({ projectId: params.projectId })
     );
   },
-  // No pendingComponent - render page shell immediately, suspend only data component
   component: Scans,
 });
 
 function Scans() {
   const { tab } = Route.useSearch();
-  const { projectId } = Route.useParams();
+  const project = useProject();
 
   return (
     <Padding>
       {/* Page shell - renders immediately, no data needed */}
       <div className="mb-4 flex items-center gap-3">
         <PageTabs>
-          <PageTabsLink href={"?tab=all"} isActive={tab === "all"}>
+          <PageTabsLink
+            to="."
+            search={{ tab: "all" }}
+            isActive={tab === "all"}
+          >
             Scans
           </PageTabsLink>
         </PageTabs>
-        {/* Hidden on mobile (shows in sidebar instead) */}
-        <InlineRouterSpinner className="hidden lg:inline-flex" />
       </div>
 
       {/* Data component - only this suspends, page shell stays visible */}
       <div className="grid grid-cols-6 gap-4  pt-0">
         <div className="col-span-6">
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center h-64">
-                <Spinner size="lg" />
-              </div>
-            }
-          >
-            <ScansTable projectId={projectId} />
+          <Suspense fallback={<PageLoadingFallback compact />}>
+            <ScansTable projectId={project.id} />
           </Suspense>
         </div>
       </div>

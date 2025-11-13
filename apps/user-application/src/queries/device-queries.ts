@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getDeviceDetailData,
@@ -14,6 +14,8 @@ import {
 } from '@/server/devices';
 import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
 import { createOptimisticDeleteHandlers } from '@/lib/optimistic-updates';
+import { onboardingStatusQuery } from '@/queries/onboarding-queries';
+import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 /**
  * Centralized device query definitions using queryOptions()
@@ -188,20 +190,21 @@ export const useDeleteDeviceMutation = () => {
     ['devices'], // Update all device list queries
   ]);
 
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['devices', 'delete'],
     mutationFn: (data: { deviceId: string }) => deleteDevice({ data }),
+    successMessage: 'Device deleted successfully',
+    invalidateKeys: [['devices']],
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),
   });
 };
 
-export const useUpdateDeviceMutation = (deviceId: string) => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useUpdateDeviceMutation = (deviceId: string) =>
+  useMutationWithToast({
     mutationKey: ['devices', 'update', deviceId],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       deviceId: string;
       updates: {
         name?: string;
@@ -214,53 +217,73 @@ export const useUpdateDeviceMutation = (deviceId: string) => {
         tags?: string[];
         notes?: string;
       };
-    }) => updateDeviceData({ data }),
-    onSuccess: () => {
-      // Invalidate all device queries
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
-      // Invalidate all detail queries for this device (partial matching on queryKey)
-      queryClient.invalidateQueries({ queryKey: ['device-detail', deviceId] });
-      queryClient.invalidateQueries({ queryKey: ['deviceTagSuggestions'] });
+    }) => {
+      const response = await updateDeviceData({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to update device');
+      }
+      return response;
     },
+    successMessage: "Device updated successfully",
+    invalidateKeys: [
+      ['devices'],
+      ['device-detail', deviceId],
+      ['deviceTagSuggestions'],
+    ],
   });
-};
 
-export const useVerifyDeviceMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useVerifyDeviceMutation = () =>
+  useMutationWithToast({
     mutationKey: ['devices', 'verify'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       deviceId: string;
       status: 'VERIFIED' | 'EXCLUDED' | 'CANDIDATE';
       note?: string;
-    }) => verifyDevice({ data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    }) => {
+      const response = await verifyDevice({ data });
+      if (!response.success) {
+        const errorMsg = 'error' in response && typeof response.error === 'string'
+          ? response.error
+          : 'Failed to verify device';
+        throw new Error(errorMsg);
+      }
+      return response;
     },
+    successMessage: "Device verification updated",
+    invalidateKeys: [['devices']],
   });
-};
 
-export const useToggleDeviceVerificationMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useToggleDeviceVerificationMutation = () =>
+  useMutationWithToast({
     mutationKey: ['devices', 'toggle-verification'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       deviceId: string;
       verify: boolean;
       interval?: string;
-    }) => toggleDeviceVerification({ data }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+    }) => {
+      const response = await toggleDeviceVerification({ data });
+      if (!response.success) {
+        const errorMsg = 'error' in response && typeof response.error === 'string'
+          ? response.error
+          : 'Failed to toggle verification';
+        throw new Error(errorMsg);
+      }
+      return response;
     },
+    successMessage: (_response, vars) =>
+      vars.verify ? "Device verified" : "Device unverified",
+    invalidateKeys: [['devices']],
   });
-};
 
 export const useStartDeviceScanMutation = (deviceId: string) => {
   const queryClient = useQueryClient();
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['devices', 'scan', deviceId],
     mutationFn: (data: { deviceId: string; target: string; preset: string }) =>
       startDeviceScan({ data }),
+    successMessage: 'Scan started successfully',
+    invalidateKeys: [deviceQueries.activeScans(deviceId).queryKey],
+    toastOnSuccess: false, // Silent - UI shows scan progress immediately
 
     // Optimistic update: Add temporary scan immediately
     onMutate: async (variables) => {
@@ -327,9 +350,11 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
  * ```
  */
 export const useCreateDevicesFromDiscoveryMutation = () => {
-  return useMutation({
+  const queryClient = useQueryClient();
+
+  return useMutationWithToast({
     mutationKey: ['devices', 'create-from-discovery'],
-    mutationFn: (data: {
+    mutationFn: async (data: {
       targets: Array<{ host: string; ip?: string }>;
       projectId: string;  // ✅ REQUIRED - no question mark!
       options?: {
@@ -337,7 +362,35 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
         scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
         verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
       };
-    }) => createDevicesFromDiscovery({ data }),
-    // No invalidation needed - AddDiscovery modal handles cache update directly
+    }) => {
+      const response = await createDevicesFromDiscovery({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to create devices');
+      }
+      return response;
+    },
+    successMessage: (response) =>
+      `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
+    invalidateKeys: [
+      ['devices'],  // Invalidate all device lists
+    ],
+    onSuccess: async () => {
+      // 1. Seed onboarding status cache (updates asset counts)
+      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
+      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+
+      // 2. Invalidate tenant-scoped discovery devices cache (if organizationId available)
+      // This is more precise than invalidating all orgs' caches
+      if (nextStatus.organizationId) {
+        queryClient.invalidateQueries({
+          queryKey: ['onboarding', 'discovery', 'devices', nextStatus.organizationId],
+        });
+      } else {
+        // Fallback: invalidate all discovery device caches (onboarding might not have org yet)
+        queryClient.invalidateQueries({
+          queryKey: ['onboarding', 'discovery', 'devices'],
+        });
+      }
+    },
   });
 };

@@ -3,6 +3,8 @@ import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
+import { buildPortScanPostbackPayload } from '@repo/contracts/postbacks';
+import type { PortScanPostback } from '@repo/contracts/postbacks';
 import { parseNmapXml } from './xml-parser';
 import { runMasscan } from './scanners/masscan';
 import { runRustscan } from './scanners/rustscan';
@@ -65,21 +67,23 @@ export const portScanner = restate.service({
       // Use scanId from input if provided (set via idempotency-key),
       // otherwise generate a new UUID (services don't have ctx.key like workflows do)
       const scanId = input.scanId || ctx.rand.uuidv4();
-      const startTime = Date.now();
+
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      const startTime = await ctx.date.now();
+      const startedAt = new Date(startTime).toISOString();
 
       // Initialize state
+      const sanitizedTarget = validateAndSanitizeTarget(input.target);
+
       const state: PortScanState = {
         scanId,
-        target: input.target,
+        target: sanitizedTarget,
         status: 'VALIDATING',
-        startedAt: new Date().toISOString(),
+        startedAt,
       };
       stateStore.set(scanId, state);
 
-      logger.info('Starting port scan', { scanId, target: input.target });
-
-      // Validate and sanitize target once upfront
-      const sanitizedTarget = validateAndSanitizeTarget(input.target);
+      logger.info('Starting port scan', { scanId, target: sanitizedTarget });
 
       // Step 1 (Optional): Run prescans for fast port discovery
       // These return [] gracefully if disabled via feature flags
@@ -91,7 +95,7 @@ export const portScanner = restate.service({
       const currentState = stateStore.get(scanId);
       if (currentState?.cancelRequested) {
         state.status = 'CANCELLED';
-        state.completedAt = new Date().toISOString();
+        state.completedAt = new Date(await ctx.date.now()).toISOString();
         stateStore.set(scanId, state);
         throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
       }
@@ -158,7 +162,7 @@ export const portScanner = restate.service({
         const currentState = stateStore.get(scanId);
         if (currentState?.cancelRequested) {
           state.status = 'CANCELLED';
-          state.completedAt = new Date().toISOString();
+          state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
           throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
         }
@@ -186,7 +190,7 @@ export const portScanner = restate.service({
         } catch (error: any) {
           state.status = 'FAILED';
           state.error = error.message;
-          state.completedAt = new Date().toISOString();
+          state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
 
           logger.error('nmap execution failed', { scanId, error });
@@ -214,7 +218,7 @@ export const portScanner = restate.service({
         } catch (error: any) {
           state.status = 'FAILED';
           state.error = `XML parsing failed: ${error.message}`;
-          state.completedAt = new Date().toISOString();
+          state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
 
           logger.error('XML parsing failed', { scanId, error });
@@ -233,7 +237,7 @@ export const portScanner = restate.service({
       // This adds attribution (discoveredBy: ['masscan', 'rustscan', 'nmap'])
       // and includes ports found by prescans but missed by nmap
       if (prescanPorts.length > 0) {
-        const timestamp = Math.floor(Date.now() / 1000);
+        const timestamp = Math.floor(startTime / 1000);
 
         // Convert nmap ports to DiscoveredPort format
         const nmapDiscoveredPorts = portsWithServices.map((port: any) => ({
@@ -275,64 +279,74 @@ export const portScanner = restate.service({
         }));
       }
 
-      const scanDuration = Date.now() - startTime;
+      const endTime = await ctx.date.now();
+      const scanDuration = endTime - startTime;
+
+      const normalizedPorts = normalizePortsForPostback(portsWithServices);
 
       // Update state with completion
       state.status = 'COMPLETED';
-      state.portsFound = portsWithServices.length;
-      state.completedAt = new Date().toISOString();
+      state.portsFound = normalizedPorts.length;
+      state.completedAt = new Date(endTime).toISOString();
       stateStore.set(scanId, state);
 
       logger.info('Port scan completed', {
         scanId,
-        target: input.target,
-        portsFound: portsWithServices.length,
+        target: sanitizedTarget,
+        portsFound: normalizedPorts.length,
         duration: scanDuration,
       });
 
       const results = {
         scanId,
-        target: input.target,
-        ports: portsWithServices,
-        totalPorts: portsWithServices.length,
+        target: sanitizedTarget,
+        ports: normalizedPorts,
+        totalPorts: normalizedPorts.length,
         scanDuration,
-        completedAt: new Date().toISOString(),
+        completedAt: new Date(endTime).toISOString(),
       };
 
       // Step 5: Postback results if callbackUrl provided (durable)
       if (input.callbackUrl && input.deviceId) {
+        const deviceId = input.deviceId;
+        const callbackUrl = input.callbackUrl;
+
         await ctx.run('postback-results', async () => {
           logger.info('Posting scan results back to server', {
             scanId,
-            callbackUrl: input.callbackUrl,
-            deviceId: input.deviceId,
+            callbackUrl,
+            deviceId,
           });
 
-          await postUniversalPostback({
+          const portScanPostback = buildPortScanPostbackPayload({
             type: 'PORT_SCAN',
-            scanId: scanId,
+            scanId,
             organizationId: input.organizationId!,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(endTime).toISOString(),
             status: 'SUCCESS',
-            callbackUrl: input.callbackUrl!,
-            deviceId: input.deviceId,
+            deviceId,
             data: {
-              target: input.target,
-              ports: portsWithServices,
+              target: sanitizedTarget,
+              ports: normalizedPorts,
               timing: {
                 start: startTime,
-                end: Date.now(),
+                end: endTime,
                 elapsed: scanDuration,
               },
               scanMetadata: {
                 scanner: 'nmap',
                 duration: scanDuration,
-                resolvedTarget: input.target,
+                resolvedTarget: sanitizedTarget,
               },
             },
           });
 
-          logger.info('Postback successful', { scanId, deviceId: input.deviceId });
+          await postUniversalPostback({
+            callbackUrl,
+            ...portScanPostback,
+          });
+
+          logger.info('Postback successful', { scanId, deviceId });
         });
       }
 
@@ -475,6 +489,9 @@ function buildNmapArgs(input: {
 }): string[] {
   const args: string[] = ['-oX', '-']; // Output as XML to stdout
 
+  // Skip host discovery & DNS resolution; match legacy aggressiveness
+  args.push('-Pn', '-n', '-T5');
+
   if (input.ports) {
     // Validate port specification
     if (!/^[0-9,\-]+$/.test(input.ports)) {
@@ -484,13 +501,14 @@ function buildNmapArgs(input: {
   }
 
   if (input.protocol === 'udp') {
-    args.push('-sU');
+    args.push('-sU', '-sV'); // UDP scan with version detection
+  } else {
+    // Use SYN scan so OS detection (-O) works under cap_net_raw without sudo
+    args.push('-sS', '-sV', '-O');
   }
 
   if (input.aggressive) {
     args.push('-A'); // Aggressive scan (OS detection, version detection, script scanning, traceroute)
-  } else {
-    args.push('-sV'); // Version detection
   }
 
   if (input.timeout) {
@@ -499,7 +517,71 @@ function buildNmapArgs(input: {
       throw new Error('Invalid timeout value');
     }
     args.push('--host-timeout', `${input.timeout}ms`);
+  } else {
+    // Match legacy default of 900 seconds
+    args.push('--host-timeout', '900000ms');
   }
 
   return args;
+}
+
+/**
+ * Normalizes port scan results to match PortScanPostback contract.
+ *
+ * This is the single normalization point for all port data before it reaches
+ * state storage or postback payloads. Ensures contract compliance by:
+ *
+ * - Protocol field variants: handles both 'protocol' and 'transportProtocol'
+ * - State type narrowing: ensures only 'open' | 'closed' | 'filtered'
+ * - Service confidence variants: normalizes 'confidence' vs 'conf' fields
+ * - Undefined stripping: removes undefined fields for clean Zod validation
+ *
+ * @param ports Raw port data from nmap/masscan/rustscan merger
+ * @returns Contract-compliant port data for postback and state storage
+ */
+function normalizePortsForPostback(
+  ports: Array<any>,
+): PortScanPostback['data']['ports'] {
+  return ports.map((port) => {
+    const protocol =
+      port.protocol === 'udp' || port.protocol === 'tcp'
+        ? port.protocol
+        : port.transportProtocol === 'udp'
+        ? 'udp'
+        : 'tcp';
+
+    const state: 'open' | 'closed' | 'filtered' =
+      port.state === 'closed' || port.state === 'filtered'
+        ? port.state
+        : 'open';
+
+    const service = port.service
+      ? {
+          name: port.service.name ?? undefined,
+          product: port.service.product ?? undefined,
+          version: port.service.version ?? undefined,
+          extraInfo: port.service.extraInfo ?? undefined,
+          method: port.service.method ?? undefined,
+          confidence:
+            typeof port.service.confidence === 'number'
+              ? port.service.confidence
+              : typeof port.service.conf === 'number'
+              ? port.service.conf
+              : undefined,
+        }
+      : undefined;
+
+    return {
+      port: Number(port.port),
+      protocol,
+      state,
+      service,
+      version:
+        typeof port.version === 'string'
+          ? port.version
+          : typeof port.service?.version === 'string'
+          ? port.service.version
+          : undefined,
+    };
+  });
 }

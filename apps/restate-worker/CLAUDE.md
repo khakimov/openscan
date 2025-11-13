@@ -131,7 +131,9 @@ npx @restatedev/restate deployments register \
    # Should show: PortScanner, Discovery
    ```
 
-### Production Deployment
+### Production Deployment (Restate Cloud with Tunnel)
+
+**IMPORTANT**: We use Restate Cloud with a secure tunnel. Never expose worker directly to internet.
 
 1. **Commit all changes**:
    ```bash
@@ -141,27 +143,76 @@ npx @restatedev/restate deployments register \
    git push
    ```
 
-2. **Pull on server**:
+2. **SSH to server and pull changes**:
    ```bash
+   ssh your-server
+   cd /path/to/sec/apps/restate-worker
    git pull origin <branch>
    ```
 
-3. **Restart worker**:
+3. **Restart tunnel with tunnel.env** (if not already running):
    ```bash
-   pkill -f "tsx watch" && pnpm dev
-   # or with pm2:
+   # Stop old tunnel if running
+   docker stop restate-tunnel && docker rm restate-tunnel
+
+   # Start tunnel with environment file
+   docker run \
+     --env-file tunnel.env \
+     -p 8080:8080 \
+     -p 9090:9090 \
+     -p 9070:9070 \
+     --network=host \
+     --restart unless-stopped \
+     -d \
+     --name restate-tunnel \
+     ghcr.io/restatedev/restate-cloud-tunnel-client:latest
+
+   # Verify tunnel is connected (should see no errors)
+   docker logs -f restate-tunnel
+   ```
+
+4. **Restart worker**:
+   ```bash
    pm2 restart restate-worker
+   # OR without pm2:
+   # pkill -f "tsx watch" && pnpm dev
    ```
 
-4. **Re-register with Restate Cloud**:
+5. **Re-register with Restate Cloud via tunnel**:
+
+   **CRITICAL**: Use the tunnel URL format with correct values from `tunnel.env`:
+
    ```bash
-   npx @restatedev/restate deployments register <TUNNEL_URL> --force
+   # Get tunnel name from tunnel.env
+   cat tunnel.env | grep TUNNEL_NAME
+   # Example: RESTATE_TUNNEL_NAME=prod-tunnel
+
+   # Register using tunnel URL (replace values from tunnel.env)
+   npx @restatedev/restate deployments register \
+     https://tunnel.us.restate.cloud:9080/201k7hktgm99xk9cb3f5btv7x9w/prod-tunnel/http/localhost/9080 \
+     --force
    ```
 
-5. **Verify logs show all services**:
-   ```json
-   {"services": ["PortScanner", "Discovery"], "identityKeysConfigured": false}
+   **URL Format Breakdown**:
+   - `tunnel.us.restate.cloud:9080` - Tunnel endpoint (region from tunnel.env)
+   - `201k7hktgm99xk9cb3f5btv7x9w` - Environment ID without `env_` prefix
+   - `prod-tunnel` - Tunnel name from `RESTATE_TUNNEL_NAME` in tunnel.env
+   - `http://localhost/9080` - Worker endpoint (as seen from tunnel container)
+
+6. **Verify registration**:
+   ```bash
+   npx @restatedev/restate services list
+   # Should show: PortScanner, Discovery, Httpx, DeviceScanner
+
+   # Check worker logs show all services
+   pm2 logs restate-worker --lines 10
+   # Should see: {"services": ["PortScanner", "Discovery", "Httpx", "DeviceScanner"]}
    ```
+
+**Common Registration Errors**:
+- `Tunnel not found` → Wrong tunnel name, check `tunnel.env`
+- `Connection refused` → Worker not running, restart worker
+- `Bad status code 403` → Wrong environment ID or missing `env_` prefix
 
 ## Common Gotchas & Fixes
 

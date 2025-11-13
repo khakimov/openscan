@@ -9,7 +9,6 @@ import {
   getDeviceScanHistory,
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
-  getScanScheduleByDeviceId,
   getOrganizationIdFromProject,  // ✅ VULN-003 FIX
   validateProjectAccess,
   validateOrganizationAccess,  // ✅ VULN-004 FIX
@@ -20,6 +19,15 @@ import { createLogger } from '@repo/logger'
 import { z } from 'zod'
 import { getCurrentOrganizationId, getCurrentUser } from './utils/auth'
 import { formatServerError } from './utils/errors'
+import type {
+  DevicesListResult,
+  DeviceDetailResult,
+  DeviceVulnerabilitiesResult,
+  DeleteDeviceResult,
+  DiscoveryDevicesResult,
+  CreateDevicesResult,
+  UpdateDeviceResult,
+} from './devices/types'
 
 const logger = createLogger({ name: 'devices-server' })
 
@@ -92,11 +100,20 @@ export type TransformedDevice = {
     scanCount: number;
     totalScans?: number;
     lastScanAt: string | null;
+    /** Total open ports discovered by scanner (pre-filtering) */
+    totalOpenPorts?: number;
+    /** Ports with service information detected */
+    portsWithService?: number;
+    /** Ports stored in database (after filtering & capping) */
+    portsStored?: number;
+    /** @deprecated Use totalOpenPorts for raw count */
     openPortCount?: number;
+    /** @deprecated Use portsStored instead */
     totalPortCount?: number;
-    // Smart metadata for UI (port filtering, WAF/proxy detection)
+    /** @deprecated Use portsStored instead */
     portsStoredCount?: number;
-    scanPattern?: 'WAF/Proxy' | 'Normal';
+    // Smart metadata for UI (port filtering, WAF/proxy detection)
+    scanPattern?: 'WAF/Proxy' | 'Possible WAF/Proxy' | 'Normal';
     suspiciousAllPortsOpen?: boolean;
     serviceDetectionRate?: number;
     ports?: Array<{
@@ -163,14 +180,17 @@ const UpdateDeviceSchema = z.object({
 })
 
 // Transform database device to match UI expectations
-function transformDeviceForUI(dbDevice: any) {
+function transformDeviceForUI(dbDevice: any): TransformedDevice {
   const scanStats = dbDevice.scanStats as
     | {
         scanCount: number;
         totalScans?: number;
         lastScanAt: number | null;  // Database returns timestamp as number (milliseconds)
-        openPortCount?: number;
-        totalPortCount?: number;
+        totalOpenPorts?: number;  // Raw scanner discovery count
+        portsWithService?: number;  // Ports with service info
+        portsStored?: number;  // Actually persisted
+        openPortCount?: number;  // Legacy field
+        totalPortCount?: number;  // Legacy field
         ports?: Array<{
           port: number;
           protocol: string;
@@ -234,6 +254,11 @@ function transformDeviceForUI(dbDevice: any) {
         totalScans,
         scanCount: scanStats?.scanCount ?? totalScans,
         lastScanAt: lastScanIso,
+        // New fields: expose raw counts
+        totalOpenPorts: scanStats?.totalOpenPorts,
+        portsWithService: scanStats?.portsWithService,
+        portsStored: scanStats?.portsStored,
+        // Legacy fields for backward compatibility
         openPortCount,
         totalPortCount,
         ports: openPortEntries,
@@ -245,7 +270,7 @@ function transformDeviceForUI(dbDevice: any) {
     name: dbDevice.name,
     ip: dbDevice.ip || '0.0.0.0',
     riskLevel: dbDevice.riskLevel.toLowerCase(), // DB uses uppercase, UI expects lowercase
-    status: dbDevice.state === 'AVAILABLE' ? 'active' : 'offline',
+    status: (dbDevice.state === 'AVAILABLE' ? 'active' : 'offline') as 'active' | 'offline',
     discoveredOn: discoveredAt.toISOString(),
     lastScanned: lastScanIso ?? undefined,
     source: dbDevice.source.toLowerCase() as 'agentless' | 'agentbased',
@@ -280,20 +305,62 @@ export const getDevicesData = createServerFn({
   method: 'POST',
 })
   .inputValidator(GetDevicesDataSchema.parse)
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DevicesListResult> => {
   try {
     logger.info('Fetching devices from database', {
       verificationStatus: data?.verificationStatus,
       projectId: data?.projectId
     })
 
-    // Get session for organization context
-    const organizationId = await getCurrentOrganizationId()
-    logger.info('Fetching devices for organization', {
-      organizationId,
-      verificationStatus: data?.verificationStatus,
-      projectId: data?.projectId
-    })
+    // ✅ VULN-001 FIX: Validate projectId before using it
+    const user = await getCurrentUser();
+    let organizationId: string;
+    let validatedProjectId: string | undefined = undefined;
+
+    if (data?.projectId) {
+      // Derive organizationId from projectId (don't trust client's session)
+      const derivedOrgId = await getOrganizationIdFromProject(data.projectId);
+
+      if (!derivedOrgId) {
+        logger.warn('Invalid projectId provided to getDevicesData', {
+          projectId: data.projectId,
+          userId: user.id,
+        });
+        throw new Error('Project not found or access denied');
+      }
+
+      // Validate user has access to BOTH project AND organization
+      const access = await validateProjectAccess(
+        user.id,
+        data.projectId,
+        derivedOrgId
+      );
+
+      if (!access) {
+        logger.warn('Project access validation failed in getDevicesData', {
+          userId: user.id,
+          projectId: data.projectId,
+          derivedOrgId,
+        });
+        throw new Error('Project not found or access denied');
+      }
+
+      organizationId = access.organization.id;
+      validatedProjectId = access.project.id;
+
+      logger.info('Validated projectId for device listing', {
+        projectId: data.projectId,
+        organizationId,
+        userId: user.id,
+      });
+    } else {
+      // No projectId provided - use session organizationId
+      organizationId = await getCurrentOrganizationId();
+      logger.info('Fetching devices for organization from session', {
+        organizationId,
+        verificationStatus: data?.verificationStatus,
+      });
+    }
 
     // Query database with organization filter and verification status
     const queryParams: DeviceQueryParams = {
@@ -302,7 +369,7 @@ export const getDevicesData = createServerFn({
       sortColumn: 'discoveredAt',
       sortDirection: 'desc',
       verificationStatus: data?.verificationStatus,
-      projectId: data?.projectId
+      projectId: validatedProjectId  // ✅ Only use validated projectId
     }
 
     const devicesResponse = await getDevicesForTenant(organizationId, queryParams)
@@ -316,12 +383,12 @@ export const getDevicesData = createServerFn({
     const transformedDevices = devicesResponse.items.map(transformDeviceForUI)
 
     // Debug logging: Check for suspicious IDs
-    const suspiciousIds = transformedDevices.filter(d =>
+    const suspiciousIds = transformedDevices.filter((d: TransformedDevice) =>
       d.id.includes('/') || d.id.includes('?') || d.id.includes('&')
     );
     if (suspiciousIds.length > 0) {
       logger.error('Found devices with suspicious IDs', {
-        suspiciousDevices: suspiciousIds.map(d => ({
+        suspiciousDevices: suspiciousIds.map((d: TransformedDevice) => ({
           id: d.id,
           name: d.name,
           ip: d.ip
@@ -372,7 +439,7 @@ export const getDeviceDetailData = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeviceDetailResult> => {
   const { deviceId } = data;
   try {
     // Get organization from session (not from client params)
@@ -407,7 +474,7 @@ export const getDeviceVulnerabilitiesData = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeviceVulnerabilitiesResult> => {
   const { deviceId, page = 1 } = data;
 
   try {
@@ -479,7 +546,7 @@ export const deleteDevice = createServerFn({
     }
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DeleteDeviceResult> => {
   const { deviceId } = data;
 
   try {
@@ -546,7 +613,7 @@ export const getDiscoveryDevices = createServerFn({
   .inputValidator((data: { organizationId?: string }) => {
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<DiscoveryDevicesResult> => {
     try {
       const user = await getCurrentUser();
       let organizationId: string;
@@ -680,7 +747,7 @@ export const createDevicesFromDiscovery = createServerFn({
 
     return data;
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<CreateDevicesResult> => {
     try {
       const user = await getCurrentUser();
 
@@ -761,7 +828,7 @@ export const createDevicesFromDiscovery = createServerFn({
         deviceIds: createdDevices.map(d => d.id)
       });
 
-      const response = {
+      const response: CreateDevicesResult = {
         success: true,
         devices: createdDevices.map(transformDeviceForUI),
         count: createdDevices.length
@@ -795,7 +862,7 @@ export const updateDeviceData = createServerFn({
   .inputValidator((data: { deviceId: string; updates: DeviceUpdateData }) => {
     return UpdateDeviceSchema.parse(data);
   })
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<UpdateDeviceResult> => {
     try {
       const organizationId = await getCurrentOrganizationId();
 
@@ -1041,15 +1108,14 @@ export const toggleDeviceVerification = createServerFn({
         };
       } else {
         // UNVERIFY: Delete schedule and update device status
-        const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
-
-        if (existingSchedule) {
-          // TODO: Delete Restate schedule when implemented
-          logger.info('Schedule exists but scheduling not implemented yet', {
-            deviceId: device.id,
-            scheduleId: existingSchedule.scheduleId
-          });
-        }
+        // TODO (sec-xx): Implement getScanScheduleByDeviceId and delete Restate schedule
+        // const existingSchedule = await getScanScheduleByDeviceId(data.deviceId, organizationId);
+        // if (existingSchedule) {
+        //   logger.info('Schedule exists but scheduling not implemented yet', {
+        //     deviceId: device.id,
+        //     scheduleId: existingSchedule.scheduleId
+        //   });
+        // }
 
         // Unverify device (also deletes schedule record in DB)
         await unverifyDeviceDB(data.deviceId, organizationId);

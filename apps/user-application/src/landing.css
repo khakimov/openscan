@@ -1,0 +1,116 @@
+/**
+ * Landing page specific styles
+ * Inspired by TheArtisan.ai design with TT Firs Neue Var font
+ */
+
+/* Landing page fonts - scoped to avoid affecting the rest of the app */
+@font-face {
+  font-family: 'TT Firs Neue Var';
+  src: url('/fonts/TT-Firs-Neue-Var Roman.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: optional; /* Prevents FOUT/FOIT - uses fallback if font not loaded */
+}
+
+@font-face {
+  font-family: 'Uncut Sans';
+  src: url('/fonts/UncutSans-Variable.woff2') format('woff2-variations');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: optional; /* Prevents FOUT/FOIT - uses fallback if font not loaded */
+}
+
+/* Landing page specific variables */
+:root {
+  --landing-font-header: 'TT Firs Neue Var', ui-sans-serif, system-ui, sans-serif;
+  --landing-font-text: 'Uncut Sans', ui-sans-serif, system-ui, sans-serif;
+  --landing-bg-dark: #1A1515; /* Dark brownish background from reference */
+  --landing-text-light: #FFFFFF;
+}
+
+/* Landing page header style (ta-header equivalent) */
+.landing-header {
+  font-family: var(--landing-font-header);
+  font-weight: 700;
+  font-variation-settings: 'wght' 650;
+  font-size: 6.3rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+/* Landing page caption/tagline style (Kiosks__caption equivalent) */
+.landing-caption {
+  font-family: var(--landing-font-text);
+  font-size: 2.2rem;
+  line-height: 1.445;
+  font-weight: 400;
+  font-variation-settings: 'wght' 400;
+}
+
+/* Responsive adjustments for mobile */
+@media (max-width: 768px) {
+  .landing-header {
+    font-size: 4.1rem;
+  }
+
+  .landing-caption {
+    font-size: 1.9rem;
+  }
+}
+
+/* Landing page wrapper - applies background */
+.landing-page {
+  background-color: var(--landing-bg-dark);
+  color: var(--landing-text-light);
+  min-height: 100vh;
+}
+
+/* Optional: Smooth font rendering */
+.landing-header,
+.landing-caption {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Easter egg: rock emoji wiggle */
+@keyframes rock-emoji-swing {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-18deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+  80% {
+    transform: rotate(-10deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+.rock-emoji {
+  display: inline-block;
+  margin-left: 0.35rem;
+  cursor: pointer;
+  transform-origin: 55% 65%;
+  transition: transform 0.2s ease;
+}
+
+.rock-emoji:hover,
+.rock-emoji:focus-visible {
+  animation: rock-emoji-swing 1s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rock-emoji {
+    transition: none;
+  }
+
+  .rock-emoji:hover,
+  .rock-emoji:focus-visible {
+    animation: none;
+  }
+}

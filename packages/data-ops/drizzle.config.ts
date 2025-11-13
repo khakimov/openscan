@@ -8,6 +8,7 @@ const config: Config = {
     "./src/schema/inventory.ts",
     "./src/schema/scanners.ts",
     "./src/schema/orchestration.ts",
+    "./src/schema/notifications.ts",
   ],
   dialect: "sqlite",
   driver: "d1-http",

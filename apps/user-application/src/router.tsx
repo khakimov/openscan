@@ -2,9 +2,27 @@ import { createRouter } from '@tanstack/react-router'
 import { setupRouterSsrQueryIntegration } from '@tanstack/react-router-ssr-query'
 import * as TanstackQuery from './integrations/tanstack-query/root-provider'
 import { Spinner } from './components/ui/spinner'
+import type { QueryClient } from '@tanstack/react-query'
+import type { OnboardingStatus } from './server/types/onboarding'
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
+
+/**
+ * Typed router context available to all routes
+ * Following TanStack Router best practices from start-supabase-basic example
+ */
+export interface RouterContext {
+  queryClient: QueryClient
+  onboarding?: OnboardingStatus  // Optional because not all routes have onboarding
+}
+
+/**
+ * Onboarding route context - guarantees onboarding is present
+ */
+export interface OnboardingRouteContext extends RouterContext {
+  onboarding: OnboardingStatus  // Required for onboarding routes
+}
 
 // Create a new router instance
 export const getRouter = () => {
@@ -12,11 +30,11 @@ export const getRouter = () => {
 
   const router = createRouter({
     routeTree,
-    context: { ...rqContext },
+    context: { ...rqContext } as RouterContext,
 
     // Navigation optimization settings (prevents laggy feel)
     defaultPreload: 'intent',              // Preload on hover/focus (not click)
-    defaultPreloadStaleTime: 0,            // Always check cache freshness
+    defaultPreloadStaleTime: 10000,        // Cache preloaded data for 10s (prevents duplicate fetches)
 
     // Smooth loading state timing (prevents jarring flashes)
     defaultPendingMs: 1000,                // Show pending UI after 1s

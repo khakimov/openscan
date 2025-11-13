@@ -66,57 +66,26 @@ The Universal Postback Architecture provides a type-safe, extensible system for 
 
 The architecture uses **discriminated unions** for type-safe handling:
 
+These definitions now live in `packages/contracts/src/postbacks.ts` and are imported by both the worker and the server:
+
 ```typescript
-// Base type - common fields for all postbacks
-interface BasePostback {
-  type: string;                    // Discriminator field
-  scanId: string;                  // Workflow identifier
-  organizationId: string;          // Tenant ID
-  timestamp: string;               // ISO 8601 timestamp
-  status: 'SUCCESS' | 'FAILURE';   // Execution status
-  error?: string;                  // Error message (if FAILURE)
-}
+import {
+  DiscoveryPostbackSchema,
+  HttpxPostbackSchema,
+  PortScanPostbackSchema,
+  ScheduleAutoPausedPostbackSchema,
+  ScheduledScanExecutedPostbackSchema,
+  UniversalPostbackSchema,
+  type DiscoveryPostback,
+  type HttpxPostback,
+  type PortScanPostback,
+  type ScheduleAutoPausedPostback,
+  type ScheduledScanExecutedPostback,
+  type UniversalPostback,
+} from '@repo/contracts/postbacks';
 
-// Port scan postback
-interface PortScanPostback extends BasePostback {
-  type: 'PORT_SCAN';               // Literal type
-  deviceId: string;                // Target device
-  data: {
-    target: string;
-    ports: Array<{
-      port: number;
-      protocol: 'tcp' | 'udp';
-      state: 'open' | 'closed' | 'filtered';
-      service?: string;
-      version?: string;
-    }>;
-    osInfo?: { /* ... */ };
-    timing?: { /* ... */ };
-  };
-}
-
-// Discovery postback
-interface DiscoveryPostback extends BasePostback {
-  type: 'DISCOVERY';               // Literal type
-  data: {
-    target: string;
-    devices: Array<{
-      hostname: string;
-      ipAddress?: string;
-      metadata?: Record<string, any>;
-    }>;
-    totalSubdomains: number;
-    executionTime: number;
-    tools: string[];
-    errors?: string[];
-  };
-}
-
-// Union type for all postbacks
-type PostbackPayload =
-  | PortScanPostback
-  | DiscoveryPostback;
-  // Easy to add more!
+// Example: discriminated union covers every payload
+type PostbackPayload = UniversalPostback;
 ```
 
 ## Handler Interface

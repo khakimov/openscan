@@ -88,11 +88,30 @@ describe('Device Scan Statistics (Integration)', () => {
       startedAt: new Date('2025-01-15T09:00:00Z'),
       completedAt: new Date('2025-01-15T09:05:00Z'),
       resultSummary: {
-        openPortCount: 2,
-        ports: [
-          { port: 80, service: 'http', state: 'open' },
-          { port: 443, service: 'https', state: 'open' },
+        portSnapshots: [
+          {
+            port: 80,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'http', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T09:05:00Z' },
+          },
+          {
+            port: 443,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'https', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T09:05:00Z' },
+          },
         ],
+        portScanStats: {
+          totalOpenPorts: 2,
+          portsWithService: 2,
+          portsStored: 2,
+          serviceDetectionRate: 100,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
       },
     }).returning();
     testDataIds.scanRuns.push(scanRun1a.id);
@@ -122,14 +141,51 @@ describe('Device Scan Statistics (Integration)', () => {
       startedAt: new Date('2025-01-15T10:00:00Z'),
       completedAt: new Date('2025-01-15T10:05:00Z'),
       resultSummary: {
-        openPortCount: 5,
-        ports: [
-          { port: 80, service: 'http', state: 'open' },
-          { port: 443, service: 'https', state: 'open' },
-          { port: 22, service: 'ssh', state: 'open' },
-          { port: 3306, service: 'mysql', state: 'open' },
-          { port: 5432, service: 'postgresql', state: 'open' },
+        portSnapshots: [
+          {
+            port: 80,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'http', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T10:05:00Z' },
+          },
+          {
+            port: 443,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'https', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T10:05:00Z' },
+          },
+          {
+            port: 22,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'ssh', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T10:05:00Z' },
+          },
+          {
+            port: 3306,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'mysql', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T10:05:00Z' },
+          },
+          {
+            port: 5432,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'postgresql', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T10:05:00Z' },
+          },
         ],
+        portScanStats: {
+          totalOpenPorts: 5,
+          portsWithService: 5,
+          portsStored: 5,
+          serviceDetectionRate: 100,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
       },
     }).returning();
     testDataIds.scanRuns.push(scanRun1b.id);
@@ -169,8 +225,15 @@ describe('Device Scan Statistics (Integration)', () => {
       startedAt: new Date('2025-01-15T11:00:00Z'),
       completedAt: new Date('2025-01-15T11:05:00Z'),
       resultSummary: {
-        openPortCount: 0,
-        ports: [],
+        portSnapshots: [],
+        portScanStats: {
+          totalOpenPorts: 0,
+          portsWithService: 0,
+          portsStored: 0,
+          serviceDetectionRate: 0,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
       },
     }).returning();
     testDataIds.scanRuns.push(scanRun2.id);
@@ -210,10 +273,23 @@ describe('Device Scan Statistics (Integration)', () => {
       startedAt: new Date('2025-01-15T12:00:00Z'),
       completedAt: new Date('2025-01-15T12:05:00Z'),
       resultSummary: {
-        openPortCount: 1,
-        ports: [
-          { port: 443, service: 'https', state: 'open' },
+        portSnapshots: [
+          {
+            port: 443,
+            protocol: 'tcp',
+            state: 'open',
+            service: { name: 'https', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-01-15T12:05:00Z' },
+          },
         ],
+        portScanStats: {
+          totalOpenPorts: 1,
+          portsWithService: 1,
+          portsStored: 1,
+          serviceDetectionRate: 100,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
       },
     }).returning();
     testDataIds.scanRuns.push(scanRun3.id);
@@ -297,10 +373,16 @@ describe('Device Scan Statistics (Integration)', () => {
     expect(device!.scanStats!.scanCount).toBe(2); // Total number of scans
     expect(device!.scanStats!.ports).toHaveLength(5);
 
-    // Verify it has the latest scan's ports
+    // Verify it has the latest scan's ports (service is now an object)
     const ports = device!.scanStats!.ports;
-    expect(ports).toContainEqual(expect.objectContaining({ port: 3306, service: 'mysql' }));
-    expect(ports).toContainEqual(expect.objectContaining({ port: 5432, service: 'postgresql' }));
+    expect(ports).toContainEqual(expect.objectContaining({
+      port: 3306,
+      service: expect.objectContaining({ name: 'mysql' })
+    }));
+    expect(ports).toContainEqual(expect.objectContaining({
+      port: 5432,
+      service: expect.objectContaining({ name: 'postgresql' })
+    }));
 
     console.log('✅ Latest scan stats:', {
       name: device!.name,
@@ -340,7 +422,11 @@ describe('Device Scan Statistics (Integration)', () => {
     expect(device!.scanStats!.openPortCount).toBe(1);
     expect(device!.scanStats!.ports).toHaveLength(1);
     expect(device!.scanStats!.ports[0]).toEqual(
-      expect.objectContaining({ port: 443, service: 'https', state: 'open' })
+      expect.objectContaining({
+        port: 443,
+        service: expect.objectContaining({ name: 'https' }),
+        state: 'open'
+      })
     );
 
     console.log('✅ Device with single port:', {
@@ -365,13 +451,13 @@ describe('Device Scan Statistics (Integration)', () => {
 
     const ports = device!.scanStats!.ports;
 
-    // Each port should have required fields
+    // Each port should have required fields (service is now an object)
     ports.forEach((port: any) => {
       expect(port).toHaveProperty('port');
       expect(port).toHaveProperty('service');
       expect(port).toHaveProperty('state');
       expect(typeof port.port).toBe('number');
-      expect(typeof port.service).toBe('string');
+      expect(typeof port.service).toBe('object'); // Service is now an object with name, product, etc.
       expect(port.state).toBe('open');
     });
 

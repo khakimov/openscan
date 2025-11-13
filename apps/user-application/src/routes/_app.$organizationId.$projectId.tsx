@@ -1,6 +1,8 @@
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { createLogger } from "@repo/logger";
-import { validateProjectAccessFn } from "@/server/projects";
+import { projectAccessQuery } from "@/queries";
+import { ProjectGate } from "@/components/layout/project-gate";
+import { Spinner } from "@/components/ui/spinner";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -24,7 +26,20 @@ const RESERVED_PROJECT_IDS = [
  * - Loads project data for child routes
  * - Blocks reserved project IDs
  */
+
+/**
+ * Pending shell for project route
+ * Shows centered spinner while project loader validates access
+ * Keeps parent layouts (_app, organization) mounted
+ */
+const ProjectPendingShell = () => (
+  <div className="flex h-[60vh] items-center justify-center">
+    <Spinner size="md" wait="delay-200" />
+  </div>
+);
+
 export const Route = createFileRoute("/_app/$organizationId/$projectId")({
+  pendingComponent: ProjectPendingShell,
   beforeLoad: async ({ params }) => {
     // Block reserved project IDs (these are org-level routes)
     if (RESERVED_PROJECT_IDS.includes(params.projectId)) {
@@ -34,14 +49,12 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
       throw notFound();
     }
   },
-  loader: async ({ params }) => {
+  loader: async ({ params, context }) => {
+    // Use query helper for cache seeding (OpenPanel pattern)
     // VULN-001 FIX: Validate project exists and belongs to organization
-    const result = await validateProjectAccessFn({
-      data: {
-        projectId: params.projectId,
-        organizationId: params.organizationId,
-      },
-    });
+    const result = await context.queryClient.ensureQueryData(
+      projectAccessQuery(params.organizationId, params.projectId)
+    );
 
     if (!result.success || !result.project) {
       logger.warn("Project access denied", {
@@ -67,5 +80,11 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
 });
 
 function ProjectLayout() {
-  return <Outlet />;
+  const { project } = Route.useLoaderData();
+
+  return (
+    <ProjectGate project={project}>
+      <Outlet />
+    </ProjectGate>
+  );
 }

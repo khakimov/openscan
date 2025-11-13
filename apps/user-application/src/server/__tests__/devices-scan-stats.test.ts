@@ -65,12 +65,37 @@ describe('Device Scan Statistics (TDD)', () => {
     const newerScan = {
       target: 'test-device.example.com',
       resultSummary: {
-        openPortCount: 3,
-        ports: [
-          { port: 22, state: 'open', service: 'ssh' },
-          { port: 80, state: 'open', service: 'http' },
-          { port: 443, state: 'open', service: 'https' },
+        portSnapshots: [
+          {
+            port: 22,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'ssh', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
+          {
+            port: 80,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'http', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
+          {
+            port: 443,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'https', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
         ],
+        portScanStats: {
+          totalOpenPorts: 3,
+          portsWithService: 3,
+          portsStored: 3,
+          serviceDetectionRate: 100,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
       },
       completedAt: new Date('2025-10-16T10:00:00Z'), // LATEST
     };
@@ -148,7 +173,25 @@ describe('Device Scan Statistics (TDD)', () => {
 
     const scanWithNullTarget = {
       target: null, // NULL target should be handled gracefully
-      resultSummary: { openPortCount: 1 },
+      resultSummary: {
+        portSnapshots: [
+          {
+            port: 22,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'ssh', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
+        ],
+        portScanStats: {
+          totalOpenPorts: 1,
+          portsWithService: 1,
+          portsStored: 1,
+          serviceDetectionRate: 100,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
+      },
       completedAt: new Date('2025-10-16T10:00:00Z'),
     };
 
@@ -180,7 +223,39 @@ describe('Device Scan Statistics (TDD)', () => {
 
     const successfulScan = {
       target: 'test-device.example.com',
-      resultSummary: { openPortCount: 3 },
+      resultSummary: {
+        portSnapshots: [
+          {
+            port: 22,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'ssh', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
+          {
+            port: 80,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'http', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
+          {
+            port: 443,
+            protocol: 'tcp' as const,
+            state: 'open' as const,
+            service: { name: 'https', product: null, version: null, cpe: null },
+            metadata: { lastSeenAt: '2025-10-16T10:00:00Z' },
+          },
+        ],
+        portScanStats: {
+          totalOpenPorts: 3,
+          portsWithService: 3,
+          portsStored: 3,
+          serviceDetectionRate: 100,
+          suspiciousAllPortsOpen: false,
+          scanPattern: 'Normal',
+        },
+      },
       completedAt: new Date('2025-10-16T10:00:00Z'),
     };
 

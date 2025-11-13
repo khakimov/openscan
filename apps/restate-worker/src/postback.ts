@@ -6,6 +6,10 @@
  */
 
 import { createLogger } from '@repo/logger';
+import {
+  UniversalPostback,
+  UniversalPostbackSchema,
+} from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'restate-postback' });
 
@@ -13,17 +17,9 @@ const logger = createLogger({ name: 'restate-postback' });
  * Universal Postback Payload (Type-Safe)
  * Format with type discrimination for routing to appropriate handlers
  */
-export interface UniversalPostbackPayload {
-  type: 'PORT_SCAN' | 'DISCOVERY' | 'HTTPX';
-  scanId: string;
-  organizationId: string;
-  timestamp: string;
-  status: 'SUCCESS' | 'FAILURE';
+export type UniversalPostbackPayload = UniversalPostback & {
   callbackUrl: string;
-  data: any; // Type-specific data (ports for PORT_SCAN, devices for DISCOVERY, probes for HTTPX)
-  deviceId?: string; // For PORT_SCAN and HTTPX
-  error?: string; // Only for FAILURE status
-}
+};
 
 /**
  * Posts results using universal postback format
@@ -32,7 +28,10 @@ export interface UniversalPostbackPayload {
  * Throws on failure (caller should handle retries)
  */
 export async function postUniversalPostback(payload: UniversalPostbackPayload): Promise<void> {
-  const { callbackUrl, ...data } = payload;
+  const { callbackUrl, ...body } = payload;
+
+  // Runtime validation to avoid drifting contracts
+  const data = UniversalPostbackSchema.parse(body);
 
   logger.info('Posting results to server (universal format)', {
     callbackUrl,
@@ -40,6 +39,7 @@ export async function postUniversalPostback(payload: UniversalPostbackPayload): 
     scanId: data.scanId,
     status: data.status,
     organizationId: data.organizationId,
+    deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
   });
 
   const apiKey = process.env.WORKER_API_KEY;
@@ -66,13 +66,13 @@ export async function postUniversalPostback(payload: UniversalPostbackPayload): 
         statusText: response.statusText,
         error: errorText,
         callbackUrl,
-        deviceId: data.deviceId,
+        deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
       });
       throw new Error(`Postback failed: ${response.status} ${errorText}`);
     }
 
     logger.info('Postback successful', {
-      deviceId: data.deviceId,
+      deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
       scanId: data.scanId,
     });
   } catch (error) {
@@ -85,7 +85,7 @@ export async function postUniversalPostback(payload: UniversalPostbackPayload): 
     logger.error('Postback network error', {
       error: errorMessage,
       callbackUrl,
-      deviceId: data.deviceId,
+      deviceId: 'deviceId' in data ? (data as { deviceId: string }).deviceId : undefined,
     });
     throw error; // Rethrow for caller to handle
   }

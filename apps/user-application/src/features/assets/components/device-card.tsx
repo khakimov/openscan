@@ -69,7 +69,8 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
     // Detect completion: had scans → no scans
     if (hadScans && !nowHasScans) {
       console.log('🔄 Scan completed - invalidating device queries', { deviceId: device.id });
-      queryClient.invalidateQueries({ queryKey: deviceQueries.detail(device.id).queryKey });
+      // Invalidate all detail queries for this device (partial matching on queryKey)
+      queryClient.invalidateQueries({ queryKey: ['device-detail', device.id] });
       queryClient.invalidateQueries({ queryKey: ['devices'] });
     }
 
@@ -206,10 +207,11 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
           )}
 
           {/* WAF/Proxy Pattern Badge */}
-          {device.scanStats?.scanPattern === 'WAF/Proxy' && (
+          {device.scanStats?.scanPattern &&
+            device.scanStats.scanPattern.includes('WAF/Proxy') && (
             <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1">
               <Shield className="w-3 h-3" />
-              WAF/Proxy
+              {device.scanStats.scanPattern}
             </span>
           )}
         </div>

@@ -21,14 +21,31 @@ export function PageTabs({
 }
 
 export function PageTabsLink({
-  href,
+  to = ".",
+  params,
+  search,
+  hash,
+  preload = "intent",
+  replace,
+  resetScroll,
   children,
   isActive = false,
 }: {
-  href: string;
+  to?: string;
+  params?: Record<string, string | number>;
+  search?: Record<string, unknown>;
+  hash?: string;
+  preload?: "intent" | "render" | "viewport" | false;
+  replace?: boolean;
+  resetScroll?: boolean;
   children: React.ReactNode;
   isActive?: boolean;
 }) {
+  // During SSR and initial hydration, always use the passed preload prop
+  // This ensures consistent HTML between server and client
+  // The isActive prop (passed by parent) already indicates if this is the current route
+  const shouldPreload = isActive ? false : preload;
+
   return (
     <div className="relative">
       <Link
@@ -36,7 +53,13 @@ export function PageTabsLink({
           "inline-block opacity-100 transition-transform hover:translate-y-[-1px]",
           isActive ? "opacity-100" : "opacity-50",
         )}
-        to={href}
+        to={to}
+        params={params}
+        search={search}
+        hash={hash}
+        preload={shouldPreload}
+        replace={replace}
+        resetScroll={resetScroll}
       >
         {children}
       </Link>

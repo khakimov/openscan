@@ -1,19 +1,20 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getScanWorkflowStatusDB,
   getScanWorkflowResultsDB,
   startDiscoveryWorkflow,
 } from '@/server/discovery';
-import { scanQueries } from './scan-queries';
+import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 export const discoveryQueries = {
   // Workflow status (polls database for postback updates)
-  workflowStatus: (scanId: string) =>
+  // Following OpenPanel pattern: accept options to override enabled/staleTime/etc
+  workflowStatus: (scanId: string, options?: { enabled?: boolean }) =>
     queryOptions({
       queryKey: ['discovery-workflow-status', scanId],
       queryFn: () => getScanWorkflowStatusDB({ data: { scanId } }),
-      enabled: !!scanId,
+      enabled: options?.enabled ?? !!scanId,
       refetchInterval: (query) => {
         const data = query.state.data;
         // Stop polling when workflow is complete or failed
@@ -27,11 +28,12 @@ export const discoveryQueries = {
     }),
 
   // Workflow results (fetched once when workflow completes)
-  workflowResults: (scanId: string, enabled = false) =>
+  // Following OpenPanel pattern: accept options to override enabled/staleTime/etc
+  workflowResults: (scanId: string, options?: { enabled?: boolean }) =>
     queryOptions({
       queryKey: ['discovery-workflow-results', scanId],
       queryFn: () => getScanWorkflowResultsDB({ data: { scanId } }),
-      enabled, // Only fetch when workflow is completed
+      enabled: options?.enabled ?? false, // Only fetch when workflow is completed
       staleTime: Infinity, // Results don't change once fetched
     }),
 };
@@ -50,14 +52,18 @@ export const discoveryQueries = {
  * startDiscoveryMutation.mutate({ target: 'example.com' });
  */
 
-export const useStartDiscoveryMutation = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
+export const useStartDiscoveryMutation = () =>
+  useMutationWithToast({
     mutationKey: ['discovery', 'start'],
-    mutationFn: (data: { target: string }) => startDiscoveryWorkflow({ data }),
-    onSuccess: () => {
-      // Invalidate scans query in case discovery triggers scans
-      queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey });
+    mutationFn: async (data: { target: string }) => {
+      const response = await startDiscoveryWorkflow({ data });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to start discovery');
+      }
+      return response;
     },
+    successMessage: (response) =>
+      `Discovery started for ${response.target}`,
+    // Invalidate all scan queries (both list and table, all projectIds)
+    invalidateKeys: [['scans'], ['scans-table']],
   });
-};

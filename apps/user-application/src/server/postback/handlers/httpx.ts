@@ -11,7 +11,6 @@
  * 4. R2 key stored in httpx_probes.screenshot field
  */
 
-import { z } from 'zod';
 import {
   createScanArtifact,
   updateArtifactStatus,
@@ -20,6 +19,7 @@ import {
   createTechDetection,
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
+import type { HttpxPostback } from '../types';
 import {
   AnalyticsEventTypes,
   buildSuccessAnalytics,
@@ -30,68 +30,14 @@ import {
   generateR2Key,
 } from '@/server/services/r2-storage';
 import { env } from 'cloudflare:workers';
-
-/**
- * Zod schema for httpx probe result validation
- */
-const HttpxProbeResultSchema = z.object({
-  port: z.number(),
-  url: z.string(),
-  status: z.enum(['SUCCESS', 'FAILED', 'TIMEOUT']),
-
-  // HTTP metadata (optional - only present on SUCCESS)
-  scheme: z.enum(['http', 'https']).optional(),
-  statusCode: z.number().optional(),
-  title: z.string().optional(),
-  headers: z.record(z.string()).optional(),
-  responseTime: z.number().optional(),
-  contentLength: z.number().optional(),
-  finalUrl: z.string().optional(),
-
-  // TLS info
-  tlsVersion: z.string().optional(),
-
-  // Server detection
-  webServer: z.string().optional(),
-
-  // Screenshot
-  screenshot: z.string().optional(), // Local file path (for debugging)
-  screenshotBase64: z.string().optional(), // Base64 encoded screenshot for R2 upload
-
-  // Tech detection
-  technologies: z.array(z.object({
-    name: z.string(),
-    version: z.string().optional(),
-    confidence: z.enum(['high', 'medium', 'low']),
-  })).optional(),
-
-  // Error info (only present on FAILED/TIMEOUT)
-  error: z.string().optional(),
-  errorType: z.enum(['CONNECTION_REFUSED', 'TIMEOUT', 'DNS_ERROR', 'SSL_ERROR', 'UNKNOWN']).optional(),
-});
-
-/**
- * Zod schema for httpx postback validation
- */
-const HttpxPostbackSchema = z.object({
-  type: z.literal('HTTPX'),
-  scanId: z.string().min(1), // Changed from scanRunId to align with BasePostback
-  deviceId: z.string().min(1),
-  organizationId: z.string().min(1),
-  timestamp: z.string(),
-  status: z.enum(['SUCCESS', 'FAILURE']),
-  data: z.object({
-    target: z.string(),
-    probes: z.array(HttpxProbeResultSchema),
-  }),
-});
-
-export type HttpxPostback = z.infer<typeof HttpxPostbackSchema>;
+import { HttpxPostbackSchema } from '@repo/contracts/postbacks';
 
 /**
  * HTTPx Postback Handler
  */
-export class HttpxPostbackHandler implements PostbackHandler<HttpxPostback> {
+export class HttpxPostbackHandler
+  implements PostbackHandler<HttpxPostback, typeof HttpxPostbackSchema>
+{
   readonly type = 'HTTPX' as const;
   readonly schema = HttpxPostbackSchema;
 

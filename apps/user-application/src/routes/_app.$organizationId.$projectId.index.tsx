@@ -1,32 +1,49 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { useProject } from "@/components/layout";
+
+/**
+ * Pending component for project dashboard
+ * Uses compact inline spinner to keep tabs visible
+ */
+const ProjectDashboardPending = () => (
+  <Padding>
+    <div className="flex items-center mb-4">
+      <PageTabs>
+        <PageTabsLink to="." isActive={true}>
+          Dashboard
+        </PageTabsLink>
+      </PageTabs>
+    </div>
+    <PageLoadingFallback compact />
+  </Padding>
+);
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/")({
+  pendingComponent: ProjectDashboardPending,
   component: ProjectDashboard,
 });
 
 function ProjectDashboard() {
   const { user } = Route.useRouteContext();
-  const { projectId } = Route.useParams();
+  const project = useProject();
 
   return (
     <Padding>
-      <div className="mb-4 flex items-center gap-3">
+      <div className="flex items-center mb-4">
         <PageTabs>
-          <PageTabsLink href={"?tab=all"} isActive={true}>
+          <PageTabsLink to="." isActive={true}>
             Dashboard
           </PageTabsLink>
         </PageTabs>
-        {/* Hidden on mobile (shows in sidebar instead) */}
-        <InlineRouterSpinner className="hidden lg:inline-flex" />
       </div>
       <p className="text-muted-foreground">
         Welcome back, {user?.name || "User"}!
       </p>
       <p className="text-xs text-muted-foreground mt-2">
-        Project: {projectId}
+        Project: {project.name || project.id}
       </p>
     </Padding>
   );

@@ -26,6 +26,7 @@ import {
   type ScanScope,
 } from './discovery-tools';
 import { postUniversalPostback } from './postback';
+import { buildDiscoveryPostbackPayload } from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'discovery-service' });
 
@@ -95,7 +96,11 @@ export const discoveryService = restate.workflow({
       // Use scanId from input (set via workflow key and idempotency-key)
       // Fall back to workflow key, then random UUID
       const scanId = input.scanId || ctx.key || ctx.rand.uuidv4();
-      const startTime = Date.now();
+
+      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+      // Using new Date() or Date.now() causes non-deterministic replays on retries
+      const startTime = await ctx.date.now();
+      const startedAt = new Date(startTime).toISOString();
       const tools = input.tools || ['subfinder']; // Only subfinder enabled for now
 
       // Initialize state in workflow context (durable!)
@@ -104,7 +109,7 @@ export const discoveryService = restate.workflow({
       ctx.set('processedTargets', 0);
       ctx.set('devicesFound', 0);
       ctx.set('errors', []);
-      ctx.set('startedAt', new Date().toISOString());
+      ctx.set('startedAt', startedAt);
 
       // Step 1: Validate targets
       const { validTargets, errors: validationErrors } = await ctx.run('validate-targets', async () => {
@@ -176,7 +181,7 @@ export const discoveryService = restate.workflow({
               scope: target.scope,
               hostname: target.type === 'IP' ? '' : target.value,
               ipAddress: target.type === 'IP' ? target.value : undefined,
-              discoveredAt: new Date(),
+              discoveredAt: new Date(startTime), // Use deterministic time from ctx.date.now()
               discoveryMethod: 'direct',
               confidence: 1.0,
               metadata: {
@@ -205,8 +210,9 @@ export const discoveryService = restate.workflow({
       });
 
       // Step 4: Finalize and return
-      const completedAt = new Date();
-      const executionTimeMs = Date.now() - startTime;
+      const completedAtMs = await ctx.date.now();
+      const completedAt = new Date(completedAtMs);
+      const executionTimeMs = completedAtMs - startTime;
 
       // Convert devices to serializable format (Dates -> ISO strings)
       const serializedDevices = uniqueDevices.map((device) => ({
@@ -223,7 +229,7 @@ export const discoveryService = restate.workflow({
       ctx.set('devices', serializedDevices); // IMPORTANT: Store full devices, not just count!
       ctx.set('completedAt', completedAt.toISOString());
 
-      const startedAt = await ctx.get<string>('startedAt');
+      // Retrieve state for return (startedAt already declared above)
       const processedTargets = await ctx.get<number>('processedTargets');
       const errors = await ctx.get<string[]>('errors');
 
@@ -237,25 +243,29 @@ export const discoveryService = restate.workflow({
             deviceCount: uniqueDevices.length,
           });
 
-          await postUniversalPostback({
+          const discoveryPostback = buildDiscoveryPostbackPayload({
             type: 'DISCOVERY',
             scanId,
             organizationId: input.organizationId!,
             timestamp: completedAt.toISOString(),
             status: 'SUCCESS',
-            callbackUrl: input.callbackUrl!,
             data: {
-              target: input.targets[0]?.value || 'unknown', // Primary target
-              devices: serializedDevices.map((d: any) => ({
-                hostname: d.hostname,
-                ipAddress: d.ipAddress,
-                metadata: d.metadata,
-              })),
+              target: input.targets[0]?.value || 'unknown',
+              devices: serializedDevices as Array<{
+                hostname: string;
+                ipAddress?: string;
+                metadata?: Record<string, unknown>;
+              }>,
               totalSubdomains: uniqueDevices.length,
               executionTime: executionTimeMs,
               tools,
               errors: errors || [],
             },
+          });
+
+          await postUniversalPostback({
+            callbackUrl: input.callbackUrl!,
+            ...discoveryPostback,
           });
 
           logger.info('Postback successful', { scanId, organizationId: input.organizationId });
@@ -264,7 +274,7 @@ export const discoveryService = restate.workflow({
 
       return {
         scanId,
-        startedAt: startedAt || new Date().toISOString(),
+        startedAt, // Already computed at top with ctx.date()
         completedAt: completedAt.toISOString(),
         devices: serializedDevices,
         totalTargetsProcessed: processedTargets || 0,
@@ -290,7 +300,7 @@ export const discoveryService = restate.workflow({
       const devicesFound = (await ctx.get<number>('devicesFound')) || 0;
       const devices = (await ctx.get<any[]>('devices')) || undefined; // Full devices array
       const errors = (await ctx.get<string[]>('errors')) || [];
-      const startedAt = (await ctx.get<string>('startedAt')) || new Date().toISOString();
+      const startedAt = (await ctx.get<string>('startedAt')) || new Date(await ctx.date.now()).toISOString();
       const completedAt = (await ctx.get<string>('completedAt')) || undefined;
 
       return {

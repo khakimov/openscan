@@ -47,6 +47,39 @@ export * from './queries/scans';
 export * from './queries/projects';
 export * from './queries/organizations';
 export * from './queries/scan-artifacts';
+export * from './queries/scan-schedules';
+export * from './queries/scan-schedule-limits';
+export * from './queries/notifications';
+
+// Explicitly export notification query functions
+export {
+  getNotifications,
+  getUnreadNotificationCount,
+  getUnreadNotificationCountWithSeverity,
+  getPendingEmailNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  createNotification,
+  upsertNotification,
+  backfillMessageHashes,
+  expireNotifications,
+} from './queries/notifications';
+export type { UpsertNotificationResult } from './queries/notifications';
+
+// Export notification serializers for API responses
+export {
+  serializeNotification,
+  serializeNotificationList,
+  calculateNotificationStats,
+  sortByPriorityAndTime,
+  filterByReadStatus,
+  filterBySeverity,
+} from './queries/notification-serializers';
+export type {
+  SerializedNotification,
+  SerializedNotificationList,
+  NotificationStats,
+} from './queries/notification-serializers';
 
 // Explicitly re-export getDeviceByIdGlobal (internal use only)
 export { getDeviceByIdGlobal } from './queries/devices';
@@ -66,6 +99,10 @@ export type {
   PortScanMetadata,
   EnrichedScanResultSummary,
   CVEEnrichmentSizeGuards,
+  // sec-zg2: Port snapshot types
+  PortSnapshot,
+  PortEnrichmentSummary,
+  PortScanStats,
 } from './types/cve-enrichment';
 
 // Export Zod schemas for runtime validation
@@ -76,6 +113,11 @@ export {
   ApplicationVulnerabilitiesSchema,
   CVESummarySchema,
   CVEEnrichmentSchema,
+  // sec-zg2: Port snapshot schemas
+  PortEnrichmentSummarySchema,
+  PortSnapshotSchema,
+  PortScanStatsSchema,
+  EnrichedScanResultSummarySchema,
 } from './types/cve-enrichment';
 
 // Export helper functions
@@ -88,4 +130,22 @@ export {
   validateEnrichmentSize,
   validateCVEEnrichment,
   safeParseCVEEnrichment,
+  // sec-zg2: Port snapshot helpers
+  buildPortEnrichmentMap,
+  derivePortStats,
 } from './types/cve-enrichment';
+
+// Export notification catalog (sec-or9 refactor)
+export * from './notifications/catalog';
+export type { NotificationSeverity, NotificationType, NotificationModule } from './notifications/catalog';
+
+// Export typed notification helpers (sec-g6o)
+export * from './notifications/helpers';
+export type {
+  NotifyNewPortParams,
+  NotifyClosedPortParams,
+  NotifyNewCVEParams,
+  NotifyCVESeverityIncreaseParams,
+  NotifyCVEFixedParams,
+  NotifyCVERegressedParams,
+} from './notifications/helpers';

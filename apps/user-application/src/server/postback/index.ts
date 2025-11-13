@@ -168,10 +168,38 @@ export async function handleUniversalPostback(
     });
 
     // Step 5: Validate payload with handler's schema
-    const parseResult = handler.schema.safeParse(body);
+    const parseResult = handler.schema.safeParse
+      ? handler.schema.safeParse(body)
+      : (() => {
+          try {
+            const data = handler.schema.parse(body);
+            return { success: true as const, data };
+          } catch (error) {
+            return { success: false as const, error };
+          }
+        })();
 
     if (!parseResult.success) {
-      const firstError = parseResult.error.issues[0];
+      const issues =
+        typeof parseResult.error === 'object' &&
+        parseResult.error !== null &&
+        'issues' in parseResult.error &&
+        Array.isArray((parseResult.error as any).issues)
+          ? ((parseResult.error as any).issues as Array<{
+              path: (string | number)[];
+              message: string;
+            }>)
+          : [
+              {
+                path: [],
+                message:
+                  parseResult.error instanceof Error
+                    ? parseResult.error.message
+                    : 'Invalid payload',
+              },
+            ];
+
+      const firstError = issues[0];
       const path = firstError.path.join('.');
       const errorMessage = path
         ? `Invalid payload: ${path} - ${firstError.message}`

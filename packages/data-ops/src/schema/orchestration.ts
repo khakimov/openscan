@@ -48,15 +48,76 @@ export const scanRunDevices = sqliteTable('scan_run_devices', {
 export const scanSchedules = sqliteTable('scan_schedules', {
   id: cuidText().primaryKey(),
   scheduleId: text('schedule_id').notNull().unique(),
-  deviceId: text('device_id').notNull().references(() => devices.id, { onDelete: 'cascade' }).unique(),
+  deviceId: text('device_id').notNull().references(() => devices.id, { onDelete: 'cascade' }),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
-  interval: text('interval').notNull().default('1h'),
-  isActive: integer('is_active', { mode: 'timestamp_ms' }),
+
+  // Scheduling config
+  intervalConfig: text('interval_config', { mode: 'json' }).notNull().$type<{
+    kind: 'duration' | 'daily';
+    value?: number;
+    unit?: 'minutes' | 'hours' | 'days';
+    hour?: number;
+    minute?: number;
+    timezone?: string;
+  }>(),
+  interval: text('interval').notNull().default('1d'), // Cached label for UI ("Every 12 hours")
+  preset: text('preset').notNull().default('STANDARD'), // "QUICK", "STANDARD", "THOROUGH"
+  isActive: integer('is_active', { mode: 'boolean' }).notNull().default(true),
+
+  // Execution tracking
+  nextRunAt: integer('next_run_at', { mode: 'timestamp_ms' }),
+  lastRunAt: integer('last_run_at', { mode: 'timestamp_ms' }),
+  lastRunStatus: text('last_run_status'), // "SUCCESS", "FAILED", "PARTIAL"
+  consecutiveFailures: integer('consecutive_failures').notNull().default(0),
+
+  // Status and lifecycle
+  status: text('status').notNull().default('ACTIVE'), // 'ACTIVE', 'PAUSED', 'AUTO_PAUSED', 'DELETED'
+  pausedAt: integer('paused_at', { mode: 'timestamp_ms' }),
+  pausedBy: text('paused_by').references(() => auth_user.id),
+  pausedReason: text('paused_reason'),
+
+  // Audit trail
   createdAt: now(),
+  createdBy: text('created_by').references(() => auth_user.id),
+  updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
 }, (t) => ({
   orgIdx: index('scan_schedules_org_idx').on(t.organizationId),
   deviceIdx: index('scan_schedules_device_idx').on(t.deviceId),
   scheduleIdUq: uniqueIndex('scan_schedules_schedule_id_uq').on(t.scheduleId),
+  nextRunIdx: index('scan_schedules_next_run_idx').on(t.nextRunAt, t.isActive),
+  statusIdx: index('scan_schedules_status_idx').on(t.status),
+}));
+
+// Scan Schedule Leases - Concurrency control
+export const scanScheduleLeases = sqliteTable('scan_schedule_leases', {
+  id: cuidText().primaryKey(),
+  leaseId: text('lease_id').notNull().unique(), // UUID for external reference
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  scheduleId: text('schedule_id').notNull().references(() => scanSchedules.scheduleId, { onDelete: 'cascade' }),
+  deviceId: text('device_id').notNull().references(() => devices.id, { onDelete: 'cascade' }),
+  preset: text('preset').notNull(), // "QUICK", "STANDARD", "THOROUGH"
+  acquiredAt: integer('acquired_at', { mode: 'timestamp_ms' }).notNull(),
+  expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
+}, (t) => ({
+  orgIdx: index('scan_schedule_leases_org_idx').on(t.organizationId),
+  expiresAtIdx: index('scan_schedule_leases_expires_at_idx').on(t.expiresAt),
+  scheduleIdx: index('scan_schedule_leases_schedule_idx').on(t.scheduleId),
+}));
+
+// Scan Schedule Events - Audit trail
+export const scanScheduleEvents = sqliteTable('scan_schedule_events', {
+  id: cuidText().primaryKey(),
+  scheduleId: text('schedule_id').notNull().references(() => scanSchedules.scheduleId, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  type: text('type').notNull(), // 'CREATED', 'PAUSED', 'RESUMED', 'AUTO_PAUSED', 'DELETED', 'UPDATED'
+  performedBy: text('performed_by').references(() => auth_user.id), // null for system events
+  metadata: text('metadata', { mode: 'json' }).$type<Record<string, any>>(),
+  createdAt: now(),
+}, (t) => ({
+  scheduleIdx: index('scan_schedule_events_schedule_idx').on(t.scheduleId),
+  orgIdx: index('scan_schedule_events_org_idx').on(t.organizationId),
+  typeIdx: index('scan_schedule_events_type_idx').on(t.type),
+  createdAtIdx: index('scan_schedule_events_created_at_idx').on(t.createdAt),
 }));
 
 // Relations
@@ -87,7 +148,7 @@ export const scanRunDevicesRelations = relations(scanRunDevices, ({ one }) => ({
   }),
 }));
 
-export const scanSchedulesRelations = relations(scanSchedules, ({ one }) => ({
+export const scanSchedulesRelations = relations(scanSchedules, ({ one, many }) => ({
   device: one(devices, {
     fields: [scanSchedules.deviceId],
     references: [devices.id],
@@ -95,6 +156,46 @@ export const scanSchedulesRelations = relations(scanSchedules, ({ one }) => ({
   organization: one(organization, {
     fields: [scanSchedules.organizationId],
     references: [organization.id],
+  }),
+  createdByUser: one(auth_user, {
+    fields: [scanSchedules.createdBy],
+    references: [auth_user.id],
+  }),
+  pausedByUser: one(auth_user, {
+    fields: [scanSchedules.pausedBy],
+    references: [auth_user.id],
+  }),
+  events: many(scanScheduleEvents),
+  leases: many(scanScheduleLeases),
+}));
+
+export const scanScheduleLeasesRelations = relations(scanScheduleLeases, ({ one }) => ({
+  organization: one(organization, {
+    fields: [scanScheduleLeases.organizationId],
+    references: [organization.id],
+  }),
+  schedule: one(scanSchedules, {
+    fields: [scanScheduleLeases.scheduleId],
+    references: [scanSchedules.scheduleId],
+  }),
+  device: one(devices, {
+    fields: [scanScheduleLeases.deviceId],
+    references: [devices.id],
+  }),
+}));
+
+export const scanScheduleEventsRelations = relations(scanScheduleEvents, ({ one }) => ({
+  schedule: one(scanSchedules, {
+    fields: [scanScheduleEvents.scheduleId],
+    references: [scanSchedules.scheduleId],
+  }),
+  organization: one(organization, {
+    fields: [scanScheduleEvents.organizationId],
+    references: [organization.id],
+  }),
+  performedByUser: one(auth_user, {
+    fields: [scanScheduleEvents.performedBy],
+    references: [auth_user.id],
   }),
 }));
 

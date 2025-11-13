@@ -24,6 +24,7 @@ import AddDevice from "./AddDevice";
 import AddProject from "./AddProject";
 import DeleteDeviceConfirm from "./DeleteDeviceConfirm";
 import EditDevice from "./EditDevice";
+import CreateSchedule from "./CreateSchedule";
 
 // Define available modals - add your modals here
 const modals = {
@@ -34,6 +35,7 @@ const modals = {
   AddProject: AddProject, // Direct import, no loading state
   DeleteDeviceConfirm: DeleteDeviceConfirm, // Direct import, no loading state
   EditDevice: EditDevice, // Direct import, no loading state
+  CreateSchedule: CreateSchedule, // Direct import, no loading state
   // Add more modals as needed:
   // EditProfile: lazy(() => import('./EditProfile')),
 };

@@ -11,14 +11,9 @@ export function GoogleOAuthButton() {
     setError(null);
 
     try {
-      console.log('[GoogleOAuthButton] Calling authClient.signIn.social', {
-        provider: 'google',
-        callbackURL: '/onboarding/project',
-      });
-
       const result = await authClient.signIn.social({
         provider: 'google',
-        callbackURL: '/onboarding/project',
+        callbackURL: '/login', // Redirect to login, which will redirect to / for authenticated users
       });
 
       console.log('[GoogleOAuthButton] OAuth sign in result:', result);

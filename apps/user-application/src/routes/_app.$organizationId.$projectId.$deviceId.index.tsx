@@ -4,13 +4,24 @@ import { deviceQueries } from "@/queries/device-queries";
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { TransformedDevice } from "@/server/devices";
+import { DeviceScheduleList } from "@/components/shared/device-schedule-list";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+
+/**
+ * Pending component for device overview tab
+ * Parent layout already shows tabs, so just show inline spinner
+ */
+const DeviceOverviewPending = () => <PageLoadingFallback compact />;
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId/")({
+  pendingComponent: DeviceOverviewPending,
   component: DeviceOverview,
 });
 
 function DeviceOverview() {
-  const { deviceId, organizationId } = Route.useParams();
+  // Organization and project come from gate context (no need to re-read params)
+  // Only deviceId comes from params since it's specific to this route level
+  const { deviceId } = Route.useParams();
 
   // Load device detail with suspense (already prefetched by parent)
   // Note: organizationId comes from session on server, not from params
@@ -39,6 +50,12 @@ function DeviceOverview() {
         deviceDetail={device as TransformedDevice}
         isLoading={false}
         cveEnrichment={cveEnrichment}
+      />
+
+      {/* Scan Schedules Section */}
+      <DeviceScheduleList
+        deviceId={deviceId}
+        deviceName={device.name}
       />
 
       {/* CVE Enrichment Data - Raw Display */}

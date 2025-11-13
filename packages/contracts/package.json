@@ -8,7 +8,8 @@
     "./artifacts": "./artifacts/index.ts",
     "./artifacts/json-types": "./artifacts/json-types.ts",
     "./artifacts/migrations": "./artifacts/migrations.ts",
-    "./scanners": "./scanners/index.ts"
+    "./scanners": "./scanners/index.ts",
+    "./postbacks": "./postbacks/index.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

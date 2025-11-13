@@ -22,6 +22,7 @@ import { createLogger } from '@repo/logger';
 import { postUniversalPostback } from './postback';
 import { readFile } from 'fs/promises';
 import { existsSync } from 'fs';
+import { buildHttpxPostbackPayload } from '@repo/contracts/postbacks';
 
 const logger = createLogger({ name: 'restate-httpx' });
 
@@ -98,14 +99,16 @@ export const httpxService = restate.service({
         }
       ) => {
         const scanId = input.scanRunId;
-        const startTime = Date.now();
+
+        // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
+        const startTime = await ctx.date.now();
 
         // Initialize state
         const state: HttpxProbeState = {
           scanId,
           target: input.target,
           status: 'VALIDATING',
-          startedAt: new Date().toISOString(),
+          startedAt: new Date(startTime).toISOString(),
         };
         stateStore.set(scanId, state);
 
@@ -220,24 +223,47 @@ export const httpxService = restate.service({
 
             if (screenshotPath) {
               if (screenshotPath.includes('..')) {
-                logger.warn('Suspicious screenshot path detected', { path: screenshotPath });
+                logger.warn('Suspicious screenshot path detected', {
+                  port,
+                  url: result.url,
+                  path: screenshotPath,
+                });
                 screenshotPath = undefined;
               } else {
                 // Read screenshot file and encode as base64
                 try {
                   if (existsSync(screenshotPath)) {
                     const buffer = await readFile(screenshotPath);
-                    screenshotBase64 = buffer.toString('base64');
-                    logger.info('Screenshot encoded', {
-                      path: screenshotPath,
-                      sizeBytes: buffer.length,
-                      base64Length: screenshotBase64.length,
-                    });
+
+                    // Skip empty screenshots (httpx sometimes creates 0-byte files)
+                    if (buffer.length > 0) {
+                      screenshotBase64 = buffer.toString('base64');
+                      logger.info('Screenshot encoded successfully', {
+                        port,
+                        url: result.url,
+                        path: screenshotPath,
+                        sizeBytes: buffer.length,
+                        base64Length: screenshotBase64.length,
+                      });
+                    } else {
+                      logger.warn('Screenshot file is empty (0 bytes), skipping', {
+                        port,
+                        url: result.url,
+                        path: screenshotPath,
+                      });
+                      screenshotPath = undefined; // Don't store empty file path
+                    }
                   } else {
-                    logger.warn('Screenshot file not found', { path: screenshotPath });
+                    logger.warn('Screenshot file not found', {
+                      port,
+                      url: result.url,
+                      path: screenshotPath,
+                    });
                   }
                 } catch (error) {
                   logger.error('Failed to read screenshot file', {
+                    port,
+                    url: result.url,
                     path: screenshotPath,
                     error: error instanceof Error ? error.message : String(error),
                   });
@@ -245,11 +271,18 @@ export const httpxService = restate.service({
               }
             }
 
+            const normalizedScheme: 'http' | 'https' | undefined =
+              result.scheme === 'https'
+                ? 'https'
+                : result.scheme === 'http'
+                ? 'http'
+                : undefined;
+
             return {
               port,
               url: result.url,
               status: 'SUCCESS' as const,
-              scheme: result.scheme,
+              scheme: normalizedScheme,
               statusCode: result.status_code,
               title: result.title,
               headers: result.header ? flattenHeaders(result.header) : undefined,
@@ -258,8 +291,8 @@ export const httpxService = restate.service({
               finalUrl: result.final_url,
               tlsVersion: result.tls?.version,
               webServer: result.webserver,
-              screenshot: screenshotPath, // Original file path for debugging
               screenshotBase64, // Base64 encoded screenshot for R2 upload
+              // Note: Don't send local screenshot path - postback handler will upload to R2 and store R2 key
               technologies: result.tech?.map((name) => ({
                 name,
                 confidence: 'medium' as const, // httpx doesn't provide confidence
@@ -271,15 +304,16 @@ export const httpxService = restate.service({
         const successCount = processedProbes.filter((p) => p.status === 'SUCCESS').length;
         const failedCount = processedProbes.filter((p) => p.status === 'FAILED').length;
 
+        const endTime = await ctx.date.now();
+        const duration = endTime - startTime;
+
         // Update state
         state.status = 'COMPLETED';
         state.portsProbed = input.ports.length;
         state.successCount = successCount;
         state.failedCount = failedCount;
-        state.completedAt = new Date().toISOString();
+        state.completedAt = new Date(endTime).toISOString();
         stateStore.set(scanId, state);
-
-        const duration = Date.now() - startTime;
 
         logger.info('HTTPx probing completed', {
           scanId,
@@ -298,31 +332,22 @@ export const httpxService = restate.service({
             deviceId: input.deviceId,
           });
 
-          const postbackPayload: any = {
+          const httpxPostback = buildHttpxPostbackPayload({
             type: 'HTTPX',
-            scanId: scanId, // Aligned with BasePostback interface
+            scanId,
             deviceId: input.deviceId,
             organizationId: input.organizationId,
-            timestamp: new Date().toISOString(),
+            timestamp: new Date(endTime).toISOString(),
             status: 'SUCCESS',
             data: {
               target: input.target,
               probes: processedProbes,
             },
-          };
+          });
 
-          await fetch(input.callbackUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.WORKER_API_KEY}`,
-            },
-            body: JSON.stringify(postbackPayload),
-          }).then(async (response) => {
-            if (!response.ok) {
-              const errorText = await response.text();
-              throw new Error(`Postback failed: ${response.status} ${errorText}`);
-            }
+          await postUniversalPostback({
+            callbackUrl: input.callbackUrl!,
+            ...httpxPostback,
           });
 
           logger.info('Postback successful', {
@@ -339,7 +364,7 @@ export const httpxService = restate.service({
           successCount,
           failedCount,
           duration,
-          completedAt: new Date().toISOString(),
+          completedAt: new Date(endTime).toISOString(),
         };
       }
     ),
@@ -537,20 +562,22 @@ function findHttpxBinary(): string {
   // Check PATH first
   const pathBinary = 'httpx';
 
-  // Common installation locations
-  const locations = [
-    pathBinary, // In PATH
-    `${process.env.HOME}/go/bin/httpx`,
-    '/usr/local/go/bin/httpx',
-    '/usr/local/bin/httpx',
-  ];
-
   // Return first match (for now just return 'httpx' and let execFile resolve it)
   return pathBinary;
 }
 
 /**
- * Flatten header arrays to single values (httpx returns arrays)
+ * Flattens HTTPx header arrays to single string values.
+ *
+ * HTTPx returns headers as Record<string, string[]> but our contract expects
+ * Record<string, string>. Multi-value headers are joined with ', ' per HTTP spec.
+ *
+ * Example:
+ *   Input:  { 'set-cookie': ['a=1', 'b=2'], 'content-type': ['text/html'] }
+ *   Output: { 'set-cookie': 'a=1, b=2', 'content-type': 'text/html' }
+ *
+ * @param headers HTTPx header output (string arrays)
+ * @returns Contract-compliant headers (single strings)
  */
 function flattenHeaders(headers: Record<string, string[]>): Record<string, string> {
   const flattened: Record<string, string> = {};

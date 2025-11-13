@@ -17,6 +17,9 @@ vi.mock('@repo/data-ops', () => ({
   updateScanRunStatus: vi.fn(),
   updateScanWorkflowStatus: vi.fn(),
   updateDevice: vi.fn(),
+  // Mock helper functions used by handler
+  safeParseCVEEnrichment: vi.fn((data) => ({ success: true, data })),
+  buildPortEnrichmentMap: vi.fn(() => new Map()),
 }));
 
 // Mock Necto client to return our mock implementation
@@ -166,10 +169,21 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'SUCCEEDED',
         expect.objectContaining({
           cveEnrichment: mockCVEEnrichment,
-          portsStoredCount: 1,
-          ports: expect.arrayContaining([
-            expect.objectContaining({ port: 80 }),
+          portSnapshots: expect.arrayContaining([
+            expect.objectContaining({
+              port: 80,
+              service: expect.objectContaining({
+                name: 'http',
+                product: 'nginx',
+              }),
+            }),
           ]),
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 1,
+            portsWithService: 1,
+            portsStored: 1,
+            serviceDetectionRate: 100,
+          }),
         })
       );
       expect(mockContext.logger.info).toHaveBeenCalledWith(
@@ -219,9 +233,13 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'SUCCEEDED',
         expect.objectContaining({
           cveEnrichment: mockCVEEnrichment,
-          openPortCount: 0, // Closed port not counted as open
-          portsStoredCount: 0,
-          ports: [],
+          portSnapshots: [],
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 0,
+            portsWithService: 0,
+            portsStored: 0,
+            serviceDetectionRate: 0,
+          }),
         })
       );
     });
@@ -306,8 +324,13 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'SUCCEEDED',
         expect.objectContaining({
           cveEnrichment: undefined,
-          openPortCount: 0,
-          portsStoredCount: 0,
+          portSnapshots: [],
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 0,
+            portsWithService: 0,
+            portsStored: 0,
+            serviceDetectionRate: 0,
+          }),
         })
       );
     });
@@ -377,10 +400,21 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'SUCCEEDED',
         expect.objectContaining({
           cveEnrichment: undefined, // Enrichment failed, so undefined
-          portsStoredCount: 1,
-          ports: expect.arrayContaining([
-            expect.objectContaining({ port: 80 }),
+          portSnapshots: expect.arrayContaining([
+            expect.objectContaining({
+              port: 80,
+              service: expect.objectContaining({
+                name: 'http',
+                product: 'nginx',
+              }),
+            }),
           ]),
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 1,
+            portsWithService: 1,
+            portsStored: 1,
+            serviceDetectionRate: 100,
+          }),
         })
       );
     });
@@ -421,6 +455,71 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
       expect(mockContext.logger.error).toHaveBeenCalledWith(
         'CVE enrichment failed, continuing without enrichment',
         expect.any(Object)
+      );
+    });
+
+    it('should handle CVE enrichment validation failures gracefully', async () => {
+      // Mock safeParseCVEEnrichment to return validation failure
+      vi.mocked(dataOps.safeParseCVEEnrichment).mockReturnValueOnce({
+        success: false,
+        error: {
+          message: 'Invalid CVE data: missing cveId field',
+          issues: [{ path: ['cves', 0, 'cveId'], message: 'Required' }],
+        } as any,
+      });
+
+      const payload: PortScanPostback = {
+        type: 'PORT_SCAN',
+        scanId: 'portscan-org-123-device-456',
+        organizationId: 'org-123',
+        deviceId: 'device-456',
+        timestamp: '2025-10-21T00:00:00.000Z',
+        status: 'SUCCESS',
+        data: {
+          target: '192.168.1.1',
+          ports: [
+            {
+              port: 80,
+              protocol: 'tcp',
+              state: 'open',
+              service: {
+                name: 'http',
+                product: 'nginx',
+                version: '1.28.0',
+              },
+            },
+          ],
+        },
+      };
+
+      const result = await handler.handle(payload, mockContext);
+
+      // Should continue without enrichment
+      expect(result.success).toBe(true);
+      expect(mockContext.logger.error).toHaveBeenCalledWith(
+        'CVE enrichment validation failed',
+        expect.objectContaining({
+          scanId: 'portscan-org-123-device-456',
+          error: 'Invalid CVE data: missing cveId field',
+        })
+      );
+
+      // Should save scan results without CVE data
+      expect(dataOps.updateScanRunStatus).toHaveBeenCalledWith(
+        'scan-run-123',
+        'SUCCEEDED',
+        expect.objectContaining({
+          cveEnrichment: undefined, // Validation failed, so undefined
+          portSnapshots: expect.arrayContaining([
+            expect.objectContaining({
+              port: 80,
+              service: expect.objectContaining({
+                name: 'http',
+                product: 'nginx',
+              }),
+            }),
+          ]),
+        })
       );
     });
   });
@@ -471,21 +570,25 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'SUCCEEDED',
         expect.objectContaining({
           target: '192.168.1.1',
-          openPortCount: 1,
-          portsStoredCount: 1,
-          portsFilteredCount: 0,
-          ports: expect.arrayContaining([
+          portSnapshots: expect.arrayContaining([
             expect.objectContaining({
               port: 80,
+              protocol: 'tcp',
+              state: 'open',
               service: expect.objectContaining({
                 name: 'http',
                 product: 'nginx',
               }),
             }),
           ]),
-          serviceDetectionRate: 100,
-          suspiciousAllPortsOpen: false,
-          scanPattern: 'Normal',
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 1,
+            portsWithService: 1,
+            portsStored: 1,
+            serviceDetectionRate: 100,
+            suspiciousAllPortsOpen: false,
+            scanPattern: 'Normal',
+          }),
           timing: payload.data.timing,
           scanMetadata: payload.data.scanMetadata,
           osInfo: payload.data.osInfo,
@@ -594,17 +697,19 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'scan-run-123',
         'SUCCEEDED',
         expect.objectContaining({
-          openPortCount: 14,
-          portsStoredCount: 3,
-          portsFilteredCount: 11,
-          ports: expect.arrayContaining([
+          portSnapshots: expect.arrayContaining([
             expect.objectContaining({ port: 80 }),
             expect.objectContaining({ port: 443 }),
             expect.objectContaining({ port: 22 }),
           ]),
-          serviceDetectionRate: expect.closeTo(21.43, 0.01), // 3/14 ≈ 21.43%
-          suspiciousAllPortsOpen: false,
-          scanPattern: 'Normal',
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 14,
+            portsWithService: 3,
+            portsStored: 3,
+            serviceDetectionRate: expect.closeTo(21.43, 0.01), // 3/14 ≈ 21.43%
+            suspiciousAllPortsOpen: false,
+            scanPattern: 'Normal',
+          }),
         })
       );
 
@@ -656,13 +761,15 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'scan-run-123',
         'SUCCEEDED',
         expect.objectContaining({
-          openPortCount: 65477,
-          portsStoredCount: 0,
-          portsFilteredCount: 65477,
-          ports: [],
-          serviceDetectionRate: 0,
-          suspiciousAllPortsOpen: true,
-          scanPattern: 'WAF/Proxy',
+          portSnapshots: [],
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 65477,
+            portsWithService: 0,
+            portsStored: 0,
+            serviceDetectionRate: 0,
+            suspiciousAllPortsOpen: true,
+            scanPattern: 'Possible WAF/Proxy',
+          }),
         })
       );
 
@@ -717,12 +824,15 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'scan-run-123',
         'SUCCEEDED',
         expect.objectContaining({
-          openPortCount: 1500,
-          portsStoredCount: 1000,
-          portsFilteredCount: 0,
-          ports: expect.arrayContaining([
+          portSnapshots: expect.arrayContaining([
             expect.objectContaining({ service: expect.any(Object) }),
           ]),
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 1500,
+            portsWithService: 1500,
+            portsStored: 1000,
+            serviceDetectionRate: 100,
+          }),
         })
       );
 
@@ -769,12 +879,15 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'scan-run-123',
         'SUCCEEDED',
         expect.objectContaining({
-          openPortCount: 120,
-          portsStoredCount: 20,
-          portsFilteredCount: 100,
-          serviceDetectionRate: expect.closeTo(16.67, 1), // 20/120 ≈ 16.67%
-          suspiciousAllPortsOpen: false, // Not >1000 ports
-          scanPattern: 'Normal',
+          portSnapshots: expect.any(Array),
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 120,
+            portsWithService: 20,
+            portsStored: 20,
+            serviceDetectionRate: expect.closeTo(16.67, 1), // 20/120 ≈ 16.67%
+            suspiciousAllPortsOpen: false, // Not >1000 ports
+            scanPattern: 'Normal',
+          }),
         })
       );
     });
@@ -816,10 +929,12 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'scan-run-123',
         'SUCCEEDED',
         expect.objectContaining({
-          openPortCount: 1, // Only 1 open port
-          portsStoredCount: 1,
-          portsFilteredCount: 0, // No open ports without services
-          ports: [expect.objectContaining({ port: 80 })],
+          portSnapshots: [expect.objectContaining({ port: 80 })],
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 1,
+            portsWithService: 1,
+            portsStored: 1,
+          }),
         })
       );
     });
@@ -844,13 +959,15 @@ describe('PortScanPostbackHandler - CVE Enrichment', () => {
         'scan-run-123',
         'SUCCEEDED',
         expect.objectContaining({
-          openPortCount: 0,
-          portsStoredCount: 0,
-          portsFilteredCount: 0,
-          ports: [],
-          serviceDetectionRate: 0,
-          suspiciousAllPortsOpen: false,
-          scanPattern: 'Normal',
+          portSnapshots: [],
+          portScanStats: expect.objectContaining({
+            totalOpenPorts: 0,
+            portsWithService: 0,
+            portsStored: 0,
+            serviceDetectionRate: 0,
+            suspiciousAllPortsOpen: false,
+            scanPattern: 'Normal',
+          }),
         })
       );
     });

@@ -8,14 +8,16 @@ import {
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import * as React from "react";
-import type { QueryClient } from "@tanstack/react-query";
 import { DefaultCatchBoundary } from "@/components/default-catch-boundary";
 import { NotFound } from "@/components/not-found";
 import { ThemeProvider, ThemeScript, useTheme } from "@/components/theme";
 import { ModalProvider } from "@/modals";
 import appCss from "@/styles.css?url";
+import landingCss from "@/landing.css?url";
 import { seo } from "@/utils/seo";
 import { Toaster } from "sonner";
+import type { RouterContext } from "@/router";
+import { Spinner } from "@/components/ui/spinner";
 
 const themeConfig = {
   attribute: "class" as const,
@@ -25,9 +27,7 @@ const themeConfig = {
   disableTransitionOnChange: false,
 };
 
-export const Route = createRootRouteWithContext<{
-  queryClient: QueryClient;
-}>()({
+export const Route = createRootRouteWithContext<RouterContext>()({
   head: () => ({
     meta: [
       {
@@ -45,6 +45,22 @@ export const Route = createRootRouteWithContext<{
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "stylesheet", href: landingCss },
+      // Preload landing page fonts for better performance
+      {
+        rel: "preload",
+        href: "/fonts/TT-Firs-Neue-Var Roman.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
+      {
+        rel: "preload",
+        href: "/fonts/UncutSans-Variable.woff2",
+        as: "font",
+        type: "font/woff2",
+        crossOrigin: "anonymous",
+      },
       // SVG favicon for modern browsers (scales perfectly at any size)
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       // Fallback favicons for older browsers
@@ -57,6 +73,13 @@ export const Route = createRootRouteWithContext<{
       { rel: "manifest", href: "/site.webmanifest", color: "#ffffff" },
     ],
   }),
+  pendingComponent: () => (
+    <ThemeShell>
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Spinner size="lg" wait="delay-300" />
+      </div>
+    </ThemeShell>
+  ),
   errorComponent: (props) => {
     return (
       <ThemeShell>

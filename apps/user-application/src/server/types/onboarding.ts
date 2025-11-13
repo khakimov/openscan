@@ -11,6 +11,7 @@ export type OnboardingOrganizationMetadata = Record<string, {}>;
 export type OnboardingOrganizationSummary = {
   id: string;
   name: string | null;
+  slug?: string | null;
   metadata: OnboardingOrganizationMetadata | null;
 };
 

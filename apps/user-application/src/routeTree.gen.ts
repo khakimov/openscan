@@ -9,45 +9,52 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PublicRouteImport } from './routes/_public'
+import { Route as LoginRouteImport } from './routes/_login'
 import { Route as AppRouteImport } from './routes/_app'
-import { Route as OnboardingRouteRouteImport } from './routes/onboarding/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OnboardingIndexRouteImport } from './routes/onboarding/index'
-import { Route as OnboardingProjectRouteImport } from './routes/onboarding/project'
+import { Route as OnboardingIndexRouteImport } from './routes/onboarding.index'
+import { Route as OnboardingProjectRouteImport } from './routes/onboarding.project'
 import { Route as ApiScreenshotsRouteImport } from './routes/api/screenshots'
 import { Route as PublicTermsRouteImport } from './routes/_public.terms'
 import { Route as PublicPrivacyRouteImport } from './routes/_public.privacy'
+import { Route as LoginLoginRouteImport } from './routes/_login.login'
 import { Route as AppOrganizationIdRouteImport } from './routes/_app.$organizationId'
 import { Route as AuthAppIndexRouteImport } from './routes/_auth/app/index'
 import { Route as AppOrganizationIdIndexRouteImport } from './routes/_app.$organizationId.index'
-import { Route as OnboardingProjectIdNotificationsRouteImport } from './routes/onboarding/$projectId/notifications'
-import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding/$projectId/discovery'
+import { Route as OnboardingProjectIdNotificationsRouteImport } from './routes/onboarding.$projectId.notifications'
+import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding.$projectId.discovery'
 import { Route as ApiInternalScanResultsRouteImport } from './routes/api/internal/scan-results'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppOrganizationIdProjectIdRouteImport } from './routes/_app.$organizationId.$projectId'
 import { Route as AppOrganizationIdProjectIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.index'
-import { Route as AuthAppPolarSubscriptionsRouteImport } from './routes/_auth/app/polar/subscriptions'
-import { Route as AuthAppPolarPortalRouteImport } from './routes/_auth/app/polar/portal'
+import { Route as ApiInternalSchedulesReleaseSlotRouteImport } from './routes/api/internal/schedules/release-slot'
+import { Route as ApiInternalSchedulesCanExecuteRouteImport } from './routes/api/internal/schedules/can-execute'
 import { Route as AppOrganizationIdProjectIdScansRouteImport } from './routes/_app.$organizationId.$projectId.scans'
-import { Route as AppOrganizationIdProjectIdAssetsRouteImport } from './routes/_app.$organizationId.$projectId.assets'
 import { Route as AppOrganizationIdProjectIdDeviceIdRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId'
+import { Route as AppOrganizationIdProjectIdAssetsIndexRouteImport } from './routes/_app.$organizationId.$projectId.assets.index'
 import { Route as AppOrganizationIdProjectIdDeviceIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.index'
-import { Route as AuthAppPolarCheckoutSuccessRouteImport } from './routes/_auth/app/polar/checkout.success'
+import { Route as AppOrganizationIdProjectIdAssetsVerifiedRouteImport } from './routes/_app.$organizationId.$projectId.assets.verified'
+import { Route as AppOrganizationIdProjectIdAssetsDiscoveryRouteImport } from './routes/_app.$organizationId.$projectId.assets.discovery'
 import { Route as AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.vulnerabilities'
 import { Route as AppOrganizationIdProjectIdDeviceIdScansRouteImport } from './routes/_app.$organizationId.$projectId.$deviceId.scans'
 
+const OnboardingRoute = OnboardingRouteImport.update({
+  id: '/onboarding',
+  path: '/onboarding',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicRoute = PublicRouteImport.update({
   id: '/_public',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AppRoute = AppRouteImport.update({
-  id: '/_app',
+const LoginRoute = LoginRouteImport.update({
+  id: '/_login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OnboardingRouteRoute = OnboardingRouteRouteImport.update({
-  id: '/onboarding',
-  path: '/onboarding',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -58,12 +65,12 @@ const IndexRoute = IndexRouteImport.update({
 const OnboardingIndexRoute = OnboardingIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => OnboardingRouteRoute,
+  getParentRoute: () => OnboardingRoute,
 } as any)
 const OnboardingProjectRoute = OnboardingProjectRouteImport.update({
   id: '/project',
   path: '/project',
-  getParentRoute: () => OnboardingRouteRoute,
+  getParentRoute: () => OnboardingRoute,
 } as any)
 const ApiScreenshotsRoute = ApiScreenshotsRouteImport.update({
   id: '/api/screenshots',
@@ -79,6 +86,11 @@ const PublicPrivacyRoute = PublicPrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
   getParentRoute: () => PublicRoute,
+} as any)
+const LoginLoginRoute = LoginLoginRouteImport.update({
+  id: '/login',
+  path: '/login',
+  getParentRoute: () => LoginRoute,
 } as any)
 const AppOrganizationIdRoute = AppOrganizationIdRouteImport.update({
   id: '/$organizationId',
@@ -99,13 +111,13 @@ const OnboardingProjectIdNotificationsRoute =
   OnboardingProjectIdNotificationsRouteImport.update({
     id: '/$projectId/notifications',
     path: '/$projectId/notifications',
-    getParentRoute: () => OnboardingRouteRoute,
+    getParentRoute: () => OnboardingRoute,
   } as any)
 const OnboardingProjectIdDiscoveryRoute =
   OnboardingProjectIdDiscoveryRouteImport.update({
     id: '/$projectId/discovery',
     path: '/$projectId/discovery',
-    getParentRoute: () => OnboardingRouteRoute,
+    getParentRoute: () => OnboardingRoute,
   } as any)
 const ApiInternalScanResultsRoute = ApiInternalScanResultsRouteImport.update({
   id: '/api/internal/scan-results',
@@ -129,27 +141,22 @@ const AppOrganizationIdProjectIdIndexRoute =
     path: '/',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
-const AuthAppPolarSubscriptionsRoute =
-  AuthAppPolarSubscriptionsRouteImport.update({
-    id: '/_auth/app/polar/subscriptions',
-    path: '/app/polar/subscriptions',
+const ApiInternalSchedulesReleaseSlotRoute =
+  ApiInternalSchedulesReleaseSlotRouteImport.update({
+    id: '/api/internal/schedules/release-slot',
+    path: '/api/internal/schedules/release-slot',
     getParentRoute: () => rootRouteImport,
   } as any)
-const AuthAppPolarPortalRoute = AuthAppPolarPortalRouteImport.update({
-  id: '/_auth/app/polar/portal',
-  path: '/app/polar/portal',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const ApiInternalSchedulesCanExecuteRoute =
+  ApiInternalSchedulesCanExecuteRouteImport.update({
+    id: '/api/internal/schedules/can-execute',
+    path: '/api/internal/schedules/can-execute',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AppOrganizationIdProjectIdScansRoute =
   AppOrganizationIdProjectIdScansRouteImport.update({
     id: '/scans',
     path: '/scans',
-    getParentRoute: () => AppOrganizationIdProjectIdRoute,
-  } as any)
-const AppOrganizationIdProjectIdAssetsRoute =
-  AppOrganizationIdProjectIdAssetsRouteImport.update({
-    id: '/assets',
-    path: '/assets',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
 const AppOrganizationIdProjectIdDeviceIdRoute =
@@ -158,17 +165,29 @@ const AppOrganizationIdProjectIdDeviceIdRoute =
     path: '/$deviceId',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
+const AppOrganizationIdProjectIdAssetsIndexRoute =
+  AppOrganizationIdProjectIdAssetsIndexRouteImport.update({
+    id: '/assets/',
+    path: '/assets/',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
+  } as any)
 const AppOrganizationIdProjectIdDeviceIdIndexRoute =
   AppOrganizationIdProjectIdDeviceIdIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AppOrganizationIdProjectIdDeviceIdRoute,
   } as any)
-const AuthAppPolarCheckoutSuccessRoute =
-  AuthAppPolarCheckoutSuccessRouteImport.update({
-    id: '/_auth/app/polar/checkout/success',
-    path: '/app/polar/checkout/success',
-    getParentRoute: () => rootRouteImport,
+const AppOrganizationIdProjectIdAssetsVerifiedRoute =
+  AppOrganizationIdProjectIdAssetsVerifiedRouteImport.update({
+    id: '/assets/verified',
+    path: '/assets/verified',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
+  } as any)
+const AppOrganizationIdProjectIdAssetsDiscoveryRoute =
+  AppOrganizationIdProjectIdAssetsDiscoveryRouteImport.update({
+    id: '/assets/discovery',
+    path: '/assets/discovery',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
 const AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute =
   AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRouteImport.update({
@@ -185,8 +204,9 @@ const AppOrganizationIdProjectIdDeviceIdScansRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/onboarding': typeof OnboardingRouteRouteWithChildren
+  '/onboarding': typeof OnboardingRouteWithChildren
   '/$organizationId': typeof AppOrganizationIdRouteWithChildren
+  '/login': typeof LoginLoginRoute
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
@@ -200,18 +220,20 @@ export interface FileRoutesByFullPath {
   '/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
-  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
-  '/app/polar/portal': typeof AuthAppPolarPortalRoute
-  '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
+  '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
+  '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
   '/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
-  '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
+  '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
   '/$organizationId/$projectId/$deviceId/': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
+  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/login': typeof LoginLoginRoute
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
@@ -223,23 +245,26 @@ export interface FileRoutesByTo {
   '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/$organizationId': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
-  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
-  '/app/polar/portal': typeof AuthAppPolarPortalRoute
-  '/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
+  '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
+  '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdIndexRoute
   '/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
-  '/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
+  '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
   '/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
+  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/onboarding': typeof OnboardingRouteRouteWithChildren
   '/_app': typeof AppRouteWithChildren
+  '/_login': typeof LoginRouteWithChildren
   '/_public': typeof PublicRouteWithChildren
+  '/onboarding': typeof OnboardingRouteWithChildren
   '/_app/$organizationId': typeof AppOrganizationIdRouteWithChildren
+  '/_login/login': typeof LoginLoginRoute
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/terms': typeof PublicTermsRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
@@ -253,15 +278,16 @@ export interface FileRoutesById {
   '/_app/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/_auth/app/': typeof AuthAppIndexRoute
   '/_app/$organizationId/$projectId/$deviceId': typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
-  '/_app/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRoute
   '/_app/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
-  '/_auth/app/polar/portal': typeof AuthAppPolarPortalRoute
-  '/_auth/app/polar/subscriptions': typeof AuthAppPolarSubscriptionsRoute
+  '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
+  '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/_app/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
   '/_app/$organizationId/$projectId/$deviceId/scans': typeof AppOrganizationIdProjectIdDeviceIdScansRoute
   '/_app/$organizationId/$projectId/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdDeviceIdVulnerabilitiesRoute
-  '/_auth/app/polar/checkout/success': typeof AuthAppPolarCheckoutSuccessRoute
+  '/_app/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  '/_app/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
   '/_app/$organizationId/$projectId/$deviceId/': typeof AppOrganizationIdProjectIdDeviceIdIndexRoute
+  '/_app/$organizationId/$projectId/assets/': typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -269,6 +295,7 @@ export interface FileRouteTypes {
     | '/'
     | '/onboarding'
     | '/$organizationId'
+    | '/login'
     | '/privacy'
     | '/terms'
     | '/api/screenshots'
@@ -282,18 +309,20 @@ export interface FileRouteTypes {
     | '/$organizationId/'
     | '/app'
     | '/$organizationId/$projectId/$deviceId'
-    | '/$organizationId/$projectId/assets'
     | '/$organizationId/$projectId/scans'
-    | '/app/polar/portal'
-    | '/app/polar/subscriptions'
+    | '/api/internal/schedules/can-execute'
+    | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId/'
     | '/$organizationId/$projectId/$deviceId/scans'
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
-    | '/app/polar/checkout/success'
+    | '/$organizationId/$projectId/assets/discovery'
+    | '/$organizationId/$projectId/assets/verified'
     | '/$organizationId/$projectId/$deviceId/'
+    | '/$organizationId/$projectId/assets'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/login'
     | '/privacy'
     | '/terms'
     | '/api/screenshots'
@@ -305,22 +334,25 @@ export interface FileRouteTypes {
     | '/onboarding/$projectId/notifications'
     | '/$organizationId'
     | '/app'
-    | '/$organizationId/$projectId/assets'
     | '/$organizationId/$projectId/scans'
-    | '/app/polar/portal'
-    | '/app/polar/subscriptions'
+    | '/api/internal/schedules/can-execute'
+    | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId'
     | '/$organizationId/$projectId/$deviceId/scans'
     | '/$organizationId/$projectId/$deviceId/vulnerabilities'
-    | '/app/polar/checkout/success'
+    | '/$organizationId/$projectId/assets/discovery'
+    | '/$organizationId/$projectId/assets/verified'
     | '/$organizationId/$projectId/$deviceId'
+    | '/$organizationId/$projectId/assets'
   id:
     | '__root__'
     | '/'
-    | '/onboarding'
     | '/_app'
+    | '/_login'
     | '/_public'
+    | '/onboarding'
     | '/_app/$organizationId'
+    | '/_login/login'
     | '/_public/privacy'
     | '/_public/terms'
     | '/api/screenshots'
@@ -334,33 +366,41 @@ export interface FileRouteTypes {
     | '/_app/$organizationId/'
     | '/_auth/app/'
     | '/_app/$organizationId/$projectId/$deviceId'
-    | '/_app/$organizationId/$projectId/assets'
     | '/_app/$organizationId/$projectId/scans'
-    | '/_auth/app/polar/portal'
-    | '/_auth/app/polar/subscriptions'
+    | '/api/internal/schedules/can-execute'
+    | '/api/internal/schedules/release-slot'
     | '/_app/$organizationId/$projectId/'
     | '/_app/$organizationId/$projectId/$deviceId/scans'
     | '/_app/$organizationId/$projectId/$deviceId/vulnerabilities'
-    | '/_auth/app/polar/checkout/success'
+    | '/_app/$organizationId/$projectId/assets/discovery'
+    | '/_app/$organizationId/$projectId/assets/verified'
     | '/_app/$organizationId/$projectId/$deviceId/'
+    | '/_app/$organizationId/$projectId/assets/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  OnboardingRouteRoute: typeof OnboardingRouteRouteWithChildren
   AppRoute: typeof AppRouteWithChildren
+  LoginRoute: typeof LoginRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
+  OnboardingRoute: typeof OnboardingRouteWithChildren
   ApiScreenshotsRoute: typeof ApiScreenshotsRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
   AuthAppIndexRoute: typeof AuthAppIndexRoute
-  AuthAppPolarPortalRoute: typeof AuthAppPolarPortalRoute
-  AuthAppPolarSubscriptionsRoute: typeof AuthAppPolarSubscriptionsRoute
-  AuthAppPolarCheckoutSuccessRoute: typeof AuthAppPolarCheckoutSuccessRoute
+  ApiInternalSchedulesCanExecuteRoute: typeof ApiInternalSchedulesCanExecuteRoute
+  ApiInternalSchedulesReleaseSlotRoute: typeof ApiInternalSchedulesReleaseSlotRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/onboarding': {
+      id: '/onboarding'
+      path: '/onboarding'
+      fullPath: '/onboarding'
+      preLoaderRoute: typeof OnboardingRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public': {
       id: '/_public'
       path: ''
@@ -368,18 +408,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_login': {
+      id: '/_login'
+      path: ''
+      fullPath: ''
+      preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_app': {
       id: '/_app'
       path: ''
       fullPath: ''
       preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/onboarding': {
-      id: '/onboarding'
-      path: '/onboarding'
-      fullPath: '/onboarding'
-      preLoaderRoute: typeof OnboardingRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -394,14 +434,14 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/onboarding/'
       preLoaderRoute: typeof OnboardingIndexRouteImport
-      parentRoute: typeof OnboardingRouteRoute
+      parentRoute: typeof OnboardingRoute
     }
     '/onboarding/project': {
       id: '/onboarding/project'
       path: '/project'
       fullPath: '/onboarding/project'
       preLoaderRoute: typeof OnboardingProjectRouteImport
-      parentRoute: typeof OnboardingRouteRoute
+      parentRoute: typeof OnboardingRoute
     }
     '/api/screenshots': {
       id: '/api/screenshots'
@@ -423,6 +463,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/privacy'
       preLoaderRoute: typeof PublicPrivacyRouteImport
       parentRoute: typeof PublicRoute
+    }
+    '/_login/login': {
+      id: '/_login/login'
+      path: '/login'
+      fullPath: '/login'
+      preLoaderRoute: typeof LoginLoginRouteImport
+      parentRoute: typeof LoginRoute
     }
     '/_app/$organizationId': {
       id: '/_app/$organizationId'
@@ -450,14 +497,14 @@ declare module '@tanstack/react-router' {
       path: '/$projectId/notifications'
       fullPath: '/onboarding/$projectId/notifications'
       preLoaderRoute: typeof OnboardingProjectIdNotificationsRouteImport
-      parentRoute: typeof OnboardingRouteRoute
+      parentRoute: typeof OnboardingRoute
     }
     '/onboarding/$projectId/discovery': {
       id: '/onboarding/$projectId/discovery'
       path: '/$projectId/discovery'
       fullPath: '/onboarding/$projectId/discovery'
       preLoaderRoute: typeof OnboardingProjectIdDiscoveryRouteImport
-      parentRoute: typeof OnboardingRouteRoute
+      parentRoute: typeof OnboardingRoute
     }
     '/api/internal/scan-results': {
       id: '/api/internal/scan-results'
@@ -487,18 +534,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdProjectIdIndexRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
-    '/_auth/app/polar/subscriptions': {
-      id: '/_auth/app/polar/subscriptions'
-      path: '/app/polar/subscriptions'
-      fullPath: '/app/polar/subscriptions'
-      preLoaderRoute: typeof AuthAppPolarSubscriptionsRouteImport
+    '/api/internal/schedules/release-slot': {
+      id: '/api/internal/schedules/release-slot'
+      path: '/api/internal/schedules/release-slot'
+      fullPath: '/api/internal/schedules/release-slot'
+      preLoaderRoute: typeof ApiInternalSchedulesReleaseSlotRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_auth/app/polar/portal': {
-      id: '/_auth/app/polar/portal'
-      path: '/app/polar/portal'
-      fullPath: '/app/polar/portal'
-      preLoaderRoute: typeof AuthAppPolarPortalRouteImport
+    '/api/internal/schedules/can-execute': {
+      id: '/api/internal/schedules/can-execute'
+      path: '/api/internal/schedules/can-execute'
+      fullPath: '/api/internal/schedules/can-execute'
+      preLoaderRoute: typeof ApiInternalSchedulesCanExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_app/$organizationId/$projectId/scans': {
@@ -508,18 +555,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdProjectIdScansRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
-    '/_app/$organizationId/$projectId/assets': {
-      id: '/_app/$organizationId/$projectId/assets'
-      path: '/assets'
-      fullPath: '/$organizationId/$projectId/assets'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdRoute
-    }
     '/_app/$organizationId/$projectId/$deviceId': {
       id: '/_app/$organizationId/$projectId/$deviceId'
       path: '/$deviceId'
       fullPath: '/$organizationId/$projectId/$deviceId'
       preLoaderRoute: typeof AppOrganizationIdProjectIdDeviceIdRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
+    }
+    '/_app/$organizationId/$projectId/assets/': {
+      id: '/_app/$organizationId/$projectId/assets/'
+      path: '/assets'
+      fullPath: '/$organizationId/$projectId/assets'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsIndexRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
     '/_app/$organizationId/$projectId/$deviceId/': {
@@ -529,12 +576,19 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdProjectIdDeviceIdIndexRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdDeviceIdRoute
     }
-    '/_auth/app/polar/checkout/success': {
-      id: '/_auth/app/polar/checkout/success'
-      path: '/app/polar/checkout/success'
-      fullPath: '/app/polar/checkout/success'
-      preLoaderRoute: typeof AuthAppPolarCheckoutSuccessRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_app/$organizationId/$projectId/assets/verified': {
+      id: '/_app/$organizationId/$projectId/assets/verified'
+      path: '/assets/verified'
+      fullPath: '/$organizationId/$projectId/assets/verified'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
+    }
+    '/_app/$organizationId/$projectId/assets/discovery': {
+      id: '/_app/$organizationId/$projectId/assets/discovery'
+      path: '/assets/discovery'
+      fullPath: '/$organizationId/$projectId/assets/discovery'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
     '/_app/$organizationId/$projectId/$deviceId/vulnerabilities': {
       id: '/_app/$organizationId/$projectId/$deviceId/vulnerabilities'
@@ -552,24 +606,6 @@ declare module '@tanstack/react-router' {
     }
   }
 }
-
-interface OnboardingRouteRouteChildren {
-  OnboardingProjectRoute: typeof OnboardingProjectRoute
-  OnboardingIndexRoute: typeof OnboardingIndexRoute
-  OnboardingProjectIdDiscoveryRoute: typeof OnboardingProjectIdDiscoveryRoute
-  OnboardingProjectIdNotificationsRoute: typeof OnboardingProjectIdNotificationsRoute
-}
-
-const OnboardingRouteRouteChildren: OnboardingRouteRouteChildren = {
-  OnboardingProjectRoute: OnboardingProjectRoute,
-  OnboardingIndexRoute: OnboardingIndexRoute,
-  OnboardingProjectIdDiscoveryRoute: OnboardingProjectIdDiscoveryRoute,
-  OnboardingProjectIdNotificationsRoute: OnboardingProjectIdNotificationsRoute,
-}
-
-const OnboardingRouteRouteWithChildren = OnboardingRouteRoute._addFileChildren(
-  OnboardingRouteRouteChildren,
-)
 
 interface AppOrganizationIdProjectIdDeviceIdRouteChildren {
   AppOrganizationIdProjectIdDeviceIdScansRoute: typeof AppOrganizationIdProjectIdDeviceIdScansRoute
@@ -594,19 +630,25 @@ const AppOrganizationIdProjectIdDeviceIdRouteWithChildren =
 
 interface AppOrganizationIdProjectIdRouteChildren {
   AppOrganizationIdProjectIdDeviceIdRoute: typeof AppOrganizationIdProjectIdDeviceIdRouteWithChildren
-  AppOrganizationIdProjectIdAssetsRoute: typeof AppOrganizationIdProjectIdAssetsRoute
   AppOrganizationIdProjectIdScansRoute: typeof AppOrganizationIdProjectIdScansRoute
   AppOrganizationIdProjectIdIndexRoute: typeof AppOrganizationIdProjectIdIndexRoute
+  AppOrganizationIdProjectIdAssetsDiscoveryRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
+  AppOrganizationIdProjectIdAssetsVerifiedRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
+  AppOrganizationIdProjectIdAssetsIndexRoute: typeof AppOrganizationIdProjectIdAssetsIndexRoute
 }
 
 const AppOrganizationIdProjectIdRouteChildren: AppOrganizationIdProjectIdRouteChildren =
   {
     AppOrganizationIdProjectIdDeviceIdRoute:
       AppOrganizationIdProjectIdDeviceIdRouteWithChildren,
-    AppOrganizationIdProjectIdAssetsRoute:
-      AppOrganizationIdProjectIdAssetsRoute,
     AppOrganizationIdProjectIdScansRoute: AppOrganizationIdProjectIdScansRoute,
     AppOrganizationIdProjectIdIndexRoute: AppOrganizationIdProjectIdIndexRoute,
+    AppOrganizationIdProjectIdAssetsDiscoveryRoute:
+      AppOrganizationIdProjectIdAssetsDiscoveryRoute,
+    AppOrganizationIdProjectIdAssetsVerifiedRoute:
+      AppOrganizationIdProjectIdAssetsVerifiedRoute,
+    AppOrganizationIdProjectIdAssetsIndexRoute:
+      AppOrganizationIdProjectIdAssetsIndexRoute,
   }
 
 const AppOrganizationIdProjectIdRouteWithChildren =
@@ -637,6 +679,16 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface LoginRouteChildren {
+  LoginLoginRoute: typeof LoginLoginRoute
+}
+
+const LoginRouteChildren: LoginRouteChildren = {
+  LoginLoginRoute: LoginLoginRoute,
+}
+
+const LoginRouteWithChildren = LoginRoute._addFileChildren(LoginRouteChildren)
+
 interface PublicRouteChildren {
   PublicPrivacyRoute: typeof PublicPrivacyRoute
   PublicTermsRoute: typeof PublicTermsRoute
@@ -650,18 +702,36 @@ const PublicRouteChildren: PublicRouteChildren = {
 const PublicRouteWithChildren =
   PublicRoute._addFileChildren(PublicRouteChildren)
 
+interface OnboardingRouteChildren {
+  OnboardingProjectRoute: typeof OnboardingProjectRoute
+  OnboardingIndexRoute: typeof OnboardingIndexRoute
+  OnboardingProjectIdDiscoveryRoute: typeof OnboardingProjectIdDiscoveryRoute
+  OnboardingProjectIdNotificationsRoute: typeof OnboardingProjectIdNotificationsRoute
+}
+
+const OnboardingRouteChildren: OnboardingRouteChildren = {
+  OnboardingProjectRoute: OnboardingProjectRoute,
+  OnboardingIndexRoute: OnboardingIndexRoute,
+  OnboardingProjectIdDiscoveryRoute: OnboardingProjectIdDiscoveryRoute,
+  OnboardingProjectIdNotificationsRoute: OnboardingProjectIdNotificationsRoute,
+}
+
+const OnboardingRouteWithChildren = OnboardingRoute._addFileChildren(
+  OnboardingRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  OnboardingRouteRoute: OnboardingRouteRouteWithChildren,
   AppRoute: AppRouteWithChildren,
+  LoginRoute: LoginRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
+  OnboardingRoute: OnboardingRouteWithChildren,
   ApiScreenshotsRoute: ApiScreenshotsRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
   AuthAppIndexRoute: AuthAppIndexRoute,
-  AuthAppPolarPortalRoute: AuthAppPolarPortalRoute,
-  AuthAppPolarSubscriptionsRoute: AuthAppPolarSubscriptionsRoute,
-  AuthAppPolarCheckoutSuccessRoute: AuthAppPolarCheckoutSuccessRoute,
+  ApiInternalSchedulesCanExecuteRoute: ApiInternalSchedulesCanExecuteRoute,
+  ApiInternalSchedulesReleaseSlotRoute: ApiInternalSchedulesReleaseSlotRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

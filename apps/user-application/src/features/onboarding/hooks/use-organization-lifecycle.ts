@@ -1,9 +1,12 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
 import {
   createOrganizationOnboarding,
   createProjectOnboarding,
   updateOrganizationOnboarding,
 } from "@/server/organization";
+import { onboardingStatusQuery } from "@/queries/onboarding-queries";
 
 export interface OrganizationFormData {
   organizationName: string;
@@ -38,128 +41,141 @@ export interface OrganizationSetupResult {
 
 /**
  * Custom hook to handle organization and project lifecycle
- * Extracts the complex organization/device creation logic from form submission
+ * Uses React Query mutation with cache seeding for instant UI updates
  */
 export function useOrganizationLifecycle({
   hasOrganization,
   persistedOrganizationId,
   projectId,
 }: UseOrganizationLifecycleOptions) {
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Sets up organization and project device
+   * Mutation function: Sets up organization and project
    * Handles both new organization creation and existing organization updates
    */
-  const setupOrganizationAndProject = async (
+  const setupMutationFn = async (
     formData: OrganizationFormData
   ): Promise<OrganizationSetupResult> => {
-    setError(null);
+    // Require explicit organization ID when updating existing org
+    if (hasOrganization && !persistedOrganizationId) {
+      throw new Error(
+        "Organization ID is required when updating an existing organization"
+      );
+    }
 
-    try {
-      // Require explicit organization ID when updating existing org
-      if (hasOrganization && !persistedOrganizationId) {
-        throw new Error(
-          "Organization ID is required when updating an existing organization"
-        );
-      }
+    let organizationId = persistedOrganizationId;
 
-      let organizationId = persistedOrganizationId;
-
-      // Step 1: Create or update organization
-      if (!hasOrganization || !organizationId) {
-        console.log(
-          "[useOrganizationLifecycle] Creating organization:",
-          formData.organizationName
-        );
-
-        const orgResult = await createOrganizationOnboarding({
-          data: {
-            name: formData.organizationName,
-            timezone: formData.timezone,
-          },
-        });
-
-        if (!orgResult.success || !orgResult.organization) {
-          throw new Error(
-            orgResult.error || "Failed to create organization"
-          );
-        }
-
-        organizationId = orgResult.organization.id;
-        console.log(
-          "[useOrganizationLifecycle] Organization created:",
-          orgResult.organization
-        );
-      } else {
-        const updateResult = await updateOrganizationOnboarding({
-          data: {
-            organizationId,
-            name: formData.organizationName,
-            timezone: formData.timezone,
-          },
-        });
-
-        if (!updateResult.success) {
-          throw new Error(
-            updateResult.error || "Failed to update organization"
-          );
-        }
-
-        console.log(
-          "[useOrganizationLifecycle] Organization updated:",
-          organizationId
-        );
-      }
-
-      if (!organizationId) {
-        throw new Error("Organization ID not available");
-      }
-
-      // Step 2: Create or update project
+    // Step 1: Create or update organization
+    if (!hasOrganization || !organizationId) {
       console.log(
-        "[useOrganizationLifecycle] Saving project:",
-        formData.projectName
+        "[useOrganizationLifecycle] Creating organization:",
+        formData.organizationName
       );
 
-      const projectResult = await createProjectOnboarding({
+      const orgResult = await createOrganizationOnboarding({
         data: {
-          projectName: formData.projectName,
-          domain: formData.domain || undefined,
-          organizationId,
-          projectId,
+          name: formData.organizationName,
+          timezone: formData.timezone,
         },
       });
 
-      if (!projectResult.success) {
-        throw new Error(projectResult.error || "Failed to save project");
+      if (!orgResult.success || !orgResult.organization) {
+        throw new Error(
+          orgResult.error || "Failed to create organization"
+        );
+      }
+
+      organizationId = orgResult.organization.id;
+      console.log(
+        "[useOrganizationLifecycle] Organization created:",
+        orgResult.organization
+      );
+    } else {
+      const updateResult = await updateOrganizationOnboarding({
+        data: {
+          organizationId,
+          name: formData.organizationName,
+          timezone: formData.timezone,
+        },
+      });
+
+      if (!updateResult.success) {
+        throw new Error(
+          updateResult.error || "Failed to update organization"
+        );
       }
 
       console.log(
-        "[useOrganizationLifecycle] Project saved:",
-        projectResult.project
+        "[useOrganizationLifecycle] Organization updated:",
+        organizationId
       );
+    }
 
-      return {
-        success: true,
+    if (!organizationId) {
+      throw new Error("Organization ID not available");
+    }
+
+    // Step 2: Create or update project
+    console.log(
+      "[useOrganizationLifecycle] Saving project:",
+      formData.projectName
+    );
+
+    const projectResult = await createProjectOnboarding({
+      data: {
+        projectName: formData.projectName,
+        domain: formData.domain || undefined,
         organizationId,
-        projectId: projectResult.project.id,
-      };
-    } catch (err) {
+        projectId,
+      },
+    });
+
+    if (!projectResult.success) {
+      throw new Error(projectResult.error || "Failed to save project");
+    }
+
+    console.log(
+      "[useOrganizationLifecycle] Project saved:",
+      projectResult.project
+    );
+
+    return {
+      success: true,
+      organizationId,
+      projectId: projectResult.project.id,
+    };
+  };
+
+  const mutation = useMutationWithToast({
+    mutationKey: ["onboarding", "setup"],
+    mutationFn: setupMutationFn,
+    successMessage: `${hasOrganization ? "Updated" : "Created"} organization and project`,
+    invalidateKeys: [onboardingStatusQuery.queryKey],
+    toastOnSuccess: false, // Silent - onboarding flow handles navigation
+    onSuccess: async (result) => {
+      if (!result.success) return;
+
+      // Seed React Query cache with fresh onboarding status
+      // This triggers instant UI updates across all components using useQuery(onboardingStatusQuery)
+      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
+      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+
+      console.log("[useOrganizationLifecycle] Cache seeded with fresh onboarding status");
+    },
+    onError: (err) => {
       const errorMessage =
         err instanceof Error ? err.message : "Something went wrong";
       console.error("[useOrganizationLifecycle] Error:", err);
       setError(errorMessage);
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    }
-  };
+    },
+  });
 
   return {
-    setupOrganizationAndProject,
-    error,
+    setupOrganizationAndProject: mutation.mutateAsync,
+    error: error || (mutation.error ? String(mutation.error) : null),
     setError,
+    isPending: mutation.isPending,
   };
 }

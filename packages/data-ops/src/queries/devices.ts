@@ -3,6 +3,7 @@ import { getDb } from '../database/setup';
 import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies } from '../schema';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
+import { derivePortStats } from '../types/cve-enrichment';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
@@ -24,14 +25,30 @@ export const CreateDevicesInProjectSchema = z.object({
     host: z.string().min(1, 'Host is required'),
     ip: z.string().optional(),  // IP validation happens at data-ops layer
   })).min(1, 'At least one target is required'),
-  projectId: z.string().min(1, 'Project ID is required'),
-  organizationId: z.string().min(1, 'Organization ID is required'),
+  projectId: z.string().optional(),
+  organizationId: z.string().optional(),
   options: z.object({
     source: z.string().optional(),
     scope: z.enum(['INTERNAL', 'EXTERNAL', 'HYBRID']).optional(),
     verificationStatus: z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']).optional(),
   }).optional(),
-});
+}).refine(
+  (data) => typeof data.projectId === 'string' && data.projectId.length > 0,
+  {
+    message: 'Project ID is required',
+    path: ['projectId'],
+  }
+).refine(
+  (data) => typeof data.organizationId === 'string' && data.organizationId.length > 0,
+  {
+    message: 'Organization ID is required',
+    path: ['organizationId'],
+  }
+).transform((data) => ({
+  ...data,
+  projectId: data.projectId as string,  // Safe: refine guarantees this is string
+  organizationId: data.organizationId as string,  // Safe: refine guarantees this is string
+}));
 
 export type CreateDevicesInProjectInput = z.infer<typeof CreateDevicesInProjectSchema>;
 
@@ -259,21 +276,25 @@ export async function getDevicesForTenant(
     for (const stat of scanStats) {
       const latestScan = latestScanMap.get(stat.deviceId);
       const resultSummary = latestScan?.resultSummary as any;
-      const ports = resultSummary?.ports || [];
-      const openPortCount = resultSummary?.openPortCount || ports.length || 0;
+
+      // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+      const portStats = derivePortStats(
+        resultSummary?.portSnapshots,
+        resultSummary?.portScanStats
+      );
 
       scanStatsMap.set(stat.deviceId, {
         scanCount: Number(stat.scanCount),
         totalScans: Number(stat.scanCount),
         lastScanAt: toDateOrUndefined(stat.lastScanAt),
-        openPortCount,
-        totalPortCount: openPortCount,
-        ports,
+        openPortCount: portStats.openPortCount,
+        totalPortCount: portStats.openPortCount,
+        ports: portStats.ports,
         // Smart metadata for UI (port filtering, WAF/proxy detection)
-        portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
-        scanPattern: resultSummary?.scanPattern,
-        suspiciousAllPortsOpen: resultSummary?.suspiciousAllPortsOpen ?? false,
-        serviceDetectionRate: resultSummary?.serviceDetectionRate,
+        portsStoredCount: portStats.portsStoredCount,
+        scanPattern: portStats.scanPattern,
+        suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
+        serviceDetectionRate: portStats.serviceDetectionRate,
       });
     }
   }
@@ -363,8 +384,12 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
   if (scanStatsResult.length > 0 && scanStatsResult[0].scanCount > 0 && scanStatsResult[0].lastScanAt !== null) {
     const stat = scanStatsResult[0];
     const resultSummary = latestScan[0]?.resultSummary as any;
-    const ports = resultSummary?.ports || [];
-    const openPortCount = resultSummary?.openPortCount || ports.length || 0;
+
+    // ✅ Derive port stats from canonical portSnapshots (sec-zg2)
+    const portStats = derivePortStats(
+      resultSummary?.portSnapshots,
+      resultSummary?.portScanStats
+    );
 
     // Fetch httpx probes for this device's latest scan
     let httpxProbesMap = new Map();
@@ -420,7 +445,7 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     }
 
     // Merge httpx data into ports array
-    const portsWithHttpx = ports.map((port: any) => ({
+    const portsWithHttpx = portStats.ports.map((port: any) => ({
       ...port,
       httpxProbe: httpxProbesMap.get(port.port) || undefined,
     }));
@@ -429,14 +454,14 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
       scanCount: Number(stat.scanCount),
       totalScans: Number(stat.scanCount),
       lastScanAt: toDateOrUndefined(stat.lastScanAt),
-      openPortCount,
-      totalPortCount: openPortCount,
+      openPortCount: portStats.openPortCount,
+      totalPortCount: portStats.openPortCount,
       ports: portsWithHttpx,
       // Smart metadata for UI (port filtering, WAF/proxy detection)
-      portsStoredCount: resultSummary?.portsStoredCount ?? ports.length,
-      scanPattern: resultSummary?.scanPattern,
-      suspiciousAllPortsOpen: resultSummary?.suspiciousAllPortsOpen ?? false,
-      serviceDetectionRate: resultSummary?.serviceDetectionRate,
+      portsStoredCount: portStats.portsStoredCount,
+      scanPattern: portStats.scanPattern,
+      suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
+      serviceDetectionRate: portStats.serviceDetectionRate,
     };
   }
 
@@ -546,19 +571,27 @@ export async function createMultipleDevicesFromDiscovery(
   }
 
   for (const target of targets) {
-    // Check if device already exists for this organization (by name + IP combination)
-    // First get devices with matching name
+    // Check if device already exists in this specific project (or org-wide if no project)
+    // Build duplicate check conditions
+    const duplicateCheckConditions = [
+      eq(devices.organizationId, organizationId),
+      eq(devices.name, target.host)
+    ];
+
+    // If projectId is provided, scope check to that specific project
+    // This allows same hostname in different projects within same org
+    if (projectId) {
+      duplicateCheckConditions.push(eq(devices.projectId, projectId));
+    }
+
     const devicesWithSameName = await db
       .select()
       .from(devices)
-      .where(and(
-        eq(devices.organizationId, organizationId),
-        eq(devices.name, target.host)
-      ));
+      .where(and(...duplicateCheckConditions));
 
-    // If IP is provided, check if the name+IP combination exists
+    // If IP is provided, check if the name+IP combination exists in this scope
     if (target.ip && devicesWithSameName.length > 0) {
-      // Get IPs for devices with same name
+      // Get IPs for devices with same name in this project/org
       const deviceIds = devicesWithSameName.map((d: any) => d.id);
       const existingIps = await db
         .select()
@@ -569,13 +602,15 @@ export async function createMultipleDevicesFromDiscovery(
         ));
 
       if (existingIps.length > 0) {
-        // Device with same name AND IP exists, skip
-        console.log(`Device ${target.host} with IP ${target.ip} already exists, skipping`);
+        // Device with same name AND IP exists in this scope, skip
+        const scope = projectId ? `project ${projectId}` : 'organization';
+        console.log(`Device ${target.host} with IP ${target.ip} already exists in ${scope}, skipping`);
         continue;
       }
     } else if (!target.ip && devicesWithSameName.length > 0) {
-      // No IP provided, but device with same name exists - skip to avoid name-only duplicates
-      console.log(`Device ${target.host} already exists (no IP check), skipping`);
+      // No IP provided, but device with same name exists in this scope - skip
+      const scope = projectId ? `project ${projectId}` : 'organization';
+      console.log(`Device ${target.host} already exists in ${scope} (no IP check), skipping`);
       continue;
     }
 
@@ -801,67 +836,4 @@ export async function unverifyDevice(deviceId: string, organizationId: string) {
   );
 }
 
-/**
- * Create scan schedule
- */
-export async function createScanSchedule(data: {
-  scheduleId: string;
-  deviceId: string;
-  organizationId: string;
-  interval: string;
-}) {
-  const db = getDb();
-
-  const [schedule] = await db
-    .insert(scanSchedules)
-    .values({
-      scheduleId: data.scheduleId,
-      deviceId: data.deviceId,
-      organizationId: data.organizationId,
-      interval: data.interval,
-      isActive: new Date(),
-    })
-    .returning();
-
-  return schedule;
-}
-
-/**
- * Get scan schedule by device ID
- */
-export async function getScanScheduleByDeviceId(
-  deviceId: string,
-  organizationId: string
-) {
-  const db = getDb();
-
-  const [schedule] = await db
-    .select()
-    .from(scanSchedules)
-    .where(and(
-      eq(scanSchedules.deviceId, deviceId),
-      eq(scanSchedules.organizationId, organizationId)
-    ))
-    .limit(1);
-
-  return schedule || null;
-}
-
-/**
- * Delete scan schedule (VULN-004 FIX: now requires organizationId)
- *
- * Security: Validates schedule belongs to organization before deletion
- */
-export async function deleteScanSchedule(scheduleId: string, organizationId: string) {
-  const db = getDb();
-
-  const result = await db
-    .delete(scanSchedules)
-    .where(and(
-      eq(scanSchedules.scheduleId, scheduleId),
-      eq(scanSchedules.organizationId, organizationId)  // ✅ Security: validate org ownership
-    ))
-    .returning();
-
-  return result.length > 0;
-}
+// Scan schedule functions moved to queries/scan-schedules.ts

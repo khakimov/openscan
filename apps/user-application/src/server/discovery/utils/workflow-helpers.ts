@@ -32,41 +32,11 @@ export function buildDiscoveryRequest(target: string): DiscoveryRequest {
   };
 }
 
-export function buildDiscoveryResult(discoveryOutput: any) {
-  const results = discoveryOutput?.devices?.map((device: any) => ({
-    host: device.hostname,
-    ip: device.ipAddress || '',
-  })) || [];
-
-  const target = discoveryOutput?.devices?.[0]?.metadata?.originalDomain || 'unknown';
-  const errors = discoveryOutput?.errors || [];
-
-  return {
-    request: {
-      target,
-      scanType: 'basic',
-      tools: ['subfinder'],
-    },
-    results: [
-      {
-        target,
-        subdomains: results.map((entry: { host: string; ip: string }) => entry.host),
-        results,
-        tool: 'restate-scanner',
-        timestamp: new Date().toISOString(),
-        success: errors.length === 0,
-        errors: errors.length > 0 ? errors : undefined,
-      },
-    ],
-    totalSubdomains: results.length,
-    uniqueSubdomains: results.map((entry: { host: string; ip: string }) => ({
-      subdomain: entry.host,
-      ip: entry.ip,
-    })),
-    executionTime: discoveryOutput?.performance?.executionTimeMs ?? 0,
-    errors: errors.length > 0 ? errors : undefined,
-  } as const;
-}
+/**
+ * Re-export the centralized normalizer for any legacy callers
+ * The actual implementation is in @/features/discovery/utils
+ */
+export { normalizeDiscoveryResult } from '@/features/discovery/utils';
 
 export function extractErrorMessage(error: unknown) {
   if (error instanceof Error) {

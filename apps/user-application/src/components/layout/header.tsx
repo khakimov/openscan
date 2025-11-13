@@ -1,6 +1,7 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Menu } from "lucide-react";
+import { NotificationBell } from "@/components/notifications/NotificationBell";
 
 interface HeaderProps {
   className?: string;
@@ -25,6 +26,11 @@ export function Header({ className, onMobileMenuToggle }: HeaderProps) {
         >
           <Menu className="h-5 w-5" />
         </Button>
+      </div>
+
+      {/* Right side - Notification bell */}
+      <div className="flex items-center gap-2">
+        <NotificationBell />
       </div>
     </header>
   );

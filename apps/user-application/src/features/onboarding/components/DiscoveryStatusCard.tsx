@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { CheckCircle2, Search, XCircle } from "lucide-react";
+import { CheckCircle2, Loader2, Search, XCircle } from "lucide-react";
 import type { DiscoveryStatus } from "../types/discovery-status";
 import { DiscoveryResultsTable } from "@/components/discovery/discovery-results-table";
 import type { DiscoveryResultItem } from "@/components/discovery/discovery-results-table";
@@ -34,6 +34,16 @@ interface DiscoveryStatusCardProps {
    * Whether skip button should be shown
    */
   showSkipButton?: boolean;
+
+  /**
+   * Whether the continue action is in progress
+   */
+  isContinuePending?: boolean;
+
+  /**
+   * Whether the skip action is in progress
+   */
+  isSkipPending?: boolean;
 }
 
 export function DiscoveryStatusCard({
@@ -43,12 +53,14 @@ export function DiscoveryStatusCard({
   onContinue,
   onSkip,
   showSkipButton = false,
+  isContinuePending = false,
+  isSkipPending = false,
 }: DiscoveryStatusCardProps) {
-  // Get discovery items from result, filter out items without IP
+  // Get discovery items from result (include all, even without IP resolution)
   const discoveryItems: DiscoveryResultItem[] = discoveryStatus.result
-    ? discoveryStatus.result.uniqueSubdomains.filter((s: any) => s.ip).map((s: any) => ({
+    ? discoveryStatus.result.uniqueSubdomains.map((s: any) => ({
         host: s.subdomain,
-        ip: s.ip,
+        ip: s.ip || 'Not resolved', // Show "Not resolved" if no IP
       }))
     : [];
 
@@ -98,9 +110,11 @@ export function DiscoveryStatusCard({
                       type="button"
                       variant="outline"
                       onClick={onSkip}
+                      disabled={isSkipPending}
                       className="w-full"
                     >
-                      Skip Discovery and Continue
+                      {isSkipPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      {isSkipPending ? "Skipping..." : "Skip Discovery and Continue"}
                     </Button>
                   </div>
                 )}
@@ -164,9 +178,11 @@ export function DiscoveryStatusCard({
                   <Button
                     type="button"
                     onClick={onContinue}
+                    disabled={isContinuePending || selectedSubdomains.size === 0}
                     className="w-full mt-4"
                   >
-                    Continue to Monitoring Setup
+                    {isContinuePending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    {isContinuePending ? "Adding to Inventory..." : "Continue to Monitoring Setup"}
                   </Button>
                 )}
               </div>

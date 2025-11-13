@@ -7,9 +7,9 @@ import { Home, Menu, Shield, ScanLine, XIcon } from "lucide-react";
 import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { InlineRouterSpinner } from "@/components/ui/inline-router-spinner";
 import { useQuery } from "@tanstack/react-query";
-import { getOrganizationProjects } from "@/server/projects";
+import { organizationProjectsQuery } from "@/queries";
+import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
 
 interface NavigationItem {
   name: string;
@@ -138,13 +138,18 @@ export function Sidebar({
 
   // Use TanStack Query for projects with SSR initialData
   // This allows the AddProject modal to invalidate and refresh just the projects list
+  // Uses query helper for consistent cache key (OpenPanel pattern)
+  const baseQuery = effectiveOrganization
+    ? organizationProjectsQuery(effectiveOrganization.id)
+    : undefined;
+
   const { data: projectsData } = useQuery({
-    queryKey: ['organization-projects'],
-    queryFn: async () => {
-      const result = await getOrganizationProjects();
-      return result;
-    },
+    ...(baseQuery ?? {
+      queryKey: ['organization-projects', 'bootstrap'],
+      queryFn: async () => ({ success: true as const, projects: initialProjects }),
+    }),
     initialData: { success: true, projects: initialProjects },
+    enabled: !!baseQuery,
     staleTime: 0, // Always refetch on invalidation
   });
 
@@ -227,6 +232,7 @@ export function Sidebar({
                   {!isCollapsed && (
                     <>
                       <span className="truncate">{item.name}</span>
+                      {item.name === "Assets" && <NotificationIndicator />}
                       {item.badge && (
                         <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
                           {item.badge}
@@ -304,26 +310,20 @@ export function Sidebar({
           isMobileMenuOpen && "translate-x-0", // slide in when active
         )}
       >
-        {/* Toggle Button & Spinner - Positioned outside sidebar (mobile only) */}
+        {/* Toggle Button - Positioned outside sidebar (mobile only) */}
         <div className="absolute -right-16 flex h-16 items-center lg:hidden">
-          <div className="relative">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setIsMobileMenuOpen((prev) => !prev)}
-              className="h-10 w-10 bg-background"
-            >
-              {isMobileMenuOpen ? (
-                <XIcon className="h-3 w-3" />
-              ) : (
-                <Menu className="h-2 w-2" />
-              )}
-            </Button>
-            {/* Spinner positioned absolutely to not affect button position */}
-            <div className="absolute -right-8 top-1/2 -translate-y-1/2">
-              <InlineRouterSpinner size="sm" />
-            </div>
-          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setIsMobileMenuOpen((prev) => !prev)}
+            className="h-10 w-10 bg-background"
+          >
+            {isMobileMenuOpen ? (
+              <XIcon className="h-3 w-3" />
+            ) : (
+              <Menu className="h-2 w-2" />
+            )}
+          </Button>
         </div>
 
         {/* Header */}
@@ -341,8 +341,8 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Navigation - Shrink to fit content, not flex-1 */}
-        <ScrollArea className="flex-shrink px-3 py-4">
+        {/* Navigation */}
+        <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
               // Dashboard (org root) should only match exactly
@@ -366,6 +366,7 @@ export function Sidebar({
                 >
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
+                  {item.name === "Assets" && <NotificationIndicator />}
                   {item.badge && (
                     <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
                       {item.badge}

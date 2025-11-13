@@ -4,20 +4,37 @@ import { Link } from "@tanstack/react-router";
 
 export function HeroSection() {
   return (
-    <section className="relative px-6 lg:px-8 py-24 sm:py-32">
-      <div className="mx-auto max-w-4xl text-center">
-        <h1 className="text-[5rem]/[1.2] tracking-tight text-foreground mt-16 mb-8">
-          sec.🤘
+    <section className="relative overflow-hidden px-6 lg:px-8 py-24 sm:py-32">
+      <div
+        className="pointer-events-none absolute inset-0"
+        aria-hidden
+        style={{
+          background:
+            "radial-gradient(circle at 50% 45%, rgba(26, 21, 21, 0.9) 0%, rgba(26, 21, 21, 0.75) 30%, rgba(26, 21, 21, 0.45) 55%, rgba(26, 21, 21, 0.15) 75%, rgba(26, 21, 21, 0) 100%)",
+        }}
+      />
+
+      <div className="relative z-10 mx-auto max-w-4xl text-center">
+        <h1 className="landing-header mt-16 mb-8">
+          sec.
+          <span
+            className="rock-emoji"
+            role="img"
+            aria-label="Rock on"
+            title="Rock on!"
+          >
+            🤘
+          </span>
         </h1>
 
-        <p className="mt-8 mb-4 text-xl leading-8 text-muted-foreground max-w-2xl mx-auto font-tagline">
+        <p className="landing-caption mt-8 mb-4 max-w-2xl mx-auto opacity-90">
           We discover, monitor, and help you fix exposed internet-facing
           services, known vulnerabilities, and misconfigurations across your
           apps, websites, and servers — before attackers exploit them.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link to="/onboarding">
+          <Link to="/login">
             <Button size="lg" className="group">
               Get Started
               <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
@@ -27,7 +44,7 @@ export function HeroSection() {
       </div>
 
       {/* Background gradient */}
-      <div className="absolute inset-x-0 -top-40 -z-10 transform-gpu overflow-hidden blur-3xl sm:-top-80">
+      <div className="absolute inset-x-0 -top-40 transform-gpu overflow-hidden blur-3xl sm:-top-80">
         <div
           className="relative left-[calc(50%-11rem)] aspect-[1155/678] w-[36.125rem] -translate-x-1/2 rotate-[30deg] bg-gradient-to-tr from-primary to-secondary opacity-20 sm:left-[calc(50%-30rem)] sm:w-[72.1875rem]"
           style={{

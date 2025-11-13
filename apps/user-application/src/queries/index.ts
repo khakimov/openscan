@@ -11,6 +11,32 @@
 export { deviceQueries } from './device-queries';
 export { scanQueries } from './scan-queries';
 export { discoveryQueries } from './discovery-queries';
+export { scheduleQueries } from './schedule-queries';
+
+// Query helpers for route loaders (OpenPanel pattern)
+export {
+  organizationDetailQuery,
+  organizationProjectsQuery,
+} from './organization-queries';
+
+export {
+  projectAccessQuery,
+  projectDetailQuery,
+} from './project-queries';
+
+export {
+  notificationListQuery,
+  unreadNotificationCountQuery,
+  notificationPreferencesQuery,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  useSaveNotificationPreferencesMutation,
+} from './notification-queries';
+
+export {
+  onboardingStatusQuery,
+  discoveryDevicesQuery,
+} from './onboarding-queries';
 
 // Device mutation hooks
 export {
@@ -34,3 +60,11 @@ export {
   useCreateProjectMutation,
   useUpdateOrganizationMutation,
 } from './organization-queries';
+
+// Schedule mutation hooks
+export {
+  useCreateScheduleMutation,
+  usePauseScheduleMutation,
+  useResumeScheduleMutation,
+  useDeleteScheduleMutation,
+} from './schedule-queries';
