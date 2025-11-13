@@ -56,6 +56,9 @@ function AssetsVerified() {
   const project = useProject();
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
 
+  // Prefer slug over ID for friendly URLs (OpenPanel pattern)
+  const orgParam = organization.slug ?? organization.id;
+
   // Track timer for cleanup (external side effect - legitimate useEffect use case)
   const resetTimeoutRef = useRef<number | undefined>(undefined);
 
@@ -89,7 +92,7 @@ function AssetsVerified() {
   return (
     <Padding>
       <AssetsTabHeader
-        organizationId={organization.id}
+        organizationId={orgParam}
         projectId={project.id}
         activeTab="verified"
         onStartDiscovery={handleStartDiscovery}

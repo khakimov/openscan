@@ -3,7 +3,7 @@
  * These types eliminate the need for defensive casts in route loaders
  */
 
-import type { TransformedDevice } from '../devices';
+import type { TransformedDevice } from './transforms';
 
 /**
  * Standard success/error response pattern for device operations

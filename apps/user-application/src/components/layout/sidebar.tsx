@@ -45,7 +45,7 @@ function getNavigationItems(
       {
         name: "Assets",
         icon: Shield,
-        href: `/${orgIdentifier}/${projectId}/assets/discovery`,
+        href: `/${orgIdentifier}/${projectId}/assets/verified`,
       },
       {
         name: "Scans",
