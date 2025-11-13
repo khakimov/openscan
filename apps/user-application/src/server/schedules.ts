@@ -34,6 +34,7 @@ import type {
   GetScheduleResult,
   SchedulesListResult,
 } from './schedules/types';
+import { normalizeSchedule, normalizeScheduleList } from '@/features/schedules/utils';
 
 const logger = createLogger({ name: 'schedules-server' });
 
@@ -347,18 +348,15 @@ export const createScheduleData = createServerFn({
           nextRunAt: restateResult.nextRunAt,
         });
 
+        // Normalize schedule response for consistent ISO string dates
+        const normalized = normalizeSchedule({
+          ...dbSchedule,
+          nextRunAt: new Date(restateResult.nextRunAt), // Restate returns ISO string
+        });
+
         return {
           success: true,
-          schedule: {
-            id: dbSchedule.id,
-            scheduleId: dbSchedule.scheduleId,
-            deviceId: dbSchedule.deviceId,
-            preset: dbSchedule.preset,
-            interval: dbSchedule.interval,
-            nextRunAt: restateResult.nextRunAt,
-            status: dbSchedule.status,
-            isActive: dbSchedule.isActive,
-          },
+          schedule: normalized,
         };
       } catch (restateError) {
         logger.error('Failed to start Restate timer', {
@@ -368,19 +366,18 @@ export const createScheduleData = createServerFn({
 
         // TODO: Consider rolling back database creation
         // For now, return partial success - schedule exists in DB but timer not started
+
+        // Normalize error response for consistent ISO string dates
+        const normalized = normalizeSchedule({
+          ...dbSchedule,
+          status: 'PAUSED', // Mark as paused since timer failed
+          isActive: false,
+        });
+
         return {
           success: false,
           error: 'Failed to start schedule timer',
-          schedule: {
-            id: dbSchedule.id,
-            scheduleId: dbSchedule.scheduleId,
-            deviceId: dbSchedule.deviceId,
-            preset: dbSchedule.preset,
-            interval: dbSchedule.interval,
-            nextRunAt: dbSchedule.nextRunAt?.toISOString() || null,
-            status: 'PAUSED', // Mark as paused since timer failed
-            isActive: false,
-          },
+          schedule: normalized,
         };
       }
     } catch (error) {
@@ -567,11 +564,13 @@ export const getScheduleData = createServerFn({
         // Continue without runtime state
       }
 
+      // Use normalizer for Date → ISO conversion
+      const normalized = normalizeSchedule(schedule);
+
       return {
         success: true,
         schedule: {
-          ...schedule,
-          nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
+          ...normalized,
           runtimeState,
         },
       };
@@ -606,12 +605,10 @@ export const getSchedulesForDeviceData = createServerFn({
 
       const schedules = await getSchedulesForDevice(data.deviceId, organizationId);
 
+      // Use normalizer for consistent Date → ISO conversion
       return {
         success: true,
-        schedules: schedules.map(schedule => ({
-          ...schedule,
-          nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
-        })),
+        schedules: normalizeScheduleList(schedules),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -648,12 +645,10 @@ export const getSchedulesData = createServerFn({
         status: data.status,
       });
 
+      // Use normalizer for consistent Date → ISO conversion
       return {
         success: true,
-        schedules: schedules.map(schedule => ({
-          ...schedule,
-          nextRunAt: schedule.nextRunAt ? schedule.nextRunAt.toISOString() : null,
-        })),
+        schedules: normalizeScheduleList(schedules),
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

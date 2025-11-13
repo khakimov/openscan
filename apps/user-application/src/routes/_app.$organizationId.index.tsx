@@ -6,6 +6,7 @@ import { PlusIcon, FolderIcon } from "lucide-react";
 import { pushModal } from "@/modals";
 import { SectionHeaderSkeleton, CardGridSkeleton } from "@/components/shared/skeletons";
 import type { ProjectEntity } from "@/server/projects/types";
+import { useOrganization } from "@/components/layout";
 
 /**
  * Pending component for organization index
@@ -48,7 +49,7 @@ export const Route = createFileRoute("/_app/$organizationId/")({
 
 function OrganizationIndex() {
   const { projects } = Route.useLoaderData();
-  const { organizationId } = Route.useParams();
+  const organization = useOrganization();
 
   // Empty state - no projects
   if (projects.length === 0) {
@@ -87,7 +88,7 @@ function OrganizationIndex() {
         {projects.map((project: ProjectEntity) => (
           <a
             key={project.id}
-            href={`/${organizationId}/${project.id}`}
+            href={`/${organization.slug || organization.id}/${project.id}`}
             className="block p-6 rounded-lg border border-border bg-card hover:border-primary hover:shadow-md transition-all"
           >
             <div className="flex items-start justify-between mb-2">

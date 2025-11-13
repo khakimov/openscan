@@ -16,7 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import { getCurrentUser } from "@/server/auth";
 import { validateDomain } from "@/features/onboarding/utils/validators";
 import { useOrganizationLifecycle } from "@/features/onboarding/hooks/use-organization-lifecycle";
-import { onboardingStatusQuery } from "@/queries/onboarding-status";
+import { onboardingStatusQuery } from "@/queries/onboarding-queries";
 
 export const Route = createFileRoute("/onboarding/project")({
   beforeLoad: async () => {

@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
 import {
   createOrganizationOnboarding,
   createProjectOnboarding,
   updateOrganizationOnboarding,
 } from "@/server/organization";
-import { onboardingStatusQuery } from "@/queries/onboarding-status";
+import { onboardingStatusQuery } from "@/queries/onboarding-queries";
 
 export interface OrganizationFormData {
   organizationName: string;
@@ -147,8 +148,12 @@ export function useOrganizationLifecycle({
     };
   };
 
-  const mutation = useMutation({
+  const mutation = useMutationWithToast({
+    mutationKey: ["onboarding", "setup"],
     mutationFn: setupMutationFn,
+    successMessage: `${hasOrganization ? "Updated" : "Created"} organization and project`,
+    invalidateKeys: [onboardingStatusQuery.queryKey],
+    toastOnSuccess: false, // Silent - onboarding flow handles navigation
     onSuccess: async (result) => {
       if (!result.success) return;
 

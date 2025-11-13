@@ -1,11 +1,65 @@
+import { queryOptions } from '@tanstack/react-query';
 import {
   completeOnboarding,
   createOrganizationOnboarding,
   createProjectOnboarding,
   updateOrganizationOnboarding,
+  getOrganizationById,
 } from '@/server/organization';
+import { getOrganizationProjects } from '@/server/projects';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
-import { onboardingStatusQuery } from '@/queries/onboarding-status';
+import { onboardingStatusQuery } from '@/queries/onboarding-queries';
+
+/**
+ * Organization Query & Mutation Hooks (OpenPanel pattern)
+ *
+ * Pattern from: https://github.com/Openpanel-dev/openpanel/blob/main/apps/dashboard/src/queries/organization.ts
+ *
+ * Benefits:
+ * - Query helpers provide single source of truth for query keys
+ * - Mutations automatically invalidate related queries
+ * - Type-safe across loaders, components, and mutations
+ * - Consistent staleTime for related data
+ *
+ * Usage in route loaders:
+ * const result = await context.queryClient.ensureQueryData(
+ *   organizationDetailQuery(params.organizationId)
+ * );
+ *
+ * Usage in components:
+ * const { data } = useQuery(organizationDetailQuery(orgId));
+ */
+
+// ========================================
+// Query Helpers
+// ========================================
+
+/**
+ * Get organization by ID or slug
+ * Used in route loaders to validate access and hydrate SSR data
+ */
+export const organizationDetailQuery = (identifier: string) =>
+  queryOptions({
+    queryKey: ['organizations', identifier, 'detail'],
+    queryFn: () => getOrganizationById({ data: identifier }),
+    staleTime: 60_000, // 1 minute
+  });
+
+/**
+ * Get projects for an organization
+ * Used in sidebar navigation and project selection
+ * Note: orgId is for cache scoping only - server reads current org from session
+ */
+export const organizationProjectsQuery = (orgId: string) =>
+  queryOptions({
+    queryKey: ['organizations', orgId, 'projects'],
+    queryFn: () => getOrganizationProjects(),
+    staleTime: 60_000, // 1 minute
+  });
+
+// ========================================
+// Mutation Hooks
+// ========================================
 
 /**
  * Organization mutation hooks (following TanStack Router best practice)
@@ -67,7 +121,10 @@ export const useCreateProjectMutation = () =>
     },
     successMessage: (response) =>
       `Project "${response.project.name}" created`,
-    invalidateKeys: [['organization-projects'], onboardingStatusQuery.queryKey],
+    invalidateKeys: [
+      ['organizations'], // Invalidate all org-scoped data
+      onboardingStatusQuery.queryKey,
+    ],
   });
 
 export const useUpdateOrganizationMutation = () =>

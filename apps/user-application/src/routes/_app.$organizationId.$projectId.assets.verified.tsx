@@ -7,14 +7,16 @@ import { Shield } from "lucide-react";
 import { pushModal } from "@/modals";
 import { deviceQueries } from "@/queries/device-queries";
 import { useSuspenseQuery } from "@tanstack/react-query";
-import { useState, Suspense } from "react";
-import { Spinner } from "@/components/ui/spinner";
+import { useState, useEffect, useRef, Suspense, useMemo } from "react";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { AssetsTabHeader } from "@/components/shared/assets-tab-header";
+import { useProject, useOrganization } from "@/components/layout";
 
 /**
  * Pending component for assets verified tab
  * Keeps tabs and action buttons visible with inline spinner
+ *
+ * Note: Cannot use context hooks in pending component (renders before gate mounts)
  */
 const AssetsVerifiedPending = () => {
   const { organizationId, projectId } = Route.useParams();
@@ -32,12 +34,13 @@ const AssetsVerifiedPending = () => {
   );
 };
 
+// Verified tab shows only VERIFIED devices
+const verificationStatus: "CANDIDATE" | "VERIFIED" | "EXCLUDED" = "VERIFIED";
+
 export const Route = createFileRoute("/_app/$organizationId/$projectId/assets/verified")({
   pendingComponent: AssetsVerifiedPending,
   loader: async ({ context: { queryClient }, params }) => {
-    // Verified tab shows only VERIFIED devices
-    const verificationStatus = "VERIFIED" as const;
-
+    // Use query helper for both loader and component (single source of truth)
     return queryClient.ensureQueryData(
       deviceQueries.list({
         verificationStatus,
@@ -49,44 +52,51 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/assets/ve
 });
 
 function AssetsVerified() {
-  const { organizationId, projectId } = Route.useParams();
+  const organization = useOrganization();
+  const project = useProject();
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
 
-  const handleDiscoveryCreated = (target: string) => {
-    console.log('Discovery started for target:', target);
+  // Track timer for cleanup (external side effect - legitimate useEffect use case)
+  const resetTimeoutRef = useRef<number | undefined>(undefined);
+
+  const handleDiscoveryCreated = () => {
+    // Discovery started - no-op (reserved for future telemetry)
   };
 
   const handleDevicesAdded = (deviceIds: string[]) => {
+    // Clear any existing timer before setting new one (prevents memory leaks)
+    window.clearTimeout(resetTimeoutRef.current);
     setNewlyAddedIds(new Set(deviceIds));
-    setTimeout(() => {
+
+    // Auto-clear highlight after 3 seconds
+    resetTimeoutRef.current = window.setTimeout(() => {
       setNewlyAddedIds(new Set());
     }, 3000);
   };
 
   const handleStartDiscovery = () => {
     pushModal("AddDiscovery", {
+      organizationId: organization.id,
+      projectId: project.id,
       onConfirm: handleDiscoveryCreated,
       onDevicesAdded: handleDevicesAdded,
     });
   };
 
+  // Cleanup timer on unmount (legitimate external side effect)
+  useEffect(() => () => window.clearTimeout(resetTimeoutRef.current), []);
+
   return (
     <Padding>
       <AssetsTabHeader
-        organizationId={organizationId}
-        projectId={projectId}
+        organizationId={organization.id}
+        projectId={project.id}
         activeTab="verified"
         onStartDiscovery={handleStartDiscovery}
       />
 
-      <Suspense
-        fallback={
-          <div className="flex items-center justify-center h-64">
-            <Spinner size="lg" />
-          </div>
-        }
-      >
-        <DevicesContent newlyAddedIds={newlyAddedIds} projectId={projectId} />
+      <Suspense fallback={<PageLoadingFallback compact />}>
+        <DevicesContent newlyAddedIds={newlyAddedIds} projectId={project.id} />
       </Suspense>
     </Padding>
   );
@@ -99,13 +109,12 @@ function DevicesContent({
   newlyAddedIds: Set<string>;
   projectId: string;
 }) {
-  const verificationStatus = "VERIFIED" as const;
+  // Use same query helper as loader (keeps queryKey, staleTime, gcTime consistent)
+  const devicesQuery = deviceQueries.list({ verificationStatus, projectId });
+  const { data: devicesResponse } = useSuspenseQuery(devicesQuery);
 
-  const { data: devicesResponse } = useSuspenseQuery(
-    deviceQueries.list({ verificationStatus, projectId })
-  );
-
-  const devices = devicesResponse.items;
+  // Memoize devices array to prevent unnecessary re-renders
+  const devices = useMemo(() => devicesResponse.items, [devicesResponse.items]);
 
   return (
     <div className="relative">

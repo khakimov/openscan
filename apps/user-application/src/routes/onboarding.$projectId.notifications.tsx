@@ -4,17 +4,15 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
 import { useForm } from "@tanstack/react-form";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getCurrentUser } from "@/server/auth";
-import { completeOnboarding } from "@/server/organization";
+import { useCompleteOnboardingMutation } from "@/queries";
+import { useSaveNotificationPreferencesMutation } from "@/queries/notification-queries";
 import {
-  getNotificationPreferences,
-  saveNotificationPreferences,
-} from "@/server/preferences";
-import { onboardingStatusQuery } from "@/queries/onboarding-status";
+  onboardingStatusQuery,
+  notificationPreferencesQuery,
+} from "@/queries/onboarding-queries";
 
 const SEVERITY_OPTIONS = [
   { value: "CRITICAL", label: "Critical", color: "text-red-500" },
@@ -35,13 +33,18 @@ export const Route = createFileRoute("/onboarding/$projectId/notifications")({
     // Read onboarding from parent context (no server call!)
     const onboarding = context.onboarding!;
 
-    const preferencesResult = await getNotificationPreferences();
+    // Use query helper for preferences (single source of truth)
+    const preferences = await context.queryClient.ensureQueryData(
+      notificationPreferencesQuery
+    );
+
+    // Prefer slug over ID for cleaner URLs (prevents double redirect)
+    const orgIdentifier = onboarding.organization?.slug || onboarding.organizationId;
 
     return {
-      preferences: preferencesResult.success
-        ? preferencesResult.data
-        : undefined,
-      organizationId: onboarding.organizationId,
+      preferences,
+      organizationId: onboarding.organizationId, // Keep raw ID for API calls
+      orgIdentifier, // Use slug for navigation
     };
   },
   component: Onboarding2Notifications,
@@ -51,7 +54,7 @@ function Onboarding2Notifications() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { projectId } = Route.useParams();
-  const { preferences, organizationId } = Route.useLoaderData();
+  const { preferences, organizationId, orgIdentifier } = Route.useLoaderData();
 
   // Subscribe to onboarding query for reactive updates (e.g., after mutations)
   // Don't destructure data until we need it to avoid unused variable warnings
@@ -61,25 +64,23 @@ function Onboarding2Notifications() {
     initialData: initialOnboarding,
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // Mutations using unified helper pattern
+  const savePreferencesMutation = useSaveNotificationPreferencesMutation();
+  const completeOnboardingMutation = useCompleteOnboardingMutation();
 
-  // Mutation to complete onboarding with cache seeding
-  const completeOnboardingMutation = useMutation({
-    mutationFn: (data: { organizationId: string }) => completeOnboarding({ data }),
-    onSuccess: async () => {
-      // Seed React Query cache with fresh onboarding status
-      // This marks onboardingCompleted=true across all components
-      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
-      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+  // Handle navigation after successful onboarding completion
+  const handleOnboardingComplete = async () => {
+    // Seed React Query cache with fresh onboarding status
+    // This marks onboardingCompleted=true across all components
+    const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
+    queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
 
-      // Navigate to dashboard
-      navigate({
-        to: "/$organizationId/$projectId",
-        params: { organizationId: organizationId!, projectId },
-      });
-    },
-  });
+    // Navigate to dashboard using slug (prevents double redirect)
+    navigate({
+      to: "/$organizationId/$projectId",
+      params: { organizationId: orgIdentifier || organizationId!, projectId },
+    });
+  };
 
   const form = useForm({
     defaultValues: {
@@ -89,38 +90,28 @@ function Onboarding2Notifications() {
       weeklySummaryEnabled: preferences?.weeklySummaryEnabled ?? true,
     },
     onSubmit: async ({ value }) => {
-      setError(null);
-      setIsSubmitting(true);
-
       try {
-        const result = await saveNotificationPreferences({ data: value });
-
-        if (!result.success) {
-          throw new Error(result.error || "Failed to save preferences");
-        }
-
-        toast.success("Notification preferences saved");
+        // Save notification preferences using mutation helper
+        await savePreferencesMutation.mutateAsync(value);
 
         // Mark onboarding as complete before navigating to dashboard
         if (!organizationId) {
           throw new Error("Organization ID is required");
         }
 
-        // Use mutation to complete onboarding and seed cache
+        // Use mutation helper to complete onboarding
         await completeOnboardingMutation.mutateAsync({ organizationId });
+
+        // Handle post-completion navigation
+        await handleOnboardingComplete();
       } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to save preferences";
+        // Error handling is managed by useMutationWithToast
         console.error("[Onboarding2Notifications] Error:", err);
-        setError(errorMessage);
-        toast.error("Failed to save preferences", {
-          description: errorMessage,
-        });
-      } finally {
-        setIsSubmitting(false);
       }
     },
   });
+
+  const isSubmitting = savePreferencesMutation.isPending || completeOnboardingMutation.isPending;
 
   return (
     <form
@@ -130,11 +121,6 @@ function Onboarding2Notifications() {
       }}
       className="p-8 space-y-8"
     >
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-sm text-red-800">{error}</p>
-        </div>
-      )}
 
       <div className="space-y-6">
         {/* Vulnerability Alerts Section */}
@@ -270,19 +256,19 @@ function Onboarding2Notifications() {
           variant="ghost"
           onClick={async () => {
             if (!organizationId) {
-              toast.error("Organization ID is required");
+              console.error("Organization ID is required");
               return;
             }
 
-            setIsSubmitting(true);
             try {
-              // Use mutation to complete onboarding and seed cache
+              // Use mutation helper to complete onboarding (with built-in toast)
               await completeOnboardingMutation.mutateAsync({ organizationId });
+
+              // Handle post-completion navigation
+              await handleOnboardingComplete();
             } catch (err) {
-              const errorMessage =
-                err instanceof Error ? err.message : "Failed to complete onboarding";
-              toast.error(errorMessage);
-              setIsSubmitting(false);
+              // Error handling managed by useMutationWithToast
+              console.error("[Skip onboarding] Error:", err);
             }
           }}
           disabled={isSubmitting || completeOnboardingMutation.isPending}

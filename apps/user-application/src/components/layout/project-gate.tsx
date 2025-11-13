@@ -26,7 +26,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 
 export interface Project {
   id: string;
-  name: string;
+  name: string | null;
   domain?: string | null;
   description?: string | null;
   isDefault?: boolean;

@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getScheduleData,
@@ -121,9 +121,11 @@ export const useCreateScheduleMutation = () => {
 export const usePauseScheduleMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['schedules', 'pause'],
     mutationFn: (data: { scheduleId: string }) => pauseScheduleData({ data }),
+    successMessage: 'Schedule paused successfully',
+    invalidateKeys: [['schedules'], ['device-schedules']],
 
     // Optimistic update: Change status to PAUSED immediately
     onMutate: async (variables) => {
@@ -190,9 +192,11 @@ export const usePauseScheduleMutation = () => {
 export const useResumeScheduleMutation = () => {
   const queryClient = useQueryClient();
 
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['schedules', 'resume'],
     mutationFn: (data: { scheduleId: string }) => resumeScheduleData({ data }),
+    successMessage: 'Schedule resumed successfully',
+    invalidateKeys: [['schedules'], ['device-schedules']],
 
     // Optimistic update: Change status to ACTIVE immediately
     onMutate: async (variables) => {
@@ -265,9 +269,11 @@ export const useDeleteScheduleMutation = () => {
     ['device-schedules'],
   ]);
 
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['schedules', 'delete'],
     mutationFn: (data: { scheduleId: string }) => deleteScheduleData({ data }),
+    successMessage: 'Schedule deleted successfully',
+    invalidateKeys: [['schedules'], ['device-schedules']],
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),

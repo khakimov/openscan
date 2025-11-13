@@ -4,6 +4,89 @@ This guide captures UI patterns worth standardizing across our apps. The notes c
 
 ---
 
+## 0. Fresh Patterns Worth Copying (Feb 2025)
+
+- **Loader + Component Share the Same Query Options** `#official` – The basic React Query file-based sample keeps `queryOptions` in a single factory, then spreads it in both the loader and the component (`router/examples/react/basic-react-query-file-based/src/routes/posts.route.tsx`). This guarantees consistent `queryKey`, `staleTime`, and typing.
+
+  ```tsx
+  // postsQueryOptions.tsx
+  export const postsQueryOptions = queryOptions({
+    queryKey: ['posts'],
+    queryFn: fetchPosts,
+  });
+
+  // loader
+  export const Route = createFileRoute('/posts')({
+    loader: ({ context }) =>
+      context.queryClient.ensureQueryData(postsQueryOptions),
+    component: PostsLayout,
+  });
+
+  // component
+  const { data: posts } = useSuspenseQuery(postsQueryOptions);
+  ```
+
+- **Query Error Reset + Router Invalidate for Recovery** `#official` – When a leaf route throws, the sample couples `useQueryErrorResetBoundary` with `router.invalidate()` to retry without tearing down the tree (`router/examples/react/basic-react-query-file-based/src/routes/posts.$postId.tsx`).
+
+  ```tsx
+  const queryErrorResetBoundary = useQueryErrorResetBoundary();
+
+  useEffect(() => {
+    queryErrorResetBoundary.reset();
+  }, [queryErrorResetBoundary]);
+
+  <button onClick={() => router.invalidate()}>retry</button>
+  ```
+
+- **Gate-Supplied Context Instead of Re-Reading Params** `#openpanel` – Start wraps organization/project routes in gate providers so children call `useProject()` / `useOrganization()` rather than `Route.useParams()` (`openpanel/apps/start/src/routes/_app.$organizationId.$projectId.dashboards.tsx`). We mirror this in `apps/user-application/src/routes/_app.$organizationId.$projectId.*`.
+
+  ```tsx
+  export const Route = createFileRoute('/_app/$organizationId/$projectId')({
+    loader: async ({ context, params }) =>
+      context.queryClient.ensureQueryData(projectDetailQuery(params.projectId)),
+    component: () => (
+      <ProjectGate project={Route.useLoaderData().project}>
+        <Outlet />
+      </ProjectGate>
+    ),
+  });
+
+  function ChildTab() {
+    const project = useProject(); // full typed object
+    …
+  }
+  ```
+
+- **Timer-Based UI Hints With Cleanup** `#openpanel` – When OpenPanel needs temporary highlights it stores the timer in a ref, clears it on every update, and tears it down on unmount (`openpanel/apps/start/src/routes/_app.$organizationId.$projectId.dashboards_.$dashboardId.tsx:305-325`). We use the same pattern for discovery badges instead of bare `setTimeout`.
+
+  ```tsx
+  const resetRef = useRef<number>();
+
+  const handleDevicesAdded = (ids: string[]) => {
+    window.clearTimeout(resetRef.current);
+    setNewlyAdded(new Set(ids));
+    resetRef.current = window.setTimeout(() => setNewlyAdded(new Set()), 3000);
+  };
+
+  useEffect(() => () => window.clearTimeout(resetRef.current), []);
+  ```
+
+- **Pending Components Fall Back to Params** `#openpanel` – Pending shells rely on `Route.useParams()` because gates are not mounted yet (`openpanel/apps/start/src/routes/_steps.onboarding.project.tsx`). Keep using params-only pending views in our app so we don’t touch context before it exists.
+
+  ```tsx
+  const Pending = () => {
+    const { organizationId, projectId } = Route.useParams();
+    return (
+      <AppLayout skeleton>
+        <AssetsTabHeader organizationId={organizationId} projectId={projectId} disabled />
+        <PageLoadingFallback compact />
+      </AppLayout>
+    );
+  };
+  ```
+
+---
+
 ## 1. Preload-Intent Navigation
 
 - **Why**: Keep route transitions feeling instant without over-fetching.
@@ -497,4 +580,3 @@ await queryClient.invalidateQueries(trpc.client.list.pathFilter());
 ```
 
 Use the same `pathFilter()` helpers when a mutation touches complex shared state.
-

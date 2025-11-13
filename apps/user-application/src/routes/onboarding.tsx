@@ -2,7 +2,7 @@ import { Outlet, createFileRoute, useMatchRoute } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { StackedCardLayout } from "@/components/layout";
-import { onboardingStatusQuery } from "@/queries/onboarding-status";
+import { onboardingStatusQuery } from "@/queries/onboarding-queries";
 
 export const Route = createFileRoute("/onboarding")({
   beforeLoad: async ({ context }) => {

@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { useProject } from "@/components/layout";
 
 /**
  * Pending component for project dashboard
@@ -27,7 +28,7 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/")({
 
 function ProjectDashboard() {
   const { user } = Route.useRouteContext();
-  const { projectId } = Route.useParams();
+  const project = useProject();
 
   return (
     <Padding>
@@ -41,7 +42,9 @@ function ProjectDashboard() {
       <p className="text-muted-foreground">
         Welcome back, {user?.name || "User"}!
       </p>
-      <p className="text-xs text-muted-foreground mt-2">Project: {projectId}</p>
+      <p className="text-xs text-muted-foreground mt-2">
+        Project: {project.name || project.id}
+      </p>
     </Padding>
   );
 }

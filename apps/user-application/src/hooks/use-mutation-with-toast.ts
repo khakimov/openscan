@@ -12,7 +12,7 @@ function captureException(error: Error, meta?: Record<string, unknown>) {
   logger.error("Mutation error", { error: error.message, stack: error.stack, ...meta });
 }
 
-interface UseMutationWithToastProps<TData, TVariables, TContext = unknown> {
+interface UseMutationWithToastProps<TData, TVariables = void, TContext = unknown> {
   /** The mutation function to execute */
   mutationFn: UseMutationOptions<TData, Error, TVariables, TContext>["mutationFn"];
 
@@ -74,7 +74,7 @@ interface UseMutationWithToastProps<TData, TVariables, TContext = unknown> {
  * });
  * ```
  */
-export function useMutationWithToast<TData, TVariables, TContext = unknown>({
+export function useMutationWithToast<TData, TVariables = void, TContext = unknown>({
   mutationFn,
   mutationKey,
   successMessage,

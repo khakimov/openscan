@@ -15,6 +15,7 @@ import type {
   MarkAllNotificationsResult,
   UnreadCountResult,
 } from './notifications/types';
+import { normalizeNotificationList, normalizeNotification } from '@/features/notifications/utils';
 
 const logger = createLogger({ name: 'notifications-server' });
 
@@ -85,13 +86,13 @@ export const getNotificationsData = createServerFn({
         hasMore: result.hasMore,
       });
 
+      // Use normalizer to convert DB records → client-safe ISO strings
+      // Also filters out invalid types (security guard)
+      const normalized = normalizeNotificationList(result.items);
+
       return {
         success: true,
-        items: result.items.map(item => ({
-          ...item,
-          createdAt: item.createdAt.toISOString(),
-          readAt: item.readAt ? item.readAt.toISOString() : null,
-        })),
+        items: normalized,
         total: result.total,
         hasMore: result.hasMore,
       };
@@ -161,13 +162,19 @@ export const markNotificationAsReadData = createServerFn({
         organizationId,
       });
 
+      // Use normalizer for consistent Date → ISO conversion
+      const normalized = normalizeNotification(notification);
+
+      if (!normalized) {
+        return {
+          success: false,
+          error: 'Invalid notification type',
+        };
+      }
+
       return {
         success: true,
-        notification: {
-          ...notification,
-          createdAt: notification.createdAt.toISOString(),
-          readAt: notification.readAt ? notification.readAt.toISOString() : null,
-        },
+        notification: normalized,
       };
     } catch (error) {
       logger.error('Failed to mark notification as read', {

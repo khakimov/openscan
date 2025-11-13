@@ -98,6 +98,7 @@ export const getOnboardingStatus = createServerFn({
     const organizationSummary: OnboardingOrganizationSummary = {
       id: primaryOrganizationId,
       name: organizationRecord?.name ?? null,
+      slug: organizationRecord?.slug ?? null,
       metadata: organizationMetadata,
     };
 

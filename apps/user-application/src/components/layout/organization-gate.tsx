@@ -27,7 +27,7 @@ import { createContext, useContext, type ReactNode } from 'react';
 export interface Organization {
   id: string;
   name: string | null;
-  slug: string | null;
+  slug?: string | null;
 }
 
 const OrganizationContext = createContext<Organization | null>(null);

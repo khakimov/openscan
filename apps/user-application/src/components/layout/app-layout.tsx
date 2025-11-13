@@ -33,7 +33,7 @@ export function AppLayout({ sidebar, header, children }: AppLayoutProps) {
       <div className="flex-1 flex flex-col overflow-hidden">
         {header}
         <main className="flex-1 overflow-y-auto bg-muted/20 p-2 pt-14 lg:pt-2">
-          <div className="max-w-7xl mx-auto">{children}</div>
+          <div className="max-w-7xl">{children}</div>
         </main>
       </div>
     </div>

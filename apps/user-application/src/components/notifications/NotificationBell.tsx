@@ -10,14 +10,15 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import {
-  getNotificationsData,
-  getUnreadNotificationCountData,
-  markNotificationAsReadData,
-  markAllNotificationsAsReadData,
-} from '@/server/notifications';
-import { NotificationList, toDisplayNotification, type DisplayNotification } from './NotificationList';
+  notificationListQuery,
+  unreadNotificationCountQuery,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+} from '@/queries';
+import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
+import { NotificationList } from './NotificationList';
 import { useState } from 'react';
 
 /**
@@ -34,45 +35,44 @@ import { useState } from 'react';
  * - Automatically appears after first scan completes
  */
 export function NotificationBell() {
-  const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Poll unread count every 30 seconds (lightweight query)
-  const { data: countData } = useQuery({
-    queryKey: ['notifications', 'unreadCount'],
-    queryFn: () => getUnreadNotificationCountData(),
-    refetchInterval: 30000, // 30 seconds
-    refetchIntervalInBackground: true,
-  });
-
+  // Poll unread count every 30 seconds (uses query helper with built-in polling)
+  const { data: countData } = useQuery(unreadNotificationCountQuery);
   const unreadCount = countData?.count ?? 0;
 
-  // Fetch full notifications when sheet opens
+  // Fetch full notifications when sheet opens (uses query helper)
   const { data: notificationsData, isLoading } = useQuery({
-    queryKey: ['notifications', { unreadOnly: false }],
-    queryFn: () => getNotificationsData({ data: { unreadOnly: false } }),
+    ...notificationListQuery({ unreadOnly: false }),
     enabled: isOpen, // Only fetch when sheet is open
   });
 
-  const markAsReadMutation = useMutation({
-    mutationFn: (notificationId: string) =>
-      markNotificationAsReadData({ data: { notificationId } }),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
+  // Mark single notification as read (unified mutation helper)
+  const markAsReadMutation = useMutationWithToast({
+    mutationKey: ['notifications', 'mark-single'],
+    mutationFn: markNotificationAsRead,
+    successMessage: 'Notification marked as read',
+    invalidateKeys: [
+      notificationListQuery({ unreadOnly: false }).queryKey,
+      unreadNotificationCountQuery.queryKey,
+    ],
+    toastOnSuccess: false, // Silent success for better UX
   });
 
-  const markAllAsReadMutation = useMutation({
-    mutationFn: () => markAllNotificationsAsReadData(),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['notifications'] });
-    },
+  // Mark all notifications as read (unified mutation helper)
+  const markAllAsReadMutation = useMutationWithToast({
+    mutationKey: ['notifications', 'mark-all'],
+    mutationFn: markAllNotificationsAsRead,
+    successMessage: 'All notifications marked as read',
+    invalidateKeys: [
+      notificationListQuery({ unreadOnly: false }).queryKey,
+      unreadNotificationCountQuery.queryKey,
+    ],
   });
 
-  const notifications: DisplayNotification[] =
-    (notificationsData?.items ?? [])
-      .map(toDisplayNotification)
-      .filter((notification): notification is DisplayNotification => notification !== null);
+  // Server already normalized data via normalizeNotificationList()
+  // No client-side guards needed - just use the pre-validated items
+  const notifications = notificationsData?.items ?? [];
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>

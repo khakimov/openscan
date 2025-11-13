@@ -344,6 +344,11 @@ describe('Security Vulnerabilities - Server Functions', () => {
         scheduleId: scheduleAId,
         deviceId: deviceAId,  // Required: schedules are per-device
         organizationId: orgAId,
+        intervalConfig: {
+          kind: 'duration',
+          value: 1,
+          unit: 'hours',
+        },
         interval: '1h',
         createdAt: new Date(),
       });
@@ -353,6 +358,11 @@ describe('Security Vulnerabilities - Server Functions', () => {
         scheduleId: scheduleBId,
         deviceId: deviceBId,  // Required: schedules are per-device
         organizationId: orgBId,
+        intervalConfig: {
+          kind: 'duration',
+          value: 1,
+          unit: 'hours',
+        },
         interval: '1h',
         createdAt: new Date(),
       });
@@ -464,6 +474,11 @@ describe('Security Vulnerabilities - Server Functions', () => {
         scheduleId: testScheduleId,
         deviceId: tempDeviceId,  // Use temp device (deviceId is UNIQUE)
         organizationId: orgAId,
+        intervalConfig: {
+          kind: 'duration',
+          value: 1,
+          unit: 'hours',
+        },
         interval: '1h',
         createdAt: new Date(),
       });

@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
 import { createLogger } from "@repo/logger";
-import { validateProjectAccessFn } from "@/server/projects";
+import { projectAccessQuery } from "@/queries";
+import { ProjectGate } from "@/components/layout/project-gate";
 import { Spinner } from "@/components/ui/spinner";
 
 const logger = createLogger({ name: "project-layout" });
@@ -48,14 +49,12 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
       throw notFound();
     }
   },
-  loader: async ({ params }) => {
+  loader: async ({ params, context }) => {
+    // Use query helper for cache seeding (OpenPanel pattern)
     // VULN-001 FIX: Validate project exists and belongs to organization
-    const result = await validateProjectAccessFn({
-      data: {
-        projectId: params.projectId,
-        organizationId: params.organizationId,
-      },
-    });
+    const result = await context.queryClient.ensureQueryData(
+      projectAccessQuery(params.organizationId, params.projectId)
+    );
 
     if (!result.success || !result.project) {
       logger.warn("Project access denied", {
@@ -81,5 +80,11 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
 });
 
 function ProjectLayout() {
-  return <Outlet />;
+  const { project } = Route.useLoaderData();
+
+  return (
+    <ProjectGate project={project}>
+      <Outlet />
+    </ProjectGate>
+  );
 }

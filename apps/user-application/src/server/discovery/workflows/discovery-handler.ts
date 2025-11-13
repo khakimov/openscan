@@ -14,6 +14,7 @@ import type {
   DiscoveryWorkflowStatusResult,
   DiscoveryWorkflowResultsResult,
 } from './types';
+import { normalizeDiscoveryResult } from '@/features/discovery/utils';
 
 const logger = createLogger({ name: 'discovery-handler' });
 
@@ -233,57 +234,19 @@ export const getScanWorkflowResultsDB = createServerFn({
         };
       }
 
-      // Extract devices from result summary (populated by postback handler)
-      const resultSummary = scanRun.resultSummary as any;
-      const target = resultSummary?.target || scanRun.target || 'unknown';
-
-      // The postback handler stores devices in this format:
-      // { target, totalSubdomains, discoveredDevices, createdDevices, devices: [...] }
-      const devices = resultSummary?.devices || [];
+      // Use normalizer to transform DB resultSummary → UI format
+      // Eliminates inline payload rebuilding (centralized in one place)
+      const result = normalizeDiscoveryResult(scanRun.resultSummary, scanRun.target || undefined);
 
       logger.info('Retrieved discovery workflow results from database', {
         scanId,
-        totalDevices: devices.length,
-        target,
+        totalDevices: result.totalSubdomains,
+        target: result.request.target,
       });
-
-      // Map to the format expected by the UI (matches Restate format)
-      const results = devices.map((device: any) => ({
-        host: device.hostname,
-        ip: device.ipAddress || '',
-      }));
-
-      const subdomains = devices
-        .filter((d: any) => d.hostname && d.hostname.length > 0)
-        .map((d: any) => d.hostname);
 
       return {
         success: true,
-        result: {
-          request: {
-            target,
-            scanType: 'basic',
-            tools: resultSummary?.tools || ['subfinder'],
-          },
-          results: [
-            {
-              target,
-              subdomains,
-              results,
-              tool: 'restate-scanner',
-              timestamp: resultSummary?.completedAt || new Date().toISOString(),
-              success: !resultSummary?.errors || resultSummary.errors.length === 0,
-              errors: resultSummary?.errors || undefined,
-            },
-          ],
-          totalSubdomains: results.length,
-          uniqueSubdomains: results.map((entry: { host: string; ip: string }) => ({
-            subdomain: entry.host,
-            ip: entry.ip,
-          })),
-          executionTime: resultSummary?.executionTime || 0,
-          errors: resultSummary?.errors || undefined,
-        },
+        result,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

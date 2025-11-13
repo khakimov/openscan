@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getUnreadNotificationCountData } from '@/server/notifications';
+import { unreadNotificationCountQuery } from '@/queries/notification-queries';
 import {
   Tooltip,
   TooltipContent,
@@ -18,15 +18,13 @@ import { cn } from '@/lib/utils';
  * - Gray: No unread notifications
  *
  * Usage: Add next to navigation items (e.g., Assets in sidebar)
+ *
+ * Uses shared unreadNotificationCountQuery helper for consistent polling
+ * and easy invalidation across loader/component/mutations (TanStack pattern).
  */
 export function NotificationIndicator() {
-  // Poll unread count every 30 seconds
-  const { data: countData } = useQuery({
-    queryKey: ['notifications', 'unreadCount'],
-    queryFn: () => getUnreadNotificationCountData(),
-    refetchInterval: 30000, // 30 seconds
-    refetchIntervalInBackground: true,
-  });
+  // Use shared query helper (matches loader/component/mutation pattern)
+  const { data: countData } = useQuery(unreadNotificationCountQuery);
 
   const unreadCount = countData?.count ?? 0;
   const criticalCount = countData?.criticalCount ?? 0;

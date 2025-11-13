@@ -5,9 +5,9 @@ import { ScansTable } from "@/features/scans";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { scanQueries } from "@/queries/scan-queries";
-import { Spinner } from "@/components/ui/spinner";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Suspense } from "react";
+import { useProject } from "@/components/layout";
 
 // Search params schema with proper validation
 const scansSearchSchema = z.object({
@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
 
 function Scans() {
   const { tab } = Route.useSearch();
-  const { projectId } = Route.useParams();
+  const project = useProject();
 
   return (
     <Padding>
@@ -65,14 +65,8 @@ function Scans() {
       {/* Data component - only this suspends, page shell stays visible */}
       <div className="grid grid-cols-6 gap-4  pt-0">
         <div className="col-span-6">
-          <Suspense
-            fallback={
-              <div className="flex items-center justify-center h-64">
-                <Spinner size="lg" />
-              </div>
-            }
-          >
-            <ScansTable projectId={projectId} />
+          <Suspense fallback={<PageLoadingFallback compact />}>
+            <ScansTable projectId={project.id} />
           </Suspense>
         </div>
       </div>

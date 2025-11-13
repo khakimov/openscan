@@ -19,6 +19,8 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/$deviceId
 });
 
 function DeviceOverview() {
+  // Organization and project come from gate context (no need to re-read params)
+  // Only deviceId comes from params since it's specific to this route level
   const { deviceId } = Route.useParams();
 
   // Load device detail with suspense (already prefetched by parent)

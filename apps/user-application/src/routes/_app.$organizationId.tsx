@@ -1,9 +1,8 @@
-import { createFileRoute, Outlet, notFound, redirect, Link, ErrorComponentProps } from "@tanstack/react-router";
-import { getOrganizationById } from "@/server/organization";
-import { AlertTriangle, Home, ArrowLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createFileRoute, Outlet, notFound, redirect, type ErrorComponentProps } from "@tanstack/react-router";
+import { organizationDetailQuery } from "@/queries";
+import { OrganizationGate } from "@/components/layout/organization-gate";
 import { Spinner } from "@/components/ui/spinner";
+import { ErrorLayout, type ErrorAction } from "@/components/error-layout";
 import type { OrganizationByIdResult } from "@/server/organization/types";
 
 // Reserved organization IDs that cannot be used (minimal approach from OpenPanel)
@@ -55,10 +54,12 @@ export const Route = createFileRoute("/_app/$organizationId")({
     // Note: Organization existence is validated by the loader query
     // If org doesn't exist, the query will naturally throw 404
   },
-  loader: async ({ params, location }) => {
-    // Validate organization exists and user has access
-    // Type is now guaranteed by OrganizationByIdResult
-    const result: OrganizationByIdResult = await getOrganizationById({ data: params.organizationId });
+  loader: async ({ params, location, context }) => {
+    // Use query helper for cache seeding (OpenPanel pattern)
+    // Automatically caches result for components to consume
+    const result: OrganizationByIdResult = await context.queryClient.ensureQueryData(
+      organizationDetailQuery(params.organizationId)
+    );
 
     if (!result.success) {
       // Check if it's a permission issue (403) or not found (404)
@@ -99,53 +100,34 @@ export const Route = createFileRoute("/_app/$organizationId")({
 
 function OrganizationError({ error }: ErrorComponentProps) {
   const is403 = (error as any)?.statusCode === 403;
-  const errorMessage = is403
-    ? "You don't have access to this organization"
-    : error?.message || "Organization not found";
+
+  const status = is403 ? 403 : 404;
+  const title = is403 ? 'Access Denied' : 'Organization Not Found';
+  const message = is403
+    ? "You don't have access to this organization."
+    : 'The organization you requested could not be found.';
+
+  const actions: ErrorAction[] = [
+    { label: 'Go Home', to: '/', variant: 'default' },
+    { label: 'Go Back', onClick: () => window.history.back(), variant: 'outline' },
+  ];
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <div className="flex items-center space-x-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-destructive/10">
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-            </div>
-            <div>
-              <CardTitle className="text-xl">
-                {is403 ? "Access Denied" : "Not Found"}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {errorMessage}
-              </p>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="space-y-4">
-          <div className="flex flex-col gap-3">
-            <Button variant="default" asChild>
-              <Link to="/" className="flex items-center gap-2">
-                <Home className="h-4 w-4" />
-                Go to Home
-              </Link>
-            </Button>
-
-            <Button
-              variant="outline"
-              onClick={() => window.history.back()}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Go Back
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+    <ErrorLayout
+      status={status}
+      title={title}
+      message={message}
+      actions={actions}
+    />
   );
 }
 
 function OrganizationLayout() {
-  return <Outlet />;
+  const { organization } = Route.useLoaderData();
+
+  return (
+    <OrganizationGate organization={organization}>
+      <Outlet />
+    </OrganizationGate>
+  );
 }

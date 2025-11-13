@@ -496,7 +496,7 @@ describe("Notification Pipeline (Integration)", () => {
         type: "NEW_PORT",
         severity: "MEDIUM", // Port 22 SSH
         title: expect.stringContaining("22"),
-        fingerprint: `new_port:${device.id}:tcp:22:openssh:9.0:ssh`,
+        fingerprint: `new_port:${device.id}:tcp:22:OpenSSH:9.0:ssh`,
       });
 
       console.log("✅ First scan treated as discovery:", {

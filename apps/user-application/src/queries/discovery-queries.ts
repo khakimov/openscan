@@ -9,11 +9,12 @@ import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 export const discoveryQueries = {
   // Workflow status (polls database for postback updates)
-  workflowStatus: (scanId: string) =>
+  // Following OpenPanel pattern: accept options to override enabled/staleTime/etc
+  workflowStatus: (scanId: string, options?: { enabled?: boolean }) =>
     queryOptions({
       queryKey: ['discovery-workflow-status', scanId],
       queryFn: () => getScanWorkflowStatusDB({ data: { scanId } }),
-      enabled: !!scanId,
+      enabled: options?.enabled ?? !!scanId,
       refetchInterval: (query) => {
         const data = query.state.data;
         // Stop polling when workflow is complete or failed
@@ -27,11 +28,12 @@ export const discoveryQueries = {
     }),
 
   // Workflow results (fetched once when workflow completes)
-  workflowResults: (scanId: string, enabled = false) =>
+  // Following OpenPanel pattern: accept options to override enabled/staleTime/etc
+  workflowResults: (scanId: string, options?: { enabled?: boolean }) =>
     queryOptions({
       queryKey: ['discovery-workflow-results', scanId],
       queryFn: () => getScanWorkflowResultsDB({ data: { scanId } }),
-      enabled, // Only fetch when workflow is completed
+      enabled: options?.enabled ?? false, // Only fetch when workflow is completed
       staleTime: Infinity, // Results don't change once fetched
     }),
 };

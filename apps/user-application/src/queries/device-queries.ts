@@ -1,4 +1,4 @@
-import { queryOptions, useMutation, useQueryClient } from '@tanstack/react-query';
+import { queryOptions, useQueryClient } from '@tanstack/react-query';
 import { QUERY_CONFIG } from '@repo/constants';
 import {
   getDeviceDetailData,
@@ -14,7 +14,7 @@ import {
 } from '@/server/devices';
 import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
 import { createOptimisticDeleteHandlers } from '@/lib/optimistic-updates';
-import { onboardingStatusQuery } from '@/queries/onboarding-status';
+import { onboardingStatusQuery } from '@/queries/onboarding-queries';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 /**
@@ -190,9 +190,11 @@ export const useDeleteDeviceMutation = () => {
     ['devices'], // Update all device list queries
   ]);
 
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['devices', 'delete'],
     mutationFn: (data: { deviceId: string }) => deleteDevice({ data }),
+    successMessage: 'Device deleted successfully',
+    invalidateKeys: [['devices']],
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),
@@ -275,10 +277,13 @@ export const useToggleDeviceVerificationMutation = () =>
 
 export const useStartDeviceScanMutation = (deviceId: string) => {
   const queryClient = useQueryClient();
-  return useMutation({
+  return useMutationWithToast({
     mutationKey: ['devices', 'scan', deviceId],
     mutationFn: (data: { deviceId: string; target: string; preset: string }) =>
       startDeviceScan({ data }),
+    successMessage: 'Scan started successfully',
+    invalidateKeys: [deviceQueries.activeScans(deviceId).queryKey],
+    toastOnSuccess: false, // Silent - UI shows scan progress immediately
 
     // Optimistic update: Add temporary scan immediately
     onMutate: async (variables) => {
@@ -366,12 +371,26 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
     },
     successMessage: (response) =>
       `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
-    invalidateKeys: [['devices']],
+    invalidateKeys: [
+      ['devices'],  // Invalidate all device lists
+    ],
     onSuccess: async () => {
-      // Seed onboarding cache after adding devices from discovery
-      // This updates asset counts and keeps onboarding UI in sync
+      // 1. Seed onboarding status cache (updates asset counts)
       const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
       queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+
+      // 2. Invalidate tenant-scoped discovery devices cache (if organizationId available)
+      // This is more precise than invalidating all orgs' caches
+      if (nextStatus.organizationId) {
+        queryClient.invalidateQueries({
+          queryKey: ['onboarding', 'discovery', 'devices', nextStatus.organizationId],
+        });
+      } else {
+        // Fallback: invalidate all discovery device caches (onboarding might not have org yet)
+        queryClient.invalidateQueries({
+          queryKey: ['onboarding', 'discovery', 'devices'],
+        });
+      }
     },
   });
 };

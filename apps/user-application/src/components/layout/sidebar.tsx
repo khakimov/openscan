@@ -8,7 +8,7 @@ import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
-import { getOrganizationProjects } from "@/server/projects";
+import { organizationProjectsQuery } from "@/queries";
 import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
 
 interface NavigationItem {
@@ -138,13 +138,18 @@ export function Sidebar({
 
   // Use TanStack Query for projects with SSR initialData
   // This allows the AddProject modal to invalidate and refresh just the projects list
+  // Uses query helper for consistent cache key (OpenPanel pattern)
+  const baseQuery = effectiveOrganization
+    ? organizationProjectsQuery(effectiveOrganization.id)
+    : undefined;
+
   const { data: projectsData } = useQuery({
-    queryKey: ['organization-projects'],
-    queryFn: async () => {
-      const result = await getOrganizationProjects();
-      return result;
-    },
+    ...(baseQuery ?? {
+      queryKey: ['organization-projects', 'bootstrap'],
+      queryFn: async () => ({ success: true as const, projects: initialProjects }),
+    }),
     initialData: { success: true, projects: initialProjects },
+    enabled: !!baseQuery,
     staleTime: 0, // Always refetch on invalidation
   });
 
@@ -336,8 +341,8 @@ export function Sidebar({
           </div>
         </div>
 
-        {/* Navigation - Shrink to fit content, not flex-1 */}
-        <ScrollArea className="flex-shrink px-3 py-4">
+        {/* Navigation */}
+        <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
               // Dashboard (org root) should only match exactly

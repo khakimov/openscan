@@ -19,10 +19,13 @@ export const Route = createFileRoute("/")({
 
     // Has organization - redirect to dashboard
     if (onboarding.organizationId && onboarding.projectId) {
+      // Prefer slug over ID for cleaner URLs (prevents double redirect)
+      const orgIdentifier = onboarding.organization?.slug || onboarding.organizationId;
+
       throw redirect({
         to: "/$organizationId/$projectId",
         params: {
-          organizationId: onboarding.organizationId,
+          organizationId: orgIdentifier,
           projectId: onboarding.projectId,
         },
       });

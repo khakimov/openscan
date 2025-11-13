@@ -3,21 +3,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
-import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
 import { getCurrentUser } from "@/server/auth";
-import { getDiscoveryDevices } from "@/server/devices";
-import { validateDomain } from "@/features/onboarding/utils/validators";
 import { DiscoveryStatusCard } from "@/features/onboarding/components/DiscoveryStatusCard";
 import { toast } from "sonner";
-import {
-  discoveryQueries,
-  useStartDiscoveryMutation,
-} from "@/queries/discovery-queries";
-import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
 import type { DiscoveryStatus } from "@/features/onboarding/types/discovery-status";
-import { onboardingStatusQuery } from "@/queries/onboarding-status";
+import {
+  onboardingStatusQuery,
+  discoveryDevicesQuery,
+} from "@/queries/onboarding-queries";
+import { useDiscoveryWorkflow } from "@/features/discovery/hooks/use-discovery-workflow";
 
 const discoverySearchSchema = z.object({
   domain: z.string().optional(),
@@ -32,10 +28,21 @@ export const Route = createFileRoute("/onboarding/$projectId/discovery")({
     }
     // Onboarding data is already loaded by parent route - no need to return anything
   },
-  loader: async () => {
-    const savedDevicesResult = await getDiscoveryDevices({ data: {} });
+  loader: async ({ context }) => {
+    // Get onboarding status from parent context (includes organizationId)
+    const onboarding = context.onboarding;
+
+    if (!onboarding?.organizationId) {
+      throw new Error('Organization ID is required for discovery devices query');
+    }
+
+    // Use query helper for devices (single source of truth)
+    // Pass organizationId to scope cache and match server function signature
+    const savedDevices = await context.queryClient.ensureQueryData(
+      discoveryDevicesQuery(onboarding.organizationId)
+    );
     return {
-      savedDevices: savedDevicesResult.devices || [],
+      savedDevices,
     };
   },
   component: OnboardingDiscovery,
@@ -55,21 +62,33 @@ function OnboardingDiscovery() {
     initialData: initialOnboarding,
   });
 
-  const [domain, setDomain] = useState(searchDomain || "");
-  const [domainError, setDomainError] = useState<string | null>(null);
-  const [scanId, setScanId] = useState<string | null>(null);
-  const [selectedSubdomains, setSelectedSubdomains] = useState<Set<string>>(new Set());
-
-  // Smart polling for workflow status
-  const { data: workflowStatus } = useQuery(discoveryQueries.workflowStatus(scanId!));
-  const { data: workflowResults } = useQuery(
-    discoveryQueries.workflowResults(scanId!, workflowStatus?.isCompleted === true)
-  );
-
-  const isRunning = workflowStatus?.isRunning === true;
-  const isCompleted = workflowStatus?.isCompleted === true;
-  const isFailed = workflowStatus?.isFailed === true;
-  const results = workflowResults?.success ? workflowResults.result : null;
+  // Use shared discovery workflow hook
+  const {
+    target,
+    setTarget,
+    error,
+    setError,
+    scanId,
+    selectedResults,
+    setSelectedResults,
+    isRunning,
+    isCompleted,
+    isFailed,
+    results,
+    workflowStatus,
+    isStarting,
+    isAddingDevices,
+    handleStartDiscovery: startDiscovery,
+    handleAddDevices: addDevices,
+  } = useDiscoveryWorkflow({
+    projectId,
+    initialTarget: searchDomain,
+    deviceOptions: {
+      source: "DISCOVERY",
+      scope: "EXTERNAL",
+      verificationStatus: "VERIFIED",
+    },
+  });
 
   const discoveryStatus: DiscoveryStatus | null = scanId
     ? {
@@ -87,40 +106,6 @@ function OnboardingDiscovery() {
       }
     : null;
 
-  const startDiscoveryMutation = useStartDiscoveryMutation();
-
-  const handleStartDiscovery = () => {
-    const trimmedDomain = domain.trim();
-    const validationError = validateDomain(trimmedDomain);
-
-    if (validationError) {
-      setDomainError(validationError);
-      return;
-    }
-
-    setDomainError(null);
-    setSelectedSubdomains(new Set());
-
-    startDiscoveryMutation.mutate(
-      { target: trimmedDomain },
-      {
-        onSuccess: (discoveryResult) => {
-          if (discoveryResult.success && discoveryResult.scanId) {
-            setScanId(discoveryResult.scanId);
-          } else {
-            setDomainError(discoveryResult.error || "Failed to start discovery");
-          }
-        },
-        onError: (err) => {
-          const errorMessage = err instanceof Error ? err.message : "Something went wrong";
-          setDomainError(errorMessage);
-        },
-      }
-    );
-  };
-
-  const saveDevicesMutation = useCreateDevicesFromDiscoveryMutation();
-
   const handleSkip = () => {
     navigate({
       to: "/onboarding/$projectId/notifications",
@@ -128,52 +113,19 @@ function OnboardingDiscovery() {
     });
   };
 
-  const handleContinue = () => {
-    const selectedTargets = Array.from(selectedSubdomains);
-
-    if (selectedTargets.length === 0) {
+  const handleContinue = async () => {
+    if (selectedResults.size === 0) {
       toast.error("Please select at least one subdomain");
       return;
     }
 
-    const targetsData = selectedTargets.map((host) => {
-      const subdomain = results?.uniqueSubdomains?.find(
-        (s: { subdomain: string; ip: string }) => s.subdomain === host
-      );
-      return {
-        host,
-        ip: subdomain?.ip === "Not resolved" ? undefined : subdomain?.ip,
-      };
+    await addDevices();
+
+    // Navigate to notifications on success
+    navigate({
+      to: "/onboarding/$projectId/notifications",
+      params: { projectId },
     });
-
-    saveDevicesMutation.mutate(
-      {
-        targets: targetsData,
-        projectId,
-        options: {
-          source: "DISCOVERY",
-          scope: "EXTERNAL",
-          verificationStatus: "VERIFIED",
-        },
-      },
-      {
-        onSuccess: async (response) => {
-          toast.success("Assets added to inventory", {
-            description: `${response.count} subdomain${response.count !== 1 ? "s" : ""} added successfully`,
-          });
-
-          navigate({
-            to: "/onboarding/$projectId/notifications",
-            params: { projectId },
-          });
-        },
-        onError: (error: any) => {
-          toast.error("Failed to add assets", {
-            description: error instanceof Error ? error.message : "Please try again",
-          });
-        },
-      }
-    );
   };
 
   return (
@@ -210,14 +162,14 @@ function OnboardingDiscovery() {
         <Input
           id="domain"
           placeholder="e.g., example.com"
-          value={domain}
+          value={target}
           onChange={(e) => {
-            setDomain(e.target.value);
-            setDomainError(null);
+            setTarget(e.target.value);
+            setError(null);
           }}
-          disabled={startDiscoveryMutation.isPending || isRunning}
+          disabled={isStarting || isRunning}
         />
-        {domainError && <p className="text-sm text-red-600">{domainError}</p>}
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </div>
 
       {/* Action Buttons */}
@@ -227,18 +179,18 @@ function OnboardingDiscovery() {
             type="button"
             variant="outline"
             onClick={handleSkip}
-            disabled={startDiscoveryMutation.isPending}
+            disabled={isStarting}
           >
             Skip Discovery
           </Button>
           <Button
             type="button"
-            onClick={handleStartDiscovery}
-            disabled={startDiscoveryMutation.isPending || !domain.trim()}
+            onClick={startDiscovery}
+            disabled={isStarting || !target.trim()}
             size="lg"
           >
-            {startDiscoveryMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {startDiscoveryMutation.isPending ? "Starting..." : "Start Discovery"}
+            {isStarting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isStarting ? "Starting..." : "Start Discovery"}
           </Button>
         </div>
       )}
@@ -247,12 +199,12 @@ function OnboardingDiscovery() {
       {discoveryStatus && (
         <DiscoveryStatusCard
           discoveryStatus={discoveryStatus}
-          selectedSubdomains={selectedSubdomains}
-          onSubdomainSelectionChange={setSelectedSubdomains}
+          selectedSubdomains={selectedResults}
+          onSubdomainSelectionChange={setSelectedResults}
           onContinue={handleContinue}
           onSkip={handleSkip}
           showSkipButton={true}
-          isContinuePending={saveDevicesMutation.isPending}
+          isContinuePending={isAddingDevices}
           isSkipPending={false}
         />
       )}

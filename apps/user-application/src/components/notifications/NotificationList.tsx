@@ -3,129 +3,70 @@ import { AlertCircle, AlertTriangle, Info, ShieldAlert, Check } from 'lucide-rea
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import type { NotificationItem } from '@/server/notifications/types';
 
-// Notification type from data-ops
-export type DisplayNotification = {
-  id: string;
-  type:
-    | 'NEW_PORT'
-    | 'CLOSED_PORT'
-    | 'NEW_CVE'
-    | 'CVE_SEVERITY_INCREASE'
-    | 'CVE_FIXED'
-    | 'CVE_REGRESSED'
-    | 'SERVICE_DRIFT';
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-  title: string;
-  message: string | null;
-  data: Record<string, any> | null;
-  readAt: Date | null;
-  createdAt: Date;
-  deviceId: string | null;
-  scanRunId: string | null;
-};
-
-const ALLOWED_TYPES = new Set<DisplayNotification['type']>([
-  'NEW_PORT',
-  'CLOSED_PORT',
-  'NEW_CVE',
-  'CVE_SEVERITY_INCREASE',
-  'CVE_FIXED',
-  'CVE_REGRESSED',
-  'SERVICE_DRIFT',
-]);
-
-const ALLOWED_SEVERITIES = new Set<DisplayNotification['severity']>([
-  'CRITICAL',
-  'HIGH',
-  'MEDIUM',
-  'LOW',
-  'INFO',
-]);
-
-export function toDisplayNotification(record: any): DisplayNotification | null {
-  if (!record) return null;
-
-  const type =
-    typeof record.type === 'string' && ALLOWED_TYPES.has(record.type)
-      ? (record.type as DisplayNotification['type'])
-      : null;
-
-  if (!type) {
-    return null;
-  }
-
-  const severity =
-    typeof record.severity === 'string' && ALLOWED_SEVERITIES.has(record.severity)
-      ? (record.severity as DisplayNotification['severity'])
-      : 'INFO';
-
-  const createdAt = new Date(record.createdAt);
-  if (Number.isNaN(createdAt.getTime())) {
-    return null;
-  }
-
-  const readAt = record.readAt ? new Date(record.readAt) : null;
-
-  return {
-    id: String(record.id),
-    type,
-    severity,
-    title: record.title ?? 'Notification',
-    message: record.message ?? null,
-    data: record.data ?? null,
-    readAt,
-    createdAt,
-    deviceId: record.deviceId ?? null,
-    scanRunId: record.scanRunId ?? null,
-  };
-}
+/**
+ * NotificationList - Displays normalized notifications from server
+ *
+ * Server normalizes data via normalizeNotificationList(), so we receive
+ * pre-validated types/severities and ISO strings. This component just
+ * converts ISO → Date for display formatting.
+ */
 
 interface NotificationListProps {
-  notifications: DisplayNotification[];
+  notifications: NotificationItem[];
   onMarkAsRead: (id: string) => void;
   isMarkingAsRead: boolean;
 }
 
-const severityConfig = {
+const severityConfig: Record<
+  NotificationItem['severity'],
+  {
+    icon: typeof ShieldAlert;
+    bgColor: string;
+    borderColor: string;
+    iconColor: string;
+    badgeVariant: 'destructive' | 'outline' | 'secondary';
+  }
+> = {
   CRITICAL: {
     icon: ShieldAlert,
     bgColor: 'bg-destructive/10',
     borderColor: 'border-l-destructive',
     iconColor: 'text-destructive',
-    badgeVariant: 'destructive' as const,
+    badgeVariant: 'destructive',
   },
   HIGH: {
     icon: AlertTriangle,
     bgColor: 'bg-orange-500/10',
     borderColor: 'border-l-orange-500',
     iconColor: 'text-orange-500',
-    badgeVariant: 'destructive' as const,
+    badgeVariant: 'destructive',
   },
   MEDIUM: {
     icon: AlertCircle,
     bgColor: 'bg-yellow-500/10',
     borderColor: 'border-l-yellow-500',
     iconColor: 'text-yellow-500',
-    badgeVariant: 'outline' as const,
+    badgeVariant: 'outline',
   },
   LOW: {
     icon: Info,
     bgColor: 'bg-blue-500/10',
     borderColor: 'border-l-blue-500',
     iconColor: 'text-blue-500',
-    badgeVariant: 'outline' as const,
+    badgeVariant: 'outline',
   },
   INFO: {
     icon: Info,
     bgColor: 'bg-muted',
     borderColor: 'border-l-muted-foreground',
     iconColor: 'text-muted-foreground',
-    badgeVariant: 'secondary' as const,
+    badgeVariant: 'secondary',
   },
 };
 
-const typeLabels = {
+const typeLabels: Record<NotificationItem['type'], string> = {
   NEW_PORT: 'New Port',
   CLOSED_PORT: 'Port Closed',
   NEW_CVE: 'New CVE',
@@ -133,7 +74,7 @@ const typeLabels = {
   CVE_FIXED: 'CVE Fixed',
   CVE_REGRESSED: 'CVE Regressed',
   SERVICE_DRIFT: 'Service Drift',
-} as const;
+};
 
 export function NotificationList({
   notifications,
@@ -143,9 +84,13 @@ export function NotificationList({
   return (
     <div className="space-y-2">
       {notifications.map((notification) => {
+        // Convert ISO strings → Date objects just-in-time for display
+        const createdAt = new Date(notification.createdAt);
+        const readAt = notification.readAt ? new Date(notification.readAt) : null;
+
         const config = severityConfig[notification.severity];
         const Icon = config.icon;
-        const isUnread = !notification.readAt;
+        const isUnread = !readAt;
 
         return (
           <div
@@ -198,7 +143,7 @@ export function NotificationList({
                   <span>{typeLabels[notification.type]}</span>
                   <span>•</span>
                   <span>
-                    {formatDistanceToNow(new Date(notification.createdAt), {
+                    {formatDistanceToNow(createdAt, {
                       addSuffix: true,
                     })}
                   </span>
