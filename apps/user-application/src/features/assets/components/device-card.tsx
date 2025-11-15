@@ -58,10 +58,12 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
-  // Query active scans directly (auto-polls every 30s while scans exist)
+  // Query active scans with adaptive polling (poll every 5s while scans exist)
   const { data: activeScans = [] } = useQuery({
     ...trpc.device.activeScans.queryOptions({ deviceId: device.id }),
     queryFn: () => trpcClient.device.activeScans.query({ deviceId: device.id }),
+    // Keep polling while the server still sees active scans
+    refetchInterval: (data) => (data && data.length > 0 ? 5000 : false),
   });
   const isScanning = activeScans.length > 0;
 
