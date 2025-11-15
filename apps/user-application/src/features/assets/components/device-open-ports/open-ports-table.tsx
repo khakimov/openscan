@@ -152,9 +152,11 @@ export function OpenPortsTable({
                 </TableCell>
                 <TableCell>
                   {lastSeen ? (
-                    <div className="flex flex-col">
-                      <span className="text-sm">{formatRelativeTime(lastSeen)}</span>
-                      <span className="text-xs text-muted-foreground">
+                    <div className="flex flex-col" suppressHydrationWarning>
+                      <span className="text-sm" suppressHydrationWarning>
+                        {formatRelativeTime(lastSeen)}
+                      </span>
+                      <span className="text-xs text-muted-foreground" suppressHydrationWarning>
                         {lastSeen.toLocaleString(undefined, {
                           month: "short",
                           day: "numeric",

@@ -7,6 +7,7 @@
     ".": "./index.ts",
     "./result": "./result.ts",
     "./device": "./device.ts",
+    "./device/resolvers": "./device/resolvers/index.ts",
     "./project": "./project.ts",
     "./organization": "./organization.ts",
     "./scan": "./scan.ts",
@@ -17,7 +18,9 @@
     "./postbacks": "./postbacks/index.ts"
   },
   "scripts": {
-    "typecheck": "echo 'Skipping typecheck - contracts use workspace types'"
+    "typecheck": "echo 'Skipping typecheck - contracts use workspace types'",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@repo/data-ops": "workspace:*",
@@ -25,6 +28,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.8",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
   }
 }

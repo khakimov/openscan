@@ -4,6 +4,13 @@ import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSch
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { derivePortStats } from '../types/cve-enrichment';
+import {
+  normalizeNmap,
+  normalizeHttpx,
+  resolveService,
+  type NmapServiceDetection,
+  type HttpxProbeData,
+} from '@repo/contracts/device/resolvers';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
@@ -467,18 +474,45 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
         scanPattern: portStats.scanPattern,
       },
       // Expose portSnapshots directly from result_summary (single source of truth)
-      // Merge in httpxProbe data for backward compatibility with UI components
-      portSnapshots: (resultSummary?.portSnapshots || []).map((snapshot: any) => ({
-        ...snapshot,
-        httpxProbe: httpxProbesMap.get(snapshot.port) || undefined,
-        // Transform metadata timestamps to Unix milliseconds for UI compatibility
-        lastSeen: snapshot.metadata?.lastSeenAt
-          ? new Date(snapshot.metadata.lastSeenAt).getTime()
-          : undefined,
-        firstSeen: snapshot.metadata?.firstSeenAt
-          ? new Date(snapshot.metadata.firstSeenAt).getTime()
-          : undefined,
-      })),
+      // Merge in httpxProbe data and resolve service detection conflicts
+      portSnapshots: (resultSummary?.portSnapshots || []).map((snapshot: any) => {
+        const httpxProbe = httpxProbesMap.get(snapshot.port);
+
+        // Collect evidence from all sources
+        const evidence = [
+          normalizeNmap(snapshot.service as NmapServiceDetection | null, snapshot.port),
+          normalizeHttpx(httpxProbe as HttpxProbeData | null),
+        ].filter(Boolean);
+
+        // Resolve to single service determination
+        const { resolved, allEvidence } = resolveService(evidence);
+
+        return {
+          ...snapshot,
+          httpxProbe: httpxProbe || undefined,
+          // Override service with resolved determination
+          service: resolved ? {
+            name: resolved.displayName,
+            confidence: resolved.confidence,
+            quality: resolved.quality,
+            source: resolved.kind,
+            resolvedFrom: resolved.resolvedFrom,
+            suppressed: resolved.suppressed,
+            resolvedAt: resolved.resolvedAt,
+            // Preserve original Nmap metadata for debugging
+            _originalNmap: snapshot.service,
+          } : snapshot.service,
+          // Preserve all evidence for analytics/debugging
+          _evidence: allEvidence,
+          // Transform metadata timestamps to Unix milliseconds for UI compatibility
+          lastSeen: snapshot.metadata?.lastSeenAt
+            ? new Date(snapshot.metadata.lastSeenAt).getTime()
+            : undefined,
+          firstSeen: snapshot.metadata?.firstSeenAt
+            ? new Date(snapshot.metadata.firstSeenAt).getTime()
+            : undefined,
+        };
+      }),
     };
   }
 
