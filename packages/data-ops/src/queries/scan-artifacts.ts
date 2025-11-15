@@ -42,6 +42,20 @@ export async function createScanArtifact(params: {
       metadata: params.metadata,
       startedAt: params.status === 'running' ? new Date() : null,
     })
+    .onConflictDoUpdate({
+      target: [
+        scanArtifacts.deviceId,
+        scanArtifacts.scanRunId,
+        scanArtifacts.toolName,
+        scanArtifacts.port,
+      ],
+      set: {
+        status: params.status || 'pending',
+        metadata: params.metadata,
+        // Preserve existing startedAt if already set, otherwise set based on new status
+        startedAt: sql`COALESCE(${scanArtifacts.startedAt}, ${params.status === 'running' ? new Date() : null})`,
+      },
+    })
     .returning({ id: scanArtifacts.id });
 
   return artifact;

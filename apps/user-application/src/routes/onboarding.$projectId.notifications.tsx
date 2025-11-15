@@ -6,13 +6,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { getCurrentUser } from "@/server/auth";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { useCompleteOnboardingMutation } from "@/queries";
-import { useSaveNotificationPreferencesMutation } from "@/queries/notification-queries";
-import {
-  onboardingStatusQuery,
-  notificationPreferencesQuery,
-} from "@/queries/onboarding-queries";
+import { useMutation } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const SEVERITY_OPTIONS = [
   { value: "CRITICAL", label: "Critical", color: "text-red-500" },
@@ -22,26 +19,31 @@ const SEVERITY_OPTIONS = [
 ] as const;
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
-  beforeLoad: async () => {
-    const user = await getCurrentUser().catch(() => null);
-    if (!user) {
+  beforeLoad: async ({ context }) => {
+    // Redirect if not authenticated (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
+
+    if (!sessionData?.session) {
       throw redirect({ to: "/onboarding" });
     }
-    // Onboarding data is already loaded by parent route - no need to return anything
   },
   loader: async ({ context }) => {
-    // Read onboarding from parent context (no server call!)
-    const onboarding = context.onboarding!;
+    // OpenPanel pattern: Use tRPC queryOptions for onboarding status
+    const onboarding = await context.queryClient.ensureQueryData(
+      context.trpc.onboarding.status.queryOptions()
+    );
 
-    // Use query helper for preferences (single source of truth)
+    // Use tRPC queryOptions for notification preferences
     const preferences = await context.queryClient.ensureQueryData(
-      notificationPreferencesQuery
+      context.trpc.notification.preferences.queryOptions()
     );
 
     // Prefer slug over ID for cleaner URLs (prevents double redirect)
     const orgIdentifier = onboarding.organization?.slug || onboarding.organizationId;
 
     return {
+      onboarding, // Include raw onboarding status for initialData
       preferences,
       organizationId: onboarding.organizationId, // Keep raw ID for API calls
       orgIdentifier, // Use slug for navigation
@@ -54,26 +56,40 @@ function Onboarding2Notifications() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { projectId } = Route.useParams();
-  const { preferences, organizationId, orgIdentifier } = Route.useLoaderData();
+  const { onboarding, preferences, organizationId, orgIdentifier } = Route.useLoaderData();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
   // Subscribe to onboarding query for reactive updates (e.g., after mutations)
-  // Don't destructure data until we need it to avoid unused variable warnings
-  const initialOnboarding = Route.useRouteContext().onboarding;
+  // OpenPanel pattern: Reuse queryOptions to ensure cache key stays in sync
+  const statusOptions = trpc.onboarding.status.queryOptions();
   useQuery({
-    ...onboardingStatusQuery,
-    initialData: initialOnboarding,
+    ...statusOptions,
+    queryFn: () => trpcClient.onboarding.status.query(),
+    initialData: onboarding,
   });
 
-  // Mutations using unified helper pattern
-  const savePreferencesMutation = useSaveNotificationPreferencesMutation();
+  // Mutation using tRPC
+  const savePreferencesMutation = useMutation({
+    mutationFn: (data: {
+      vulnerabilityAlertsEnabled: boolean;
+      alertSeverities: string[];
+      weeklySummaryEnabled: boolean;
+    }) => trpcClient.notification.savePreferences.mutate(data),
+    onSuccess: () => {
+      toast.success("Notification preferences saved");
+    },
+    onError: (error) => {
+      toast.error(error instanceof Error ? error.message : "Failed to save preferences");
+    },
+  });
+
   const completeOnboardingMutation = useCompleteOnboardingMutation();
 
   // Handle navigation after successful onboarding completion
   const handleOnboardingComplete = async () => {
-    // Seed React Query cache with fresh onboarding status
-    // This marks onboardingCompleted=true across all components
-    const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
-    queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+    // Invalidate onboarding status to refresh cache
+    await queryClient.invalidateQueries({ queryKey: statusOptions.queryKey });
 
     // Navigate to dashboard using slug (prevents double redirect)
     navigate({

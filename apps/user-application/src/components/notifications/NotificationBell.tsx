@@ -12,17 +12,16 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useQuery } from '@tanstack/react-query';
 import {
-  notificationListQuery,
-  unreadNotificationCountQuery,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
+  notificationQueries,
+  useMarkNotificationAsReadMutation,
+  useMarkAllNotificationsAsReadMutation,
 } from '@/queries';
-import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
+import { useTRPCClient } from '@/integrations/trpc/react';
 import { NotificationList } from './NotificationList';
 import { useState } from 'react';
 
 /**
- * Notification Bell Component
+ * Notification Bell Component (OpenPanel tRPC pattern)
  *
  * Features:
  * - Real-time unread badge (polls every 30s)
@@ -36,39 +35,31 @@ import { useState } from 'react';
  */
 export function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false);
+  const trpcClient = useTRPCClient();
 
-  // Poll unread count every 30 seconds (uses query helper with built-in polling)
-  const { data: countData } = useQuery(unreadNotificationCountQuery);
+  // Poll unread count every 30 seconds (OpenPanel tRPC pattern)
+  const { data: countData } = useQuery({
+    queryKey: notificationQueries.unreadCount.key(),
+    queryFn: () => trpcClient.notification.unreadCount.query(),
+    staleTime: 30_000, // 30 seconds
+    refetchInterval: 30_000, // Auto-refetch every 30 seconds
+    refetchIntervalInBackground: true, // Keep polling when tab is inactive
+  });
   const unreadCount = countData?.count ?? 0;
 
-  // Fetch full notifications when sheet opens (uses query helper)
+  // Fetch full notifications when sheet opens
   const { data: notificationsData, isLoading } = useQuery({
-    ...notificationListQuery({ unreadOnly: false }),
+    queryKey: notificationQueries.list.key({ unreadOnly: false }),
+    queryFn: () => trpcClient.notification.list.query({ unreadOnly: false }),
     enabled: isOpen, // Only fetch when sheet is open
+    staleTime: 30_000,
   });
 
-  // Mark single notification as read (unified mutation helper)
-  const markAsReadMutation = useMutationWithToast({
-    mutationKey: ['notifications', 'mark-single'],
-    mutationFn: markNotificationAsRead,
-    successMessage: 'Notification marked as read',
-    invalidateKeys: [
-      notificationListQuery({ unreadOnly: false }).queryKey,
-      unreadNotificationCountQuery.queryKey,
-    ],
-    toastOnSuccess: false, // Silent success for better UX
-  });
+  // Mark single notification as read (tRPC mutation)
+  const markAsReadMutation = useMarkNotificationAsReadMutation();
 
-  // Mark all notifications as read (unified mutation helper)
-  const markAllAsReadMutation = useMutationWithToast({
-    mutationKey: ['notifications', 'mark-all'],
-    mutationFn: markAllNotificationsAsRead,
-    successMessage: 'All notifications marked as read',
-    invalidateKeys: [
-      notificationListQuery({ unreadOnly: false }).queryKey,
-      unreadNotificationCountQuery.queryKey,
-    ],
-  });
+  // Mark all notifications as read (tRPC mutation)
+  const markAllAsReadMutation = useMarkAllNotificationsAsReadMutation();
 
   // Server already normalized data via normalizeNotificationList()
   // No client-side guards needed - just use the pre-validated items

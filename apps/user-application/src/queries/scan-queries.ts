@@ -1,52 +1,54 @@
-import { queryOptions } from '@tanstack/react-query';
-import { QUERY_CONFIG } from '@repo/constants';
-import { getScans } from '@/server/scans';
+import { useQuery } from '@tanstack/react-query';
+import { useTRPC, useTRPCClient } from '@/integrations/trpc/react';
 
 /**
- * Centralized scan query definitions using queryOptions()
- *
- * Usage:
- * - In loader: queryClient.ensureQueryData(scanQueries.list({ projectId }))
- * - In component: useSuspenseQuery(scanQueries.list({ projectId }))
- * - In mutation: queryClient.invalidateQueries({ queryKey: scanQueries.list().queryKey })
+ * Centralized scan query key factory (tRPC pattern)
  */
 export const scanQueries = {
   /**
-   * Scans list query
-   * Used for general scan fetching without polling
+   * Scan list query keys (tRPC-compatible)
    */
-  list: (params?: { projectId?: string }) =>
-    queryOptions({
-      queryKey: ['scans', params?.projectId],
-      queryFn: () => getScans({ data: { projectId: params?.projectId } }),
-      refetchOnWindowFocus: false,
-      ...QUERY_CONFIG.DEFAULTS.DYNAMIC_DATA,
-    }),
+  list: {
+    // Base key for all scan list queries (for invalidation)
+    base: ['scan', 'list'] as const,
 
-  /**
-   * Scans table query with auto-polling
-   * Polls every 30s when active scans (PENDING/RUNNING) exist
-   */
-  table: (params?: { projectId?: string }) =>
-    queryOptions({
-      queryKey: ['scans-table', params?.projectId],
-      queryFn: () => getScans({ data: { projectId: params?.projectId } }),
-      refetchInterval: (query) => {
-        const data = query.state.data;
-        // Only poll if there are active scans (PENDING or RUNNING)
-        if (!data?.success || !Array.isArray(data.data)) {
-          return false;
-        }
+    // Specific key for a query with params
+    key: (params?: {
+      projectId?: string;
+    }) => [
+      ['scan', 'list'],
+      { input: params ?? {}, type: 'query' as const }
+    ] as const,
+  },
+};
 
-        const hasActiveScans = data.data.some(
-          (scan: any) => scan.status === 'PENDING' || scan.status === 'RUNNING'
-        );
+/**
+ * Scan query hooks (reusable across components)
+ */
 
-        // Poll every 30 seconds (postback updates database, this is just UI sync)
-        return hasActiveScans ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_30 : false;
-      },
-      refetchIntervalInBackground: false, // Only poll when tab is active
-      placeholderData: (previousData) => previousData, // Prevent jank during refetch
-      ...QUERY_CONFIG.DEFAULTS.DYNAMIC_DATA,
-    }),
+/**
+ * Hook to fetch scan list with optional project filter
+ * Includes auto-polling for active scans
+ */
+export const useScanList = (params?: { projectId?: string }) => {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+
+  return useQuery({
+    ...trpc.scan.list.queryOptions(params ?? {}),
+    queryFn: () => trpcClient.scan.list.query(params ?? {}),
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      // Poll every 30s if there are active scans (PENDING or RUNNING)
+      if (!Array.isArray(data)) return false;
+
+      const hasActiveScans = data.some(
+        (scan: any) => scan.workflowStatus === 'PENDING' || scan.workflowStatus === 'RUNNING'
+      );
+
+      return hasActiveScans ? 30000 : false; // 30 seconds
+    },
+    refetchIntervalInBackground: false,
+    placeholderData: (prev) => prev, // Prevent flashing during refetch
+  });
 };

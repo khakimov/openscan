@@ -3,16 +3,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { useQuery } from "@tanstack/react-query";
 import { z } from "zod";
-import { getCurrentUser } from "@/server/auth";
 import { DiscoveryStatusCard } from "@/features/onboarding/components/DiscoveryStatusCard";
 import { toast } from "sonner";
 import type { DiscoveryStatus } from "@/features/onboarding/types/discovery-status";
-import {
-  onboardingStatusQuery,
-  discoveryDevicesQuery,
-} from "@/queries/onboarding-queries";
 import { useDiscoveryWorkflow } from "@/features/discovery/hooks/use-discovery-workflow";
 
 const discoverySearchSchema = z.object({
@@ -21,28 +17,35 @@ const discoverySearchSchema = z.object({
 
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
   validateSearch: discoverySearchSchema,
-  beforeLoad: async () => {
-    const user = await getCurrentUser().catch(() => null);
-    if (!user) {
+  beforeLoad: async ({ context }) => {
+    // Redirect if not authenticated (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
+
+    if (!sessionData?.session) {
       throw redirect({ to: "/onboarding" });
     }
-    // Onboarding data is already loaded by parent route - no need to return anything
   },
   loader: async ({ context }) => {
-    // Get onboarding status from parent context (includes organizationId)
-    const onboarding = context.onboarding;
+    // OpenPanel pattern: Use tRPC queryOptions for onboarding status
+    const onboarding = await context.queryClient.ensureQueryData(
+      context.trpc.onboarding.status.queryOptions()
+    );
 
     if (!onboarding?.organizationId) {
       throw new Error('Organization ID is required for discovery devices query');
     }
 
-    // Use query helper for devices (single source of truth)
-    // Pass organizationId to scope cache and match server function signature
+    // Use tRPC queryOptions for discovery devices
     const savedDevices = await context.queryClient.ensureQueryData(
-      discoveryDevicesQuery(onboarding.organizationId)
+      context.trpc.onboarding.discoveryDevices.queryOptions({
+        organizationId: onboarding.organizationId
+      })
     );
+
     return {
-      savedDevices,
+      onboarding, // Include raw onboarding status for initialData
+      savedDevices: savedDevices.devices || [],
     };
   },
   component: OnboardingDiscovery,
@@ -52,15 +55,40 @@ function OnboardingDiscovery() {
   const navigate = useNavigate();
   const { projectId } = Route.useParams();
   const { domain: searchDomain } = Route.useSearch();
-  const { savedDevices } = Route.useLoaderData();
+  const { onboarding, savedDevices } = Route.useLoaderData();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
   // Subscribe to onboarding query for reactive updates (e.g., after mutations)
-  // Don't destructure data until we need it to avoid unused variable warnings
-  const initialOnboarding = Route.useRouteContext().onboarding;
+  // OpenPanel pattern: Reuse queryOptions to ensure cache key stays in sync
+  const statusOptions = trpc.onboarding.status.queryOptions();
   useQuery({
-    ...onboardingStatusQuery,
-    initialData: initialOnboarding,
+    ...statusOptions,
+    queryFn: () => trpcClient.onboarding.status.query(),
+    initialData: onboarding,
   });
+
+  // Subscribe to discovery devices query to keep "Already Saved Assets" list fresh
+  // Only subscribe if we have an organizationId
+  const devicesQuery = onboarding.organizationId
+    ? useQuery({
+        ...trpc.onboarding.discoveryDevices.queryOptions({
+          organizationId: onboarding.organizationId,
+        }),
+        queryFn: () =>
+          trpcClient.onboarding.discoveryDevices.query({
+            organizationId: onboarding.organizationId!,
+          }),
+        initialData: { success: true, devices: savedDevices, count: savedDevices.length },
+      })
+    : { data: { success: true, devices: savedDevices, count: savedDevices.length } };
+
+  // Use live devices from query (falls back to savedDevices if no org ID)
+  const displayedDevices = (devicesQuery.data?.devices || savedDevices) as Array<{
+    id: string;
+    name: string;
+    ip?: string | null;
+  }>;
 
   // Use shared discovery workflow hook
   const {
@@ -131,16 +159,16 @@ function OnboardingDiscovery() {
   return (
     <div className="p-8 space-y-8">
       {/* Already Saved Devices */}
-      {savedDevices.length > 0 && (
+      {displayedDevices.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-medium">Already Saved Assets</h3>
             <span className="text-xs text-muted-foreground">
-              {savedDevices.length} asset{savedDevices.length !== 1 ? "s" : ""}
+              {displayedDevices.length} asset{displayedDevices.length !== 1 ? "s" : ""}
             </span>
           </div>
           <div className="border rounded-lg divide-y max-h-[200px] overflow-y-auto">
-            {savedDevices.map((device: { id: string; name: string; ip?: string | null }) => (
+            {displayedDevices.map((device) => (
               <div
                 key={device.id}
                 className="px-4 py-2.5 flex items-center justify-between hover:bg-muted/50 transition-colors"

@@ -13,29 +13,19 @@ export { scanQueries } from './scan-queries';
 export { discoveryQueries } from './discovery-queries';
 export { scheduleQueries } from './schedule-queries';
 
-// Query helpers for route loaders (OpenPanel pattern)
+// Notification queries
 export {
-  organizationDetailQuery,
-  organizationProjectsQuery,
-} from './organization-queries';
-
-export {
-  projectAccessQuery,
-  projectDetailQuery,
-} from './project-queries';
-
-export {
-  notificationListQuery,
-  unreadNotificationCountQuery,
-  notificationPreferencesQuery,
-  markNotificationAsRead,
-  markAllNotificationsAsRead,
+  notificationQueries,
+  useMarkNotificationAsReadMutation,
+  useMarkAllNotificationsAsReadMutation,
   useSaveNotificationPreferencesMutation,
 } from './notification-queries';
 
+// Onboarding queries (deprecated - migrated to tRPC)
+// Use context.trpc.onboarding.* instead
 export {
-  onboardingStatusQuery,
-  discoveryDevicesQuery,
+  onboardingStatusQueryKey,
+  discoveryDevicesQueryKey,
 } from './onboarding-queries';
 
 // Device mutation hooks
@@ -59,7 +49,7 @@ export {
   useCreateOrganizationMutation,
   useCreateProjectMutation,
   useUpdateOrganizationMutation,
-} from './organization-queries';
+} from './organization-mutations';
 
 // Schedule mutation hooks
 export {

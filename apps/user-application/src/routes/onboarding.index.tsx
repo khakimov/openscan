@@ -1,13 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { GoogleOAuthButton } from "@/features/auth/components/google-oauth-button";
 import { GitHubOAuthButton } from "@/features/auth/components/github-oauth-button";
-import { getCurrentUser } from "@/server/auth";
 
 export const Route = createFileRoute("/onboarding/")({
-  beforeLoad: async () => {
-    // Redirect authenticated users to project setup
-    const user = await getCurrentUser().catch(() => null);
-    if (user) {
+  beforeLoad: async ({ context }) => {
+    // Redirect authenticated users to project setup (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
+
+    if (sessionData?.session) {
       throw redirect({ to: "/onboarding/project" });
     }
   },

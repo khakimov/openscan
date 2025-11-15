@@ -19,5 +19,12 @@
   "devDependencies": {
     "@types/node": "^22.17.2",
     "typescript": "^5.9.2"
+  },
+  "dependencies": {
+    "@trpc/client": "^11.0.0",
+    "@trpc/react-query": "^11.0.0",
+    "@trpc/server": "^11.0.0",
+    "superjson": "^2.2.5",
+    "zod": "^4.1.12"
   }
 }

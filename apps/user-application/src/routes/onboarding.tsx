@@ -2,17 +2,19 @@ import { Outlet, createFileRoute, useMatchRoute } from "@tanstack/react-router";
 import { cn } from "@/lib/utils";
 import { Spinner } from "@/components/ui/spinner";
 import { StackedCardLayout } from "@/components/layout";
-import { onboardingStatusQuery } from "@/queries/onboarding-queries";
 
 export const Route = createFileRoute("/onboarding")({
   beforeLoad: async ({ context }) => {
+    // OpenPanel pattern: Use tRPC queryOptions for onboarding status
+    const statusQuery = context.trpc.onboarding.status.queryOptions();
+
     // Prefetch onboarding status into React Query cache (SSR + client navigation)
-    await context.queryClient.prefetchQuery(onboardingStatusQuery);
+    await context.queryClient.prefetchQuery(statusQuery);
 
     // Inject into router context so child routes have synchronous access
     // Guard: fallback to fetchQuery if prefetch somehow failed
-    const onboarding = context.queryClient.getQueryData(onboardingStatusQuery.queryKey)
-      ?? await context.queryClient.fetchQuery(onboardingStatusQuery);
+    const onboarding = context.queryClient.getQueryData(statusQuery.queryKey)
+      ?? await context.queryClient.fetchQuery(statusQuery);
 
     return {
       context: {
@@ -21,10 +23,13 @@ export const Route = createFileRoute("/onboarding")({
     };
   },
   loader: async ({ context }) => {
+    // OpenPanel pattern: Use tRPC queryOptions for onboarding status
+    const statusQuery = context.trpc.onboarding.status.queryOptions();
+
     // Make onboarding available via Route.useLoaderData()
     // Guard: fallback to fetchQuery if cache is empty
-    const onboarding = context.queryClient.getQueryData(onboardingStatusQuery.queryKey)
-      ?? await context.queryClient.fetchQuery(onboardingStatusQuery);
+    const onboarding = context.queryClient.getQueryData(statusQuery.queryKey)
+      ?? await context.queryClient.fetchQuery(statusQuery);
 
     return {
       onboarding,

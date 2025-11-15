@@ -287,14 +287,17 @@ export async function getDevicesForTenant(
         scanCount: Number(stat.scanCount),
         totalScans: Number(stat.scanCount),
         lastScanAt: toDateOrUndefined(stat.lastScanAt),
-        openPortCount: portStats.openPortCount,
-        totalPortCount: portStats.openPortCount,
-        ports: portStats.ports,
-        // Smart metadata for UI (port filtering, WAF/proxy detection)
-        portsStoredCount: portStats.portsStoredCount,
-        scanPattern: portStats.scanPattern,
-        suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
-        serviceDetectionRate: portStats.serviceDetectionRate,
+        // Nest port metadata under portScanStats (aligns with TransformedDevice type)
+        portScanStats: {
+          totalOpenPorts: portStats.totalOpenPorts,
+          portsWithService: portStats.portsWithService,
+          portsStored: portStats.portsStored,
+          serviceDetectionRate: portStats.serviceDetectionRate,
+          suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
+          scanPattern: portStats.scanPattern,
+        },
+        // Expose portSnapshots directly from result_summary (single source of truth)
+        portSnapshots: resultSummary?.portSnapshots || [],
       });
     }
   }
@@ -454,14 +457,21 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
       scanCount: Number(stat.scanCount),
       totalScans: Number(stat.scanCount),
       lastScanAt: toDateOrUndefined(stat.lastScanAt),
-      openPortCount: portStats.openPortCount,
-      totalPortCount: portStats.openPortCount,
-      ports: portsWithHttpx,
-      // Smart metadata for UI (port filtering, WAF/proxy detection)
-      portsStoredCount: portStats.portsStoredCount,
-      scanPattern: portStats.scanPattern,
-      suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
-      serviceDetectionRate: portStats.serviceDetectionRate,
+      // Nest port metadata under portScanStats (aligns with TransformedDevice type)
+      portScanStats: {
+        totalOpenPorts: portStats.totalOpenPorts,
+        portsWithService: portStats.portsWithService,
+        portsStored: portStats.portsStored,
+        serviceDetectionRate: portStats.serviceDetectionRate,
+        suspiciousAllPortsOpen: portStats.suspiciousAllPortsOpen,
+        scanPattern: portStats.scanPattern,
+      },
+      // Expose portSnapshots directly from result_summary (single source of truth)
+      // Merge in httpxProbe data for backward compatibility with UI components
+      portSnapshots: (resultSummary?.portSnapshots || []).map((snapshot: any) => ({
+        ...snapshot,
+        httpxProbe: httpxProbesMap.get(snapshot.port) || undefined,
+      })),
     };
   }
 

@@ -1,23 +1,43 @@
-import { createFileRoute, Outlet, notFound, redirect, type ErrorComponentProps } from "@tanstack/react-router";
-import { organizationDetailQuery } from "@/queries";
+import {
+  createFileRoute,
+  Outlet,
+  notFound,
+  redirect,
+  type ErrorComponentProps,
+} from "@tanstack/react-router";
+import { TRPCClientError } from "@trpc/client";
 import { OrganizationGate } from "@/components/layout/organization-gate";
 import { Spinner } from "@/components/ui/spinner";
 import { ErrorLayout, type ErrorAction } from "@/components/error-layout";
-import type { OrganizationByIdResult } from "@/server/organization/types";
 
 // Reserved organization IDs that cannot be used (minimal approach from OpenPanel)
 const RESERVED_ORGANIZATION_IDS = [
-  'api',           // API routes
-  'onboarding',    // Onboarding flow
-  'login',         // Auth routes
-  '.well-known',   // OIDC/security standards
+  "api", // API routes
+  "onboarding", // Onboarding flow
+  "login", // Auth routes
+  ".well-known", // OIDC/security standards
 ];
 
 // File extensions to block from routing
 const FILE_EXTENSIONS = [
-  'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'ico',  // Images
-  'js', 'xml', 'txt', 'json', 'webmanifest',          // Static files
-  'css', 'map', 'woff', 'woff2', 'ttf', 'eot',        // Assets
+  "jpg",
+  "jpeg",
+  "png",
+  "gif",
+  "bmp",
+  "tiff",
+  "ico", // Images
+  "js",
+  "xml",
+  "txt",
+  "json",
+  "webmanifest", // Static files
+  "css",
+  "map",
+  "woff",
+  "woff2",
+  "ttf",
+  "eot", // Assets
 ];
 
 /**
@@ -38,6 +58,74 @@ const OrganizationPendingShell = () => (
   </div>
 );
 
+type OrganizationRouteError = {
+  status: number;
+  message: string;
+  code?: string;
+};
+
+const toOrganizationRouteError = (error: unknown): OrganizationRouteError => {
+  // Handle tRPC errors first (preserves accurate status codes)
+  if (error instanceof TRPCClientError) {
+    const status = error.data?.httpStatus ?? 500;
+    return {
+      status,
+      message: error.message,
+      code: error.data?.code,
+    };
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    "message" in error &&
+    typeof (error as any).status === "number" &&
+    typeof (error as any).message === "string"
+  ) {
+    return {
+      status: (error as any).status,
+      message: (error as any).message,
+      code:
+        "code" in error && typeof (error as any).code === "string"
+          ? (error as any).code
+          : undefined,
+    };
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const statusCode =
+      "statusCode" in error && typeof (error as any).statusCode === "number"
+        ? (error as any).statusCode
+        : undefined;
+    const message =
+      "message" in error && typeof (error as any).message === "string"
+        ? (error as any).message
+        : undefined;
+    const code =
+      "code" in error && typeof (error as any).code === "string"
+        ? String((error as any).code)
+        : undefined;
+
+    if (statusCode) {
+      return {
+        status: statusCode,
+        message: message ?? "Unexpected error while resolving organization",
+        code,
+      };
+    }
+  }
+
+  return {
+    status: 500,
+    message:
+      error instanceof Error
+        ? error.message
+        : "Unexpected error while resolving organization",
+    code: "ORG_UNKNOWN_ERROR",
+  };
+};
+
 export const Route = createFileRoute("/_app/$organizationId")({
   pendingComponent: OrganizationPendingShell,
   beforeLoad: async ({ params }) => {
@@ -55,69 +143,80 @@ export const Route = createFileRoute("/_app/$organizationId")({
     // If org doesn't exist, the query will naturally throw 404
   },
   loader: async ({ params, location, context }) => {
-    // Use query helper for cache seeding (OpenPanel pattern)
-    // Automatically caches result for components to consume
-    const result: OrganizationByIdResult = await context.queryClient.ensureQueryData(
-      organizationDetailQuery(params.organizationId)
-    );
+    const identifier = params.organizationId;
 
-    if (!result.success) {
-      // Check if it's a permission issue (403) or not found (404)
-      if ('statusCode' in result && result.statusCode === 403) {
-        // Create a custom error with statusCode property
-        const error = new Error("You don't have access to this organization");
-        (error as any).statusCode = 403;
-        throw error;
+    try {
+      // OpenPanel pattern: Use tRPC options proxy for loader queries
+      const detailQuery = context.trpc.organization.get.queryOptions({
+        organizationId: identifier,
+      });
+      const org = await context.queryClient.fetchQuery(detailQuery);
+
+      // Redirect from ID to slug for cleaner URLs
+      if (org.slug && identifier === org.id) {
+        const newPath = location.pathname.replace(`/${org.id}`, `/${org.slug}`);
+
+        throw redirect({
+          to: newPath,
+          search: location.search as any,
+          replace: true,
+        });
       }
 
-      // Otherwise, org doesn't exist (404)
-      throw notFound();
-    }
-
-    const org = result.organization;
-
-    // Redirect from ID to slug for cleaner URLs (prevents flash of wrong URL)
-    // Only redirect if:
-    // 1. Organization has a slug
-    // 2. Current URL is using the ID (not already using the slug)
-    if (org.slug && params.organizationId === org.id) {
-      const newPath = location.pathname.replace(`/${org.id}`, `/${org.slug}`);
-
-      throw redirect({
-        to: newPath,
-        search: location.search as any,
-        replace: true, // Replace history to avoid back button confusion
+      // OpenPanel pattern: Prefetch projects using tRPC queryOptions
+      // Use org.id (not slug) as the TRPC router expects the real organization ID
+      const projectsQuery = context.trpc.project.listByOrg.queryOptions({
+        organizationId: org.id,
       });
-    }
+      await context.queryClient.prefetchQuery(projectsQuery);
 
-    return {
-      organization: org,
-    };
+      return {
+        organization: org,
+      };
+    } catch (error) {
+      throw toOrganizationRouteError(error);
+    }
   },
   errorComponent: OrganizationError,
   component: OrganizationLayout,
 });
 
 function OrganizationError({ error }: ErrorComponentProps) {
-  const is403 = (error as any)?.statusCode === 403;
-
-  const status = is403 ? 403 : 404;
-  const title = is403 ? 'Access Denied' : 'Organization Not Found';
-  const message = is403
-    ? "You don't have access to this organization."
-    : 'The organization you requested could not be found.';
+  const payload = toOrganizationRouteError(error);
+  const status = payload.status;
+  const code = payload.code;
+  const message = payload.message;
+  const is403 = status === 403;
 
   const actions: ErrorAction[] = [
-    { label: 'Go Home', to: '/', variant: 'default' },
-    { label: 'Go Back', onClick: () => window.history.back(), variant: 'outline' },
+    { label: "Go Home", to: "/", variant: "default" },
+    {
+      label: "Go Back",
+      onClick: () => window.history.back(),
+      variant: "outline",
+    },
   ];
 
   return (
     <ErrorLayout
       status={status}
-      title={title}
-      message={message}
+      title={is403 ? "Access Denied" : "Organization Not Found"}
+      message={
+        is403
+          ? "You don't have access to this organization."
+          : message
+      }
       actions={actions}
+      technicalDetails={
+        code ? (
+          <dl className="text-sm text-muted-foreground">
+            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
+              <dt className="font-semibold">Error code</dt>
+              <dd>{code}</dd>
+            </div>
+          </dl>
+        ) : null
+      }
     />
   );
 }

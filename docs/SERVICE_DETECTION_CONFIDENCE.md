@@ -684,4 +684,66 @@ const driftAlertRules = [
 ---
 
 **Approved By**: [Pending]
-**Implementation Start Date**: [TBD]
+**Implementation Start Date**: 2025-01-14
+**Status Update**: Phase 2 (UI Visibility) completed with simplified approach
+
+---
+
+## Phase 2 Implementation (Completed)
+
+### Simplified Confidence Filtering
+
+Instead of the complex multi-badge approach in the original design, we implemented a streamlined version focusing on the core problem:
+
+**Location**: `apps/user-application/src/features/assets/utils/service-display.ts`
+
+**Threshold**: Confidence `>= 5` (good match with reasonable certainty)
+
+**Display Rules**:
+1. **High confidence (≥5) or null**: Show product/version/extraInfo
+2. **Low confidence (<5)**: Show "Unknown service" + "Unverified" badge
+3. **Fallback**: Use protocol name if no product but confident
+
+**Implementation**:
+```typescript
+const CONFIDENCE_THRESHOLD = 5;
+
+export function formatServiceForDisplay(service) {
+  if (!service) return { label: 'Unknown service' };
+
+  const isConfident = service.confidence === null || service.confidence >= CONFIDENCE_THRESHOLD;
+
+  if (isConfident) {
+    const parts = [service.product, service.version, service.extraInfo].filter(Boolean);
+    if (parts.length > 0) {
+      return { label: parts.join(' '), confidence };
+    }
+    if (service.name) {
+      return { label: service.name, confidence };
+    }
+  }
+
+  // Low confidence → hide product, show badge
+  return {
+    label: 'Unknown service',
+    badge: 'unverified',
+    confidence,
+    rawName: service.name,  // For tooltip inspection
+  };
+}
+```
+
+**UI Components Updated**:
+- `open-ports-table.tsx` - Shows "Unverified" badge with tooltip for low-confidence detections
+- `formatters.ts` - Updated to use confidence-aware utility
+
+**Tooltip Details**:
+- Confidence score (e.g., "Scanner confidence: 3/10 (below threshold)")
+- Raw detection (e.g., "Reported: rwhois")
+
+**Benefits of Simplified Approach**:
+1. ✅ Prevents misleading analysts with low-confidence guesses
+2. ✅ Still preserves all raw data for inspection
+3. ✅ Clear visual indicator (yellow badge) without alarm
+4. ✅ Minimal code changes, easy to maintain
+5. ✅ No database schema changes needed

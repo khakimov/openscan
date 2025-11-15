@@ -4,7 +4,6 @@ import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
 import { ScansTable } from "@/features/scans";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
-import { scanQueries } from "@/queries/scan-queries";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Suspense } from "react";
 import { useProject } from "@/components/layout";
@@ -34,10 +33,10 @@ const ScansPending = () => (
 export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
   pendingComponent: ScansPending,
   validateSearch: zodValidator(scansSearchSchema),
-  loader: async ({ context: { queryClient }, params }) => {
-    // Populate query cache for SSR - table() uses auto-polling
-    await queryClient.ensureQueryData(
-      scanQueries.table({ projectId: params.projectId })
+  loader: async ({ context, params }) => {
+    // Populate query cache for SSR using tRPC
+    await context.queryClient.ensureQueryData(
+      context.trpc.scan.list.queryOptions({ projectId: params.projectId })
     );
   },
   component: Scans,

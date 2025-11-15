@@ -1,38 +1,67 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BackgroundPaths } from "@/components/landing/background-paths";
 import { HeroSection } from "@/components/landing/hero-section";
-import { getOnboardingStatus } from "@/server/organization";
 
 export const Route = createFileRoute("/")({
-  beforeLoad: async () => {
-    const onboarding = await getOnboardingStatus().catch(() => null);
+  beforeLoad: async ({ context }) => {
+    // Check session via tRPC (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
 
     // Allow anonymous visitors to view the marketing page
-    if (!onboarding?.user) {
+    if (!sessionData?.session) {
       return;
     }
 
+    const session = sessionData.session;
+
+    // Fetch organizations to check if user has any
+    const organizations = await context.queryClient.ensureQueryData(
+      context.trpc.organization.list.queryOptions()
+    );
+
     // No organizations - redirect to onboarding
-    if (!onboarding.organizationId) {
+    if (organizations.length === 0) {
       throw redirect({ to: "/onboarding" });
     }
 
-    // Has organization - redirect to dashboard
-    if (onboarding.organizationId && onboarding.projectId) {
-      // Prefer slug over ID for cleaner URLs (prevents double redirect)
-      const orgIdentifier = onboarding.organization?.slug || onboarding.organizationId;
+    // Determine active organization (from session or first org)
+    const activeOrg = session.activeOrganizationId
+      ? organizations.find(org => org.id === session.activeOrganizationId) ?? organizations[0]
+      : organizations[0];
 
+    if (!activeOrg) {
+      throw redirect({ to: "/onboarding" });
+    }
+
+    // Prefer slug over ID for cleaner URLs
+    const orgIdentifier = activeOrg.slug || activeOrg.id;
+
+    // Fetch projects to determine redirect destination (OpenPanel pattern)
+    const projects = await context.queryClient.ensureQueryData(
+      context.trpc.project.listByOrg.queryOptions({
+        organizationId: activeOrg.id,
+      })
+    );
+
+    // If user has exactly 1 project, go directly to it
+    if (projects.length === 1 && projects[0].id) {
       throw redirect({
         to: "/$organizationId/$projectId",
         params: {
           organizationId: orgIdentifier,
-          projectId: onboarding.projectId,
+          projectId: projects[0].id,
         },
       });
     }
 
-    // Fallback to onboarding if project missing
-    throw redirect({ to: "/onboarding" });
+    // If user has multiple projects (or none), show project selector at org root
+    throw redirect({
+      to: "/$organizationId",
+      params: {
+        organizationId: orgIdentifier,
+      },
+    });
   },
   component: LandingPage,
 });

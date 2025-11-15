@@ -13,65 +13,23 @@ import {
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
-import type { CVEEnrichment, PortSnapshot } from '@repo/data-ops';
-import { safeParseCVEEnrichment, buildPortEnrichmentMap } from '@repo/data-ops';
+import { safeParseCVEEnrichment } from '@repo/data-ops';
 import {
   AnalyticsEventTypes,
   buildSuccessAnalytics,
   buildFailureAnalytics,
 } from '../analytics';
-import {
-  createNectoAPIClient,
-  type NectoAPIClient,
-} from '@/server/discovery/services/necto-api-client';
 import { getRestateHttpClient } from '@/server/utils/restate-http-client';
 import { PortScanPostbackSchema } from '@repo/contracts/postbacks';
-
-/**
- * Necto API client singleton
- * Reused across postback requests for efficiency
- */
-let nectoClientInstance: NectoAPIClient | null = null;
-
-function getNectoAPIClient(nectoApiUrl?: string, apiKey?: string): NectoAPIClient {
-  if (!nectoClientInstance) {
-    const baseUrl = nectoApiUrl || process.env.NECTO_API_URL || 'http://127.0.0.1:5020';
-
-    nectoClientInstance = createNectoAPIClient({
-      baseUrl,
-      apiKey: apiKey || process.env.WORKER_API_KEY,
-      timeout: 30000,
-      retries: 2,
-    });
-  }
-  return nectoClientInstance;
-}
-
-/**
- * Reset Necto client singleton (for testing)
- * @internal
- */
-export function resetNectoClientForTesting(): void {
-  nectoClientInstance = null;
-}
-
-/**
- * Extract all open ports with service detection for httpx probing
- *
- * Strategy: Probe ALL open ports that have service information
- * Rationale:
- * - Service detection is often inaccurate (e.g., port 9100 shows as "jetdirect" but is actually HTTP)
- * - httpx fails fast on non-HTTP ports (timeout in seconds)
- * - Only probe ports with services to avoid WAF scenarios (all ports open, no actual services)
- * - Industry standard approach used by httpx, nuclei, aquatone, EyeWitness
- * - Ensures we don't miss HTTP services on non-standard ports
- */
-function extractPortsForHttpx(ports: Array<{ port: number; state: string; service?: any }>): number[] {
-  return ports
-    .filter((p) => p.state === 'open' && (p.service?.name || p.service?.product))
-    .map((p) => p.port)
-    .sort((a, b) => a - b);
-}
+import type { CVEEnrichment } from '@repo/data-ops';
+import {
+  buildPortScanStats,
+  buildPortSnapshots,
+  extractPortsForHttpx,
+  getNectoAPIClient,
+  normalizeServiceDetections,
+} from './port-scan/utils';
+export { resetNectoClientForTesting } from './port-scan/utils';
 
 /**
  * Port Scan Postback Handler
@@ -215,6 +173,19 @@ export class PortScanPostbackHandler
     // Store only ports with services
     let openPorts = portsWithService;
 
+    // Step 2.5: Gatekeeper - filter low-confidence detections
+    // Even if worker bypassed filtering, we ensure DB never gets junk
+    const filteredPorts = normalizeServiceDetections(openPorts as any);
+    if (filteredPorts.length < openPorts.length) {
+      ctx.logger.info('Postback gatekeeper applied filtering', {
+        scanId,
+        before: openPorts.length,
+        after: filteredPorts.length,
+        discarded: openPorts.length - filteredPorts.length,
+      });
+    }
+    openPorts = filteredPorts as any;
+
     // Safety cap at 1000 ports
     const MAX_PORTS = 1000;
     if (openPorts.length > MAX_PORTS) {
@@ -285,48 +256,19 @@ export class PortScanPostbackHandler
       });
     }
 
-    // Step 4: Build unified port snapshots (sec-zg2)
-    // Create protocol map for enrichment helper
-    const portProtocolMap = new Map<number, 'tcp' | 'udp'>();
-    for (const port of openPorts) {
-      portProtocolMap.set(port.port, port.protocol);
-    }
-
-    // Get per-port CVE enrichment summaries
-    const enrichmentMap = buildPortEnrichmentMap(cveEnrichment, portProtocolMap);
-
-    // Transform ports into unified PortSnapshot structure
-    const portSnapshots: PortSnapshot[] = openPorts.map((port) => {
-      const key = `${port.protocol}/${port.port}`;
-      return {
-        port: port.port,
-        protocol: port.protocol,
-        state: port.state,
-        service: port.service ? {
-          name: port.service.name,
-          product: port.service.product ?? null,
-          version: port.service.version ?? null,
-          cpe: null, // TODO(sec-8sh): Extract from CVE enrichment CPE strings
-          method: port.service.method,
-          confidence: port.service.confidence,
-        } : null,
-        metadata: {
-          lastSeenAt: timestamp, // Handler always sets lastSeenAt
-          // firstSeenAt and lastChangedAt will be set by change detector (sec-8sh)
-        },
-        enrichment: enrichmentMap.get(key), // Per-port CVE summary
-      };
+    const portSnapshots = buildPortSnapshots({
+      ports: openPorts,
+      timestamp,
+      cveEnrichment,
     });
 
-    // ✅ Build port scan stats (pre-filtering metrics that can't be derived post-hoc)
-    const portScanStats = {
+    const portScanStats = buildPortScanStats({
       totalOpenPorts: allOpenPorts.length,
       portsWithService: portsWithService.length,
       portsStored: portSnapshots.length,
       serviceDetectionRate,
       suspiciousAllPortsOpen,
-      scanPattern: suspiciousAllPortsOpen ? 'Possible WAF/Proxy' : 'Normal',
-    };
+    });
 
     // Store results with new unified structure (sec-zg2)
     const resultSummary = {

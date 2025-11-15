@@ -8,8 +8,13 @@ import { useState, useEffect } from "react";
 import { AccountDialog } from "@/components/auth/account-dialog";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useQuery } from "@tanstack/react-query";
-import { organizationProjectsQuery } from "@/queries";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
+import type { inferRouterOutputs } from '@trpc/server';
+import type { AppRouter } from '@/trpc/router';
+
+type RouterOutputs = inferRouterOutputs<AppRouter>;
+type ProjectListByOrgOutput = RouterOutputs['project']['listByOrg'];
 
 interface NavigationItem {
   name: string;
@@ -90,7 +95,7 @@ interface SidebarProps {
   user: SidebarUser | null;
   activeOrganization: SidebarOrganization | null;
   organizations: SidebarOrganization[];
-  projects: SidebarProject[];
+  projects: ProjectListByOrgOutput; // Raw tRPC shape from loader
 }
 
 export function Sidebar({
@@ -126,34 +131,48 @@ export function Sidebar({
   // Fallback to URL-based organization if activeOrganization is null
   // This happens when user logs in via OAuth and lands on /:organizationId/:projectId
   // but the session hasn't been updated with the active organization yet
+  // IMPORTANT: organizationIdFromUrl can be a slug, so we must find the real org
+  // to get the actual ID for project queries
+  const fallbackOrg = organizationIdFromUrl
+    ? organizations.find(
+        (org) => org.id === organizationIdFromUrl || org.slug === organizationIdFromUrl
+      )
+    : null;
+
   const effectiveOrganization: SidebarOrganization | null = activeOrganization ?? (
-    organizationIdFromUrl
+    fallbackOrg
       ? {
-          id: organizationIdFromUrl,
-          name: organizations.find(o => o.id === organizationIdFromUrl || o.slug === organizationIdFromUrl)?.name ?? null,
-          slug: organizations.find(o => o.id === organizationIdFromUrl || o.slug === organizationIdFromUrl)?.slug ?? null,
+          id: fallbackOrg.id,
+          name: fallbackOrg.name ?? null,
+          slug: fallbackOrg.slug ?? null
         }
       : null
   );
 
-  // Use TanStack Query for projects with SSR initialData
-  // This allows the AddProject modal to invalidate and refresh just the projects list
-  // Uses query helper for consistent cache key (OpenPanel pattern)
-  const baseQuery = effectiveOrganization
-    ? organizationProjectsQuery(effectiveOrganization.id)
-    : undefined;
+  // OpenPanel pattern: Use tRPC queryOptions for SSR-safe cache reuse
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+  const organizationId = effectiveOrganization?.id ?? '';
 
-  const { data: projectsData } = useQuery({
-    ...(baseQuery ?? {
-      queryKey: ['organization-projects', 'bootstrap'],
-      queryFn: async () => ({ success: true as const, projects: initialProjects }),
-    }),
-    initialData: { success: true, projects: initialProjects },
-    enabled: !!baseQuery,
-    staleTime: 0, // Always refetch on invalidation
+  const projectQuery = useQuery({
+    ...trpc.project.listByOrg.queryOptions({ organizationId }),
+    queryFn: () => trpcClient.project.listByOrg.query({ organizationId }),
+    enabled: Boolean(effectiveOrganization?.id), // Only fetch when we have a valid org ID
+    initialData: initialProjects, // Loader already returns ProjectListByOrgOutput
+    placeholderData: (prev) => prev, // Keep previous data during refetch (prevents flashing)
   });
 
-  const projects = projectsData?.success ? projectsData.projects : initialProjects;
+  const data: ProjectListByOrgOutput = (projectQuery.data ?? initialProjects ?? []) as ProjectListByOrgOutput;
+  // Only show loading when there's no cached data yet (initial load)
+  const isInitialLoading = projectQuery.isLoading && !projectQuery.data?.length;
+
+  // Map to sidebar shape after the hook (OpenPanel pattern)
+  const projects: SidebarProject[] = data.map((project: ProjectListByOrgOutput[number]): SidebarProject => ({
+    id: project.id,
+    name: project.name ?? null,
+    domain: project.domain ?? null,
+    description: project.description ?? null,
+  }));
 
   const fallbackText = user?.name
     ? user.name.charAt(0).toUpperCase()
@@ -190,7 +209,7 @@ export function Sidebar({
                   projects={projects}
                   organizations={organizations}
                   tenant={effectiveOrganization}
-                  isLoading={false}
+                  isLoading={isInitialLoading}
                 />
               </div>
             </div>
@@ -335,7 +354,7 @@ export function Sidebar({
                 projects={projects}
                 organizations={organizations}
                 tenant={activeOrganization}
-                isLoading={false}
+                isLoading={isInitialLoading}
               />
             </div>
           </div>

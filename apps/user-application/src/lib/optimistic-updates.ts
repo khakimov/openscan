@@ -1,4 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
 
 /**
  * Optimistic update helpers for TanStack Query mutations
@@ -17,12 +17,21 @@ import type { QueryClient } from '@tanstack/react-query';
  * - Rollback on error
  * - Refetch after completion
  *
- * @param queryKeys - Array of query keys to update (e.g., [['devices'], ['devices', deviceId]])
+ * **tRPC Support**: Now works with tRPC tuple keys like `[['device', 'list'], { input, type }]`
+ * by using `getQueriesData` / `setQueriesData` with partial matching.
+ *
+ * @param queryKeys - Array of query keys to update (supports both legacy and tRPC tuple keys)
  * @returns Object with onMutate, onError, onSettled handlers to spread into useMutation
  *
  * @example
  * ```ts
+ * // Legacy key format
  * const optimistic = createOptimisticDeleteHandlers([['devices']]);
+ *
+ * // tRPC tuple key format
+ * const optimistic = createOptimisticDeleteHandlers([
+ *   [['device', 'list']]  // Partial key matches all device list queries
+ * ]);
  *
  * export const useDeleteDeviceMutation = () => {
  *   const queryClient = useQueryClient();
@@ -36,7 +45,7 @@ import type { QueryClient } from '@tanstack/react-query';
  * ```
  */
 export const createOptimisticDeleteHandlers = <T extends { id: string }>(
-  queryKeys: unknown[][],
+  queryKeys: readonly QueryKey[],
 ) => ({
   /**
    * onMutate: Run before mutation executes
@@ -58,13 +67,16 @@ export const createOptimisticDeleteHandlers = <T extends { id: string }>(
     // Cancel any outgoing refetches (prevent race conditions)
     await Promise.all(queryKeys.map((key) => queryClient.cancelQueries({ queryKey: key })));
 
-    // Snapshot the previous value for ALL query keys
-    const snapshots = queryKeys.map((key) => ({
-      key,
-      data: queryClient.getQueryData(key),
-    }));
+    // Snapshot the previous values for ALL matching query keys
+    // Use getQueriesData for tRPC tuple key support (partial matching)
+    const snapshots = queryKeys.flatMap((key) =>
+      queryClient.getQueriesData({ queryKey: key }).map(([queryKey, data]) => ({
+        key: queryKey,
+        data,
+      }))
+    );
 
-    // Optimistically remove the item from ALL query caches
+    // Optimistically remove the item from ALL matching query caches
     queryKeys.forEach((key) => {
       queryClient.setQueriesData({ queryKey: key }, (old: any) => {
         if (!old) return old;
@@ -91,12 +103,12 @@ export const createOptimisticDeleteHandlers = <T extends { id: string }>(
   onError: (
     _err: unknown,
     _variables: unknown,
-    context: { snapshots?: Array<{ key: unknown[]; data: unknown }> } | undefined,
+    context: { snapshots?: Array<{ key: readonly unknown[]; data: unknown }> } | undefined,
     queryClient: QueryClient,
   ) => {
-    // Rollback: restore all snapshots
+    // Rollback: restore all snapshots (works with both exact and partial keys)
     context?.snapshots?.forEach(({ key, data }) => {
-      queryClient.setQueryData(key, data);
+      queryClient.setQueryData(key as unknown[], data);
     });
   },
 
@@ -105,7 +117,7 @@ export const createOptimisticDeleteHandlers = <T extends { id: string }>(
    * - Refetch to ensure consistency with server
    */
   onSettled: (queryClient: QueryClient) => {
-    // Invalidate all queries to refetch from server
+    // Invalidate all queries to refetch from server (partial matching works for tRPC keys)
     queryKeys.forEach((key) => {
       queryClient.invalidateQueries({ queryKey: key });
     });
@@ -117,7 +129,9 @@ export const createOptimisticDeleteHandlers = <T extends { id: string }>(
  *
  * Same as createOptimisticDeleteHandlers but matches on scheduleId field
  *
- * @param queryKeys - Array of query keys to update (e.g., [['schedules'], ['device-schedules', deviceId]])
+ * **tRPC Support**: Now works with tRPC tuple keys by using `getQueriesData` / `setQueriesData`
+ *
+ * @param queryKeys - Array of query keys to update (supports both legacy and tRPC tuple keys)
  * @returns Object with onMutate, onError, onSettled handlers to spread into useMutation
  *
  * @example
@@ -136,7 +150,7 @@ export const createOptimisticDeleteHandlers = <T extends { id: string }>(
  * ```
  */
 export const createOptimisticScheduleDeleteHandlers = <T extends { scheduleId: string }>(
-  queryKeys: unknown[][],
+  queryKeys: readonly QueryKey[],
 ) => ({
   /**
    * onMutate: Run before mutation executes
@@ -157,13 +171,16 @@ export const createOptimisticScheduleDeleteHandlers = <T extends { scheduleId: s
     // Cancel any outgoing refetches (prevent race conditions)
     await Promise.all(queryKeys.map((key) => queryClient.cancelQueries({ queryKey: key })));
 
-    // Snapshot the previous value for ALL query keys
-    const snapshots = queryKeys.map((key) => ({
-      key,
-      data: queryClient.getQueryData(key),
-    }));
+    // Snapshot the previous values for ALL matching query keys
+    // Use getQueriesData for tRPC tuple key support (partial matching)
+    const snapshots = queryKeys.flatMap((key) =>
+      queryClient.getQueriesData({ queryKey: key }).map(([queryKey, data]) => ({
+        key: queryKey,
+        data,
+      }))
+    );
 
-    // Optimistically remove the schedule from ALL query caches
+    // Optimistically remove the schedule from ALL matching query caches
     queryKeys.forEach((key) => {
       queryClient.setQueriesData({ queryKey: key }, (old: any) => {
         if (!old) return old;
@@ -196,12 +213,12 @@ export const createOptimisticScheduleDeleteHandlers = <T extends { scheduleId: s
   onError: (
     _err: unknown,
     _variables: unknown,
-    context: { snapshots?: Array<{ key: unknown[]; data: unknown }> } | undefined,
+    context: { snapshots?: Array<{ key: readonly unknown[]; data: unknown }> } | undefined,
     queryClient: QueryClient,
   ) => {
-    // Rollback: restore all snapshots
+    // Rollback: restore all snapshots (works with both exact and partial keys)
     context?.snapshots?.forEach(({ key, data }) => {
-      queryClient.setQueryData(key, data);
+      queryClient.setQueryData(key as unknown[], data);
     });
   },
 
@@ -210,7 +227,7 @@ export const createOptimisticScheduleDeleteHandlers = <T extends { scheduleId: s
    * - Refetch to ensure consistency with server
    */
   onSettled: (queryClient: QueryClient) => {
-    // Invalidate all queries to refetch from server
+    // Invalidate all queries to refetch from server (partial matching works for tRPC keys)
     queryKeys.forEach((key) => {
       queryClient.invalidateQueries({ queryKey: key });
     });

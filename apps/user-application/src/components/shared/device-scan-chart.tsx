@@ -6,7 +6,7 @@ import { derivePortStats, type PortScanStats, type PortSnapshot } from "@repo/da
 export interface ScanHistoryItem {
   id: string;
   requestedAt: Date | string | number; // Timestamp from Drizzle / database
-  resultSummary: {
+  resultSummary?: {
     portSnapshots?: PortSnapshot[];
     portScanStats?: PortScanStats;
   } | null;

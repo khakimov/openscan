@@ -1,11 +1,10 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
-import { getOrganizationProjects } from "@/server/projects";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, FolderIcon } from "lucide-react";
 import { pushModal } from "@/modals";
 import { SectionHeaderSkeleton, CardGridSkeleton } from "@/components/shared/skeletons";
-import type { ProjectEntity } from "@/server/projects/types";
+import type { ProjectEntity } from "@repo/contracts/project";
 import { useOrganization } from "@/components/layout";
 
 /**
@@ -21,15 +20,20 @@ const OrganizationIndexPending = () => (
 
 export const Route = createFileRoute("/_app/$organizationId/")({
   pendingComponent: OrganizationIndexPending,
-  loader: async ({ params }) => {
-    // Fetch projects for this organization
-    const result = await getOrganizationProjects();
+  loader: async ({ params, context }) => {
+    // Get organization from parent loader data
+    const parentData = await context.queryClient.ensureQueryData(
+      context.trpc.organization.get.queryOptions({
+        organizationId: params.organizationId,
+      })
+    );
 
-    if (!result.success) {
-      return { projects: [] };
-    }
-
-    const projects = result.projects;
+    // Fetch projects via tRPC (OpenPanel pattern)
+    const projects = await context.queryClient.ensureQueryData(
+      context.trpc.project.listByOrg.queryOptions({
+        organizationId: parentData.id,
+      })
+    );
 
     // Auto-redirect to project if only ONE project exists
     if (projects.length === 1) {

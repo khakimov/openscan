@@ -1,209 +1,135 @@
-import { queryOptions, useQueryClient } from '@tanstack/react-query';
-import { QUERY_CONFIG } from '@repo/constants';
-import {
-  getDeviceDetailData,
-  getDevicesData,
-  getDeviceScanHistoryData,
-  getDeviceVulnerabilitiesData,
-  deleteDevice,
-  updateDeviceData,
-  verifyDevice,
-  toggleDeviceVerification,
-  createDevicesFromDiscovery,
-  startDeviceScan,
-} from '@/server/devices';
-import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
+import { useQueryClient } from '@tanstack/react-query';
+import { useTRPCClient } from '@/integrations/trpc/react';
 import { createOptimisticDeleteHandlers } from '@/lib/optimistic-updates';
-import { onboardingStatusQuery } from '@/queries/onboarding-queries';
+import { onboardingStatusQueryKey } from '@/queries/onboarding-queries';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 /**
- * Centralized device query definitions using queryOptions()
+ * NOTE: This file will be migrated to use loaders/components accessing tRPC directly
+ * For now, it provides backward-compatible query helpers that delegate to tRPC
+ *
+ * The final pattern should be:
+ * - Loaders: await context.queryClient.ensureQueryData(context.trpc.device.detail.queryOptions({ deviceId }))
+ * - Components: useQuery(trpc.device.detail.queryOptions({ deviceId }))
+ */
+
+/**
+ * Centralized device query key factory (tRPC pattern)
  *
  * Benefits:
- * - Reusable in loaders (ensureQueryData) and components (useSuspenseQuery)
- * - Type-safe query keys
- * - Single source of truth for query configuration
+ * - Single source of truth for query keys
  * - Easy invalidation in mutations
- *
- * Usage:
- * - In loader: queryClient.ensureQueryData(deviceQueries.list({ verificationStatus }))
- * - In component: useSuspenseQuery(deviceQueries.list({ verificationStatus }))
- * - In mutation: queryClient.invalidateQueries({ queryKey: deviceQueries.list().queryKey })
+ * - Consistent keys across loaders and components
+ * - tRPC-compatible tuple structure
  */
 export const deviceQueries = {
   /**
-   * Device list query (with optional filtering)
+   * Device list query keys (tRPC-compatible)
    */
-  list: (params?: {
-    verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | ('CANDIDATE' | 'VERIFIED' | 'EXCLUDED')[];
-    projectId?: string;
-  }) =>
-    queryOptions({
-      queryKey: ['devices', params?.verificationStatus, params?.projectId],
-      queryFn: () => getDevicesData({
-        data: {
-          verificationStatus: params?.verificationStatus,
-          projectId: params?.projectId
-        }
-      }),
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  list: {
+    // Base key for all device list queries (for invalidation)
+    all: [['device', 'list']] as const,
+
+    // Base procedure path (for optimistic updates - avoids map() allocation)
+    base: ['device', 'list'] as const,
+
+    // Specific key for a query with params
+    key: (params?: {
+      verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | ('CANDIDATE' | 'VERIFIED' | 'EXCLUDED')[];
+      projectId?: string;
+      page?: number;
+      pageSize?: number;
+      sortColumn?: string;
+      sortDirection?: 'asc' | 'desc';
+    }) => [
+      ['device', 'list'],
+      { input: params || {}, type: 'query' as const }
+    ] as const,
+  },
 
   /**
-   * Single device detail query
-   * Note: organizationId is retrieved from session on the server, not passed from client
+   * Single device detail query key (tRPC-compatible)
    */
-  detail: (deviceId: string) =>
-    queryOptions({
-      queryKey: ['device-detail', deviceId],
-      queryFn: () => getDeviceDetailData({ data: { deviceId } }),
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  detail: {
+    key: (deviceId: string) => [
+      ['device', 'detail'],
+      { input: { deviceId }, type: 'query' as const }
+    ] as const,
+  },
 
   /**
-   * Device scan history query
+   * Device scan history query key (tRPC-compatible)
    */
-  scanHistory: (deviceId: string, limit = 10) =>
-    queryOptions({
-      queryKey: ['device-scan-history', deviceId, limit],
-      queryFn: () => getDeviceScanHistoryData({ data: { deviceId, limit } }),
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  scanHistory: {
+    key: (deviceId: string, limit = 10) => [
+      ['device', 'scanHistory'],
+      { input: { deviceId, limit }, type: 'query' as const }
+    ] as const,
+  },
 
   /**
-   * Device vulnerabilities query (paginated)
+   * Device vulnerabilities query key (tRPC-compatible)
    */
-  vulnerabilities: (deviceId: string, page = 1, sortByCvss = true) =>
-    queryOptions({
-      queryKey: ['device-vulnerabilities', deviceId, page, sortByCvss],
-      queryFn: () =>
-        getDeviceVulnerabilitiesData({
-          data: {
-            deviceId,
-            page,
-            sortColumn: sortByCvss ? 'cvssScore' : undefined,
-            sortDirection: sortByCvss ? 'descending' : undefined,
-          },
-        }),
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  vulnerabilities: {
+    key: (deviceId: string, page = 1) => [
+      ['device', 'vulnerabilities'],
+      { input: { deviceId, page }, type: 'query' as const }
+    ] as const,
+  },
 
   /**
-   * All vulnerabilities for a device (non-paginated)
-   * Fetches all pages and combines them
+   * Tag suggestions query key (tRPC-compatible)
    */
-  vulnerabilitiesAll: (deviceId: string, sortByCvss = true) =>
-    queryOptions({
-      queryKey: ['device-vulnerabilities-all', deviceId, sortByCvss],
-      queryFn: async () => {
-        // First, get page 1 to know total pages
-        const firstPage = await getDeviceVulnerabilitiesData({
-          data: {
-            deviceId,
-            page: 1,
-            sortColumn: sortByCvss ? 'cvssScore' : undefined,
-            sortDirection: sortByCvss ? 'descending' : undefined,
-          },
-        });
-
-        if (!firstPage.totalPages || firstPage.totalPages <= 1) {
-          return firstPage;
-        }
-
-        // Fetch all remaining pages in parallel
-        const remainingPages = Array.from(
-          { length: firstPage.totalPages - 1 },
-          (_, i) => i + 2,
-        );
-
-        const allPages = await Promise.all([
-          Promise.resolve(firstPage),
-          ...remainingPages.map((page) =>
-            getDeviceVulnerabilitiesData({
-              data: {
-                deviceId,
-                page,
-                sortColumn: sortByCvss ? 'cvssScore' : undefined,
-                sortDirection: sortByCvss ? 'descending' : undefined,
-              },
-            }),
-          ),
-        ]);
-
-        // Combine all items
-        const allItems = allPages.flatMap((page) => page.items || []);
-
-        return {
-          ...firstPage,
-          items: allItems,
-          page: 1,
-          totalPages: 1,
-        };
-      },
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  tagSuggestions: {
+    key: () => [
+      ['device', 'tagSuggestions'],
+      { input: undefined, type: 'query' as const }
+    ] as const,
+  },
 
   /**
    * Active scans for a device (polling query)
-   * Automatically stops polling when no active scans
    */
-  activeScans: (deviceId: string) =>
-    queryOptions({
-      queryKey: ['active-device-scans', deviceId],
-      queryFn: async () => {
-        const result = await getActiveDeviceScans({ data: { deviceId } });
-        if (!result.success) {
-          throw new Error(result.error || 'Failed to get active scans');
-        }
-        return result.activeScans || [];
-      },
-      staleTime: QUERY_CONFIG.STALE_TIME.SECONDS_30,
-      refetchInterval: (query) => {
-        const activeScans = query.state.data;
-        // Stop polling when no active scans
-        return activeScans?.length ? QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_30 : false;
-      },
-      refetchIntervalInBackground: false,
-    }),
+  activeScans: {
+    key: (deviceId: string) => [
+      ['device', 'activeScans'],
+      { input: { deviceId }, type: 'query' as const }
+    ] as const,
+  },
 };
 
 /**
- * Device mutation hooks (following TanStack Router best practice)
- *
- * Benefits:
- * - Centralized invalidation logic
- * - Reusable across components
- * - Type-safe
- * - Follows official TanStack pattern from kitchen-sink-react-query example
- *
- * Usage in components:
- * const deleteMutation = useDeleteDeviceMutation();
- * deleteMutation.mutate({ deviceId: '123' });
+ * Device mutation hooks (tRPC pattern)
  */
 
 export const useDeleteDeviceMutation = () => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
-  // Optimistic delete: Update UI immediately, rollback on error
+  // Use tRPC-compatible key structure for optimistic updates
+  // deviceQueries.list.base = ['device', 'list'] - matches all tRPC device list queries
+  // This matches tRPC cache keys like [['device', 'list'], { input: {...}, type: 'query' }]
   const optimistic = createOptimisticDeleteHandlers([
-    ['devices'], // Update all device list queries
+    deviceQueries.list.base
   ]);
 
   return useMutationWithToast({
-    mutationKey: ['devices', 'delete'],
-    mutationFn: (data: { deviceId: string }) => deleteDevice({ data }),
+    mutationKey: ['device', 'delete'],
+    mutationFn: (data: { deviceId: string }) =>
+      trpcClient.device.remove.mutate(data),
     successMessage: 'Device deleted successfully',
-    invalidateKeys: [['devices']],
+    invalidateKeys: [deviceQueries.list.base],
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),
   });
 };
 
-export const useUpdateDeviceMutation = (deviceId: string) =>
-  useMutationWithToast({
-    mutationKey: ['devices', 'update', deviceId],
+export const useUpdateDeviceMutation = (deviceId: string) => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
+    mutationKey: ['device', 'update', deviceId],
     mutationFn: async (data: {
       deviceId: string;
       updates: {
@@ -218,179 +144,151 @@ export const useUpdateDeviceMutation = (deviceId: string) =>
         notes?: string;
       };
     }) => {
-      const response = await updateDeviceData({ data });
+      const response = await trpcClient.device.update.mutate(data);
       if (!response.success) {
-        throw new Error(response.error || 'Failed to update device');
+        throw new Error('Failed to update device');
       }
       return response;
     },
-    successMessage: "Device updated successfully",
+    successMessage: 'Device updated successfully',
     invalidateKeys: [
-      ['devices'],
-      ['device-detail', deviceId],
-      ['deviceTagSuggestions'],
+      deviceQueries.list.base,
+      deviceQueries.detail.key(deviceId),
+      deviceQueries.tagSuggestions.key(),
     ],
   });
+};
 
-export const useVerifyDeviceMutation = () =>
-  useMutationWithToast({
-    mutationKey: ['devices', 'verify'],
+export const useVerifyDeviceMutation = () => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
+    mutationKey: ['device', 'verify'],
     mutationFn: async (data: {
       deviceId: string;
       status: 'VERIFIED' | 'EXCLUDED' | 'CANDIDATE';
       note?: string;
     }) => {
-      const response = await verifyDevice({ data });
+      const response = await trpcClient.device.verify.mutate(data);
       if (!response.success) {
-        const errorMsg = 'error' in response && typeof response.error === 'string'
-          ? response.error
-          : 'Failed to verify device';
-        throw new Error(errorMsg);
+        throw new Error('Failed to verify device');
       }
       return response;
     },
-    successMessage: "Device verification updated",
-    invalidateKeys: [['devices']],
+    successMessage: 'Device verification updated',
+    invalidateKeys: [deviceQueries.list.base],
   });
+};
 
-export const useToggleDeviceVerificationMutation = () =>
-  useMutationWithToast({
-    mutationKey: ['devices', 'toggle-verification'],
+export const useToggleDeviceVerificationMutation = () => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
+    mutationKey: ['device', 'toggle-verification'],
     mutationFn: async (data: {
       deviceId: string;
       verify: boolean;
       interval?: string;
+      note?: string;
     }) => {
-      const response = await toggleDeviceVerification({ data });
+      const response = await trpcClient.device.toggleVerification.mutate(data);
       if (!response.success) {
-        const errorMsg = 'error' in response && typeof response.error === 'string'
-          ? response.error
-          : 'Failed to toggle verification';
-        throw new Error(errorMsg);
+        throw new Error('Failed to toggle verification');
       }
       return response;
     },
     successMessage: (_response, vars) =>
-      vars.verify ? "Device verified" : "Device unverified",
-    invalidateKeys: [['devices']],
+      vars.verify ? 'Device verified' : 'Device unverified',
+    invalidateKeys: [deviceQueries.list.base],
   });
+};
 
 export const useStartDeviceScanMutation = (deviceId: string) => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
-  return useMutationWithToast({
-    mutationKey: ['devices', 'scan', deviceId],
-    mutationFn: (data: { deviceId: string; target: string; preset: string }) =>
-      startDeviceScan({ data }),
-    successMessage: 'Scan started successfully',
-    invalidateKeys: [deviceQueries.activeScans(deviceId).queryKey],
-    toastOnSuccess: false, // Silent - UI shows scan progress immediately
 
-    // Optimistic update: Add temporary scan immediately
+  return useMutationWithToast({
+    mutationKey: ['device', 'scan', deviceId],
+    mutationFn: (data: { deviceId: string; target: string; preset: 'QUICK' | 'STANDARD' | 'THOROUGH' }) =>
+      trpcClient.device.startScan.mutate(data),
+    successMessage: 'Scan started successfully',
+    invalidateKeys: [deviceQueries.activeScans.key(deviceId)],
+    toastOnSuccess: false,
+
     onMutate: async (variables) => {
-      // 1. Cancel any outgoing refetches to prevent race conditions
       await queryClient.cancelQueries({
-        queryKey: deviceQueries.activeScans(deviceId).queryKey
+        queryKey: deviceQueries.activeScans.key(deviceId),
       });
 
-      // 2. Snapshot previous value for rollback
       const previousScans = queryClient.getQueryData(
-        deviceQueries.activeScans(deviceId).queryKey
+        deviceQueries.activeScans.key(deviceId),
       );
 
-      // 3. Optimistically update cache with temporary scan
       queryClient.setQueryData(
-        deviceQueries.activeScans(deviceId).queryKey,
+        deviceQueries.activeScans.key(deviceId),
         (old: any[] = []) => [
           ...old,
           {
-            id: `temp-${Date.now()}`, // Temporary ID
+            id: `temp-${Date.now()}`,
             deviceId: variables.deviceId,
             target: variables.target,
             status: 'PENDING',
             startedAt: new Date().toISOString(),
-          }
-        ]
+          },
+        ],
       );
 
-      // 4. Return context for rollback
       return { previousScans };
     },
 
     onError: (_err, _variables, context) => {
-      // Rollback on error
       if (context?.previousScans) {
         queryClient.setQueryData(
-          deviceQueries.activeScans(deviceId).queryKey,
-          context.previousScans
+          deviceQueries.activeScans.key(deviceId),
+          context.previousScans,
         );
       }
     },
 
     onSuccess: () => {
-      // Invalidate to sync with real database scan
-      queryClient.invalidateQueries({ queryKey: deviceQueries.activeScans(deviceId).queryKey });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.activeScans.key(deviceId) });
     },
   });
 };
 
-/**
- * Create devices from UI flows (AddDevice modal, etc.)
- *
- * This mutation REQUIRES projectId at compile-time.
- * TypeScript will error if you try to call it without projectId.
- *
- * Example usage:
- * ```tsx
- * const { projectId } = useParams();
- * const mutation = useCreateDevicesFromDiscoveryMutation();
- * mutation.mutate({
- *   targets: [{ host: 'example.com' }],
- *   projectId,  // ✅ Required - won't compile without it
- * });
- * ```
- */
 export const useCreateDevicesFromDiscoveryMutation = () => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
   return useMutationWithToast({
-    mutationKey: ['devices', 'create-from-discovery'],
+    mutationKey: ['device', 'create-from-discovery'],
     mutationFn: async (data: {
       targets: Array<{ host: string; ip?: string }>;
-      projectId: string;  // ✅ REQUIRED - no question mark!
+      projectId: string;
       options?: {
         source?: string;
         scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
         verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
       };
     }) => {
-      const response = await createDevicesFromDiscovery({ data });
+      const response = await trpcClient.device.createFromDiscovery.mutate(data);
       if (!response.success) {
-        throw new Error(response.error || 'Failed to create devices');
+        throw new Error('Failed to create devices');
       }
       return response;
     },
     successMessage: (response) =>
       `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
-    invalidateKeys: [
-      ['devices'],  // Invalidate all device lists
-    ],
+    invalidateKeys: [deviceQueries.list.base],
     onSuccess: async () => {
-      // 1. Seed onboarding status cache (updates asset counts)
-      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
-      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+      // Invalidate onboarding status cache (updates asset counts)
+      await queryClient.invalidateQueries({ queryKey: onboardingStatusQueryKey() });
 
-      // 2. Invalidate tenant-scoped discovery devices cache (if organizationId available)
-      // This is more precise than invalidating all orgs' caches
-      if (nextStatus.organizationId) {
-        queryClient.invalidateQueries({
-          queryKey: ['onboarding', 'discovery', 'devices', nextStatus.organizationId],
-        });
-      } else {
-        // Fallback: invalidate all discovery device caches (onboarding might not have org yet)
-        queryClient.invalidateQueries({
-          queryKey: ['onboarding', 'discovery', 'devices'],
-        });
-      }
+      // Invalidate discovery devices cache using tRPC-compatible pattern
+      // Use partial matching to invalidate all discoveryDevices queries
+      await queryClient.invalidateQueries({
+        queryKey: [['onboarding', 'discoveryDevices']],
+      });
     },
   });
 };

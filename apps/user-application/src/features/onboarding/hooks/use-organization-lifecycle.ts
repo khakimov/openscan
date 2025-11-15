@@ -1,12 +1,7 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
-import {
-  createOrganizationOnboarding,
-  createProjectOnboarding,
-  updateOrganizationOnboarding,
-} from "@/server/organization";
-import { onboardingStatusQuery } from "@/queries/onboarding-queries";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 
 export interface OrganizationFormData {
   organizationName: string;
@@ -49,7 +44,12 @@ export function useOrganizationLifecycle({
   projectId,
 }: UseOrganizationLifecycleOptions) {
   const queryClient = useQueryClient();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
   const [error, setError] = useState<string | null>(null);
+
+  // Get queryOptions for invalidation
+  const statusOptions = trpc.onboarding.status.queryOptions();
 
   /**
    * Mutation function: Sets up organization and project
@@ -67,25 +67,17 @@ export function useOrganizationLifecycle({
 
     let organizationId = persistedOrganizationId;
 
-    // Step 1: Create or update organization
+    // Step 1: Create or update organization (using tRPC)
     if (!hasOrganization || !organizationId) {
       console.log(
         "[useOrganizationLifecycle] Creating organization:",
         formData.organizationName
       );
 
-      const orgResult = await createOrganizationOnboarding({
-        data: {
-          name: formData.organizationName,
-          timezone: formData.timezone,
-        },
+      const orgResult = await trpcClient.onboarding.createOrganization.mutate({
+        name: formData.organizationName,
+        timezone: formData.timezone,
       });
-
-      if (!orgResult.success || !orgResult.organization) {
-        throw new Error(
-          orgResult.error || "Failed to create organization"
-        );
-      }
 
       organizationId = orgResult.organization.id;
       console.log(
@@ -93,19 +85,11 @@ export function useOrganizationLifecycle({
         orgResult.organization
       );
     } else {
-      const updateResult = await updateOrganizationOnboarding({
-        data: {
-          organizationId,
-          name: formData.organizationName,
-          timezone: formData.timezone,
-        },
+      await trpcClient.onboarding.updateOrganization.mutate({
+        organizationId,
+        name: formData.organizationName,
+        timezone: formData.timezone,
       });
-
-      if (!updateResult.success) {
-        throw new Error(
-          updateResult.error || "Failed to update organization"
-        );
-      }
 
       console.log(
         "[useOrganizationLifecycle] Organization updated:",
@@ -117,24 +101,18 @@ export function useOrganizationLifecycle({
       throw new Error("Organization ID not available");
     }
 
-    // Step 2: Create or update project
+    // Step 2: Create or update project (using tRPC)
     console.log(
       "[useOrganizationLifecycle] Saving project:",
       formData.projectName
     );
 
-    const projectResult = await createProjectOnboarding({
-      data: {
-        projectName: formData.projectName,
-        domain: formData.domain || undefined,
-        organizationId,
-        projectId,
-      },
+    const projectResult = await trpcClient.onboarding.createProject.mutate({
+      projectName: formData.projectName,
+      domain: formData.domain || undefined,
+      organizationId,
+      projectId,
     });
-
-    if (!projectResult.success) {
-      throw new Error(projectResult.error || "Failed to save project");
-    }
 
     console.log(
       "[useOrganizationLifecycle] Project saved:",
@@ -152,15 +130,15 @@ export function useOrganizationLifecycle({
     mutationKey: ["onboarding", "setup"],
     mutationFn: setupMutationFn,
     successMessage: `${hasOrganization ? "Updated" : "Created"} organization and project`,
-    invalidateKeys: [onboardingStatusQuery.queryKey],
+    invalidateKeys: [statusOptions.queryKey],
     toastOnSuccess: false, // Silent - onboarding flow handles navigation
     onSuccess: async (result) => {
       if (!result.success) return;
 
       // Seed React Query cache with fresh onboarding status
-      // This triggers instant UI updates across all components using useQuery(onboardingStatusQuery)
-      const nextStatus = await queryClient.fetchQuery(onboardingStatusQuery);
-      queryClient.setQueryData(onboardingStatusQuery.queryKey, nextStatus);
+      // This triggers instant UI updates across all components using tRPC query
+      const nextStatus = await trpcClient.onboarding.status.query();
+      queryClient.setQueryData(statusOptions.queryKey, nextStatus);
 
       console.log("[useOrganizationLifecycle] Cache seeded with fresh onboarding status");
     },

@@ -18,6 +18,7 @@ import { seo } from "@/utils/seo";
 import { Toaster } from "sonner";
 import type { RouterContext } from "@/router";
 import { Spinner } from "@/components/ui/spinner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 const themeConfig = {
   attribute: "class" as const,
@@ -106,9 +107,11 @@ function RootComponent() {
 function ThemeShell({ children }: { children: React.ReactNode }) {
   return (
     <ThemeProvider {...themeConfig}>
-      <ModalProvider>
-        <RootDocument>{children}</RootDocument>
-      </ModalProvider>
+      <TooltipProvider>
+        <ModalProvider>
+          <RootDocument>{children}</RootDocument>
+        </ModalProvider>
+      </TooltipProvider>
     </ThemeProvider>
   );
 }

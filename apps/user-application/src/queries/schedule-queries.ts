@@ -1,279 +1,261 @@
-import { queryOptions, useQueryClient } from '@tanstack/react-query';
-import { QUERY_CONFIG } from '@repo/constants';
-import {
-  getScheduleData,
-  getSchedulesForDeviceData,
-  getSchedulesData,
-  createScheduleData,
-  pauseScheduleData,
-  resumeScheduleData,
-  deleteScheduleData,
-  type CreateScheduleInput,
-} from '@/server/schedules';
-import { createOptimisticScheduleDeleteHandlers } from '@/lib/optimistic-updates';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTRPC, useTRPCClient } from '@/integrations/trpc/react';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
+import { createOptimisticScheduleDeleteHandlers } from '@/lib/optimistic-updates';
 
 /**
- * Centralized schedule query definitions using queryOptions()
- *
- * Benefits:
- * - Reusable in loaders (ensureQueryData) and components (useSuspenseQuery)
- * - Type-safe query keys
- * - Single source of truth for query configuration
- * - Easy invalidation in mutations
- *
- * Usage:
- * - In loader: queryClient.ensureQueryData(scheduleQueries.forDevice(deviceId))
- * - In component: useSuspenseQuery(scheduleQueries.forDevice(deviceId))
- * - In mutation: queryClient.invalidateQueries({ queryKey: ['schedules'] })
+ * Centralized schedule query key factory (tRPC pattern)
  */
 export const scheduleQueries = {
   /**
-   * All schedules query (excludes DELETED schedules by default)
+   * Schedule list query keys (tRPC-compatible)
    */
-  all: (params?: {
-    status?: 'ACTIVE' | 'PAUSED';
-    deviceId?: string;
-  }) =>
-    queryOptions({
-      queryKey: ['schedules', params?.status, params?.deviceId],
-      queryFn: async () => {
-        const result = await getSchedulesData({
-          data: {
-            status: params?.status,
-            deviceId: params?.deviceId,
-          },
-        });
-        if (!result.success) {
-          throw new Error('Failed to fetch schedules');
-        }
-        // Filter out deleted schedules (soft-deleted in DB but not yet purged)
-        return (result.schedules || []).filter((s: any) => s.status !== 'DELETED');
-      },
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  list: {
+    // Base key for all schedule list queries (for invalidation)
+    base: ['schedule', 'list'] as const,
+
+    // Specific key for a query with params
+    key: (params?: {
+      isActive?: boolean;
+      status?: 'ACTIVE' | 'PAUSED' | 'AUTO_PAUSED' | 'DELETED';
+    }) => [
+      ['schedule', 'list'],
+      { input: params ?? {}, type: 'query' as const }
+    ] as const,
+  },
 
   /**
-   * Single schedule detail query
+   * Schedules for a device query keys
    */
-  detail: (scheduleId: string) =>
-    queryOptions({
-      queryKey: ['schedule-detail', scheduleId],
-      queryFn: async () => {
-        const result = await getScheduleData({ data: { scheduleId } });
-        if (!result.success) {
-          throw new Error('Failed to fetch schedule');
-        }
-        return result.schedule;
-      },
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  listByDevice: {
+    key: (deviceId: string) => [
+      ['schedule', 'listByDevice'],
+      { input: { deviceId }, type: 'query' as const }
+    ] as const,
+  },
 
   /**
-   * Schedules for a specific device (excludes DELETED schedules)
+   * Single schedule detail query key
    */
-  forDevice: (deviceId: string) =>
-    queryOptions({
-      queryKey: ['device-schedules', deviceId],
-      queryFn: async () => {
-        const result = await getSchedulesForDeviceData({ data: { deviceId } });
-        if (!result.success) {
-          throw new Error('Failed to fetch device schedules');
-        }
-        // Filter out deleted schedules (soft-deleted in DB but not yet purged)
-        return (result.schedules || []).filter((s: any) => s.status !== 'DELETED');
-      },
-      ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
-    }),
+  detail: {
+    key: (scheduleId: string) => [
+      ['schedule', 'detail'],
+      { input: { scheduleId }, type: 'query' as const }
+    ] as const,
+  },
 };
 
 /**
- * Schedule mutation hooks (following TanStack Router best practice)
- *
- * Benefits:
- * - Centralized invalidation logic
- * - Reusable across components
- * - Type-safe
- * - Follows official TanStack pattern
- *
- * Usage in components:
- * const createMutation = useCreateScheduleMutation();
- * createMutation.mutate({ deviceId: '123', preset: 'STANDARD', ... });
+ * Schedule query hooks (reusable across components)
+ */
+
+/**
+ * Hook to fetch all schedules for organization
+ */
+export const useScheduleList = (params?: {
+  isActive?: boolean;
+  status?: 'ACTIVE' | 'PAUSED' | 'AUTO_PAUSED' | 'DELETED';
+}) => {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+
+  return useQuery({
+    ...trpc.schedule.list.queryOptions(params),
+    queryFn: () => trpcClient.schedule.list.query(params),
+  });
+};
+
+/**
+ * Hook to fetch schedules for a specific device
+ */
+export const useScheduleListByDevice = (deviceId: string) => {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+
+  return useQuery({
+    ...trpc.schedule.listByDevice.queryOptions({ deviceId }),
+    queryFn: () => trpcClient.schedule.listByDevice.query({ deviceId }),
+  });
+};
+
+/**
+ * Hook to fetch schedule details
+ */
+export const useScheduleDetail = (scheduleId: string) => {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+
+  return useQuery({
+    ...trpc.schedule.detail.queryOptions({ scheduleId }),
+    queryFn: () => trpcClient.schedule.detail.query({ scheduleId }),
+  });
+};
+
+/**
+ * Schedule mutation hooks (tRPC pattern)
  */
 
 export const useCreateScheduleMutation = () => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
   return useMutationWithToast({
-    mutationKey: ['schedules', 'create'],
-    mutationFn: (data: CreateScheduleInput) => createScheduleData({ data }),
-    successMessage: "Scan schedule created successfully",
-    invalidateKeys: [['schedules']],
-    onSuccess: async (_result, variables, _context) => {
-      // Also invalidate device-specific schedules for immediate UI update
-      queryClient.invalidateQueries({
-        queryKey: ['device-schedules', variables.deviceId],
+    mutationKey: ['schedule', 'create'],
+    mutationFn: (data: {
+      deviceId: string;
+      preset: 'QUICK' | 'STANDARD' | 'THOROUGH';
+      scheduleFrequency: 'EVERY_30_MINUTES' | 'EVERY_HOUR' | 'EVERY_6_HOURS' | 'EVERY_12_HOURS' | 'DAILY';
+      dailyTime?: string;
+      startImmediately?: boolean;
+    }) => trpcClient.schedule.create.mutate(data),
+    successMessage: 'Scan schedule created successfully',
+    invalidateKeys: [scheduleQueries.list.base],
+    onSuccess: async (_result, variables) => {
+      // Also invalidate device-specific schedules
+      await queryClient.invalidateQueries({
+        queryKey: scheduleQueries.listByDevice.key(variables.deviceId),
       });
     },
   });
 };
 
 export const usePauseScheduleMutation = () => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
   return useMutationWithToast({
-    mutationKey: ['schedules', 'pause'],
-    mutationFn: (data: { scheduleId: string }) => pauseScheduleData({ data }),
+    mutationKey: ['schedule', 'pause'],
+    mutationFn: (data: { scheduleId: string }) =>
+      trpcClient.schedule.pause.mutate(data),
     successMessage: 'Schedule paused successfully',
-    invalidateKeys: [['schedules'], ['device-schedules']],
+    invalidateKeys: [scheduleQueries.list.base],
 
     // Optimistic update: Change status to PAUSED immediately
     onMutate: async (variables) => {
       // Cancel in-flight queries
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: ['schedules'] }),
-        queryClient.cancelQueries({ queryKey: ['device-schedules'] }),
-        queryClient.cancelQueries({ queryKey: ['schedule-detail', variables.scheduleId] }),
-      ]);
+      await queryClient.cancelQueries({ queryKey: scheduleQueries.list.base });
+      await queryClient.cancelQueries({ queryKey: scheduleQueries.detail.key(variables.scheduleId) });
 
       // Snapshot previous values
-      const schedulesSnapshot = queryClient.getQueryData(['schedules']);
-      const deviceSchedulesSnapshot = queryClient.getQueryData(['device-schedules']);
-      const detailSnapshot = queryClient.getQueryData(['schedule-detail', variables.scheduleId]);
+      const schedulesSnapshot = queryClient.getQueriesData({ queryKey: scheduleQueries.list.base });
+      const detailSnapshot = queryClient.getQueryData(scheduleQueries.detail.key(variables.scheduleId));
 
       // Optimistically update status to PAUSED
       const updateScheduleStatus = (old: any) => {
         if (!old) return old;
-
-        const items = Array.isArray(old) ? old : old.schedules || old.items;
-        if (!items) return old;
-
-        const updated = items.map((item: any) =>
-          item.scheduleId === variables.scheduleId
-            ? { ...item, status: 'PAUSED', isActive: false }
-            : item
-        );
-
-        if (Array.isArray(old)) return updated;
-        if (old.schedules) return { ...old, schedules: updated };
-        return { ...old, items: updated };
+        if (Array.isArray(old)) {
+          return old.map((item: any) =>
+            item.scheduleId === variables.scheduleId
+              ? { ...item, status: 'PAUSED', isActive: false }
+              : item
+          );
+        }
+        return old;
       };
 
-      queryClient.setQueriesData({ queryKey: ['schedules'] }, updateScheduleStatus);
-      queryClient.setQueriesData({ queryKey: ['device-schedules'] }, updateScheduleStatus);
-      queryClient.setQueryData(['schedule-detail', variables.scheduleId], (old: any) =>
+      queryClient.setQueriesData({ queryKey: scheduleQueries.list.base }, updateScheduleStatus);
+      queryClient.setQueryData(scheduleQueries.detail.key(variables.scheduleId), (old: any) =>
         old ? { ...old, status: 'PAUSED', isActive: false } : old
       );
 
-      return { schedulesSnapshot, deviceSchedulesSnapshot, detailSnapshot };
+      return { schedulesSnapshot, detailSnapshot };
     },
 
     // Rollback on error
     onError: (_err, variables, context) => {
       if (context?.schedulesSnapshot) {
-        queryClient.setQueryData(['schedules'], context.schedulesSnapshot);
-      }
-      if (context?.deviceSchedulesSnapshot) {
-        queryClient.setQueryData(['device-schedules'], context.deviceSchedulesSnapshot);
+        context.schedulesSnapshot.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
+        });
       }
       if (context?.detailSnapshot) {
-        queryClient.setQueryData(['schedule-detail', variables.scheduleId], context.detailSnapshot);
+        queryClient.setQueryData(scheduleQueries.detail.key(variables.scheduleId), context.detailSnapshot);
       }
     },
 
     // Refetch to sync with server
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedules'] });
-      queryClient.invalidateQueries({ queryKey: ['device-schedules'] });
+      queryClient.invalidateQueries({ queryKey: scheduleQueries.list.base });
     },
   });
 };
 
 export const useResumeScheduleMutation = () => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
   return useMutationWithToast({
-    mutationKey: ['schedules', 'resume'],
-    mutationFn: (data: { scheduleId: string }) => resumeScheduleData({ data }),
+    mutationKey: ['schedule', 'resume'],
+    mutationFn: (data: { scheduleId: string }) =>
+      trpcClient.schedule.resume.mutate(data),
     successMessage: 'Schedule resumed successfully',
-    invalidateKeys: [['schedules'], ['device-schedules']],
+    invalidateKeys: [scheduleQueries.list.base],
 
     // Optimistic update: Change status to ACTIVE immediately
     onMutate: async (variables) => {
       // Cancel in-flight queries
-      await Promise.all([
-        queryClient.cancelQueries({ queryKey: ['schedules'] }),
-        queryClient.cancelQueries({ queryKey: ['device-schedules'] }),
-        queryClient.cancelQueries({ queryKey: ['schedule-detail', variables.scheduleId] }),
-      ]);
+      await queryClient.cancelQueries({ queryKey: scheduleQueries.list.base });
+      await queryClient.cancelQueries({ queryKey: scheduleQueries.detail.key(variables.scheduleId) });
 
       // Snapshot previous values
-      const schedulesSnapshot = queryClient.getQueryData(['schedules']);
-      const deviceSchedulesSnapshot = queryClient.getQueryData(['device-schedules']);
-      const detailSnapshot = queryClient.getQueryData(['schedule-detail', variables.scheduleId]);
+      const schedulesSnapshot = queryClient.getQueriesData({ queryKey: scheduleQueries.list.base });
+      const detailSnapshot = queryClient.getQueryData(scheduleQueries.detail.key(variables.scheduleId));
 
       // Optimistically update status to ACTIVE
       const updateScheduleStatus = (old: any) => {
         if (!old) return old;
-
-        const items = Array.isArray(old) ? old : old.schedules || old.items;
-        if (!items) return old;
-
-        const updated = items.map((item: any) =>
-          item.scheduleId === variables.scheduleId
-            ? { ...item, status: 'ACTIVE', isActive: true, consecutiveFailures: 0 }
-            : item
-        );
-
-        if (Array.isArray(old)) return updated;
-        if (old.schedules) return { ...old, schedules: updated };
-        return { ...old, items: updated };
+        if (Array.isArray(old)) {
+          return old.map((item: any) =>
+            item.scheduleId === variables.scheduleId
+              ? { ...item, status: 'ACTIVE', isActive: true, consecutiveFailures: 0 }
+              : item
+          );
+        }
+        return old;
       };
 
-      queryClient.setQueriesData({ queryKey: ['schedules'] }, updateScheduleStatus);
-      queryClient.setQueriesData({ queryKey: ['device-schedules'] }, updateScheduleStatus);
-      queryClient.setQueryData(['schedule-detail', variables.scheduleId], (old: any) =>
+      queryClient.setQueriesData({ queryKey: scheduleQueries.list.base }, updateScheduleStatus);
+      queryClient.setQueryData(scheduleQueries.detail.key(variables.scheduleId), (old: any) =>
         old ? { ...old, status: 'ACTIVE', isActive: true, consecutiveFailures: 0 } : old
       );
 
-      return { schedulesSnapshot, deviceSchedulesSnapshot, detailSnapshot };
+      return { schedulesSnapshot, detailSnapshot };
     },
 
     // Rollback on error
     onError: (_err, variables, context) => {
       if (context?.schedulesSnapshot) {
-        queryClient.setQueryData(['schedules'], context.schedulesSnapshot);
-      }
-      if (context?.deviceSchedulesSnapshot) {
-        queryClient.setQueryData(['device-schedules'], context.deviceSchedulesSnapshot);
+        context.schedulesSnapshot.forEach(([key, data]) => {
+          queryClient.setQueryData(key, data);
+        });
       }
       if (context?.detailSnapshot) {
-        queryClient.setQueryData(['schedule-detail', variables.scheduleId], context.detailSnapshot);
+        queryClient.setQueryData(scheduleQueries.detail.key(variables.scheduleId), context.detailSnapshot);
       }
     },
 
     // Refetch to sync with server
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ['schedules'] });
-      queryClient.invalidateQueries({ queryKey: ['device-schedules'] });
+      queryClient.invalidateQueries({ queryKey: scheduleQueries.list.base });
     },
   });
 };
 
 export const useDeleteScheduleMutation = () => {
+  const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
   // Optimistic delete: Update UI immediately, rollback on error
   const optimistic = createOptimisticScheduleDeleteHandlers([
-    ['schedules'],
-    ['device-schedules'],
+    scheduleQueries.list.base,
   ]);
 
   return useMutationWithToast({
-    mutationKey: ['schedules', 'delete'],
-    mutationFn: (data: { scheduleId: string }) => deleteScheduleData({ data }),
+    mutationKey: ['schedule', 'delete'],
+    mutationFn: (data: { scheduleId: string }) =>
+      trpcClient.schedule.delete.mutate(data),
     successMessage: 'Schedule deleted successfully',
-    invalidateKeys: [['schedules'], ['device-schedules']],
+    invalidateKeys: [scheduleQueries.list.base],
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),

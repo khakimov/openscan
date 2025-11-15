@@ -12,24 +12,27 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useForm } from "@tanstack/react-form";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { useQuery } from "@tanstack/react-query";
-import { getCurrentUser } from "@/server/auth";
 import { validateDomain } from "@/features/onboarding/utils/validators";
 import { useOrganizationLifecycle } from "@/features/onboarding/hooks/use-organization-lifecycle";
-import { onboardingStatusQuery } from "@/queries/onboarding-queries";
 
 export const Route = createFileRoute("/onboarding/project")({
-  beforeLoad: async () => {
-    // Redirect if not authenticated
-    const user = await getCurrentUser().catch(() => null);
-    if (!user) {
+  beforeLoad: async ({ context }) => {
+    // Redirect if not authenticated (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
+
+    if (!sessionData?.session) {
       throw redirect({ to: "/onboarding" });
     }
-    // Onboarding data is already loaded by parent route - no need to return anything
   },
   loader: async ({ context }) => {
-    // Read onboarding from parent context (no server call!)
-    const onboarding = context.onboarding!;
+    // OpenPanel pattern: Use tRPC queryOptions for onboarding status
+    const onboarding = await context.queryClient.ensureQueryData(
+      context.trpc.onboarding.status.queryOptions()
+    );
+
     const organizations = onboarding.organizations ?? [];
     const organizationRecord = onboarding.organization;
     const projectRecord = onboarding.project;
@@ -41,6 +44,7 @@ export const Route = createFileRoute("/onboarding/project")({
         : undefined;
 
     return {
+      onboarding, // Include raw onboarding status for initialData
       hasOrganization: organizations.length > 0,
       organizationId: onboarding.organizationId,
       projectId: onboarding.projectId,
@@ -57,14 +61,18 @@ export const Route = createFileRoute("/onboarding/project")({
 
 function Onboarding2Project() {
   const navigate = useNavigate();
-  const { hasOrganization, organizationId, projectId, initialValues } = Route.useLoaderData();
+  const { hasOrganization, organizationId, projectId, initialValues, onboarding } = Route.useLoaderData();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
   // Subscribe to onboarding query for reactive updates (e.g., after mutations)
-  // Don't destructure data until we need it to avoid unused variable warnings
-  const initialOnboarding = Route.useRouteContext().onboarding;
+  // OpenPanel pattern: Reuse queryOptions to ensure cache key stays in sync
+  const statusOptions = trpc.onboarding.status.queryOptions();
+
   useQuery({
-    ...onboardingStatusQuery,
-    initialData: initialOnboarding,
+    ...statusOptions,
+    queryFn: () => trpcClient.onboarding.status.query(),
+    initialData: onboarding,
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);

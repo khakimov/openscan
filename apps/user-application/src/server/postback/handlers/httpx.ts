@@ -77,11 +77,65 @@ export class HttpxPostbackHandler
       successCount: data.probes.filter(p => p.status === 'SUCCESS').length,
     });
 
+    // Deduplicate probes by port (httpx returns both http:// and https:// for each port)
+    // Prioritize: HTTPS > HTTP, SUCCESS > FAILED, has screenshot > no screenshot, higher status code
+    const probesByPort = new Map<number, typeof data.probes[0]>();
+
+    for (const probe of data.probes) {
+      // Normalize port to number (HTTPx CLI sometimes returns strings)
+      const portKey = typeof probe.port === 'number'
+        ? probe.port
+        : Number.parseInt(String(probe.port), 10);
+
+      if (!Number.isFinite(portKey)) {
+        ctx.logger.warn('Skipping httpx probe with invalid port', {
+          rawPort: probe.port,
+          url: probe.url,
+        });
+        continue;
+      }
+
+      const existing = probesByPort.get(portKey);
+
+      if (!existing) {
+        probesByPort.set(portKey, probe);
+        continue;
+      }
+
+      // Keep the better probe based on priority rules
+      const shouldReplace =
+        // Prefer HTTPS over HTTP
+        (probe.scheme === 'https' && existing.scheme === 'http') ||
+        // Prefer SUCCESS over FAILED (same scheme)
+        (probe.scheme === existing.scheme && probe.status === 'SUCCESS' && existing.status !== 'SUCCESS') ||
+        // Prefer probes with screenshots (same scheme and status)
+        (probe.scheme === existing.scheme &&
+         probe.status === existing.status &&
+         (probe.screenshotBase64 ? 1 : 0) > (existing.screenshotBase64 ? 1 : 0)) ||
+        // Prefer higher status code (same scheme, status, and screenshot presence)
+        (probe.scheme === existing.scheme &&
+         probe.status === existing.status &&
+         Boolean(probe.screenshotBase64) === Boolean(existing.screenshotBase64) &&
+         (probe.statusCode || 0) > (existing.statusCode || 0));
+
+      if (shouldReplace) {
+        probesByPort.set(portKey, probe);
+      }
+    }
+
+    const uniqueProbes = Array.from(probesByPort.values());
+
+    ctx.logger.info('Deduplicated httpx probes', {
+      originalCount: data.probes.length,
+      uniqueCount: uniqueProbes.length,
+      deduplicatedPorts: data.probes.length - uniqueProbes.length,
+    });
+
     // Store each probe result as a scan artifact
     let successCount = 0;
     let failedCount = 0;
 
-    for (const probe of data.probes) {
+    for (const probe of uniqueProbes) {
       try {
         // Step 1: Create scan artifact (canonical record)
         const artifact = await createScanArtifact({
@@ -221,7 +275,13 @@ export class HttpxPostbackHandler
       } catch (error) {
         ctx.logger.error('Failed to store probe result', {
           port: probe.port,
+          url: probe.url,
+          scheme: probe.scheme,
+          status: probe.status,
           error: error instanceof Error ? error.message : String(error),
+          errorStack: error instanceof Error ? error.stack : undefined,
+          // Include full error object for Drizzle SQL details
+          fullError: error,
         });
         failedCount++;
       }

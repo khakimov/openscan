@@ -1,6 +1,6 @@
 "use client";
 
-import { type TransformedDevice } from "@/server/devices";
+import { type TransformedDevice } from "@repo/contracts/device";
 import { format } from "date-fns";
 import {
   getRiskLevelBadgeClass,
@@ -22,11 +22,12 @@ import { pushModal } from "@/modals";
 import { toast } from "sonner";
 import { DeviceScanChart } from "@/components/shared/device-scan-chart";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import {
-  deviceQueries,
   useVerifyDeviceMutation,
   useToggleDeviceVerificationMutation,
   useStartDeviceScanMutation,
+  deviceQueries,
 } from "@/queries/device-queries";
 import { useEffect, useRef } from "react";
 
@@ -54,9 +55,14 @@ function getScanTarget(device: TransformedDevice): string | null {
 
 export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
   const queryClient = useQueryClient();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
   // Query active scans directly (auto-polls every 30s while scans exist)
-  const { data: activeScans = [] } = useQuery(deviceQueries.activeScans(device.id));
+  const { data: activeScans = [] } = useQuery({
+    ...trpc.device.activeScans.queryOptions({ deviceId: device.id }),
+    queryFn: () => trpcClient.device.activeScans.query({ deviceId: device.id }),
+  });
   const isScanning = activeScans.length > 0;
 
   // Side effect: Invalidate device queries when scan completes (transition detection)
@@ -69,9 +75,9 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
     // Detect completion: had scans → no scans
     if (hadScans && !nowHasScans) {
       console.log('🔄 Scan completed - invalidating device queries', { deviceId: device.id });
-      // Invalidate all detail queries for this device (partial matching on queryKey)
-      queryClient.invalidateQueries({ queryKey: ['device-detail', device.id] });
-      queryClient.invalidateQueries({ queryKey: ['devices'] });
+      // Invalidate device queries using tRPC-compatible keys
+      queryClient.invalidateQueries({ queryKey: deviceQueries.detail.key(device.id) });
+      queryClient.invalidateQueries({ queryKey: deviceQueries.list.base });
     }
 
     prevActiveScanCount.current = activeScans.length;
@@ -85,14 +91,15 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
 
   // Simplified stats - trust server data
   // Show services detected (with actual service info) instead of raw port count
-  const servicesDetected = device.scanStats?.portsStoredCount ?? 0;
+  const servicesDetected = device.scanStats?.portScanStats?.portsStored ?? 0;
   const totalScans = device.scanStats?.totalScans ?? 0;
   const lastScanAt = device.scanStats?.lastScanAt;
   const hasScanHistory = totalScans > 0;
 
-  // Fetch scan history for chart using queryOptions
+  // Fetch scan history for chart using tRPC
   const { data: scanHistoryData } = useQuery({
-    ...deviceQueries.scanHistory(device.id, 10),
+    ...trpc.device.scanHistory.queryOptions({ deviceId: device.id, limit: 10 }),
+    queryFn: () => trpcClient.device.scanHistory.query({ deviceId: device.id, limit: 10 }),
     enabled: totalScans > 1, // Only fetch if device has scan history
   });
 
@@ -207,11 +214,11 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
           )}
 
           {/* WAF/Proxy Pattern Badge */}
-          {device.scanStats?.scanPattern &&
-            device.scanStats.scanPattern.includes('WAF/Proxy') && (
+          {device.scanStats?.portScanStats?.scanPattern &&
+            device.scanStats.portScanStats.scanPattern.includes('WAF/Proxy') && (
             <span className="px-2 py-1 text-xs rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30 flex items-center gap-1">
               <Shield className="w-3 h-3" />
-              {device.scanStats.scanPattern}
+              {device.scanStats.portScanStats.scanPattern}
             </span>
           )}
         </div>
@@ -236,7 +243,9 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
               : "Not scanned yet"}
         </div>
         <div className="text-sm whitespace-nowrap">
-          {format(new Date(device.discoveredOn), "MMM dd, yyyy")}
+          {device.discoveredOn
+            ? format(new Date(device.discoveredOn), "MMM dd, yyyy")
+            : "Unknown"}
         </div>
 
         {hasScanHistory && totalScans > 0 && (

@@ -4,16 +4,20 @@ import * as TanstackQuery from './integrations/tanstack-query/root-provider'
 import { Spinner } from './components/ui/spinner'
 import type { QueryClient } from '@tanstack/react-query'
 import type { OnboardingStatus } from './server/types/onboarding'
+import type { AppRouter } from './trpc/router'
+import type { createTRPCOptionsProxy } from '@trpc/tanstack-react-query'
 
 // Import the generated route tree
 import { routeTree } from './routeTree.gen'
 
 /**
  * Typed router context available to all routes
- * Following TanStack Router best practices from start-supabase-basic example
+ * OpenPanel pattern: Only includes options proxy (not raw client)
  */
 export interface RouterContext {
   queryClient: QueryClient
+  trpc: ReturnType<typeof createTRPCOptionsProxy<AppRouter>>
+  apiUrl: string
   onboarding?: OnboardingStatus  // Optional because not all routes have onboarding
 }
 
@@ -26,11 +30,16 @@ export interface OnboardingRouteContext extends RouterContext {
 
 // Create a new router instance
 export const getRouter = () => {
-  const rqContext = TanstackQuery.getContext()
+  const apiUrl = import.meta.env.VITE_API_URL ?? ''
+  const rqContext = TanstackQuery.getContext(apiUrl)
 
   const router = createRouter({
     routeTree,
-    context: { ...rqContext } as RouterContext,
+    context: {
+      queryClient: rqContext.queryClient,
+      trpc: rqContext.trpc,
+      apiUrl: rqContext.apiUrl,
+    } satisfies RouterContext,
 
     // Navigation optimization settings (prevents laggy feel)
     defaultPreload: 'intent',              // Preload on hover/focus (not click)
@@ -52,7 +61,10 @@ export const getRouter = () => {
 
     Wrap: (props: { children: React.ReactNode }) => {
       return (
-        <TanstackQuery.Provider {...rqContext}>
+        <TanstackQuery.Provider
+          queryClient={rqContext.queryClient}
+          apiUrl={rqContext.apiUrl}
+        >
           {props.children}
         </TanstackQuery.Provider>
       )

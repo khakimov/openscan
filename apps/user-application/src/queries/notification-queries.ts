@@ -1,20 +1,8 @@
-import { queryOptions } from '@tanstack/react-query';
-import {
-  getNotificationsData,
-  getUnreadNotificationCountData,
-  markNotificationAsReadData,
-  markAllNotificationsAsReadData,
-} from '@/server/notifications';
-import {
-  getNotificationPreferences,
-  saveNotificationPreferences,
-} from '@/server/preferences';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
+import { useTRPCClient } from '@/integrations/trpc/react';
 
 /**
- * Notification Query Helpers (OpenPanel pattern)
- *
- * Pattern from: https://github.com/Openpanel-dev/openpanel/blob/main/apps/dashboard/src/queries/notifications.ts
+ * Notification Query Key Factory (OpenPanel tRPC pattern)
  *
  * Benefits:
  * - Single source of truth for notification query keys
@@ -22,84 +10,109 @@ import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
  * - Consistent refetch intervals for unread count
  * - Type-safe across components
  *
- * Usage in components:
- * const { data } = useQuery(notificationListQuery({ unreadOnly: false }));
- * const { data: count } = useQuery(unreadNotificationCountQuery);
+ * Usage in components (OpenPanel pattern):
+ * const trpc = useTRPC();
+ * const trpcClient = useTRPCClient();
+ * const { data } = useQuery({
+ *   ...trpc.notification.list.queryOptions({ unreadOnly: false }),
+ *   queryFn: () => trpcClient.notification.list.query({ unreadOnly: false }),
+ * });
+ *
+ * Or use Suspense pattern:
+ * const { data } = useSuspenseQuery({
+ *   ...trpc.notification.preferences.queryOptions(),
+ *   queryFn: () => trpcClient.notification.preferences.query(),
+ * });
  */
 
 // ========================================
-// Query Helpers
+// Query Key Factory
 // ========================================
 
-/**
- * Get paginated notification list
- * Used in notification bell dropdown and notifications page
- */
-export const notificationListQuery = (params: {
-  unreadOnly?: boolean;
-  limit?: number;
-  page?: number;
-}) =>
-  queryOptions({
-    queryKey: ['notifications', 'list', params],
-    queryFn: () => getNotificationsData({ data: params }),
-    staleTime: 30_000, // 30 seconds
-  });
+export const notificationQueries = {
+  /**
+   * Notification list query keys (tRPC-compatible)
+   */
+  list: {
+    // Base key for invalidating all notification list queries
+    // Matches the tRPC procedure path
+    all: [['notification', 'list']] as const,
 
-/**
- * Get unread notification count (badge)
- * Refetches every 30 seconds to keep count fresh
- */
-export const unreadNotificationCountQuery = queryOptions({
-  queryKey: ['notifications', 'unreadCount'],
-  queryFn: () => getUnreadNotificationCountData(),
-  staleTime: 30_000, // 30 seconds
-  refetchInterval: 30_000, // Auto-refetch every 30 seconds
-  refetchIntervalInBackground: true, // Keep polling when tab is inactive
-});
-
-/**
- * Get notification preferences (settings)
- * Used in onboarding and account settings
- */
-export const notificationPreferencesQuery = queryOptions({
-  queryKey: ['notifications', 'preferences'],
-  queryFn: async () => {
-    const response = await getNotificationPreferences();
-    if (!response.success) {
-      throw new Error(response.error ?? 'Failed to get notification preferences');
-    }
-    return response.data;
+    // Specific key for a query with params
+    // Matches: context.trpc.notification.list.queryOptions({ ...params }).queryKey
+    key: (params?: {
+      unreadOnly?: boolean;
+      limit?: number;
+      offset?: number;
+      deviceId?: string;
+    }) => [
+      ['notification', 'list'],
+      {
+        input: params || {},
+        type: 'query' as const,
+      },
+    ] as const,
   },
-  staleTime: 5 * 60_000, // 5 minutes (preferences don't change often)
-});
+
+  /**
+   * Unread count query key (tRPC-compatible)
+   * Matches: context.trpc.notification.unreadCount.queryOptions().queryKey
+   */
+  unreadCount: {
+    key: () => [['notification', 'unreadCount'], { input: undefined, type: 'query' as const }] as const,
+  },
+
+  /**
+   * Notification preferences query key (tRPC-compatible)
+   * Matches: context.trpc.notification.preferences.queryOptions().queryKey
+   */
+  preferences: {
+    // Base key for invalidating all preferences queries
+    base: ['notification', 'preferences'] as const,
+
+    // Full tRPC tuple key
+    key: () => [['notification', 'preferences'], { input: undefined, type: 'query' as const }] as const,
+  },
+};
 
 // ========================================
-// Mutation Helpers (non-hook exports)
+// Mutation Hooks (tRPC pattern)
 // ========================================
 
 /**
  * Mark single notification as read
- * Export for use in useMutationWithToast
  */
-export const markNotificationAsRead = async (notificationId: string) => {
-  const response = await markNotificationAsReadData({ data: { notificationId } });
-  if (!response.success) {
-    throw new Error(response.error ?? 'Failed to mark notification as read');
-  }
-  return response;
+export const useMarkNotificationAsReadMutation = () => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
+    mutationKey: ['notification', 'markAsRead'],
+    mutationFn: (notificationId: string) =>
+      trpcClient.notification.markAsRead.mutate({ notificationId }),
+    successMessage: 'Notification marked as read',
+    invalidateKeys: [
+      notificationQueries.list.all,
+      notificationQueries.unreadCount.key(),
+    ],
+    toastOnSuccess: false, // Silent for better UX
+  });
 };
 
 /**
  * Mark all notifications as read
- * Export for use in useMutationWithToast
  */
-export const markAllNotificationsAsRead = async () => {
-  const response = await markAllNotificationsAsReadData();
-  if (!response.success) {
-    throw new Error(response.error ?? 'Failed to mark all notifications as read');
-  }
-  return response;
+export const useMarkAllNotificationsAsReadMutation = () => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
+    mutationKey: ['notification', 'markAllAsRead'],
+    mutationFn: () => trpcClient.notification.markAllAsRead.mutate(),
+    successMessage: 'All notifications marked as read',
+    invalidateKeys: [
+      notificationQueries.list.all,
+      notificationQueries.unreadCount.key(),
+    ],
+  });
 };
 
 // ========================================
@@ -108,22 +121,19 @@ export const markAllNotificationsAsRead = async () => {
 
 /**
  * Save notification preferences mutation
- * Used in onboarding and settings
+ * OpenPanel pattern: Invalidates using base key for consistent cache management
  */
-export const useSaveNotificationPreferencesMutation = () =>
-  useMutationWithToast({
+export const useSaveNotificationPreferencesMutation = () => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
     mutationKey: ['notifications', 'preferences', 'save'],
-    mutationFn: async (data: {
+    mutationFn: (data: {
       vulnerabilityAlertsEnabled: boolean;
       alertSeverities: string[];
       weeklySummaryEnabled: boolean;
-    }) => {
-      const response = await saveNotificationPreferences({ data });
-      if (!response.success) {
-        throw new Error(response.error ?? 'Failed to save notification preferences');
-      }
-      return response;
-    },
+    }) => trpcClient.notification.savePreferences.mutate(data),
     successMessage: 'Notification preferences saved',
-    invalidateKeys: [notificationPreferencesQuery.queryKey],
+    invalidateKeys: [notificationQueries.preferences.base],
   });
+};

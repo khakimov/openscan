@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
+import { useCreateDevicesFromDiscoveryMutation, deviceQueries } from "@/queries/device-queries";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
@@ -73,7 +73,8 @@ export default function AddDevice() {
         onSuccess: async (response) => {
           // Wait for device list to refetch before closing modal
           // This ensures user sees devices immediately when modal closes
-          await queryClient.refetchQueries({ queryKey: ['devices'] });
+          // Use tRPC-compatible base key for device list
+          await queryClient.refetchQueries({ queryKey: deviceQueries.list.base });
 
           const deviceCount = response.devices?.length ?? 0;
           toast.success("Devices added successfully", {

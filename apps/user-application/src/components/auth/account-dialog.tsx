@@ -11,11 +11,13 @@ import { authClient } from "@/lib/auth-client";
 import { LogOut, Palette, Loader2, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { useRouter } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, Suspense } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { getNotificationPreferences, saveNotificationPreferences } from "@/server/preferences";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { toast } from "sonner";
+import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSaveNotificationPreferencesMutation } from "@/queries/notification-queries";
 
 export interface AccountDialogUser {
   id: string;
@@ -36,28 +38,26 @@ const SEVERITY_OPTIONS = [
   { value: "LOW", label: "Low" },
 ] as const;
 
-export function AccountDialog({ children, user }: AccountDialogProps) {
-  const router = useRouter();
-  const [isSigningOut, setIsSigningOut] = useState(false);
-  const [alertSeverities, setAlertSeverities] = useState<string[]>(["CRITICAL", "HIGH"]);
-  const [isLoading, setIsLoading] = useState(true);
+/**
+ * NotificationPreferencesSection - OpenPanel pattern component
+ * Uses Suspense for data-dependent rendering and shared cache
+ */
+function NotificationPreferencesSection() {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
-  useEffect(() => {
-    const loadPreferences = async () => {
-      try {
-        const result = await getNotificationPreferences();
-        if (result.success && result.data) {
-          setAlertSeverities(result.data.alertSeverities);
-        }
-      } catch (error) {
-        console.error("Failed to load preferences:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // OpenPanel pattern: Use shared queryOptions for cache reuse
+  const { data: preferences } = useSuspenseQuery({
+    ...trpc.notification.preferences.queryOptions(),
+    queryFn: () => trpcClient.notification.preferences.query(),
+  });
 
-    void loadPreferences();
-  }, []);
+  const mutation = useSaveNotificationPreferencesMutation();
+
+  // Local state for optimistic updates (initialized from server data)
+  const [alertSeverities, setAlertSeverities] = useState<string[]>(
+    preferences.alertSeverities
+  );
 
   const handleSeverityChange = async (severity: string, checked: boolean) => {
     const newSeverities = checked
@@ -70,29 +70,62 @@ export function AccountDialog({ children, user }: AccountDialogProps) {
       return;
     }
 
+    // Store previous state for rollback
+    const previousSeverities = alertSeverities;
+
     // Optimistically update UI (instant feedback, no blinking)
     setAlertSeverities(newSeverities);
 
     // Save in background without disabling checkboxes
-    try {
-      const result = await saveNotificationPreferences({
-        data: {
-          vulnerabilityAlertsEnabled: true,
-          alertSeverities: newSeverities,
-          weeklySummaryEnabled: true,
+    mutation.mutate(
+      {
+        vulnerabilityAlertsEnabled: true,
+        alertSeverities: newSeverities,
+        weeklySummaryEnabled: true,
+      },
+      {
+        onError: (error) => {
+          console.error("Failed to save preferences:", error);
+          toast.error("Failed to save preferences");
+          // Rollback to previous state on error
+          setAlertSeverities(previousSeverities);
         },
-      });
-
-      if (!result.success) {
-        throw new Error(result.error);
       }
-    } catch (error) {
-      console.error("Failed to save preferences:", error);
-      toast.error("Failed to save preferences");
-      // Rollback to previous state on error
-      setAlertSeverities(alertSeverities);
-    }
+    );
   };
+
+  return (
+    <div className="flex flex-col w-full py-3 px-4 rounded-lg border bg-card">
+      <div className="flex items-center gap-2 mb-3">
+        <Bell className="h-4 w-4" />
+        <span className="text-sm font-medium">Email Alerts</span>
+      </div>
+      <div className="flex flex-col gap-2">
+        {SEVERITY_OPTIONS.map((severity) => (
+          <div key={severity.value} className="flex items-center gap-2">
+            <Checkbox
+              id={`account-severity-${severity.value}`}
+              checked={alertSeverities.includes(severity.value)}
+              onCheckedChange={(checked) =>
+                handleSeverityChange(severity.value, !!checked)
+              }
+            />
+            <Label
+              htmlFor={`account-severity-${severity.value}`}
+              className="mb-0 text-sm cursor-pointer leading-none"
+            >
+              {severity.label}
+            </Label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export function AccountDialog({ children, user }: AccountDialogProps) {
+  const router = useRouter();
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   const signOut = async () => {
     setIsSigningOut(true);
@@ -151,38 +184,22 @@ export function AccountDialog({ children, user }: AccountDialogProps) {
               <ThemeToggle />
             </div>
 
-            <div className="flex flex-col w-full py-3 px-4 rounded-lg border bg-card">
-              <div className="flex items-center gap-2 mb-3">
-                <Bell className="h-4 w-4" />
-                <span className="text-sm font-medium">Email Alerts</span>
-              </div>
-              {isLoading ? (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Loading...
+            <Suspense
+              fallback={
+                <div className="flex flex-col w-full py-3 px-4 rounded-lg border bg-card">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Bell className="h-4 w-4" />
+                    <span className="text-sm font-medium">Email Alerts</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Loading...
+                  </div>
                 </div>
-              ) : (
-                <div className="flex flex-col gap-2">
-                  {SEVERITY_OPTIONS.map((severity) => (
-                    <div key={severity.value} className="flex items-center gap-2">
-                      <Checkbox
-                        id={`account-severity-${severity.value}`}
-                        checked={alertSeverities.includes(severity.value)}
-                        onCheckedChange={(checked) =>
-                          handleSeverityChange(severity.value, !!checked)
-                        }
-                      />
-                      <Label
-                        htmlFor={`account-severity-${severity.value}`}
-                        className="mb-0 text-sm cursor-pointer leading-none"
-                      >
-                        {severity.label}
-                      </Label>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              }
+            >
+              <NotificationPreferencesSection />
+            </Suspense>
 
             <Button
               onClick={signOut}

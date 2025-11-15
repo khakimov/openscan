@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { unreadNotificationCountQuery } from '@/queries/notification-queries';
+import { notificationQueries } from '@/queries/notification-queries';
+import { useTRPCClient } from '@/integrations/trpc/react';
 import {
   Tooltip,
   TooltipContent,
@@ -9,7 +10,7 @@ import {
 import { cn } from '@/lib/utils';
 
 /**
- * Notification Indicator - Pulsing Dot
+ * Notification Indicator - Pulsing Dot (OpenPanel tRPC pattern)
  *
  * Shows a pulsing colored dot based on unread notification severity:
  * - Red: CRITICAL or HIGH severity notifications
@@ -19,12 +20,19 @@ import { cn } from '@/lib/utils';
  *
  * Usage: Add next to navigation items (e.g., Assets in sidebar)
  *
- * Uses shared unreadNotificationCountQuery helper for consistent polling
- * and easy invalidation across loader/component/mutations (TanStack pattern).
+ * Uses tRPC query with consistent polling for real-time badge updates.
  */
 export function NotificationIndicator() {
-  // Use shared query helper (matches loader/component/mutation pattern)
-  const { data: countData } = useQuery(unreadNotificationCountQuery);
+  const trpcClient = useTRPCClient();
+
+  // Poll unread count every 30 seconds (OpenPanel tRPC pattern)
+  const { data: countData } = useQuery({
+    queryKey: notificationQueries.unreadCount.key(),
+    queryFn: () => trpcClient.notification.unreadCount.query(),
+    staleTime: 30_000, // 30 seconds
+    refetchInterval: 30_000, // Auto-refetch every 30 seconds
+    refetchIntervalInBackground: true, // Keep polling when tab is inactive
+  });
 
   const unreadCount = countData?.count ?? 0;
   const criticalCount = countData?.criticalCount ?? 0;

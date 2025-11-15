@@ -1,19 +1,13 @@
-import { createFileRoute, Outlet, redirect, notFound } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect, notFound, ErrorComponentProps } from "@tanstack/react-router";
 import { Suspense } from "react";
 import {
   Sidebar,
   type SidebarOrganization,
-  type SidebarProject,
   type SidebarUser,
 } from "@/components/layout/sidebar";
 import { AppLayout, AppLayoutPending } from "@/components/layout";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
-import { getCurrentUser } from "@/server/auth";
-import {
-  getUserOrganizations,
-  getActiveOrganization,
-} from "@/server/organization";
-import { getOrganizationProjects } from "@/server/projects";
+import { ErrorLayout } from "@/components/error-layout";
 
 // File extensions to block from routing (must match $organizationId route)
 const FILE_EXTENSIONS = [
@@ -31,16 +25,56 @@ const isStaticFile = (path: string): boolean => {
   return FILE_EXTENSIONS.some((extension) => lastSegment.endsWith(`.${extension}`));
 };
 
+/**
+ * App-level error component
+ * Catches errors from child routes (org, project) and shows styled error page
+ */
+function AppError({ error }: ErrorComponentProps) {
+  const statusCode = (error as any)?.statusCode ?? 500;
+  const is404 = statusCode === 404;
+  const is403 = statusCode === 403;
+
+  const status = is404 ? 404 : is403 ? 403 : 500;
+  const title = is404
+    ? "Page Not Found"
+    : is403
+    ? "Access Denied"
+    : "Something Went Wrong";
+  const message = is404
+    ? "The page you're looking for doesn't exist or has been removed."
+    : is403
+    ? "You don't have permission to access this resource."
+    : error instanceof Error
+    ? error.message
+    : "An unexpected error occurred.";
+
+  return (
+    <ErrorLayout
+      status={status}
+      title={title}
+      message={message}
+      actions={[
+        { label: "Go Home", to: "/", variant: "default" },
+        { label: "Go Back", onClick: () => window.history.back(), variant: "outline" },
+      ]}
+    />
+  );
+}
+
 export const Route = createFileRoute("/_app")({
   pendingComponent: AppLayoutPending,
-  beforeLoad: async ({ location }) => {
+  errorComponent: AppError,
+  beforeLoad: async ({ location, context }) => {
     // Block static file requests early (before auth checks)
     if (isStaticFile(location.pathname)) {
       throw notFound();
     }
 
-    const user = await getCurrentUser();
-    if (!user) {
+    // Check session via tRPC (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
+
+    if (!sessionData?.session) {
       throw redirect({
         to: "/",
         search: {
@@ -48,67 +82,60 @@ export const Route = createFileRoute("/_app")({
         },
       });
     }
-    return { user };
+
+    return { user: sessionData.session.user };
   },
-  loader: async () => {
-    // Fetch user (already authenticated from beforeLoad)
-    const user = await getCurrentUser();
+  loader: async ({ context }) => {
+    // Fetch session + organizations in parallel (OpenPanel pattern)
+    // Use ensureQueryData to reuse SSR cache and avoid duplicate HTTP roundtrips
+    const [sessionData, organizations] = await Promise.all([
+      context.queryClient.ensureQueryData(
+        context.trpc.auth.session.queryOptions()
+      ),
+      context.queryClient.ensureQueryData(
+        context.trpc.organization.list.queryOptions()
+      ),
+    ]);
 
-    // Fetch organizations
-    const organizationsResult = await getUserOrganizations();
-    const organizations: SidebarOrganization[] =
-      organizationsResult.organizations.map((org) => ({
-        id: org.id,
-        name: org.name,
-        slug: "slug" in org && typeof org.slug === "string" ? org.slug : null,
-      }));
+    const session = sessionData?.session;
 
-    // Fetch active organization from session (may return null, that's ok)
-    const activeOrgResult = await getActiveOrganization().catch(() => ({
-      success: false,
-      organization: null,
+    // Map organizations for sidebar
+    const sidebarOrgs: SidebarOrganization[] = organizations.map((org) => ({
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
     }));
 
-    const activeOrganization: SidebarOrganization | null =
-      activeOrgResult.success && activeOrgResult.organization
-        ? activeOrgResult.organization
-        : organizations[0] || null; // Fallback to first org if activeOrg fails
+    // Determine active organization (use session or fallback to first org)
+    const activeOrganization: SidebarOrganization | null = session?.activeOrganizationId
+      ? sidebarOrgs.find((org) => org.id === session.activeOrganizationId) ?? sidebarOrgs[0] ?? null
+      : sidebarOrgs[0] ?? null;
 
-    // Fetch projects for current organization
-    let projects: SidebarProject[] = [];
-    try {
-      const projectsResult = await Promise.race([
-        getOrganizationProjects(),
-        new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Projects fetch timeout')), 5000)
-        ),
-      ]) as Awaited<ReturnType<typeof getOrganizationProjects>>;
+    // Fetch projects for active organization (only if organization exists)
+    // OpenPanel pattern: Short-circuit if no org (new account pending onboarding)
+    // Let genuine access errors (403, 404, 500) bubble to error boundary
+    // Return raw tRPC shape (map to SidebarProject in components, not loader)
+    const projects = activeOrganization?.id
+      ? await context.queryClient.ensureQueryData(
+          context.trpc.project.listByOrg.queryOptions({
+            organizationId: activeOrganization.id,
+          })
+        )
+      : [];
 
-      if (projectsResult.success) {
-        projects = projectsResult.projects.map((project: any) => ({
-          id: project.id,
-          name: project.name,
-          domain: project.domain ?? null,
-          description: project.description ?? null,
-        }));
-      }
-    } catch (error) {
-      // Silently fail if no organization yet (e.g., during onboarding)
-    }
-
-    const sidebarUser: SidebarUser | null = user
+    const sidebarUser: SidebarUser | null = session?.user
       ? {
-          id: user.id,
-          name: user.name ?? null,
-          email: user.email ?? null,
-          image: null, // Image not available from getCurrentUser
+          id: session.user.id,
+          name: session.user.name,
+          email: session.user.email,
+          image: null,
         }
       : null;
 
     return {
       user: sidebarUser,
       activeOrganization,
-      organizations,
+      organizations: sidebarOrgs,
       projects,
     };
   },

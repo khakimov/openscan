@@ -1,8 +1,9 @@
-import { createFileRoute, Outlet, notFound } from "@tanstack/react-router";
+import { createFileRoute, Outlet, notFound, type ErrorComponentProps } from "@tanstack/react-router";
+import { TRPCClientError } from "@trpc/client";
 import { createLogger } from "@repo/logger";
-import { projectAccessQuery } from "@/queries";
 import { ProjectGate } from "@/components/layout/project-gate";
 import { Spinner } from "@/components/ui/spinner";
+import { ErrorLayout } from "@/components/error-layout";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -38,6 +39,74 @@ const ProjectPendingShell = () => (
   </div>
 );
 
+type ProjectRouteError = {
+  status: number;
+  message: string;
+  code?: string;
+};
+
+const toProjectRouteError = (error: unknown): ProjectRouteError => {
+  // Handle tRPC errors first (preserves accurate status codes)
+  if (error instanceof TRPCClientError) {
+    const status = error.data?.httpStatus ?? 500;
+    return {
+      status,
+      message: error.message,
+      code: error.data?.code,
+    };
+  }
+
+  if (
+    typeof error === "object" &&
+    error !== null &&
+    "status" in error &&
+    "message" in error &&
+    typeof (error as any).status === "number" &&
+    typeof (error as any).message === "string"
+  ) {
+    return {
+      status: (error as any).status,
+      message: (error as any).message,
+      code:
+        "code" in error && typeof (error as any).code === "string"
+          ? (error as any).code
+          : undefined,
+    };
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const statusCode =
+      "statusCode" in error && typeof (error as any).statusCode === "number"
+        ? (error as any).statusCode
+        : undefined;
+    const message =
+      "message" in error && typeof (error as any).message === "string"
+        ? (error as any).message
+        : undefined;
+    const code =
+      "code" in error && typeof (error as any).code === "string"
+        ? String((error as any).code)
+        : undefined;
+
+    if (statusCode) {
+      return {
+        status: statusCode,
+        message: message ?? "Unexpected error while resolving project",
+        code,
+      };
+    }
+  }
+
+  return {
+    status: 500,
+    message:
+      error instanceof Error
+        ? error.message
+        : "Unexpected error while resolving project",
+    code: "PROJECT_UNKNOWN_ERROR",
+  };
+};
+
 export const Route = createFileRoute("/_app/$organizationId/$projectId")({
   pendingComponent: ProjectPendingShell,
   beforeLoad: async ({ params }) => {
@@ -50,34 +119,87 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
     }
   },
   loader: async ({ params, context }) => {
-    // Use query helper for cache seeding (OpenPanel pattern)
-    // VULN-001 FIX: Validate project exists and belongs to organization
-    const result = await context.queryClient.ensureQueryData(
-      projectAccessQuery(params.organizationId, params.projectId)
-    );
+    const { organizationId: orgParam, projectId } = params;
 
-    if (!result.success || !result.project) {
-      logger.warn("Project access denied", {
-        organizationId: params.organizationId,
-        projectId: params.projectId,
-        error: result.error,
+    try {
+      // Get organization from parent loader to resolve slug → ID
+      const orgData = await context.queryClient.ensureQueryData(
+        context.trpc.organization.get.queryOptions({
+          organizationId: orgParam,
+        })
+      );
+
+      // Use real organization ID (not slug) for project queries
+      const organizationId = orgData.id;
+
+      // OpenPanel pattern: Use tRPC queryOptions for loader queries
+      const accessQuery = context.trpc.project.get.queryOptions({
+        organizationId,
+        projectId,
       });
-      throw notFound();
+      const project = await context.queryClient.fetchQuery(accessQuery);
+
+      // Prefetch projects for sidebar
+      const projectsQuery = context.trpc.project.listByOrg.queryOptions({
+        organizationId,
+      });
+      await context.queryClient.prefetchQuery(projectsQuery);
+
+      logger.info("Project layout loaded", {
+        organizationId,
+        projectId,
+        projectName: project.name,
+      });
+
+      return {
+        projectId,
+        project,
+      };
+    } catch (error) {
+      throw toProjectRouteError(error);
     }
-
-    logger.info("Project layout loaded", {
-      organizationId: params.organizationId,
-      projectId: params.projectId,
-      projectName: result.project.name,
-    });
-
-    return {
-      projectId: params.projectId,
-      project: result.project,
-    };
   },
+  errorComponent: ProjectError,
   component: ProjectLayout,
 });
+
+function ProjectError({ error }: ErrorComponentProps) {
+  const payload = toProjectRouteError(error);
+  const status = payload.status;
+  const code = payload.code;
+  const message = payload.message;
+  const is403 = status === 403;
+
+  return (
+    <ErrorLayout
+      status={status}
+      title={is403 ? "Access Denied" : "Project Not Found"}
+      message={
+        is403
+          ? "You don't have access to this project."
+          : message
+      }
+      technicalDetails={
+        code ? (
+          <dl className="text-sm text-muted-foreground">
+            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
+              <dt className="font-semibold">Error code</dt>
+              <dd>{code}</dd>
+            </div>
+          </dl>
+        ) : null
+      }
+      actions={[
+        { label: "Go Home", to: "/", variant: "default" },
+        {
+          label: "Go Back",
+          onClick: () => window.history.back(),
+          variant: "outline",
+        },
+      ]}
+    />
+  );
+}
 
 function ProjectLayout() {
   const { project } = Route.useLoaderData();

@@ -9,6 +9,7 @@ import { parseNmapXml } from './xml-parser';
 import { runMasscan } from './scanners/masscan';
 import { runRustscan } from './scanners/rustscan';
 import { combinePortDiscoveries, extractPortNumbers, formatPortSpec } from './port-merger';
+import { shouldDiscardServiceDetection } from '@repo/contracts/device';
 
 const execFileAsync = promisify(execFile);
 const logger = createLogger({ name: 'restate-port-scanner' });
@@ -535,9 +536,10 @@ function buildNmapArgs(input: {
  * - State type narrowing: ensures only 'open' | 'closed' | 'filtered'
  * - Service confidence variants: normalizes 'confidence' vs 'conf' fields
  * - Undefined stripping: removes undefined fields for clean Zod validation
+ * - Low-confidence filtering: removes tcpwrapped/unknown/jetdirect on non-standard ports
  *
  * @param ports Raw port data from nmap/masscan/rustscan merger
- * @returns Contract-compliant port data for postback and state storage
+ * @returns Contract-compliant port data for postback and state storage (filtered)
  */
 function normalizePortsForPostback(
   ports: Array<any>,
@@ -583,5 +585,17 @@ function normalizePortsForPostback(
           ? port.service.version
           : undefined,
     };
+  }).filter((port) => {
+    // Filter out low-confidence service detections before postback
+    const shouldDiscard = shouldDiscardServiceDetection(port);
+    if (shouldDiscard) {
+      logger.info('Filtering low-confidence service detection', {
+        port: port.port,
+        protocol: port.protocol,
+        service: port.service?.name,
+        product: port.service?.product,
+      });
+    }
+    return !shouldDiscard;
   });
 }

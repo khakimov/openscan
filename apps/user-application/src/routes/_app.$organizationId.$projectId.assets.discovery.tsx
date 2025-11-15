@@ -5,12 +5,14 @@ import { OverviewRange } from "@/features/overview";
 import { DeviceDetailSheet } from "@/features/assets";
 import { Shield } from "lucide-react";
 import { pushModal } from "@/modals";
+import { useTRPCClient } from "@/integrations/trpc/react";
 import { deviceQueries } from "@/queries/device-queries";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { useState, useEffect, useRef, Suspense, useMemo } from "react";
-import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { AssetsTabHeader } from "@/components/shared/assets-tab-header";
 import { useProject, useOrganization } from "@/components/layout";
+import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { Spinner } from "@/components/ui/spinner";
 
 /**
  * Pending component for assets discovery tab
@@ -39,14 +41,13 @@ const verificationStatus: ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[] = ["CANDIDAT
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/assets/discovery")({
   pendingComponent: AssetsDiscoveryPending,
-  loader: async ({ context: { queryClient }, params }) => {
-    // Use query helper for both loader and component (single source of truth)
-    return queryClient.ensureQueryData(
-      deviceQueries.list({
-        verificationStatus,
-        projectId: params.projectId
-      })
-    );
+  loader: async ({ context, params }) => {
+    // OpenPanel pattern: Use tRPC options proxy in loader
+    const devicesQuery = context.trpc.device.list.queryOptions({
+      verificationStatus,
+      projectId: params.projectId,
+    });
+    return context.queryClient.fetchQuery(devicesQuery);
   },
   component: AssetsDiscovery,
 });
@@ -98,9 +99,7 @@ function AssetsDiscovery() {
         onStartDiscovery={handleStartDiscovery}
       />
 
-      <Suspense fallback={<PageLoadingFallback compact />}>
-        <DevicesContent newlyAddedIds={newlyAddedIds} projectId={project.id} />
-      </Suspense>
+      <DevicesContent newlyAddedIds={newlyAddedIds} projectId={project.id} />
     </Padding>
   );
 }
@@ -112,20 +111,41 @@ function DevicesContent({
   newlyAddedIds: Set<string>;
   projectId: string;
 }) {
-  // Use same query helper as loader (keeps queryKey, staleTime, gcTime consistent)
-  const devicesQuery = deviceQueries.list({ verificationStatus, projectId });
-  const { data: devicesResponse } = useSuspenseQuery(devicesQuery);
+  // OpenPanel pattern: Use tRPC client with initialData from loader
+  const loaderData = Route.useLoaderData();
+  const trpcClient = useTRPCClient();
+  const { data: devicesResponse, isFetching } = useQuery({
+    queryKey: deviceQueries.list.key({ verificationStatus, projectId }),
+    queryFn: () => trpcClient.device.list.query({
+      verificationStatus,
+      projectId,
+    }),
+    initialData: loaderData, // Use SSR data to avoid redundant fetch
+    placeholderData: keepPreviousData,
+  });
 
   // Memoize devices array to prevent unnecessary re-renders
-  const devices = useMemo(() => devicesResponse.items, [devicesResponse.items]);
+  const devices = useMemo(
+    () => devicesResponse?.items ?? [],
+    [devicesResponse?.items]
+  );
 
   return (
     <div className="relative">
+      {isFetching && devicesResponse && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm">
+          <Spinner size="lg" />
+          <span className="text-sm text-muted-foreground">Refreshing devices…</span>
+        </div>
+      )}
+
       <TableButtons>
         <OverviewRange />
       </TableButtons>
 
-      {devices.length === 0 ? (
+      {!devicesResponse ? (
+        <PageLoadingFallback compact />
+      ) : devices.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
           <Shield className="h-12 w-12 text-muted-foreground mb-4" />
           <h3 className="text-lg font-semibold mb-2">No discovered devices</h3>

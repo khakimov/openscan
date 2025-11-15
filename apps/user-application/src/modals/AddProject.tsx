@@ -7,12 +7,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { createProjectData } from "@/server/projects";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useAppParams } from "@/hooks/use-app-params";
 import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 
 // Form validation schema
 const AddProjectSchema = z.object({
@@ -42,18 +42,23 @@ export default function AddProject() {
 
   const navigate = useNavigate();
   const params = useAppParams();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
-  // Create project mutation
+  // Create project mutation (using tRPC)
   const createProjectMutation = useMutationWithToast({
     mutationKey: ["project", "create"],
-    mutationFn: async (data: AddProjectFormData) => {
-      const response = await createProjectData({ data });
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to create project');
-      }
-      return response;
-    },
-    invalidateKeys: [["organization-projects"]],
+    mutationFn: (data: AddProjectFormData) =>
+      trpcClient.project.create.mutate({
+        organizationId: params.organizationId,
+        name: data.name,
+        description: data.description,
+        domain: data.domain,
+      }),
+    // Invalidate the tRPC query that fetches project list for this organization
+    invalidateKeys: [
+      trpc.project.listByOrg.queryOptions({ organizationId: params.organizationId }).queryKey,
+    ],
     toastOnSuccess: false, // We'll show custom toast with navigation action
     onSuccess: async (response) => {
       const orgIdentifier = params.organizationId;

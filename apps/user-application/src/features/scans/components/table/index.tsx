@@ -1,7 +1,6 @@
 import { FullPageEmptyState } from "@/components/shared/full-page-empty-state";
 import { GanttChartIcon, Loader2Icon } from "lucide-react";
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { scanQueries } from "@/queries/scan-queries";
+import { useScanList } from "@/queries/scan-queries";
 
 import { ScansDataTable } from "./scans-data-table";
 import { useColumns } from "./columns";
@@ -63,18 +62,13 @@ interface ScansTableProps {
 export const ScansTable = ({ projectId }: ScansTableProps) => {
   const columns = useColumns();
 
-  // useSuspenseQuery uses data from loader (no loading state needed)
-  // Data is guaranteed to exist because loader pre-populated cache
+  // Use centralized scan list hook (includes auto-polling)
   const {
-    data: response,
+    data: scans = [],
     isRefetching,
-  } = useSuspenseQuery(scanQueries.table({ projectId }));
+  } = useScanList({ projectId });
 
-  const hasServerData =
-    response?.success &&
-    Array.isArray(response.data) &&
-    response.data.length > 0;
-  const data: Scan[] = hasServerData ? response.data as unknown as Scan[] : [];
+  const data: Scan[] = scans as unknown as Scan[];
 
   if (data.length === 0) {
     return (

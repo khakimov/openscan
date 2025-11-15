@@ -1,4 +1,3 @@
-export { LoginForm, LogoutButton } from './components/login-form'
 export { Or } from './components/or'
 export { SignInEmailForm } from './components/sign-in-email-form'
 export { SignUpEmailForm } from './components/sign-up-email-form'

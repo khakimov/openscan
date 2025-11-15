@@ -17,7 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
 import { useQuery } from "@tanstack/react-query";
-import { getDeviceTagSuggestionsData } from "@/server/devices";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { useUpdateDeviceMutation } from "@/queries/device-queries";
 import { Loader2, X, Plus, Save } from "lucide-react";
 import { toast } from "sonner";
@@ -64,6 +64,8 @@ export default function EditDevice({
 }: EditDeviceProps) {
   const [newTag, setNewTag] = useState("");
   const router = useRouter();
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
 
   // Form setup
   const {
@@ -93,12 +95,14 @@ export default function EditDevice({
   // Compute unsaved state during render (no useEffect needed)
   const isUnsaved = isDirty;
 
-  // Get tag suggestions
-  const { data: tagSuggestions = [] } = useQuery({
-    queryKey: ["deviceTagSuggestions"],
-    queryFn: getDeviceTagSuggestionsData,
+  // Get tag suggestions using tRPC
+  const { data: tagSuggestionsData } = useQuery({
+    ...trpc.device.tagSuggestions.queryOptions(),
+    queryFn: () => trpcClient.device.tagSuggestions.query(),
     ...QUERY_CONFIG.DEFAULTS.STABLE_DATA,
   });
+
+  const tagSuggestions: string[] = (tagSuggestionsData as string[] | undefined) || [];
 
   // Update device mutation (using centralized hook)
   const updateDeviceMutation = useUpdateDeviceMutation(deviceId);

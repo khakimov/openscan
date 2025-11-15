@@ -1,6 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import {
-  scheduleQueries,
+  useScheduleListByDevice,
   usePauseScheduleMutation,
   useResumeScheduleMutation,
   useDeleteScheduleMutation,
@@ -38,10 +37,8 @@ export function DeviceScheduleList({
   deviceId,
   deviceName,
 }: DeviceScheduleListProps) {
-  // Fetch schedules for this device
-  const { data: schedules, isLoading } = useQuery(
-    scheduleQueries.forDevice(deviceId)
-  );
+  // Fetch schedules for this device using centralized hook
+  const { data: schedules = [], isLoading } = useScheduleListByDevice(deviceId);
 
   const pauseMutation = usePauseScheduleMutation();
   const resumeMutation = useResumeScheduleMutation();

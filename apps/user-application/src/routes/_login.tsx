@@ -1,13 +1,14 @@
 import { Outlet, createFileRoute, redirect } from "@tanstack/react-router";
-import { getCurrentUser } from "@/server/auth";
 import { LoginLeftPanel } from "@/components/login/login-left-panel";
 
 export const Route = createFileRoute("/_login")({
-  beforeLoad: async () => {
-    const user = await getCurrentUser().catch(() => null);
+  beforeLoad: async ({ context }) => {
+    // Check session via tRPC (OpenPanel pattern)
+    const sessionQuery = context.trpc.auth.session.queryOptions();
+    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
 
     // If user is authenticated, redirect to home (let index.tsx handle routing)
-    if (user) {
+    if (sessionData?.session) {
       throw redirect({ to: "/" });
     }
   },
