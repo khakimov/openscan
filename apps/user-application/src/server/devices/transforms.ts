@@ -9,11 +9,11 @@ export function transformDeviceForUI(dbDevice: any): TransformedDevice {
   // Extract scan stats (portSnapshots now populated by data-ops queries)
   const scanStats = dbDevice.scanStats as any;
 
-  // Parse and validate portSnapshots from scanStats (populated by data-ops)
+  // Get portSnapshots from scanStats (populated by data-ops with lastSeen/httpxProbe)
   // Fallback to empty array if not present (unscanned devices)
-  const portSnapshots = (scanStats?.portSnapshots ?? []).map((snapshot: unknown) =>
-    PortSnapshotSchema.parse(snapshot)
-  );
+  // Note: Skip schema validation to preserve UI-specific fields (lastSeen, httpxProbe)
+  // that are added by getDeviceById transformation
+  const portSnapshots = scanStats?.portSnapshots ?? [];
 
   const lastScanTimestamp = scanStats?.lastScanAt ?? dbDevice.lastSeenAt ?? null;
   const lastScanIso = lastScanTimestamp
