@@ -53,7 +53,10 @@ export async function createScanArtifact(params: {
         status: params.status || 'pending',
         metadata: params.metadata,
         // Preserve existing startedAt if already set, otherwise set based on new status
-        startedAt: sql`COALESCE(${scanArtifacts.startedAt}, ${params.status === 'running' ? new Date() : null})`,
+        // Use SQL COALESCE to avoid pre-evaluating new Date()
+        startedAt: params.status === 'running'
+          ? sql`COALESCE(${scanArtifacts.startedAt}, CURRENT_TIMESTAMP)`
+          : sql`COALESCE(${scanArtifacts.startedAt}, ${scanArtifacts.startedAt})`,
       },
     })
     .returning({ id: scanArtifacts.id });
