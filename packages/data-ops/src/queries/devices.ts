@@ -471,6 +471,13 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
       portSnapshots: (resultSummary?.portSnapshots || []).map((snapshot: any) => ({
         ...snapshot,
         httpxProbe: httpxProbesMap.get(snapshot.port) || undefined,
+        // Transform metadata timestamps to Unix milliseconds for UI compatibility
+        lastSeen: snapshot.metadata?.lastSeenAt
+          ? new Date(snapshot.metadata.lastSeenAt).getTime()
+          : undefined,
+        firstSeen: snapshot.metadata?.firstSeenAt
+          ? new Date(snapshot.metadata.firstSeenAt).getTime()
+          : undefined,
       })),
     };
   }
