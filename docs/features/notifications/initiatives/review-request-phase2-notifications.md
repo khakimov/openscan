@@ -810,7 +810,7 @@ function diffPorts(...): Array<CreateNotificationInput> {
      - `#bug-fixes--improvements` - All fixes from Phase 1
      - `#comparison-sec-vs-legacy-footprint` - Patterns we're adopting
 
-2. **`docs/LEGACY_NOTIFICATIONS.md`** - Legacy system patterns
+2. **`docs/features/notifications/legacy/legacy-notifications.md`** - Legacy system patterns
    - Sections to review:
      - `#atomic-deduplication` - How legacy system prevented duplicates
      - `#notification-catalog--template-library` - Message template pattern

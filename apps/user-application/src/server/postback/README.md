@@ -4,7 +4,7 @@ Type-safe, extensible HTTP callback handler for restate-worker workflows.
 
 ## Quick Links
 
-📚 **[Full Documentation](../../../../../docs/postback-architecture.md)** - Complete architecture guide
+📚 **[Full Documentation](../../../../../docs/architecture/backend/postback-architecture.md)** - Complete architecture guide
 
 ## Overview
 
@@ -93,6 +93,6 @@ APP_URL=<base-url>         # Callback URL base
 
 ## See Also
 
-- [Full Documentation](../../../../../docs/postback-architecture.md) - Complete architecture guide
+- [Full Documentation](../../../../../docs/architecture/backend/postback-architecture.md) - Complete architecture guide
 - [Restate Worker CLAUDE.md](../../../../restate-worker/CLAUDE.md) - Worker-side implementation
-- [Data Model](../../../../../docs/data-model.md) - Database schema
+- [Data Model](../../../../../docs/architecture/backend/data-model.md) - Database schema

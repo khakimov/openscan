@@ -226,79 +226,37 @@ const optimistic = createOptimisticDeleteHandlers([
 
 ## Codebase Analysis
 
-### Current Mutations
+### Snapshot (October 2025)
 
-#### ✅ Using Optimistic Updates
+| Status            | Count | Mutations                                                                 |
+|-------------------|-------|--------------------------------------------------------------------------|
+| ✅ Implemented     | 2     | `useDeleteDeviceMutation`, `useCreateDevicesFromDiscoveryMutation`       |
+| ⚠️ Next Up         | 3     | `useUpdateDeviceMutation`, `useVerifyDeviceMutation`, `useToggleDeviceVerificationMutation` |
+| ❌ Best Left Server-Confirmed | 6 | Discovery/scan triggers, schedule operations, webhook actions |
 
-1. **`useDeleteDeviceMutation`** - `src/queries/device-queries.ts:176`
-   - Uses `createOptimisticDeleteHandlers`
-   - Updates `['devices']` cache
-   - ✅ Good candidate - instant delete feedback
+### Implemented Patterns
 
-#### ❌ NOT Using Optimistic Updates (Correctly)
+- **`useDeleteDeviceMutation`**  
+  Uses `createOptimisticDeleteHandlers` with partial key matching to evict device rows instantly, snapshot cache for rollback, and invalidate detail keys on settle.
 
-1. **`useStartDiscoveryMutation`** - `src/queries/discovery-queries.ts`
-   - Starts long-running discovery workflow
-   - ❌ Correctly NOT optimistic - takes minutes to complete
-   - User expects to wait and see progress
+- **`useCreateDevicesFromDiscoveryMutation`**  
+  Applies optimistic creation for onboarding: inserts placeholder devices into list caches, swaps in server payload when confirmed, and invalidates discovery list keys.
 
-2. **`useCreateDevicesFromDiscoveryMutation`** - `src/queries/device-queries.ts`
-   - Creates multiple devices from discovery results
-   - ❌ Correctly NOT optimistic - batch operation with potential validation errors
-   - Current: Waits for confirmation before closing modal
+### Priority Candidates
 
-3. **`useUpdateDeviceMutation`** - `src/queries/device-queries.ts:193`
-   - Updates device fields
-   - ⚠️ **Potential candidate** for optimistic updates
-   - **Recommendation:** Add optimistic update for simple field changes
+- **`useUpdateDeviceMutation`**  
+  Single-record updates (name, tags). Recommended: add `createOptimisticUpdateHandlers` against `deviceQueries.detail.key(deviceId)` and `deviceQueries.list.base`.
 
-4. **`useVerifyDeviceMutation`** - `src/queries/device-queries.ts:214`
-   - Changes device verification status
-   - ⚠️ **Potential candidate** for optimistic updates
-   - **Recommendation:** Add optimistic toggle for verification status
+- **`useVerifyDeviceMutation`** / **`useToggleDeviceVerificationMutation`**  
+  Binary verification toggles. Recommended: optimistic state flip with rollback; invalidate detail + list keys post-mutation.
 
-5. **`useToggleDeviceVerificationMutation`** - `src/queries/device-queries.ts:229`
-   - Toggles verification + monitoring
-   - ⚠️ **Potential candidate** for optimistic updates
-   - **Recommendation:** Add optimistic toggle
+### Intentionally Non-Optimistic
 
-### AddDiscovery.tsx Analysis
+- Discovery and scan mutations start long-running workflows where a progress state is clearer than speculative UI edits.
+- Schedule mutations cascade into multiple external services (Restate timers), so we keep explicit loading states.
+- Webhook/email-triggering mutations rely on server confirmation before exposing state changes.
 
-**File:** `src/modals/AddDiscovery.tsx`
-
-**Mutations:**
-1. `startDiscoveryMutation` (line 46)
-   - **Action:** Starts discovery workflow
-   - **Duration:** Minutes
-   - **Decision:** ❌ NOT a good candidate for optimistic updates
-   - **Reason:** Long-running process, user expects to wait
-
-2. `addDevicesMutation` (line 43)
-   - **Action:** Creates devices from discovery results
-   - **Usage:** `handleAddDevices()` at line 163
-   - **Current behavior:** Waits for server, then closes modal
-   - **Decision:** ⚠️ **Maybe** - depends on validation complexity
-   - **Analysis:**
-     ```typescript
-     addDevicesMutation.mutate(
-       { targets: targetsData },
-       {
-         onSuccess: async (response) => {
-           toast.success("Devices created successfully");
-           await router.invalidate(); // ← Could be optimistic
-           popModal("AddDiscovery");
-         },
-       }
-     );
-     ```
-   - **Recommendation:** Keep current behavior
-     - Batch operation (multiple devices)
-     - Potential for partial failures
-     - User just completed discovery - not urgent to close modal
-     - Current UX is clear: "Adding to Inventory..." → Success toast
-
-**Verdict for AddDiscovery.tsx:**
-✅ **Current implementation is correct** - No optimistic updates needed here.
+Keep this table updated as we add or change mutations so UX expectations stay aligned with backend guarantees.
 
 ---
 

@@ -128,6 +128,6 @@ cd packages/data-ops
 ## Documentation
 
 See `/docs` for comprehensive guides on:
-- [Postback Architecture](./docs/postback-architecture.md) - Universal HTTP callback system
+- [Postback Architecture](./docs/architecture/backend/postback-architecture.md) - Universal HTTP callback system
 - [Optimistic UI Guide](./docs/optimistic-ui-guide.md) - Instant UI feedback patterns
 - [Best Practices](./docs/best-practices/) - Development guidelines

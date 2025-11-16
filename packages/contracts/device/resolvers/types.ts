@@ -13,7 +13,8 @@ export type ServiceEvidenceKind =
   | 'httpx'     // HTTPx HTTP probing
   | 'tls'       // TLS/SSL fingerprinting (future)
   | 'zgrab'     // ZGrab banner grabbing (future)
-  | 'manual';   // User override
+  | 'manual'    // User override
+  | 'unknown';  // No evidence or all below threshold
 
 /**
  * Normalized evidence from any probe source
@@ -151,15 +152,15 @@ export interface ServiceResolutionResult {
  * Fallback service when no evidence meets thresholds
  */
 export interface UnknownService {
-  kind: 'unknown' as const;
-  confidence: 0;
-  quality: 0;
-  displayName: 'Unknown service';
+  kind: 'unknown';
+  confidence: number;
+  quality: number;
+  displayName: string;
   metadata: {
     reason: string;
     attemptedProbes: ServiceEvidenceKind[];
   };
-  resolvedFrom: [];
+  resolvedFrom: ServiceEvidenceKind[];
   suppressed: string[];
   resolvedAt: string;
 }

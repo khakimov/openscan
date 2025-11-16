@@ -6,7 +6,7 @@
     "setup": "pnpm i && pnpm run build:data-ops",
     "build:data-ops": "pnpm run --filter data-ops build",
     "dev:user-application": "pnpm run --filter user-application dev",
-    "deploy:user-application": "pnpm run build:data-ops && pnpm run --filter user-application deploy",
+    "deploy:user-application": "VITE_BUILD_VERSION=$(git rev-parse --short HEAD) pnpm run build:data-ops && VITE_BUILD_VERSION=$(git rev-parse --short HEAD) pnpm run --filter user-application deploy",
     "deploy:screenshot-worker": "pnpm run --filter screenshot-worker deploy",
     "dev:worker": "pnpm run --filter restate-worker dev",
     "build:worker": "pnpm run --filter restate-worker build",

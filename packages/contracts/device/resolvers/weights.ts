@@ -73,7 +73,7 @@
 
 import type { ServiceEvidenceKind, ServiceEvidenceWeight } from './types';
 
-export const SERVICE_EVIDENCE_WEIGHTS: Record<ServiceEvidenceKind, ServiceEvidenceWeight> = {
+export const SERVICE_EVIDENCE_WEIGHTS: Partial<Record<ServiceEvidenceKind, ServiceEvidenceWeight>> = {
   /**
    * User manual override
    * Always takes precedence over automated detection

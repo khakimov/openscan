@@ -9,7 +9,7 @@
  * - DISCOVERY: Discovery results with found devices/subdomains
  *
  * Architecture: apps/restate-worker/CLAUDE.md
- * Data Model: docs/data-model.md
+ * Data Model: docs/architecture/backend/data-model.md
  * Universal Postback: apps/user-application/src/server/postback/README.md (TODO)
  *
  * Authentication: WORKER_API_KEY (not user session)

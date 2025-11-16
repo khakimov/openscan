@@ -4,7 +4,7 @@ This file provides guidance to Claude Code when working with the screenshot work
 
 ## Overview
 
-This is a **Cloudflare Worker** that captures screenshots of web services using Browser Rendering API. It is part of the screenshot capture feature (see `../../docs/features/screenshot-capture.md`).
+This is a **Cloudflare Worker** that captures screenshots of web services using Browser Rendering API. It is part of the screenshot capture feature (see `../../docs/features/assets/screenshots.md`).
 
 **Architecture**: Lightweight HTTP worker - does ONE thing well (capture + store screenshots)
 
@@ -264,7 +264,7 @@ screenshot.buffer = null; // Allow GC
 
 ## Related Files
 
-- Feature spec: `../../docs/features/screenshot-capture.md`
+- Feature spec: `../../docs/features/assets/screenshots.md`
 - User application: `../user-application/`
 - Queue consumer: `../user-application/src/queue-handlers/screenshot-queue.ts`
 - Postback handler: `../user-application/src/server/postback/handlers/screenshot.ts`

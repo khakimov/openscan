@@ -109,7 +109,7 @@ Restate Worker → Universal Router → Handler Registry → Database + Analytic
 - Unified analytics tracking in Workers Analytics Engine
 - Add new workflow types in 3 simple steps
 
-**Documentation:** See [docs/postback-architecture.md](../../../docs/postback-architecture.md) for complete guide
+**Documentation:** See [docs/architecture/backend/postback-architecture.md](../../../docs/architecture/backend/postback-architecture.md) for complete guide
 
 #### Analytics Event Types
 
@@ -186,7 +186,7 @@ Analytics Engine data is also viewable in the Cloudflare Dashboard:
 
 **Note**: The dataset is created automatically on the first `writeDataPoint()` call - no manual setup required.
 
-**Adding New Postback Types**: See [postback architecture docs](../../../docs/postback-architecture.md#adding-a-new-postback-type) for step-by-step guide.
+**Adding New Postback Types**: See [postback architecture docs](../../../docs/architecture/backend/postback-architecture.md#adding-a-new-postback-type) for step-by-step guide.
 
 ---
 

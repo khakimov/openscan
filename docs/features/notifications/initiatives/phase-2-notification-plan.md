@@ -148,7 +148,7 @@ function hashMessage(title: string, message?: string): string {
 
 **Estimated Effort**: 3 hours
 **Files**: Schema, migration, `createNotifications` query
-**References**: `docs/LEGACY_NOTIFICATIONS.md` (message_hashed pattern)
+**References**: `docs/features/notifications/legacy/legacy-notifications.md` (message_hashed pattern)
 
 ---
 
@@ -291,7 +291,7 @@ export function createNewPortNotification(params: {...}): NotificationDescriptor
 
 **Estimated Effort**: 3 hours
 **Files**: Schema, catalog, migration
-**References**: `docs/LEGACY_NOTIFICATIONS.md#soft-catalog-of-modules`
+**References**: `docs/features/notifications/legacy/legacy-notifications.md#soft-catalog-of-modules`
 
 ---
 
@@ -407,7 +407,7 @@ describe('Notification Catalog', () => {
 
 **Estimated Effort**: 4 hours
 **Files**: `apps/user-application/src/server/postback/handlers/port-scan.ts`, result summary builder
-**References**: `docs/LEGACY_NOTIFICATIONS.md` Daemon.compare_parameters
+**References**: `docs/features/notifications/legacy/legacy-notifications.md` Daemon.compare_parameters
 
 ---
 
@@ -1129,7 +1129,7 @@ export const getNotificationsData = createServerFn({...})
 
 **Estimated Effort**: 3 hours
 **Files**: New serializers module, update server functions
-**References**: `docs/LEGACY_NOTIFICATIONS.md#data-shaping-ahead-of-the-ui`
+**References**: `docs/features/notifications/legacy/legacy-notifications.md#data-shaping-ahead-of-the-ui`
 
 ---
 
@@ -1226,7 +1226,7 @@ export default {
 
 **Estimated Effort**: 3 hours
 **Files**: `packages/data-ops/src/queries/notifications/`, worker cron handler
-**References**: `docs/LEGACY_NOTIFICATIONS.md#table-maintenance`
+**References**: `docs/features/notifications/legacy/legacy-notifications.md#table-maintenance`
 
 ---
 
@@ -1547,7 +1547,7 @@ logNotificationCreated(created); // ✅
 
 **Estimated Effort**: 2 hours
 **Files**: New logger module, update queries
-**References**: `docs/LEGACY_NOTIFICATIONS.md` logging
+**References**: `docs/features/notifications/legacy/legacy-notifications.md` logging
 
 ---
 
@@ -1778,7 +1778,7 @@ All other tasks can run in parallel after these foundation pieces.
 ## References
 
 - **Main Documentation**: `docs/NOTIFICATIONS/README.md`
-- **Legacy Patterns**: `docs/LEGACY_NOTIFICATIONS.md`
+- **Legacy Patterns**: `docs/features/notifications/legacy/legacy-notifications.md`
 - **Notification Catalog**: `packages/data-ops/src/notifications/catalog.ts`
 - **Schema**: `packages/data-ops/src/schema/notifications.ts`
 - **Queries**: `packages/data-ops/src/queries/notifications/`

@@ -482,7 +482,7 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
         const evidence = [
           normalizeNmap(snapshot.service as NmapServiceDetection | null, snapshot.port),
           normalizeHttpx(httpxProbe as HttpxProbeData | null),
-        ].filter(Boolean);
+        ].filter((e): e is NonNullable<typeof e> => e !== null);
 
         // Resolve to single service determination
         const { resolved, allEvidence } = resolveService(evidence);

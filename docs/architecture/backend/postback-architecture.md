@@ -513,8 +513,8 @@ curl -s "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/analytics_engine
 ## Related Documentation
 
 - [Restate Worker CLAUDE.md](../../../../restate-worker/CLAUDE.md)
-- [Data Model](../../../../../docs/data-model.md)
-- [Discovery Workflow Integration](../../../../../docs/discovery-workflow-integration.md)
+- [Data Model](../../backend/data-model.md)
+- [Discovery Workflow](./discovery-workflow.md)
 
 ## Changelog
 

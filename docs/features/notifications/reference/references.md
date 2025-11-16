@@ -2,9 +2,9 @@
 
 ### Related Documentation
 
-- [Postback Architecture](./postback-architecture.md)
-- [Legacy Notification System](./LEGACY_NOTIFICATIONS.md)
-- [CVE Enrichment](./CVE_ENRICHMENT.md)
+- [Postback Architecture](../../../architecture/backend/postback-architecture.md)
+- [Legacy Notification System](../legacy/legacy-notifications.md)
+- [CVE Enrichment](../../../operations/cve-enrichment-integration.md)
 
 ### Related Files
 

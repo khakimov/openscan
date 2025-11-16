@@ -115,4 +115,4 @@ This makes duration adjustments easy and prevents magic number duplication.
 ## See Also
 
 - [Notification System Docs](../../../docs/NOTIFICATIONS/README.md) - Complete algorithm documentation
-- [postback-architecture.md](../../../docs/postback-architecture.md) - Postback system integration
+- [postback-architecture.md](../../../docs/architecture/backend/postback-architecture.md) - Postback system integration

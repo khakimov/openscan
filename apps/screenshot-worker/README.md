@@ -277,10 +277,10 @@ wrangler deploy
 
 ## Related Documentation
 
-- [Feature Spec](../../docs/features/screenshot-capture.md)
+- [Feature Overview](../../docs/features/assets/screenshots.md)
 - [Cloudflare Browser Rendering API](https://developers.cloudflare.com/browser-rendering/)
 - [Cloudflare R2](https://developers.cloudflare.com/r2/)
-- [User Application Postback Architecture](../user-application/docs/postback-architecture.md)
+- [User Application Postback Architecture](../user-application/docs/architecture/backend/postback-architecture.md)
 
 ## Dependencies
 

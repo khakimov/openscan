@@ -324,7 +324,7 @@ export function Sidebar({
       {/* Mobile Sliding Sidebar */}
       <div
         className={cn(
-          "lg:hidden fixed left-0 top-0 z-40 flex h-screen w-56 flex-col border-r border-border bg-background transition-transform",
+          "lg:hidden fixed left-0 top-0 z-40 flex h-dvh w-56 flex-col border-r border-border bg-background transition-transform",
           "-translate-x-56", // hidden by default on mobile
           isMobileMenuOpen && "translate-x-0", // slide in when active
         )}
@@ -361,7 +361,7 @@ export function Sidebar({
         </div>
 
         {/* Navigation */}
-        <ScrollArea className="flex-1 px-3 py-4">
+        <ScrollArea className="px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
               // Dashboard (org root) should only match exactly
@@ -398,7 +398,7 @@ export function Sidebar({
         </ScrollArea>
 
         {/* User Profile - Always visible at bottom */}
-        <div className="mt-auto border-t border-border p-4">
+        <div className="mt-auto border-t border-border p-4 space-y-2">
           <div className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50">
             <AccountDialog user={user}>
               <Button
@@ -426,6 +426,12 @@ export function Sidebar({
                 </div>
               </Button>
             </AccountDialog>
+          </div>
+          {/* Build Version */}
+          <div className="px-3 text-center">
+            <span className="text-[10px] text-muted-foreground/70 font-mono">
+              {import.meta.env.VITE_BUILD_VERSION || 'dev'}
+            </span>
           </div>
         </div>
       </div>

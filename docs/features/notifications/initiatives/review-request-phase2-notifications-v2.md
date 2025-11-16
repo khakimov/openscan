@@ -363,7 +363,7 @@ const notification = await db.transaction(async (tx) => {
 1. **`docs/D1_COMPATIBILITY_VERIFICATION.md`** ✨ **NEW** - D1 feature verification results
 2. **`docs/PHASE_2_NOTIFICATION_PLAN.md`** - Detailed implementation plan
 3. **`docs/NOTIFICATIONS/README.md`** - Phase 1 architecture (complete)
-4. **`docs/LEGACY_NOTIFICATIONS.md`** - Legacy patterns analysis
+4. **`docs/features/notifications/legacy/legacy-notifications.md`** - Legacy patterns analysis
 
 ---
 
