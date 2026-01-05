@@ -1,6 +1,21 @@
 import { initTRPC, TRPCError } from '@trpc/server';
 import superjson from 'superjson';
-import type { TrpcContext } from './context';
+import { getAuth } from '@repo/data-ops/auth/server';
+
+export interface TrpcContext {
+  env: Env;
+  request: Request;
+  session: Awaited<ReturnType<ReturnType<typeof getAuth>['api']['getSession']>> | null;
+  user: {
+    id: string;
+    email: string | null;
+    name: string | null;
+    emailVerified: boolean;
+    organizationId: string | null;
+  } | null;
+  pendingCookies: string[];
+  setPendingCookies: (cookies: string[]) => void;
+}
 
 const t = initTRPC.context<TrpcContext>().create({
   transformer: superjson,

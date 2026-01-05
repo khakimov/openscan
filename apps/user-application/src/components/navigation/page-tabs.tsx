@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@/utils/cn";
 import { motion } from "framer-motion";
 import { Link } from "@tanstack/react-router";
@@ -8,7 +9,7 @@ export function PageTabs({
   children,
   className,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
 }) {
   return (
@@ -29,7 +30,6 @@ export function PageTabsLink({
   replace,
   resetScroll,
   children,
-  isActive = false,
 }: {
   to?: string;
   params?: Record<string, string | number>;
@@ -38,38 +38,38 @@ export function PageTabsLink({
   preload?: "intent" | "render" | "viewport" | false;
   replace?: boolean;
   resetScroll?: boolean;
-  children: React.ReactNode;
-  isActive?: boolean;
+  children: ReactNode;
 }) {
-  // During SSR and initial hydration, always use the passed preload prop
-  // This ensures consistent HTML between server and client
-  // The isActive prop (passed by parent) already indicates if this is the current route
-  const shouldPreload = isActive ? false : preload;
-
   return (
-    <div className="relative">
-      <Link
-        className={cn(
-          "inline-block opacity-100 transition-transform hover:translate-y-[-1px]",
-          isActive ? "opacity-100" : "opacity-50",
-        )}
-        to={to}
-        params={params}
-        search={search}
-        hash={hash}
-        preload={shouldPreload}
-        replace={replace}
-        resetScroll={resetScroll}
-      >
-        {children}
-      </Link>
-      {isActive && (
-        <motion.div
-          className="rounded-full absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
-          layoutId={"page-tabs-link"}
-        />
+    <Link
+      to={to}
+      params={params}
+      search={search}
+      hash={hash}
+      preload={preload}
+      replace={replace}
+      resetScroll={resetScroll}
+      activeOptions={{ exact: true }}
+    >
+      {({ isActive }) => (
+        <div className="relative">
+          <span
+            className={cn(
+              "inline-block opacity-100 transition-transform hover:translate-y-[-1px]",
+              isActive ? "opacity-100" : "opacity-50"
+            )}
+          >
+            {children}
+          </span>
+          {isActive && (
+            <motion.div
+              className="rounded-full absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
+              layoutId={"page-tabs-link"}
+            />
+          )}
+        </div>
       )}
-    </div>
+    </Link>
   );
 }
 

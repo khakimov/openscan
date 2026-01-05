@@ -2,15 +2,36 @@
  * Type definitions for notification server functions
  */
 
+export type NotificationSeverity =
+  | 'CRITICAL'
+  | 'HIGH'
+  | 'MEDIUM'
+  | 'LOW'
+  | 'INFO';
+
+export type NotificationType =
+  | 'NEW_PORT'
+  | 'CLOSED_PORT'
+  | 'NEW_CVE'
+  | 'CVE_SEVERITY_INCREASE'
+  | 'CVE_FIXED'
+  | 'CVE_REGRESSED'
+  | 'SERVICE_DRIFT'
+  | 'SERVER_PROMOTED';
+
 export interface NotificationItem {
   id: string;
+  type: NotificationType;
+  title: string;
   message: string | null;
-  severity: 'critical' | 'high' | 'medium' | 'low' | 'info' | string;
+  severity: NotificationSeverity;
+  data: Record<string, unknown> | null;
   isRead?: boolean;
-  readAt?: string | null;  // ISO string after JSON serialization
-  createdAt: string;  // ISO string after JSON serialization
+  readAt?: string | null; // ISO string after JSON serialization
+  createdAt: string; // ISO string after JSON serialization
   deviceId?: string | null;
   deviceName?: string | null;
+  scanRunId?: string | null;
   // NOTE: Database may include additional fields. Index signature uses `any` for TanStack compatibility,
   // but handlers should treat unknown fields as type `unknown` for safety.
   [key: string]: any;

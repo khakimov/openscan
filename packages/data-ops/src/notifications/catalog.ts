@@ -17,8 +17,8 @@
 // ============================================================================
 
 export type NotificationSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-export type NotificationType = 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT';
-export type NotificationModule = 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'GENERAL';
+export type NotificationType = 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT' | 'SERVER_PROMOTED' | 'SERVICE_DOWN' | 'SERVICE_UP' | 'SERVER_IP_CHANGED' | 'APP_PRODUCT_CHANGED' | 'APP_VERSION_CHANGED' | 'WEB_TITLE_CHANGED' | 'MANUAL_EDIT';
+export type NotificationModule = 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'DEVICE_LIFECYCLE' | 'CONFIGURATION';
 
 interface NotificationDescriptor {
   type: NotificationType;
@@ -31,6 +31,32 @@ interface NotificationDescriptor {
 // ============================================================================
 // Port Discovery Messages
 // ============================================================================
+
+/**
+ * Standard Ports Allowlist
+ *
+ * Common ports that should NOT trigger notifications for new detections.
+ * These ports are expected infrastructure and would create too much noise.
+ *
+ * Rationale:
+ * - 22: SSH - standard secure remote access (ubiquitous on Linux servers)
+ * - 53: DNS - ubiquitous name resolution service
+ * - 80/443: Standard HTTP/HTTPS (expected on web servers)
+ * - 123: NTP - time synchronization (expected infrastructure)
+ * - 8080/8443: Common alternative HTTP/HTTPS ports (development, proxies)
+ *
+ * Note: Ports in this list will still appear in scan results and UI,
+ * they just won't trigger NEW_PORT or CLOSED_PORT notifications.
+ */
+export const STANDARD_PORTS_ALLOWLIST = new Set([
+  22,    // SSH - standard secure remote access
+  53,    // DNS - ubiquitous name resolution
+  80,    // HTTP
+  123,   // NTP - time synchronization
+  443,   // HTTPS
+  8080,  // HTTP alternative
+  8443,  // HTTPS alternative
+]);
 
 export const PORT_SECURITY_MESSAGES: Record<number, string> = {
   22: 'SSH service detected. Ensure strong authentication and disable root login.',
@@ -566,6 +592,227 @@ export function createServiceDriftNotification(params: {
     module: 'NETWORK_SECURITY',
     title,
     message,
+  };
+}
+
+/**
+ * Create SERVER_PROMOTED notification descriptor
+ *
+ * Fired when a device moves from CANDIDATE (discovery) to VERIFIED (monitored).
+ * Celebrates operator verification - better UX than legacy NEW_DEVICE which fired too early.
+ *
+ * Severity: INFO (informational, celebratory)
+ */
+export function createServerPromotedNotification(params: {
+  deviceName: string;
+}): NotificationDescriptor {
+  const { deviceName } = params;
+
+  return {
+    type: 'SERVER_PROMOTED',
+    severity: 'INFO',
+    module: 'DEVICE_LIFECYCLE',
+    title: `${deviceName} is now monitored`,
+    message: `Server ${deviceName} has been promoted to monitored status. You will now receive notifications for port changes, vulnerabilities, and service drift on this device.`,
+  };
+}
+
+// ============================================================================
+// Service Availability Messages (Legacy: DOWN_APP / UP_APP)
+// ============================================================================
+
+/**
+ * Service Down Notification
+ *
+ * Fired when a previously open port transitions to closed/filtered.
+ * Indicates service unavailability (SSH down, HTTP down, etc).
+ *
+ * Pattern matches legacy Notification.down_status_app(daemon):
+ * - Triggered during port diffing when prev.state == 'open' && next.state != 'open'
+ * - Suppression window (15min) prevents flapping alerts
+ * - Severity: HIGH (service outage is actionable)
+ */
+export function createServiceDownNotification(params: {
+  deviceName: string;
+  port: number;
+  protocol: string;
+  serviceName?: string;
+  previousState: string;
+  currentState: string;
+}): NotificationDescriptor {
+  const { deviceName, port, protocol, serviceName, previousState, currentState } = params;
+  const service = serviceName || 'Service';
+  const portDisplay = `${port}/${protocol.toUpperCase()}`;
+
+  return {
+    type: 'SERVICE_DOWN',
+    severity: 'HIGH',
+    module: 'NETWORK_SECURITY',
+    title: `${service} is offline on ${deviceName}`,
+    message: `${service} on ${deviceName} stopped responding on port ${portDisplay}. Previous state: ${previousState}, current state: ${currentState}.`,
+  };
+}
+
+/**
+ * Service Up Notification
+ *
+ * Fired when a previously closed/filtered port transitions to open.
+ * Indicates service recovery (SSH back, HTTP back, etc).
+ *
+ * Pattern matches legacy Notification.up_status_app(daemon):
+ * - Triggered during port diffing when prev.state != 'open' && next.state == 'open'
+ * - Severity: INFO (recovery is informational, less urgent than outage)
+ */
+export function createServiceUpNotification(params: {
+  deviceName: string;
+  port: number;
+  protocol: string;
+  serviceName?: string;
+  previousState: string;
+  currentState: string;
+}): NotificationDescriptor {
+  const { deviceName, port, protocol, serviceName, previousState, currentState } = params;
+  const service = serviceName || 'Service';
+  const portDisplay = `${port}/${protocol.toUpperCase()}`;
+
+  return {
+    type: 'SERVICE_UP',
+    severity: 'INFO',
+    module: 'NETWORK_SECURITY',
+    title: `${service} back online on ${deviceName}`,
+    message: `${service} on ${deviceName} is reachable again on port ${portDisplay}. Previous state: ${previousState}, current state: ${currentState}.`,
+  };
+}
+
+// ============================================================================
+// Configuration Drift Messages
+// ============================================================================
+
+/**
+ * Create SERVER_IP_CHANGED notification descriptor
+ *
+ * Fired when a device's IP address changes during discovery ingestion.
+ * Indicates potential load balancer changes, DNS updates, or network reconfiguration.
+ *
+ * Severity: MEDIUM (could indicate infrastructure change or DNS hijacking)
+ */
+export function createServerIPChangedNotification(params: {
+  deviceName: string;
+  oldIp: string;
+  newIp: string;
+}): NotificationDescriptor {
+  const { deviceName, oldIp, newIp } = params;
+
+  return {
+    type: 'SERVER_IP_CHANGED',
+    severity: 'MEDIUM',
+    module: 'CONFIGURATION',
+    title: `IP address changed for ${deviceName}`,
+    message: `${deviceName} IP changed from ${oldIp} to ${newIp}. Verify this change was intentional (load balancer update, DNS change, or network reconfiguration). Investigate if unexpected.`,
+  };
+}
+
+/**
+ * Create APP_PRODUCT_CHANGED notification descriptor
+ *
+ * Fired when an application's product/vendor changes (e.g., Apache → nginx).
+ * Indicates significant configuration drift or potential security concern.
+ *
+ * Severity: MEDIUM (suspicious change that could indicate compromise or misconfiguration)
+ */
+export function createAppProductChangedNotification(params: {
+  deviceName: string;
+  port: number;
+  oldProduct: string;
+  newProduct: string;
+}): NotificationDescriptor {
+  const { deviceName, port, oldProduct, newProduct } = params;
+
+  return {
+    type: 'APP_PRODUCT_CHANGED',
+    severity: 'MEDIUM',
+    module: 'CONFIGURATION',
+    title: `Application product changed on ${deviceName}:${port}`,
+    message: `Port ${port} on ${deviceName} switched from ${oldProduct} to ${newProduct}. Verify this change was authorized and update documentation if intentional.`,
+  };
+}
+
+/**
+ * Create APP_VERSION_CHANGED notification descriptor
+ *
+ * Fired when an application version changes (upgrade, downgrade, or patch).
+ * Informational alert for tracking configuration changes.
+ *
+ * Severity: INFO (informational tracking of version changes)
+ */
+export function createAppVersionChangedNotification(params: {
+  deviceName: string;
+  port: number;
+  product: string;
+  oldVersion: string;
+  newVersion: string;
+}): NotificationDescriptor {
+  const { deviceName, port, product, oldVersion, newVersion } = params;
+
+  return {
+    type: 'APP_VERSION_CHANGED',
+    severity: 'INFO',
+    module: 'CONFIGURATION',
+    title: `${product} version changed on ${deviceName}:${port}`,
+    message: `${product} on ${deviceName}:${port} updated from version ${oldVersion} to ${newVersion}.`,
+  };
+}
+
+/**
+ * Create WEB_TITLE_CHANGED notification descriptor
+ *
+ * Fired when a web application's page title changes.
+ * Could indicate content updates, defacement, or application deployment.
+ *
+ * Severity: INFO (informational, but could indicate defacement if unexpected)
+ */
+export function createWebTitleChangedNotification(params: {
+  deviceName: string;
+  port: number;
+  oldTitle: string;
+  newTitle: string;
+}): NotificationDescriptor {
+  const { deviceName, port, oldTitle, newTitle } = params;
+
+  return {
+    type: 'WEB_TITLE_CHANGED',
+    severity: 'INFO',
+    module: 'CONFIGURATION',
+    title: `Web page title changed on ${deviceName}:${port}`,
+    message: `Page title on ${deviceName}:${port} changed from "${oldTitle}" to "${newTitle}". Verify if this is an expected content update.`,
+  };
+}
+
+/**
+ * Create MANUAL_EDIT notification descriptor
+ *
+ * Fired when a user manually edits device/application configuration via console.
+ * Tracks audit trail of manual changes for compliance and troubleshooting.
+ *
+ * Severity: INFO (informational audit log)
+ */
+export function createManualEditNotification(params: {
+  deviceName: string;
+  editedBy?: string;
+  fieldChanged: string;
+  oldValue: string;
+  newValue: string;
+}): NotificationDescriptor {
+  const { deviceName, editedBy, fieldChanged, oldValue, newValue } = params;
+
+  const byText = editedBy ? ` by ${editedBy}` : '';
+
+  return {
+    type: 'MANUAL_EDIT',
+    severity: 'INFO',
+    module: 'CONFIGURATION',
+    title: `${deviceName} ${fieldChanged} updated${byText}`,
+    message: `${fieldChanged} changed from "${oldValue}" to "${newValue}"${byText}.`,
   };
 }
 

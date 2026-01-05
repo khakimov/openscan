@@ -30,6 +30,293 @@ interface PortScanState {
 
 const stateStore = new Map<string, PortScanState>();
 
+// Input type for scan handler
+type ScanInput = {
+  target: string;
+  ports?: string;
+  protocol?: 'tcp' | 'udp';
+  aggressive?: boolean;
+  timeout?: number;
+  callbackUrl?: string;
+  deviceId?: string;
+  scanId?: string;
+  organizationId?: string;
+};
+
+/**
+ * Execute the actual port scan logic.
+ * Extracted to allow try/catch wrapper in handler for failure postbacks.
+ */
+async function executeScan(
+  ctx: restate.Context,
+  input: ScanInput,
+  scanId: string,
+  startTime: number
+): Promise<{
+  scanId: string;
+  target: string;
+  ports: PortScanPostback['data']['ports'];
+  totalPorts: number;
+  scanDuration: number;
+  completedAt: string;
+}> {
+  const startedAt = new Date(startTime).toISOString();
+  const sanitizedTarget = validateAndSanitizeTarget(input.target);
+
+  const state: PortScanState = {
+    scanId,
+    target: sanitizedTarget,
+    status: 'VALIDATING',
+    startedAt,
+  };
+  stateStore.set(scanId, state);
+
+  logger.info('Starting port scan', { scanId, target: sanitizedTarget });
+
+  // Step 1 (Optional): Run prescans for fast port discovery
+  let prescanPorts: any[] = [];
+  let targetPorts: string | undefined = input.ports;
+
+  // Check for cancellation before starting prescans
+  const currentState = stateStore.get(scanId);
+  if (currentState?.cancelRequested) {
+    state.status = 'CANCELLED';
+    state.completedAt = new Date(await ctx.date.now()).toISOString();
+    stateStore.set(scanId, state);
+    throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
+  }
+
+  state.status = 'PRESCANNING';
+  stateStore.set(scanId, state);
+
+  logger.info('Running prescans (masscan, rustscan)', { scanId, target: sanitizedTarget });
+
+  // Run masscan in its own ctx.run() to avoid timeout
+  const masscanPorts = await ctx.run('masscan-discovery', async () => {
+    return await runMasscan(sanitizedTarget, {
+      protocol: input.protocol,
+      aggressive: input.aggressive,
+      timeout: input.timeout,
+    });
+  });
+
+  await ctx.sleep(0); // Heartbeat
+
+  // Run rustscan in its own ctx.run() to avoid timeout
+  const rustscanPorts = await ctx.run('rustscan-discovery', async () => {
+    return await runRustscan(sanitizedTarget, {
+      protocol: input.protocol,
+      aggressive: input.aggressive,
+      timeout: input.timeout,
+    });
+  });
+
+  await ctx.sleep(0); // Heartbeat
+
+  const prescanResult = combinePortDiscoveries(masscanPorts, rustscanPorts);
+
+  logger.info('Prescan complete', {
+    scanId,
+    masscanFound: masscanPorts.length,
+    rustscanFound: rustscanPorts.length,
+    combinedUnique: prescanResult.length,
+  });
+
+  prescanPorts = prescanResult;
+  state.prescanPortsFound = prescanPorts.length;
+  stateStore.set(scanId, state);
+
+  if (prescanPorts.length > 0) {
+    const discoveredPortNumbers = extractPortNumbers(prescanPorts);
+    targetPorts = formatPortSpec(discoveredPortNumbers);
+
+    logger.info('Targeting nmap at prescan discoveries', {
+      scanId,
+      portCount: discoveredPortNumbers.length,
+      portSpec: targetPorts.length > 100 ? `${targetPorts.substring(0, 100)}...` : targetPorts,
+    });
+  }
+
+  // Step 2: Run nmap scan (durable)
+  const nmapXml = await ctx.run('nmap-scan', async () => {
+    const cancelState = stateStore.get(scanId);
+    if (cancelState?.cancelRequested) {
+      state.status = 'CANCELLED';
+      state.completedAt = new Date(await ctx.date.now()).toISOString();
+      stateStore.set(scanId, state);
+      throw new Error(`Scan cancelled: ${cancelState.cancelReason || 'User requested'}`);
+    }
+
+    const nmapArgs = buildNmapArgs({
+      ...input,
+      ports: targetPorts,
+    });
+
+    state.status = 'SCANNING';
+    stateStore.set(scanId, state);
+
+    logger.info('Executing nmap', { scanId, args: nmapArgs, target: sanitizedTarget });
+
+    try {
+      const { stdout, stderr } = await execFileAsync('nmap', [...nmapArgs, sanitizedTarget]);
+      if (stderr) {
+        logger.warn('nmap stderr', { scanId, stderr });
+      }
+      return stdout;
+    } catch (error: any) {
+      state.status = 'FAILED';
+      state.error = error.message;
+      state.completedAt = new Date(await ctx.date.now()).toISOString();
+      stateStore.set(scanId, state);
+      logger.error('nmap execution failed', { scanId, error });
+      throw new Error(`nmap failed: ${error.message}`);
+    }
+  });
+
+  // Step 3: Parse nmap XML output (durable)
+  const parsedResult = await ctx.run('parse-xml', async () => {
+    state.status = 'PARSING';
+    stateStore.set(scanId, state);
+
+    logger.info('Parsing nmap XML', { scanId });
+
+    try {
+      const parsed = await parseNmapXml(nmapXml);
+      logger.info('XML parsing complete', {
+        scanId,
+        hostsScanned: Object.keys(parsed.hosts).length,
+      });
+      return parsed;
+    } catch (error: any) {
+      state.status = 'FAILED';
+      state.error = `XML parsing failed: ${error.message}`;
+      state.completedAt = new Date(await ctx.date.now()).toISOString();
+      stateStore.set(scanId, state);
+      logger.error('XML parsing failed', { scanId, error });
+      throw error;
+    }
+  });
+
+  // Extract ports from parsed result
+  const hostAddresses = Object.keys(parsedResult.hosts);
+  let portsWithServices = hostAddresses.length > 0
+    ? parsedResult.hosts[hostAddresses[0]].ports
+    : [];
+
+  // Step 4: Merge prescan discoveries with nmap results
+  if (prescanPorts.length > 0) {
+    const timestamp = Math.floor(startTime / 1000);
+
+    const nmapDiscoveredPorts = portsWithServices.map((port: any) => ({
+      port: port.port,
+      protocol: port.transportProtocol || 'tcp',
+      state: port.state || 'open',
+      service: port.service,
+      discoveredBy: ['nmap'],
+      firstSeen: timestamp,
+      lastSeen: timestamp,
+    }));
+
+    const mergedPorts = combinePortDiscoveries(prescanPorts, nmapDiscoveredPorts);
+
+    logger.info('Merged prescan and nmap discoveries', {
+      scanId,
+      prescanPorts: prescanPorts.length,
+      nmapPorts: nmapDiscoveredPorts.length,
+      mergedTotal: mergedPorts.length,
+    });
+
+    portsWithServices = mergedPorts.map((port: any) => ({
+      port: port.port,
+      protocol: port.protocol,
+      transportProtocol: port.protocol,
+      state: port.state,
+      service: port.service,
+      discoveredBy: port.discoveredBy,
+      firstSeen: port.firstSeen,
+      lastSeen: port.lastSeen,
+    }));
+  } else {
+    portsWithServices = portsWithServices.map((port: any) => ({
+      ...port,
+      discoveredBy: ['nmap'],
+    }));
+  }
+
+  const endTime = await ctx.date.now();
+  const scanDuration = endTime - startTime;
+
+  const normalizedPorts = normalizePortsForPostback(portsWithServices);
+
+  // Update state with completion
+  state.status = 'COMPLETED';
+  state.portsFound = normalizedPorts.length;
+  state.completedAt = new Date(endTime).toISOString();
+  stateStore.set(scanId, state);
+
+  logger.info('Port scan completed', {
+    scanId,
+    target: sanitizedTarget,
+    portsFound: normalizedPorts.length,
+    duration: scanDuration,
+  });
+
+  const results = {
+    scanId,
+    target: sanitizedTarget,
+    ports: normalizedPorts,
+    totalPorts: normalizedPorts.length,
+    scanDuration,
+    completedAt: new Date(endTime).toISOString(),
+  };
+
+  // Step 5: Postback results if callbackUrl provided (durable)
+  if (input.callbackUrl && input.deviceId) {
+    const deviceId = input.deviceId;
+    const callbackUrl = input.callbackUrl;
+
+    await ctx.run('postback-results', async () => {
+      logger.info('Posting scan results back to server', {
+        scanId,
+        callbackUrl,
+        deviceId,
+      });
+
+      const portScanPostback = buildPortScanPostbackPayload({
+        type: 'PORT_SCAN',
+        scanId,
+        organizationId: input.organizationId!,
+        timestamp: new Date(endTime).toISOString(),
+        status: 'SUCCESS',
+        deviceId,
+        data: {
+          target: sanitizedTarget,
+          ports: normalizedPorts,
+          timing: {
+            start: startTime,
+            end: endTime,
+            elapsed: scanDuration,
+          },
+          scanMetadata: {
+            scanner: 'nmap',
+            duration: scanDuration,
+            resolvedTarget: sanitizedTarget,
+          },
+        },
+      });
+
+      await postUniversalPostback({
+        callbackUrl,
+        ...portScanPostback,
+      });
+
+      logger.info('Postback successful', { scanId, deviceId });
+    });
+  }
+
+  return results;
+}
+
 /**
  * Port Scanner Service - Restate Implementation
  *
@@ -68,290 +355,80 @@ export const portScanner = restate.service({
       // Use scanId from input if provided (set via idempotency-key),
       // otherwise generate a new UUID (services don't have ctx.key like workflows do)
       const scanId = input.scanId || ctx.rand.uuidv4();
-
-      // IMPORTANT: Use ctx.date.now() for deterministic timestamps (Restate requirement)
       const startTime = await ctx.date.now();
-      const startedAt = new Date(startTime).toISOString();
 
-      // Initialize state
-      const sanitizedTarget = validateAndSanitizeTarget(input.target);
+      // Wrap entire handler in try/catch to send FAILURE postback on any error
+      // This ensures timeouts, crashes, and tool failures are reported back
+      try {
+        return await executeScan(ctx, input, scanId, startTime);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const isTimeout = errorMessage.includes('inactivity') || errorMessage.includes('timeout') || errorMessage.includes('aborted');
 
-      const state: PortScanState = {
-        scanId,
-        target: sanitizedTarget,
-        status: 'VALIDATING',
-        startedAt,
-      };
-      stateStore.set(scanId, state);
-
-      logger.info('Starting port scan', { scanId, target: sanitizedTarget });
-
-      // Step 1 (Optional): Run prescans for fast port discovery
-      // These return [] gracefully if disabled via feature flags
-      // Split into separate ctx.run() blocks to avoid 1-minute timeout
-      let prescanPorts: any[] = [];
-      let targetPorts: string | undefined = input.ports; // User-specified ports
-
-      // Check for cancellation before starting prescans
-      const currentState = stateStore.get(scanId);
-      if (currentState?.cancelRequested) {
-        state.status = 'CANCELLED';
-        state.completedAt = new Date(await ctx.date.now()).toISOString();
-        stateStore.set(scanId, state);
-        throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
-      }
-
-      state.status = 'PRESCANNING';
-      stateStore.set(scanId, state);
-
-      logger.info('Running prescans (masscan, rustscan)', { scanId, target: sanitizedTarget });
-
-      // Run masscan in its own ctx.run() to avoid timeout
-      const masscanPorts = await ctx.run('masscan-discovery', async () => {
-        return await runMasscan(sanitizedTarget, {
-          protocol: input.protocol,
-          aggressive: input.aggressive,
-          timeout: input.timeout,
-        });
-      });
-
-      // Heartbeat: Send journal entry to reset Restate timeout
-      await ctx.sleep(0);
-
-      // Run rustscan in its own ctx.run() to avoid timeout
-      const rustscanPorts = await ctx.run('rustscan-discovery', async () => {
-        return await runRustscan(sanitizedTarget, {
-          protocol: input.protocol,
-          aggressive: input.aggressive,
-          timeout: input.timeout,
-        });
-      });
-
-      // Heartbeat: Send journal entry to reset Restate timeout
-      await ctx.sleep(0);
-
-      // Combine and deduplicate prescan discoveries (fast operation, no ctx.run needed)
-      const prescanResult = combinePortDiscoveries(masscanPorts, rustscanPorts);
-
-      logger.info('Prescan complete', {
-        scanId,
-        masscanFound: masscanPorts.length,
-        rustscanFound: rustscanPorts.length,
-        combinedUnique: prescanResult.length,
-      });
-
-      prescanPorts = prescanResult;
-      state.prescanPortsFound = prescanPorts.length;
-      stateStore.set(scanId, state);
-
-      // If prescans found ports, scan ONLY those ports with nmap for detailed service detection
-      // Otherwise use user-specified ports or nmap defaults
-      if (prescanPorts.length > 0) {
-        const discoveredPortNumbers = extractPortNumbers(prescanPorts);
-        targetPorts = formatPortSpec(discoveredPortNumbers);
-
-        logger.info('Targeting nmap at prescan discoveries', {
+        logger.error('Port scan failed', {
           scanId,
-          portCount: discoveredPortNumbers.length,
-          portSpec: targetPorts.length > 100 ? `${targetPorts.substring(0, 100)}...` : targetPorts,
-        });
-      }
-
-      // Step 2: Run nmap scan (durable - will retry on failure)
-      const nmapXml = await ctx.run('nmap-scan', async () => {
-        // Check for cancellation before starting scan
-        const currentState = stateStore.get(scanId);
-        if (currentState?.cancelRequested) {
-          state.status = 'CANCELLED';
-          state.completedAt = new Date(await ctx.date.now()).toISOString();
-          stateStore.set(scanId, state);
-          throw new Error(`Scan cancelled: ${currentState.cancelReason || 'User requested'}`);
-        }
-
-        const nmapArgs = buildNmapArgs({
-          ...input,
-          ports: targetPorts, // Use prescan-discovered ports if available
+          target: input.target,
+          error: errorMessage,
+          isTimeout,
         });
 
-        state.status = 'SCANNING';
-        stateStore.set(scanId, state);
-
-        logger.info('Executing nmap', { scanId, args: nmapArgs, target: sanitizedTarget });
-
-        try {
-          // Use execFile (not exec) to prevent shell injection
-          // Arguments are passed as array, not interpolated into shell command
-          const { stdout, stderr } = await execFileAsync('nmap', [...nmapArgs, sanitizedTarget]);
-
-          if (stderr) {
-            logger.warn('nmap stderr', { scanId, stderr });
-          }
-
-          return stdout; // Return XML string
-        } catch (error: any) {
+        // Update local state
+        const state = stateStore.get(scanId);
+        if (state) {
           state.status = 'FAILED';
-          state.error = error.message;
+          state.error = errorMessage;
           state.completedAt = new Date(await ctx.date.now()).toISOString();
           stateStore.set(scanId, state);
-
-          logger.error('nmap execution failed', { scanId, error });
-          throw new Error(`nmap failed: ${error.message}`);
         }
-      });
 
-      // Step 3: Parse nmap XML output (durable)
-      const parsedResult = await ctx.run('parse-xml', async () => {
-        state.status = 'PARSING';
-        stateStore.set(scanId, state);
+        // Send FAILURE postback if callbackUrl provided
+        if (input.callbackUrl && input.deviceId && input.organizationId) {
+          const endTime = await ctx.date.now();
 
-        logger.info('Parsing nmap XML', { scanId });
+          await ctx.run('postback-failure', async () => {
+            logger.info('Posting scan failure back to server', {
+              scanId,
+              callbackUrl: input.callbackUrl,
+              deviceId: input.deviceId,
+              isTimeout,
+            });
 
-        try {
-          // Use XML parser for nmap output
-          const parsed = await parseNmapXml(nmapXml);
+            const failurePostback = buildPortScanPostbackPayload({
+              type: 'PORT_SCAN',
+              scanId,
+              organizationId: input.organizationId!,
+              timestamp: new Date(endTime).toISOString(),
+              status: 'FAILURE',
+              deviceId: input.deviceId!,
+              error: isTimeout ? `Scan timed out: ${errorMessage}` : errorMessage,
+              data: {
+                target: input.target,
+                ports: [],
+                timing: {
+                  start: startTime,
+                  end: endTime,
+                  elapsed: endTime - startTime,
+                },
+                scanMetadata: {
+                  scanner: 'nmap',
+                  duration: endTime - startTime,
+                  resolvedTarget: input.target,
+                },
+              },
+            });
 
-          logger.info('XML parsing complete', {
-            scanId,
-            hostsScanned: Object.keys(parsed.hosts).length,
+            await postUniversalPostback({
+              callbackUrl: input.callbackUrl!,
+              ...failurePostback,
+            });
+
+            logger.info('Failure postback sent', { scanId, deviceId: input.deviceId });
           });
-
-          return parsed;
-        } catch (error: any) {
-          state.status = 'FAILED';
-          state.error = `XML parsing failed: ${error.message}`;
-          state.completedAt = new Date(await ctx.date.now()).toISOString();
-          stateStore.set(scanId, state);
-
-          logger.error('XML parsing failed', { scanId, error });
-          throw error;
         }
-      });
 
-      // Extract ports from parsed result
-      // hosts is a Record<string, ParsedHostData>, get first host
-      const hostAddresses = Object.keys(parsedResult.hosts);
-      let portsWithServices = hostAddresses.length > 0
-        ? parsedResult.hosts[hostAddresses[0]].ports
-        : [];
-
-      // Step 4: Merge prescan discoveries with nmap results
-      // This adds attribution (discoveredBy: ['masscan', 'rustscan', 'nmap'])
-      // and includes ports found by prescans but missed by nmap
-      if (prescanPorts.length > 0) {
-        const timestamp = Math.floor(startTime / 1000);
-
-        // Convert nmap ports to DiscoveredPort format
-        const nmapDiscoveredPorts = portsWithServices.map((port: any) => ({
-          port: port.port,
-          protocol: port.transportProtocol || 'tcp',
-          state: port.state || 'open',
-          service: port.service,
-          discoveredBy: ['nmap'],
-          firstSeen: timestamp,
-          lastSeen: timestamp,
-        }));
-
-        // Combine nmap + prescan discoveries
-        const mergedPorts = combinePortDiscoveries(prescanPorts, nmapDiscoveredPorts);
-
-        logger.info('Merged prescan and nmap discoveries', {
-          scanId,
-          prescanPorts: prescanPorts.length,
-          nmapPorts: nmapDiscoveredPorts.length,
-          mergedTotal: mergedPorts.length,
-        });
-
-        // Convert back to ParsedPort format for response
-        portsWithServices = mergedPorts.map((port: any) => ({
-          port: port.port,
-          protocol: port.protocol, // Required by ParsedPort
-          transportProtocol: port.protocol, // Backward compatibility
-          state: port.state,
-          service: port.service,
-          discoveredBy: port.discoveredBy,
-          firstSeen: port.firstSeen,
-          lastSeen: port.lastSeen,
-        }));
-      } else {
-        // No prescans - add nmap attribution
-        portsWithServices = portsWithServices.map((port: any) => ({
-          ...port,
-          discoveredBy: ['nmap'],
-        }));
+        // Re-throw so Restate marks invocation as failed
+        throw error;
       }
-
-      const endTime = await ctx.date.now();
-      const scanDuration = endTime - startTime;
-
-      const normalizedPorts = normalizePortsForPostback(portsWithServices);
-
-      // Update state with completion
-      state.status = 'COMPLETED';
-      state.portsFound = normalizedPorts.length;
-      state.completedAt = new Date(endTime).toISOString();
-      stateStore.set(scanId, state);
-
-      logger.info('Port scan completed', {
-        scanId,
-        target: sanitizedTarget,
-        portsFound: normalizedPorts.length,
-        duration: scanDuration,
-      });
-
-      const results = {
-        scanId,
-        target: sanitizedTarget,
-        ports: normalizedPorts,
-        totalPorts: normalizedPorts.length,
-        scanDuration,
-        completedAt: new Date(endTime).toISOString(),
-      };
-
-      // Step 5: Postback results if callbackUrl provided (durable)
-      if (input.callbackUrl && input.deviceId) {
-        const deviceId = input.deviceId;
-        const callbackUrl = input.callbackUrl;
-
-        await ctx.run('postback-results', async () => {
-          logger.info('Posting scan results back to server', {
-            scanId,
-            callbackUrl,
-            deviceId,
-          });
-
-          const portScanPostback = buildPortScanPostbackPayload({
-            type: 'PORT_SCAN',
-            scanId,
-            organizationId: input.organizationId!,
-            timestamp: new Date(endTime).toISOString(),
-            status: 'SUCCESS',
-            deviceId,
-            data: {
-              target: sanitizedTarget,
-              ports: normalizedPorts,
-              timing: {
-                start: startTime,
-                end: endTime,
-                elapsed: scanDuration,
-              },
-              scanMetadata: {
-                scanner: 'nmap',
-                duration: scanDuration,
-                resolvedTarget: sanitizedTarget,
-              },
-            },
-          });
-
-          await postUniversalPostback({
-            callbackUrl,
-            ...portScanPostback,
-          });
-
-          logger.info('Postback successful', { scanId, deviceId });
-        });
-      }
-
-      return results;
     }),
 
     /**

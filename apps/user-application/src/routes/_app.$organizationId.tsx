@@ -3,12 +3,10 @@ import {
   Outlet,
   notFound,
   redirect,
-  type ErrorComponentProps,
 } from "@tanstack/react-router";
-import { TRPCClientError } from "@trpc/client";
 import { OrganizationGate } from "@/components/layout/organization-gate";
 import { Spinner } from "@/components/ui/spinner";
-import { ErrorLayout, type ErrorAction } from "@/components/error-layout";
+import { getOrganization, syncActiveOrganization } from "@/server/organization";
 
 // Reserved organization IDs that cannot be used (minimal approach from OpenPanel)
 const RESERVED_ORGANIZATION_IDS = [
@@ -37,7 +35,7 @@ const FILE_EXTENSIONS = [
   "woff",
   "woff2",
   "ttf",
-  "eot", // Assets
+  "eot", // Fonts
 ];
 
 /**
@@ -58,77 +56,9 @@ const OrganizationPendingShell = () => (
   </div>
 );
 
-type OrganizationRouteError = {
-  status: number;
-  message: string;
-  code?: string;
-};
-
-const toOrganizationRouteError = (error: unknown): OrganizationRouteError => {
-  // Handle tRPC errors first (preserves accurate status codes)
-  if (error instanceof TRPCClientError) {
-    const status = error.data?.httpStatus ?? 500;
-    return {
-      status,
-      message: error.message,
-      code: error.data?.code,
-    };
-  }
-
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    "message" in error &&
-    typeof (error as any).status === "number" &&
-    typeof (error as any).message === "string"
-  ) {
-    return {
-      status: (error as any).status,
-      message: (error as any).message,
-      code:
-        "code" in error && typeof (error as any).code === "string"
-          ? (error as any).code
-          : undefined,
-    };
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const statusCode =
-      "statusCode" in error && typeof (error as any).statusCode === "number"
-        ? (error as any).statusCode
-        : undefined;
-    const message =
-      "message" in error && typeof (error as any).message === "string"
-        ? (error as any).message
-        : undefined;
-    const code =
-      "code" in error && typeof (error as any).code === "string"
-        ? String((error as any).code)
-        : undefined;
-
-    if (statusCode) {
-      return {
-        status: statusCode,
-        message: message ?? "Unexpected error while resolving organization",
-        code,
-      };
-    }
-  }
-
-  return {
-    status: 500,
-    message:
-      error instanceof Error
-        ? error.message
-        : "Unexpected error while resolving organization",
-    code: "ORG_UNKNOWN_ERROR",
-  };
-};
-
 export const Route = createFileRoute("/_app/$organizationId")({
   pendingComponent: OrganizationPendingShell,
-  beforeLoad: async ({ params }) => {
+  beforeLoad: async ({ params, location, context }) => {
     // Block reserved organization IDs
     if (RESERVED_ORGANIZATION_IDS.includes(params.organizationId)) {
       throw notFound();
@@ -139,91 +69,52 @@ export const Route = createFileRoute("/_app/$organizationId")({
       throw notFound();
     }
 
-    // Note: Organization existence is validated by the loader query
-    // If org doesn't exist, the query will naturally throw 404
-  },
-  loader: async ({ params, location, context }) => {
     const identifier = params.organizationId;
 
-    try {
-      // OpenPanel pattern: Use tRPC options proxy for loader queries
-      const detailQuery = context.trpc.organization.get.queryOptions({
-        organizationId: identifier,
+    // ✅ Fetch organization and add to context for child routes
+    const organization = await getOrganization({ data: identifier });
+
+    // Redirect from ID to slug for cleaner URLs
+    if (organization.slug && identifier === organization.id) {
+      const newPath = location.pathname.replace(`/${organization.id}`, `/${organization.slug}`);
+
+      throw redirect({
+        to: newPath,
+        search: location.search as any,
+        replace: true,
       });
-      const org = await context.queryClient.fetchQuery(detailQuery);
-
-      // Redirect from ID to slug for cleaner URLs
-      if (org.slug && identifier === org.id) {
-        const newPath = location.pathname.replace(`/${org.id}`, `/${org.slug}`);
-
-        throw redirect({
-          to: newPath,
-          search: location.search as any,
-          replace: true,
-        });
-      }
-
-      // OpenPanel pattern: Prefetch projects using tRPC queryOptions
-      // Use org.id (not slug) as the TRPC router expects the real organization ID
-      const projectsQuery = context.trpc.project.listByOrg.queryOptions({
-        organizationId: org.id,
-      });
-      await context.queryClient.prefetchQuery(projectsQuery);
-
-      return {
-        organization: org,
-      };
-    } catch (error) {
-      throw toOrganizationRouteError(error);
     }
+
+    // ✅ Sync URL organization → session (if different)
+    // This ensures deep links work immediately and session stays in sync with navigation
+    const session = context.session?.session;
+    const currentSessionOrgId = session?.activeOrganizationId;
+
+    // Only sync if:
+    // 1. User is authenticated (has session)
+    // 2. URL org differs from session org
+    if (session && currentSessionOrgId !== organization.id) {
+      await syncActiveOrganization({
+        data: {
+          organizationId: identifier,
+          currentSessionOrgId,
+        },
+      });
+    }
+
+    // ✅ Return organization in context for child routes to access
+    return {
+      organization,
+    };
   },
-  errorComponent: OrganizationError,
   component: OrganizationLayout,
 });
 
-function OrganizationError({ error }: ErrorComponentProps) {
-  const payload = toOrganizationRouteError(error);
-  const status = payload.status;
-  const code = payload.code;
-  const message = payload.message;
-  const is403 = status === 403;
-
-  const actions: ErrorAction[] = [
-    { label: "Go Home", to: "/", variant: "default" },
-    {
-      label: "Go Back",
-      onClick: () => window.history.back(),
-      variant: "outline",
-    },
-  ];
-
-  return (
-    <ErrorLayout
-      status={status}
-      title={is403 ? "Access Denied" : "Organization Not Found"}
-      message={
-        is403
-          ? "You don't have access to this organization."
-          : message
-      }
-      actions={actions}
-      technicalDetails={
-        code ? (
-          <dl className="text-sm text-muted-foreground">
-            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
-              <dt className="font-semibold">Error code</dt>
-              <dd>{code}</dd>
-            </div>
-          </dl>
-        ) : null
-      }
-    />
-  );
-}
-
 function OrganizationLayout() {
-  const { organization } = Route.useLoaderData();
+  // ✅ Get organization from beforeLoad context
+  const { organization } = Route.useRouteContext();
 
+  // ✅ Pass organization to child routes via Outlet context
   return (
     <OrganizationGate organization={organization}>
       <Outlet />

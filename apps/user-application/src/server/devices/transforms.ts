@@ -1,4 +1,4 @@
-import { PortSnapshotSchema, type PortSnapshot } from '@repo/data-ops';
+import type { PortSnapshot } from '@repo/data-ops';
 import type { TransformedDevice } from '@repo/contracts/device';
 
 /**

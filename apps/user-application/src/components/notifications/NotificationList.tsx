@@ -19,6 +19,67 @@ interface NotificationListProps {
   isMarkingAsRead: boolean;
 }
 
+type PortNotificationData = {
+  port: number | string;
+  protocol?: string;
+  service?: string;
+  previousState?: string;
+  currentState?: string;
+};
+
+type CVENotificationData = {
+  cveId: string;
+  cvssScore?: number | string;
+  oldSeverity?: string;
+  newSeverity?: string;
+  affectedService?: string;
+};
+
+type ServiceDetails = {
+  name?: string;
+  product?: string;
+  version?: string;
+};
+
+type ServiceDriftData = {
+  port: number | string;
+  protocol?: string;
+  oldService?: ServiceDetails;
+  newService?: ServiceDetails;
+};
+
+type ServerPromotedData = {
+  deviceName?: string;
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return !!value && typeof value === 'object';
+}
+
+function isPortNotificationData(value: Record<string, unknown>): value is PortNotificationData {
+  return typeof value.port === 'number' || typeof value.port === 'string';
+}
+
+function isCVENotificationData(value: Record<string, unknown>): value is CVENotificationData {
+  return typeof value.cveId === 'string';
+}
+
+function isServiceDetails(value: unknown): value is ServiceDetails {
+  return isRecord(value);
+}
+
+function isServiceDriftData(value: Record<string, unknown>): value is ServiceDriftData {
+  return (
+    (typeof value.port === 'number' || typeof value.port === 'string') &&
+    (isServiceDetails(value.oldService) || typeof value.oldService === 'undefined') &&
+    (isServiceDetails(value.newService) || typeof value.newService === 'undefined')
+  );
+}
+
+function isServerPromotedData(value: Record<string, unknown>): value is ServerPromotedData {
+  return typeof value.deviceName === 'string';
+}
+
 const severityConfig: Record<
   NotificationItem['severity'],
   {
@@ -66,7 +127,7 @@ const severityConfig: Record<
   },
 };
 
-const typeLabels: Record<NotificationItem['type'], string> = {
+const typeLabels = {
   NEW_PORT: 'New Port',
   CLOSED_PORT: 'Port Closed',
   NEW_CVE: 'New CVE',
@@ -74,7 +135,8 @@ const typeLabels: Record<NotificationItem['type'], string> = {
   CVE_FIXED: 'CVE Fixed',
   CVE_REGRESSED: 'CVE Regressed',
   SERVICE_DRIFT: 'Service Drift',
-};
+  SERVER_PROMOTED: 'Server Promotion',
+} satisfies Record<NotificationItem['type'], string>;
 
 export function NotificationList({
   notifications,
@@ -91,6 +153,13 @@ export function NotificationList({
         const config = severityConfig[notification.severity];
         const Icon = config.icon;
         const isUnread = !readAt;
+        const rawData = isRecord(notification.data)
+          ? (notification.data as Record<string, unknown>)
+          : {};
+        const portData = isPortNotificationData(rawData) ? rawData : null;
+        const cveData = isCVENotificationData(rawData) ? rawData : null;
+        const serviceDriftData = isServiceDriftData(rawData) ? rawData : null;
+        const serverPromotedData = isServerPromotedData(rawData) ? rawData : null;
 
         return (
           <div
@@ -150,33 +219,33 @@ export function NotificationList({
                 </div>
 
                 {/* Additional data (if present) */}
-                {notification.data && Object.keys(notification.data).length > 0 && (
+                {Object.keys(rawData).length > 0 && (
                   <div className="mt-2 rounded bg-muted/50 px-2 py-1.5 text-[11px] font-mono space-y-1.5">
                     {(notification.type === 'NEW_PORT' || notification.type === 'CLOSED_PORT') &&
-                      notification.data.port && (
+                      portData && (
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-muted-foreground">Port:</span>
                           <span className="font-semibold">
-                            {notification.data.port}/{notification.data.protocol}
+                            {`${portData.port}/${portData.protocol ?? 'tcp'}`}
                           </span>
-                          {notification.data.service && (
+                          {portData.service && (
                             <>
                               <span className="text-muted-foreground">Service:</span>
-                              <span>{notification.data.service}</span>
+                              <span>{String(portData.service)}</span>
                             </>
                           )}
                           {notification.type === 'CLOSED_PORT' && (
                             <>
-                              {notification.data.previousState && (
+                              {portData.previousState && (
                                 <>
                                   <span className="text-muted-foreground">Previous:</span>
-                                  <span>{notification.data.previousState}</span>
+                                  <span>{String(portData.previousState)}</span>
                                 </>
                               )}
-                              {notification.data.currentState && (
+                              {portData.currentState && (
                                 <>
                                   <span className="text-muted-foreground">Current:</span>
-                                  <span>{notification.data.currentState}</span>
+                                  <span>{String(portData.currentState)}</span>
                                 </>
                               )}
                             </>
@@ -190,61 +259,80 @@ export function NotificationList({
                       notification.type === 'CVE_FIXED' ||
                       notification.type === 'CVE_REGRESSED'
                     ) &&
-                      notification.data.cveId && (
+                      cveData && (
                         <div className="space-y-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-muted-foreground">CVE:</span>
-                            <span className="font-semibold">{notification.data.cveId}</span>
-                            {notification.data.cvssScore && (
+                            <span className="font-semibold">{String(cveData.cveId)}</span>
+                            {typeof cveData.cvssScore !== 'undefined' && (
                               <>
                                 <span className="text-muted-foreground">CVSS:</span>
-                                <span>{notification.data.cvssScore}</span>
+                                <span>{String(cveData.cvssScore)}</span>
                               </>
                             )}
                           </div>
                           {notification.type === 'CVE_SEVERITY_INCREASE' && (
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-muted-foreground">Severity:</span>
-                              <span>
-                                {notification.data.oldSeverity} → {notification.data.newSeverity}
-                              </span>
+                              <span>{`${String(cveData.oldSeverity)} → ${String(
+                                cveData.newSeverity,
+                              )}`}</span>
                             </div>
                           )}
-                          {notification.data.affectedService && (
+                          {cveData.affectedService && (
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-muted-foreground">Affected:</span>
-                              <span>{notification.data.affectedService}</span>
+                              <span>{String(cveData.affectedService)}</span>
                             </div>
                           )}
                         </div>
                       )}
 
-                    {notification.type === 'SERVICE_DRIFT' && notification.data.port && (
+                    {notification.type === 'SERVICE_DRIFT' && serviceDriftData && (
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-muted-foreground">Port:</span>
                           <span className="font-semibold">
-                            {notification.data.port}/{notification.data.protocol}
+                            {`${serviceDriftData.port}/${serviceDriftData.protocol ?? 'tcp'}`}
                           </span>
                         </div>
-                        {notification.data.oldService && (
+                        {serviceDriftData.oldService && (
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-muted-foreground">Old:</span>
                             <span>
-                              {notification.data.oldService.product || notification.data.oldService.name || 'unknown'}
-                              {notification.data.oldService.version ? ` ${notification.data.oldService.version}` : ''}
+                              {String(
+                                serviceDriftData.oldService.product ||
+                                  serviceDriftData.oldService.name ||
+                                  'unknown',
+                              )}
+                              {serviceDriftData.oldService.version
+                                ? ` ${serviceDriftData.oldService.version}`
+                                : ''}
                             </span>
                           </div>
                         )}
-                        {notification.data.newService && (
+                        {serviceDriftData.newService && (
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="text-muted-foreground">New:</span>
                             <span>
-                              {notification.data.newService.product || notification.data.newService.name || 'unknown'}
-                              {notification.data.newService.version ? ` ${notification.data.newService.version}` : ''}
+                              {String(
+                                serviceDriftData.newService.product ||
+                                  serviceDriftData.newService.name ||
+                                  'unknown',
+                              )}
+                              {serviceDriftData.newService.version
+                                ? ` ${serviceDriftData.newService.version}`
+                                : ''}
                             </span>
                           </div>
                         )}
+                      </div>
+                    )}
+
+                    {notification.type === 'SERVER_PROMOTED' && serverPromotedData?.deviceName && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-muted-foreground">Server:</span>
+                        <span>{serverPromotedData.deviceName}</span>
                       </div>
                     )}
                   </div>

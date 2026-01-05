@@ -1,24 +1,22 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { BackgroundPaths } from "@/components/landing/background-paths";
 import { HeroSection } from "@/components/landing/hero-section";
+import { getProjectDefaultRouteParams } from "@/lib/navigation";
+import { listOrganizations } from "@/server/organization";
+import { listProjects } from "@/server/project";
 
 export const Route = createFileRoute("/")({
   beforeLoad: async ({ context }) => {
-    // Check session via tRPC (OpenPanel pattern)
-    const sessionQuery = context.trpc.auth.session.queryOptions();
-    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
-
+    // Reuse session from __root.tsx - no redundant fetch
     // Allow anonymous visitors to view the marketing page
-    if (!sessionData?.session) {
+    if (!context.session?.session) {
       return;
     }
 
-    const session = sessionData.session;
+    const session = context.session.session;
 
-    // Fetch organizations to check if user has any
-    const organizations = await context.queryClient.ensureQueryData(
-      context.trpc.organization.list.queryOptions()
-    );
+    // Fetch organizations using server function (SSR-safe, no HTTP during SSR)
+    const organizations = await listOrganizations();
 
     // No organizations - redirect to onboarding
     if (organizations.length === 0) {
@@ -37,21 +35,13 @@ export const Route = createFileRoute("/")({
     // Prefer slug over ID for cleaner URLs
     const orgIdentifier = activeOrg.slug || activeOrg.id;
 
-    // Fetch projects to determine redirect destination (OpenPanel pattern)
-    const projects = await context.queryClient.ensureQueryData(
-      context.trpc.project.listByOrg.queryOptions({
-        organizationId: activeOrg.id,
-      })
-    );
+    // Fetch projects using server function (SSR-safe, no HTTP during SSR)
+    const projects = await listProjects({ data: activeOrg.id });
 
-    // If user has exactly 1 project, go directly to it
+    // If user has exactly 1 project, go directly to Servers Discovery
     if (projects.length === 1 && projects[0].id) {
       throw redirect({
-        to: "/$organizationId/$projectId",
-        params: {
-          organizationId: orgIdentifier,
-          projectId: projects[0].id,
-        },
+        ...getProjectDefaultRouteParams(orgIdentifier, projects[0].id),
       });
     }
 

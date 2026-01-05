@@ -4,11 +4,9 @@ import { GitHubOAuthButton } from "@/features/auth/components/github-oauth-butto
 
 export const Route = createFileRoute("/onboarding/")({
   beforeLoad: async ({ context }) => {
-    // Redirect authenticated users to project setup (OpenPanel pattern)
-    const sessionQuery = context.trpc.auth.session.queryOptions();
-    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
-
-    if (sessionData?.session) {
+    // Session already fetched by __root.tsx (fetchSession server function - no HTTP during SSR)
+    // Redirect authenticated users to project setup
+    if (context.session?.session) {
       throw redirect({ to: "/onboarding/project" });
     }
   },

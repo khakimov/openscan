@@ -122,7 +122,8 @@ describe('buildScannerInput', () => {
         scanRunId: 'run-1',
       });
 
-      expect(result.targets[0].id).toBe('device-123');
+      const target = result.targets[0] as any;
+      expect(target.id).toBe('device-123');
     });
 
     it('should build correct ScannerInput structure', () => {
@@ -145,7 +146,8 @@ describe('buildScannerInput', () => {
       expect(result.tenantId).toBe('tenant-1');
       expect(result.scanRunId).toBe('run-1');
       expect(result.targets).toHaveLength(1);
-      expect(result.targets[0].value).toBe('example.com');
+      const target = result.targets[0] as any;
+      expect(target.value).toBe('example.com');
       expect(result.scanOptions?.requestedPorts).toEqual([80, 443]);
       expect(result.scanOptions?.profile).toBe('PS_L3');
     });

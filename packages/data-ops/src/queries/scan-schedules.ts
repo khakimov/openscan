@@ -114,7 +114,7 @@ export async function getScanScheduleById(
 }
 
 /**
- * Get schedules for a specific device
+ * Get schedules for a specific device (excludes DELETED schedules)
  */
 export async function getSchedulesForDevice(
   deviceId: string,
@@ -128,7 +128,8 @@ export async function getSchedulesForDevice(
     .where(
       and(
         eq(scanSchedules.deviceId, deviceId),
-        eq(scanSchedules.organizationId, organizationId)
+        eq(scanSchedules.organizationId, organizationId),
+        eq(scanSchedules.isActive, true)
       )
     )
     .orderBy(desc(scanSchedules.createdAt));

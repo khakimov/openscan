@@ -23,6 +23,8 @@ import { createFileRoute } from '@tanstack/react-router';
 import { createLogger } from '@repo/logger';
 import { z } from 'zod';
 import { releaseScanSlot } from '@repo/data-ops';
+import { initDatabase } from '@repo/data-ops/database/setup';
+import { env } from 'cloudflare:workers';
 
 const logger = createLogger({ name: 'api-schedules-release-slot' });
 
@@ -60,6 +62,9 @@ export const Route = createFileRoute('/api/internal/schedules/release-slot')({
     handlers: {
       POST: async ({ request }) => {
         const startTime = Date.now();
+
+        // Initialize database before any data-ops queries
+        initDatabase(env.DB);
 
         // Step 1: Authenticate
         if (!authenticateWorkerRequest(request)) {

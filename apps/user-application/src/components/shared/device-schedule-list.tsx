@@ -153,7 +153,7 @@ export function DeviceScheduleList({
         <div>
           <h3 className="text-lg font-semibold">Scan Schedules</h3>
           <p className="text-sm text-muted-foreground">
-            Automated recurring scans for this device
+            Active automated recurring scans for this device
           </p>
         </div>
         <Button onClick={handleCreateSchedule} size="sm" className="gap-2">

@@ -30,6 +30,7 @@ export * from './database/setup';
 
 // Export auth
 export * from './auth/setup';
+export { getAuth, clearAuth, type AuthEnv } from './auth/server';
 
 // Export queries
 export * from './queries/devices';
@@ -43,7 +44,23 @@ export {
   type CreateDevicesFromDiscoveryInput,
 } from './queries/devices';
 
+// Export DNS resolution and asset normalization
+export {
+  resolveTarget,
+  upsertResolvedDevice,
+  resolveAndUpsertTargets,
+  type ResolutionResult,
+  type ResolveOptions,
+} from './queries/devices/resolution';
+
 export * from './queries/scans';
+// Explicitly export scan timeout functions for visibility
+export {
+  SCAN_TIMEOUT_MS,
+  getStuckScans,
+  markStuckScansAsTimeout,
+  processScanTimeouts,
+} from './queries/scans';
 export * from './queries/projects';
 export * from './queries/organizations';
 export * from './queries/scan-artifacts';
@@ -80,6 +97,16 @@ export type {
   SerializedNotificationList,
   NotificationStats,
 } from './queries/notification-serializers';
+
+// Export configuration drift notification functions
+export {
+  logConfigurationDrift,
+  logServerIPChanged,
+  logAppProductChanged,
+  logAppVersionChanged,
+  logWebTitleChanged,
+  logManualEdit,
+} from './queries/notifications/configuration';
 
 // Explicitly re-export getDeviceByIdGlobal (internal use only)
 export { getDeviceByIdGlobal } from './queries/devices';

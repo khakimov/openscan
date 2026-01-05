@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useTRPC, useTRPCClient } from '@/integrations/trpc/react';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 import { createOptimisticScheduleDeleteHandlers } from '@/lib/optimistic-updates';
+import { invalidateTRPCQuery } from '@/lib/query-utils';
 
 /**
  * Centralized schedule query key factory (tRPC pattern)
@@ -175,7 +176,7 @@ export const usePauseScheduleMutation = () => {
 
     // Refetch to sync with server
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: scheduleQueries.list.base });
+      queryClient.invalidateQueries(invalidateTRPCQuery(scheduleQueries.list.base));
     },
   });
 };
@@ -236,7 +237,7 @@ export const useResumeScheduleMutation = () => {
 
     // Refetch to sync with server
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: scheduleQueries.list.base });
+      queryClient.invalidateQueries(invalidateTRPCQuery(scheduleQueries.list.base));
     },
   });
 };

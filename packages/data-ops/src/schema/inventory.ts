@@ -60,6 +60,20 @@ export const deviceIps = sqliteTable('device_ips', {
   deviceIpUq: uniqueIndex('device_ips_device_ip_uq').on(t.organizationId, t.deviceId, t.ip),
 }));
 
+export const deviceHostnames = sqliteTable('device_hostnames', {
+  id: cuidText().primaryKey(),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+  deviceId: text('device_id').notNull().references(() => devices.id, { onDelete: 'cascade' }),
+  hostname: text('hostname').notNull(),
+  type: text('type').notNull().default('A'), // 'A' | 'PTR'
+  source: text('source').notNull().default('DISCOVERY'),
+  lastSeenAt: integer('last_seen_at', { mode: 'timestamp_ms' }),
+  createdAt: now(),
+}, (t) => ({
+  orgHostIdx: index('device_hostnames_org_host_idx').on(t.organizationId, t.hostname),
+  uniqueIdx: uniqueIndex('device_hostnames_unique_idx').on(t.organizationId, t.deviceId, t.hostname, t.type),
+}));
+
 export const tags = sqliteTable('tags', {
   id: cuidText().primaryKey(),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
@@ -113,6 +127,7 @@ export const devicesRelations = relations(devices, ({ one, many }) => ({
     references: [projects.id],
   }),
   deviceIps: many(deviceIps),
+  deviceHostnames: many(deviceHostnames),
   deviceTags: many(deviceTags),
   applications: many(applications),
 }));
@@ -124,6 +139,17 @@ export const deviceIpsRelations = relations(deviceIps, ({ one }) => ({
   }),
   device: one(devices, {
     fields: [deviceIps.deviceId],
+    references: [devices.id],
+  }),
+}));
+
+export const deviceHostnamesRelations = relations(deviceHostnames, ({ one }) => ({
+  organization: one(organization, {
+    fields: [deviceHostnames.organizationId],
+    references: [organization.id],
+  }),
+  device: one(devices, {
+    fields: [deviceHostnames.deviceId],
     references: [devices.id],
   }),
 }));

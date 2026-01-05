@@ -6,7 +6,7 @@ import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Suspense } from "react";
-import { useProject } from "@/components/layout";
+import { OverviewRange } from "@/features/overview";
 
 // Search params schema with proper validation
 const scansSearchSchema = z.object({
@@ -19,12 +19,13 @@ const scansSearchSchema = z.object({
  */
 const ScansPending = () => (
   <Padding>
-    <div className="mb-4 flex items-center gap-3">
+    <div className="mb-4 flex items-center justify-between">
       <PageTabs>
-        <PageTabsLink to="." search={{ tab: "all" }} isActive={true}>
+        <PageTabsLink to="." search={{ tab: "all" }}>
           Scans
         </PageTabsLink>
       </PageTabs>
+      <OverviewRange />
     </div>
     <PageLoadingFallback compact />
   </Padding>
@@ -33,32 +34,24 @@ const ScansPending = () => (
 export const Route = createFileRoute("/_app/$organizationId/$projectId/scans")({
   pendingComponent: ScansPending,
   validateSearch: zodValidator(scansSearchSchema),
-  loader: async ({ context, params }) => {
-    // Populate query cache for SSR using tRPC
-    await context.queryClient.ensureQueryData(
-      context.trpc.scan.list.queryOptions({ projectId: params.projectId })
-    );
-  },
+  // No loader - inherit organization and project from parent route
   component: Scans,
 });
 
 function Scans() {
-  const { tab } = Route.useSearch();
-  const project = useProject();
+  // ✅ Get project from parent route context (via beforeLoad)
+  const { project } = Route.useRouteContext();
 
   return (
     <Padding>
       {/* Page shell - renders immediately, no data needed */}
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-center justify-between">
         <PageTabs>
-          <PageTabsLink
-            to="."
-            search={{ tab: "all" }}
-            isActive={tab === "all"}
-          >
+          <PageTabsLink to="." search={{ tab: "all" }}>
             Scans
           </PageTabsLink>
         </PageTabs>
+        <OverviewRange />
       </div>
 
       {/* Data component - only this suspends, page shell stays visible */}

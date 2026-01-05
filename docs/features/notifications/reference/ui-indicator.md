@@ -31,15 +31,15 @@ A subtle pulsing dot indicator that shows notification status based on severity.
 
 ### Add to Sidebar Navigation
 
-Recommended placement: Next to "Assets" or other high-traffic navigation items.
+Recommended placement: Next to "Servers" or other high-traffic navigation items.
 
 ```tsx
 import { NotificationIndicator } from '@/components/notifications/NotificationIndicator';
 
 // In your sidebar navigation item
-<Link to="/assets">
+<Link to="/servers">
   <div className="flex items-center gap-2">
-    Assets
+    Servers
     <NotificationIndicator />
   </div>
 </Link>

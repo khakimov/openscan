@@ -40,10 +40,13 @@ export function formatServerErrorWithDetails(error: unknown): {
   stack?: string;
 } {
   if (error instanceof Error) {
+    // Use type assertion since Wrangler types NODE_ENV as literal "production"
+    // but at runtime it can be "development" in local dev
+    const isDev = (process.env.NODE_ENV as string) === 'development';
     return {
       name: error.name,
       message: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined,
+      stack: isDev ? error.stack : undefined,
     };
   }
   return { message: String(error) };

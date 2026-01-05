@@ -49,6 +49,7 @@ export {
   useCreateOrganizationMutation,
   useCreateProjectMutation,
   useUpdateOrganizationMutation,
+  useSetActiveOrganizationMutation,
 } from './organization-mutations';
 
 // Schedule mutation hooks

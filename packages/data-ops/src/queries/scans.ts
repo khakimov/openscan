@@ -1,8 +1,25 @@
-import { eq, desc, and } from 'drizzle-orm';
+import { eq, desc, and, lt, or, sql } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { scanRuns, scanRunDevices } from '../schema/orchestration';
 import { devices } from '../schema/inventory';
 import type { ScanRun, ScanScope } from '../types';
+
+/**
+ * Scan timeout configuration
+ * Based on scan complexity and typical execution times
+ */
+export const SCAN_TIMEOUT_MS = {
+  /** Default timeout for scans (30 minutes) */
+  DEFAULT: 30 * 60 * 1000,
+  /** Quick scans: 100 ports, no deep detection (10 minutes) */
+  QUICK: 10 * 60 * 1000,
+  /** Standard scans: 1000 ports, service detection (20 minutes) */
+  STANDARD: 20 * 60 * 1000,
+  /** Thorough scans: Full port range, OS detection (45 minutes) */
+  THOROUGH: 45 * 60 * 1000,
+  /** Discovery scans: Subdomain enumeration (15 minutes) */
+  DISCOVERY: 15 * 60 * 1000,
+} as const;
 
 /**
  * Get all scan runs for an organization (workflow data is now embedded)
@@ -278,4 +295,116 @@ export async function getActiveScansForDevice(
   return results.map((result: any) => ({
     scanRun: result.scan_runs,
   }));
+}
+
+/**
+ * Get scans that have been running longer than the timeout threshold.
+ * These are candidates for automatic timeout.
+ *
+ * @param maxAgeMs - Maximum age in milliseconds before a scan is considered stuck
+ * @returns Array of stuck scan runs with elapsed time
+ */
+export async function getStuckScans(
+  maxAgeMs: number = SCAN_TIMEOUT_MS.DEFAULT
+): Promise<Array<ScanRun & { elapsedMs: number }>> {
+  const db = getDb();
+  const cutoffTime = Date.now() - maxAgeMs;
+
+  const results = await db
+    .select()
+    .from(scanRuns)
+    .where(and(
+      or(
+        eq(scanRuns.status, 'RUNNING'),
+        eq(scanRuns.workflowStatus, 'RUNNING')
+      ),
+      lt(scanRuns.startedAt, new Date(cutoffTime))
+    ));
+
+  return results.map((scan: ScanRun) => ({
+    ...scan,
+    elapsedMs: scan.startedAt ? Date.now() - scan.startedAt.getTime() : 0,
+  }));
+}
+
+/**
+ * Mark stuck scans as TIMEOUT.
+ * Updates both status and workflowStatus, sets completion timestamps.
+ *
+ * @param maxAgeMs - Maximum age in milliseconds before a scan is considered stuck
+ * @returns Number of scans marked as timed out
+ */
+export async function markStuckScansAsTimeout(
+  maxAgeMs: number = SCAN_TIMEOUT_MS.DEFAULT
+): Promise<{ count: number; scanIds: string[] }> {
+  const db = getDb();
+  const cutoffTime = Date.now() - maxAgeMs;
+  const now = new Date();
+
+  // First get the IDs of scans we're about to update
+  const stuckScans = await db
+    .select({ id: scanRuns.id })
+    .from(scanRuns)
+    .where(and(
+      or(
+        eq(scanRuns.status, 'RUNNING'),
+        eq(scanRuns.workflowStatus, 'RUNNING')
+      ),
+      lt(scanRuns.startedAt, new Date(cutoffTime))
+    ));
+
+  if (stuckScans.length === 0) {
+    return { count: 0, scanIds: [] };
+  }
+
+  const scanIds = stuckScans.map((s: { id: string }) => s.id);
+
+  // Update using raw SQL for efficiency since Drizzle doesn't support inArray easily
+  await db
+    .update(scanRuns)
+    .set({
+      status: 'TIMEOUT',
+      workflowStatus: 'TIMEOUT',
+      completedAt: now,
+      workflowFinishedAt: now,
+    })
+    .where(and(
+      or(
+        eq(scanRuns.status, 'RUNNING'),
+        eq(scanRuns.workflowStatus, 'RUNNING')
+      ),
+      lt(scanRuns.startedAt, new Date(cutoffTime))
+    ));
+
+  return { count: scanIds.length, scanIds };
+}
+
+/**
+ * Check for stuck scans and mark them as timed out.
+ * This is the main entry point for the timeout cron job.
+ *
+ * @returns Summary of timeout operation
+ */
+export async function processScanTimeouts(): Promise<{
+  checkedAt: Date;
+  stuckScansFound: number;
+  timedOutScanIds: string[];
+}> {
+  const stuckScans = await getStuckScans(SCAN_TIMEOUT_MS.DEFAULT);
+
+  if (stuckScans.length === 0) {
+    return {
+      checkedAt: new Date(),
+      stuckScansFound: 0,
+      timedOutScanIds: [],
+    };
+  }
+
+  const result = await markStuckScansAsTimeout(SCAN_TIMEOUT_MS.DEFAULT);
+
+  return {
+    checkedAt: new Date(),
+    stuckScansFound: stuckScans.length,
+    timedOutScanIds: result.scanIds,
+  };
 }

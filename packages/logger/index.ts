@@ -66,6 +66,8 @@ const COLORS = {
   gray: '\x1b[90m',
   white: '\x1b[37m',
   bgRed: '\x1b[41m',
+  magenta: '\x1b[35m',      // For email/notification logs
+  brightMagenta: '\x1b[95m', // Brighter magenta
 };
 
 const formatMessage = (level: LogLevel, service: string, message: string, meta?: any) => {
@@ -120,7 +122,14 @@ export function createLogger({ name }: { name: string }): ILogger {
         fatal: `${COLORS.bgRed}${COLORS.white}`,
       };
 
-      const color = colorByLevel[level];
+      // Special highlighting for email/notification services
+      const isEmailService = service.includes('email') ||
+                            service.includes('notification') ||
+                            service.includes('delivery-queue') ||
+                            message.toLowerCase().includes('email') ||
+                            message.toLowerCase().includes('notification delivery');
+
+      const color = isEmailService ? COLORS.brightMagenta : colorByLevel[level];
       const jsonString = JSON.stringify(formattedMessage);
 
       console.log(`${color}${jsonString}${COLORS.reset}`);

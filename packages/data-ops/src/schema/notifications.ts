@@ -31,9 +31,9 @@ export const notifications = sqliteTable('notifications', {
   scanRunId: text('scan_run_id').references(() => scanRuns.id, { onDelete: 'cascade' }),
 
   // Notification metadata
-  type: text('type').notNull(), // 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT'
+  type: text('type').notNull(), // 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT' | 'SERVER_PROMOTED'
   severity: text('severity').notNull(), // 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'
-  module: text('module').notNull(), // 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'GENERAL'
+  module: text('module').notNull(), // 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'DEVICE_LIFECYCLE'
 
   title: text('title').notNull(),
   message: text('message'),

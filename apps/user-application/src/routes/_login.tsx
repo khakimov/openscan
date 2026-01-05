@@ -3,12 +3,9 @@ import { LoginLeftPanel } from "@/components/login/login-left-panel";
 
 export const Route = createFileRoute("/_login")({
   beforeLoad: async ({ context }) => {
-    // Check session via tRPC (OpenPanel pattern)
-    const sessionQuery = context.trpc.auth.session.queryOptions();
-    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
-
+    // Session already fetched by __root.tsx (fetchSession server function - no HTTP during SSR)
     // If user is authenticated, redirect to home (let index.tsx handle routing)
-    if (sessionData?.session) {
+    if (context.session?.session) {
       throw redirect({ to: "/" });
     }
   },

@@ -91,7 +91,7 @@ export function buildScannerInput(params: {
         type: targetType,
         label: input.target,
         id: input.deviceId,
-      },
+      } as ScannerInput['targets'][number],
     ],
     scanOptions: hasScanOptions ? scanOptions : undefined,
     metadata: hasMetadata ? metadata : undefined,

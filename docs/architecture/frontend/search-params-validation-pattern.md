@@ -18,7 +18,7 @@ Previously, our routes used manual type casting for search params validation:
 
 ```tsx
 // ❌ Old approach - manual validation
-export const Route = createFileRoute("/_auth/assets")({
+export const Route = createFileRoute("/_auth/servers")({
   validateSearch: (search: Record<string, unknown>) => {
     return {
       tab: (search.tab as string) || "discovery",
@@ -44,7 +44,7 @@ The component was using loader data directly instead of a reactive query:
 
 ```tsx
 // ❌ Old approach - no reactivity
-function Assets() {
+function Servers() {
   const devicesResponse = Route.useLoaderData(); // Static data, doesn't update
   const devices = devicesResponse.items || [];
   // ...
@@ -71,7 +71,7 @@ const assetsSearchSchema = z.object({
   tab: fallback(z.enum(["discovery", "verified"]), "discovery").default("discovery"),
 });
 
-export const Route = createFileRoute("/_auth/assets")({
+export const Route = createFileRoute("/_auth/servers")({
   validateSearch: zodValidator(assetsSearchSchema),
   // ...
 });
@@ -87,7 +87,7 @@ export const Route = createFileRoute("/_auth/assets")({
 Use `loaderDeps` to properly access search params in loaders:
 
 ```tsx
-export const Route = createFileRoute("/_auth/assets")({
+export const Route = createFileRoute("/_auth/servers")({
   validateSearch: zodValidator(assetsSearchSchema),
   loaderDeps: ({ search }) => ({ tab: search.tab }),
   loader: async ({ deps: { tab } }) => {
@@ -118,7 +118,7 @@ Combine SSR data with reactive queries:
 ```tsx
 import { useDevicesQuery } from "@/hooks/useDevicesQuery";
 
-function Assets() {
+function Servers() {
   const { tab } = Route.useSearch();
   const initialData = Route.useLoaderData();
 
@@ -253,7 +253,7 @@ function MyComponent() {
 
 ### Main Implementation
 
-- **Route Definition**: `apps/user-application/src/routes/_auth/assets.tsx`
+- **Route Definition**: `apps/user-application/src/routes/_auth/servers.tsx`
   - Lines 16-40: Search schema, validation, loader with deps
   - Lines 43-60: Component using search params with reactive query
 
@@ -463,4 +463,4 @@ const { data } = useMyQuery({
 - [TanStack Router Search Params Docs](https://tanstack.com/router/latest/docs/framework/react/guide/search-params)
 - [Zod Validation](https://zod.dev/)
 - [TanStack Query Integration](https://tanstack.com/query/latest/docs/framework/react/guides/ssr)
-- **Our Implementation**: `apps/user-application/src/routes/_auth/assets.tsx`
+- **Our Implementation**: `apps/user-application/src/routes/_auth/servers.tsx`

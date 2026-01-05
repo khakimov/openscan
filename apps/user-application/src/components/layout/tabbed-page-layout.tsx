@@ -7,7 +7,7 @@
  * Usage:
  * ```tsx
  * <TabbedPageLayout
- *   tabs={<AssetsTabHeader />}
+ *   tabs={<ServersTabHeader />}
  *   actions={<Button>Add Device</Button>}
  *   pending={false}
  * >

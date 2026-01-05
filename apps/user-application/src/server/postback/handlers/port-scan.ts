@@ -409,32 +409,115 @@ export class PortScanPostbackHandler
     // Step 8: Change Detection & Notification Creation
     try {
       const { detectScanChanges } = await import('@/server/notifications/change-detector');
-      const { createNotifications } = await import('@repo/data-ops');
+      const { createNotifications, getDeviceById } = await import('@repo/data-ops');
 
-      // CRITICAL: Pass fresh scan data with updated resultSummary
-      // The scanRun fetched at line 220 has stale/null resultSummary
-      const freshScanData = {
-        ...scanRun,
-        resultSummary, // Use the freshly built resultSummary from line 345
-      };
+      // Check device verification status - only notify for VERIFIED devices
+      const device = await getDeviceById(deviceId, organizationId);
 
-      const changes = await detectScanChanges({
-        deviceId,
-        currentScan: freshScanData,
-        organizationId,
-      });
+      if (device?.verificationStatus !== 'VERIFIED') {
+        ctx.logger.debug('[Notifications] Skipping change detection - device not verified', {
+          scanId,
+          deviceId,
+          verificationStatus: device?.verificationStatus || 'unknown',
+          note: 'Only VERIFIED (monitored) devices trigger notifications',
+        });
+      } else {
+        // CRITICAL: Pass fresh scan data with updated resultSummary
+        // The scanRun fetched at line 220 has stale/null resultSummary
+        const freshScanData = {
+          ...scanRun,
+          resultSummary, // Use the freshly built resultSummary from line 345
+        };
 
-      if (changes.length > 0) {
+        const changes = await detectScanChanges({
+          deviceId,
+          currentScan: freshScanData,
+          organizationId,
+          deviceName: device.name || device.ip || undefined, // Pass device name for availability notifications
+        });
+
+        // Translate SERVICE_DRIFT changes into configuration drift notifications
+        // This creates granular product/version change alerts without duplicating the generic SERVICE_DRIFT alert
+        const { logAppProductChanged, logAppVersionChanged } = await import('@repo/data-ops');
+        const deviceName = device.name || device.ip || 'unknown';
+
+        for (const change of changes) {
+          if (change.type === 'SERVICE_DRIFT' && change.data) {
+            const data = change.data as { port?: number; protocol?: string; oldService?: any; newService?: any };
+
+            if (!data.port || !data.oldService || !data.newService) continue;
+
+            const payload = {
+              organizationId,
+              deviceId,
+              deviceName,
+              port: data.port,
+            };
+
+            // Check if product changed (more critical than version)
+            const oldProduct = data.oldService.product ?? 'unknown';
+            const newProduct = data.newService.product ?? 'unknown';
+            const oldVersion = data.oldService.version ?? 'unknown';
+            const newVersion = data.newService.version ?? 'unknown';
+
+            if (oldProduct !== newProduct) {
+              try {
+                await logAppProductChanged({
+                  ...payload,
+                  oldProduct,
+                  newProduct,
+                });
+                ctx.logger.info('[Configuration Drift] Product changed', {
+                  deviceId,
+                  port: data.port,
+                  oldProduct,
+                  newProduct,
+                });
+              } catch (error) {
+                ctx.logger.error('[Configuration Drift] Failed to log product change', {
+                  deviceId,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            } else if (oldVersion !== newVersion) {
+              try {
+                await logAppVersionChanged({
+                  ...payload,
+                  product: newProduct,
+                  oldVersion,
+                  newVersion,
+                });
+                ctx.logger.info('[Configuration Drift] Version changed', {
+                  deviceId,
+                  port: data.port,
+                  product: newProduct,
+                  oldVersion,
+                  newVersion,
+                });
+              } catch (error) {
+                ctx.logger.error('[Configuration Drift] Failed to log version change', {
+                  deviceId,
+                  error: error instanceof Error ? error.message : String(error),
+                });
+              }
+            }
+          }
+        }
+
+        // Remove SERVICE_DRIFT changes since we've emitted granular configuration drift alerts
+        const filteredChanges = changes.filter(change => change.type !== 'SERVICE_DRIFT');
+
+      if (filteredChanges.length > 0) {
         ctx.logger.info('[Notifications] Changes detected, creating notifications', {
           scanId,
           deviceId,
-          changeCount: changes.length,
-          changes: changes.map((c) => ({ type: c.type, severity: c.severity })),
+          changeCount: filteredChanges.length,
+          changes: filteredChanges.map((c) => ({ type: c.type, severity: c.severity })),
         });
 
         // Calculate suppress window based on change type
         const now = Date.now();
-        const notificationInputs = changes.map((change) => ({
+        const notificationInputs = filteredChanges.map((change) => ({
           organizationId,
           deviceId,
           scanRunId: scanRun.id,
@@ -442,13 +525,15 @@ export class PortScanPostbackHandler
           severity: change.severity,
           module: change.module,
           title: change.title,
-          message: change.message || undefined,
+          message: change.message ?? null,
           data: change.data,
           fingerprint: change.fingerprint,
-          // Suppress windows: 6h for ports, 24h for CVEs
+          // Suppress windows: 15min for availability, 6h for ports, 24h for CVEs
           suppressUntil: new Date(
             now +
-              (change.type.includes('PORT')
+              (change.type === 'SERVICE_DOWN' || change.type === 'SERVICE_UP'
+                ? 15 * 60 * 1000 // 15 minutes (fast alerts for outages/recovery)
+                : change.type.includes('PORT')
                 ? 6 * 60 * 60 * 1000 // 6 hours
                 : 24 * 60 * 60 * 1000) // 24 hours
           ),
@@ -459,15 +544,43 @@ export class PortScanPostbackHandler
         ctx.logger.info('[Notifications] Notifications created', {
           scanId,
           deviceId,
-          requested: changes.length,
+          requested: filteredChanges.length,
           created: createdNotifications.length,
-          suppressed: changes.length - createdNotifications.length,
+          suppressed: filteredChanges.length - createdNotifications.length,
         });
+
+        // Enqueue delivery jobs for created notifications
+        if (createdNotifications.length > 0 && ctx.env?.NOTIFICATION_DELIVERY_PRODUCER) {
+          try {
+            const { enqueueNotificationDelivery } = await import('@/server/notifications/delivery-queue');
+            const env = ctx.env as Env;
+            // Pass scanRunId to enable batching multiple notifications into one email
+            await enqueueNotificationDelivery(createdNotifications, env, { scanRunId: scanId });
+            ctx.logger.info('[Notifications] Delivery jobs enqueued', {
+              scanId,
+              deviceId,
+              count: createdNotifications.length,
+              batched: createdNotifications.length > 1,
+            });
+          } catch (error) {
+            ctx.logger.error('[Notifications] Failed to enqueue delivery jobs', {
+              scanId,
+              deviceId,
+              error: error instanceof Error ? error.message : String(error),
+            });
+          }
+        } else if (createdNotifications.length > 0) {
+          ctx.logger.warn('[Notifications] Skipping delivery enqueue - queue binding missing', {
+            scanId,
+            deviceId,
+          });
+        }
       } else {
         ctx.logger.debug('[Notifications] No changes detected', {
           scanId,
           deviceId,
         });
+        }
       }
     } catch (error) {
       // Don't fail postback if notification creation fails

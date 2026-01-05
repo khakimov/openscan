@@ -634,7 +634,7 @@ When adding new routes/queries, verify:
 | File | Purpose | Status |
 |------|---------|--------|
 | `src/routes/_app.$organizationId.$projectId.tsx` | Project layout | Needs access validation |
-| `src/routes/_app.$organizationId.$projectId.assets.tsx` | Assets page | Uses device queries |
+| `src/routes/_app.$organizationId.$projectId.assets.tsx` | Servers page | Uses device queries |
 | `src/queries/device-queries.ts` | Device queries | Needs explicit org scope |
 
 ---

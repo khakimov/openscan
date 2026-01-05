@@ -12,7 +12,7 @@ This security platform application uses TanStack Router with pathless routes (us
 ### Authentication & App Routes (Pathless Layout: `_auth`)
 - **Layout**: `src/routes/_auth/route.tsx` - Authenticated layout with sidebar
 - **Dashboard**: `/dashboard` - `src/routes/_auth/dashboard.tsx` - Main dashboard overview
-- **Assets**: `/assets` - `src/routes/_auth/assets.tsx` - Device inventory and management
+- **Servers**: `/servers` - `src/routes/_app.$organizationId.$projectId.servers.tsx` - Server inventory and management
   - Query params: `?tab=discovery|verified` - Toggle between discovered and verified devices
 - **Scans**: `/scans` - `src/routes/_auth/scans.tsx` - Port scan history and results
 
@@ -40,7 +40,7 @@ This security platform application uses TanStack Router with pathless routes (us
 - **Purpose**: Groups all authenticated application routes
 - **Shared Layout**: Sidebar navigation + main content area
 - **Authentication**: Requires user session via Better Auth
-- **Routes**: `/dashboard`, `/assets`, `/scans`, `/app/*`
+- **Routes**: `/dashboard`, `/servers`, `/scans`, `/app/*`
 
 ### `onboarding` Layout
 - **Purpose**: Multi-step onboarding flow for new users
@@ -49,7 +49,7 @@ This security platform application uses TanStack Router with pathless routes (us
 
 ## Query Parameters
 
-### `/assets` Route
+### `/servers` Route
 - `tab`: Filters device list
   - `discovery` (default): Shows CANDIDATE and EXCLUDED devices
   - `verified`: Shows VERIFIED devices only
@@ -69,7 +69,7 @@ The landing page (`/`) handles authentication state:
 
 The sidebar in the `_auth` layout shows:
 - **Dashboard**: System overview
-- **Assets**: Device inventory
+- **Servers**: Server inventory
 - **Scans**: Port scan history
 
 ## TanStack Query Integration
@@ -78,13 +78,13 @@ The sidebar in the `_auth` layout shows:
 Routes use loaders to populate TanStack Query cache for SSR:
 
 ```typescript
-export const Route = createFileRoute('/_auth/assets')({
+export const Route = createFileRoute('/_auth/servers')({
   loaderDeps: ({ search }) => ({ tab: search.tab }),
   loader: async ({ context: { queryClient }, deps: { tab } }) => {
     const verificationStatus = tab === "verified" ? "VERIFIED" : ["CANDIDATE", "EXCLUDED"];
     return queryClient.ensureQueryData(deviceQueries.list({ verificationStatus }));
   },
-  component: Assets,
+  component: ServersDiscovery,
 });
 ```
 
@@ -92,7 +92,7 @@ export const Route = createFileRoute('/_auth/assets')({
 Components use the same query to get guaranteed non-null data:
 
 ```typescript
-function Assets() {
+function ServersDiscovery() {
   const { data: devicesResponse } = useSuspenseQuery(
     deviceQueries.list({ verificationStatus })
   );
@@ -169,7 +169,7 @@ src/routes/
 ├── _auth/                                        # Authenticated app routes
 │   ├── route.tsx                                 # Auth layout (sidebar + content)
 │   ├── dashboard.tsx                             # /dashboard - Main dashboard
-│   ├── assets.tsx                                # /assets - Device inventory
+│   ├── servers.tsx                                # /servers - Device inventory
 │   ├── scans.tsx                                 # /scans - Port scan history
 │   └── app/                                      # Subscription routes
 │       ├── index.tsx                             # App layout

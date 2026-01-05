@@ -1,47 +1,35 @@
 import { getRequest } from "@tanstack/react-start/server";
+import { createServerFn } from "@tanstack/react-start";
 import { getAuth } from "@repo/data-ops/auth/server";
 import { getOrganizationAPI, getActiveOrganizationId } from "@repo/data-ops/auth/organization-api";
+import { initDatabase } from "@repo/data-ops/database/setup";
+import { env } from 'cloudflare:workers';
+
+/**
+ * Get Workers env
+ */
+function getEnv(): Env {
+  // Initialize database
+  initDatabase(env.DB);
+  return env;
+}
 
 /**
  * Get the current user's organization ID from better-auth session
  * Throws an error if no authenticated session or organization context
  */
 export async function getCurrentOrganizationId(): Promise<string> {
+  const env = getEnv();
   const request = getRequest();
-  const auth = getAuth();
-  const session = await auth.api.getSession(request);
+  const auth = getAuth(env);
+  const session = await auth.api.getSession({ headers: request.headers });
 
   if (!session?.user) {
     throw new Error("Authentication required");
   }
 
   // Better-auth organization plugin stores activeOrganizationId in session
-  let organizationId = getActiveOrganizationId(session);
-
-  // If no active organization, try to auto-set the first available organization
-  if (!organizationId) {
-    try {
-      const orgAPI = getOrganizationAPI(auth);
-      const organizations = await orgAPI.listOrganizations({
-        headers: request.headers,
-      });
-
-      if (organizations && organizations.length > 0) {
-        // Auto-set the first organization as active
-        const firstOrg = organizations[0];
-        await orgAPI.setActiveOrganization({
-          body: {
-            organizationId: firstOrg.id,
-          },
-          headers: request.headers,
-        });
-
-        organizationId = firstOrg.id;
-      }
-    } catch (error) {
-      // Failed to auto-set organization, fall through to error below
-    }
-  }
+  const organizationId = getActiveOrganizationId(session);
 
   if (!organizationId) {
     throw new Error("No organization context - user not assigned to an organization");
@@ -78,9 +66,13 @@ export const requireTenantContext = getCurrentOrganizationId;
  * Throws an error if no authenticated session
  */
 export async function getCurrentUser() {
+  const env = getEnv();
   const request = getRequest();
-  const auth = getAuth();
-  const session = await auth.api.getSession(request);
+  
+  const auth = getAuth(env);
+  const session = await auth.api.getSession({
+    headers: request.headers
+  });
 
   if (!session?.user) {
     throw new Error("Authentication required");
@@ -94,3 +86,22 @@ export async function getCurrentUser() {
     organizationId: getActiveOrganizationId(session),
   };
 }
+
+/**
+ * Server function to get session (SSR-safe)
+ * Returns { session: null } if not authenticated (never throws)
+ * Use this in __root.tsx beforeLoad to avoid HTTP calls during SSR
+ */
+export const getSessionServerFn = createServerFn({ method: 'GET' }).handler(async () => {
+  try {
+    const user = await getCurrentUser();
+    return {
+      session: {
+        user,
+        activeOrganizationId: user.organizationId,
+      },
+    };
+  } catch {
+    return { session: null };
+  }
+});

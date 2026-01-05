@@ -1,9 +1,8 @@
 import { defineConfig } from 'vitest/config';
 import tsconfigPaths from 'vite-tsconfig-paths';
 import { fileURLToPath } from 'node:url';
-
 export default defineConfig({
-  plugins: [tsconfigPaths()],
+  plugins: [tsconfigPaths() as unknown as any],
   resolve: {
     alias: {
       'cloudflare:workers': fileURLToPath(

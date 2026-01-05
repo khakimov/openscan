@@ -20,7 +20,7 @@ import { toast } from "sonner";
 // Form validation schema
 const CreateScheduleSchema = z.object({
   preset: z.enum(['QUICK', 'STANDARD', 'THOROUGH'], {
-    required_error: "Please select a scan preset",
+    message: "Please select a scan preset",
   }),
   scheduleFrequency: z.enum([
     'EVERY_30_MINUTES',
@@ -29,7 +29,7 @@ const CreateScheduleSchema = z.object({
     'EVERY_12_HOURS',
     'DAILY',
   ], {
-    required_error: "Please select a schedule frequency",
+    message: "Please select a schedule frequency",
   }),
   dailyTime: z.string().regex(/^([01]\d|2[0-3]):([0-5]\d)$/).optional(),
 }).refine(

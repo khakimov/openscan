@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, createTRPCRouter } from '../trpc';
-import type { TrpcContext } from '../context';
+import type { TrpcContext } from '../trpc';
 import {
   getScanRunsWithArtifacts,
   validateProjectAccess,

@@ -19,15 +19,18 @@ import { useOrganizationLifecycle } from "@/features/onboarding/hooks/use-organi
 
 export const Route = createFileRoute("/onboarding/project")({
   beforeLoad: async ({ context }) => {
-    // Redirect if not authenticated (OpenPanel pattern)
-    const sessionQuery = context.trpc.auth.session.queryOptions();
-    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
-
-    if (!sessionData?.session) {
+    // Session already fetched by __root.tsx (fetchSession server function - no HTTP during SSR)
+    // Redirect if not authenticated
+    if (!context.session?.session) {
       throw redirect({ to: "/onboarding" });
     }
   },
   loader: async ({ context }) => {
+    // Skip SSR data fetching on Cloudflare Workers (prevents 522 timeouts)
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const onboarding = await context.queryClient.ensureQueryData(
       context.trpc.onboarding.status.queryOptions()
@@ -61,7 +64,7 @@ export const Route = createFileRoute("/onboarding/project")({
 
 function Onboarding2Project() {
   const navigate = useNavigate();
-  const { hasOrganization, organizationId, projectId, initialValues, onboarding } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
@@ -69,11 +72,21 @@ function Onboarding2Project() {
   // OpenPanel pattern: Reuse queryOptions to ensure cache key stays in sync
   const statusOptions = trpc.onboarding.status.queryOptions();
 
-  useQuery({
+  const { data: onboarding } = useQuery({
     ...statusOptions,
     queryFn: () => trpcClient.onboarding.status.query(),
-    initialData: onboarding,
+    initialData: loaderData?.onboarding,
   });
+
+  if (!onboarding || !loaderData) {
+    return (
+      <div className="p-8 space-y-8 flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  const { hasOrganization, organizationId, projectId, initialValues } = loaderData;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 

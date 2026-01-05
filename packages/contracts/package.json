@@ -1,23 +1,69 @@
 {
   "name": "@repo/contracts",
   "version": "0.1.0",
-  "main": "index.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "type": "module",
   "exports": {
-    ".": "./index.ts",
-    "./result": "./result.ts",
-    "./device": "./device.ts",
-    "./device/resolvers": "./device/resolvers/index.ts",
-    "./project": "./project.ts",
-    "./organization": "./organization.ts",
-    "./scan": "./scan.ts",
-    "./artifacts": "./artifacts/index.ts",
-    "./artifacts/json-types": "./artifacts/json-types.ts",
-    "./artifacts/migrations": "./artifacts/migrations.ts",
-    "./scanners": "./scanners/index.ts",
-    "./postbacks": "./postbacks/index.ts"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./result": {
+      "types": "./dist/result.d.ts",
+      "import": "./dist/result.js"
+    },
+    "./device": {
+      "types": "./dist/device.d.ts",
+      "import": "./dist/device.js"
+    },
+    "./device/resolvers": {
+      "types": "./dist/device/resolvers/index.d.ts",
+      "import": "./dist/device/resolvers/index.js"
+    },
+    "./project": {
+      "types": "./dist/project.d.ts",
+      "import": "./dist/project.js"
+    },
+    "./organization": {
+      "types": "./dist/organization.d.ts",
+      "import": "./dist/organization.js"
+    },
+    "./scan": {
+      "types": "./dist/scan.d.ts",
+      "import": "./dist/scan.js"
+    },
+    "./artifacts": {
+      "types": "./dist/artifacts/index.d.ts",
+      "import": "./dist/artifacts/index.js"
+    },
+    "./artifacts/json-types": {
+      "types": "./dist/artifacts/json-types.d.ts",
+      "import": "./dist/artifacts/json-types.js"
+    },
+    "./artifacts/migrations": {
+      "types": "./dist/artifacts/migrations.d.ts",
+      "import": "./dist/artifacts/migrations.js"
+    },
+    "./scanners": {
+      "types": "./dist/scanners/index.d.ts",
+      "import": "./dist/scanners/index.js"
+    },
+    "./postbacks": {
+      "types": "./dist/postbacks/index.d.ts",
+      "import": "./dist/postbacks/index.js"
+    },
+    "./network/ip-utils": {
+      "types": "./dist/network/ip-utils.d.ts",
+      "import": "./dist/network/ip-utils.js"
+    },
+    "./network/dns-resolver": {
+      "types": "./dist/network/dns-resolver.d.ts",
+      "import": "./dist/network/dns-resolver.js"
+    }
   },
   "scripts": {
+    "build": "tsc -p tsconfig.build.json",
     "typecheck": "echo 'Skipping typecheck - contracts use workspace types'",
     "test": "vitest run",
     "test:watch": "vitest"

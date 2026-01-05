@@ -29,6 +29,8 @@ import {
   ConcurrencyLimitError,
   type SchedulePreset,
 } from '@repo/data-ops';
+import { initDatabase } from '@repo/data-ops/database/setup';
+import { env } from 'cloudflare:workers';
 
 const logger = createLogger({ name: 'api-schedules-can-execute' });
 
@@ -68,6 +70,9 @@ export const Route = createFileRoute('/api/internal/schedules/can-execute')({
     handlers: {
       POST: async ({ request }) => {
         const startTime = Date.now();
+
+        // Initialize database before any data-ops queries
+        initDatabase(env.DB);
 
         // Step 1: Authenticate
         if (!authenticateWorkerRequest(request)) {

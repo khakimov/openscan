@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "data-service",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-06-17",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": {
+    "enabled": true
+  },
+  "queues": {
+    "consumers": [
+      {
+        "queue": "notification-delivery",
+        "max_batch_size": 10
+      }
+    ],
+    "producers": [
+      {
+        "queue": "notification-delivery",
+        "binding": "NOTIFICATION_DELIVERY_PRODUCER"
+      }
+    ]
+  }
+}

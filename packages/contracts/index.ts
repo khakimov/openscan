@@ -33,3 +33,10 @@ export type {
 export * from './artifacts';
 export * from './scanners';
 export * from './postbacks';
+
+// Network utilities (DNS resolution and IP validation)
+export * from './network/ip-utils';
+export * from './network/dns-resolver';
+
+// Notification schemas (shared enums and types)
+export * from './notifications';

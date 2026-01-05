@@ -5,7 +5,9 @@ import { PlusIcon, FolderIcon } from "lucide-react";
 import { pushModal } from "@/modals";
 import { SectionHeaderSkeleton, CardGridSkeleton } from "@/components/shared/skeletons";
 import type { ProjectEntity } from "@repo/contracts/project";
-import { useOrganization } from "@/components/layout";
+import { getProjectDefaultRoute } from "@/lib/navigation";
+import { getOrganization } from "@/server/organization";
+import { listProjects } from "@/server/project";
 
 /**
  * Pending component for organization index
@@ -20,25 +22,17 @@ const OrganizationIndexPending = () => (
 
 export const Route = createFileRoute("/_app/$organizationId/")({
   pendingComponent: OrganizationIndexPending,
-  loader: async ({ params, context }) => {
-    // Get organization from parent loader data
-    const parentData = await context.queryClient.ensureQueryData(
-      context.trpc.organization.get.queryOptions({
-        organizationId: params.organizationId,
-      })
-    );
+  loader: async ({ params }) => {
+    // ✅ Resolve organization (slug or ID) - fast direct DB query
+    const organization = await getOrganization({ data: params.organizationId });
 
-    // Fetch projects via tRPC (OpenPanel pattern)
-    const projects = await context.queryClient.ensureQueryData(
-      context.trpc.project.listByOrg.queryOptions({
-        organizationId: parentData.id,
-      })
-    );
+    // ✅ List projects for organization
+    const projects = await listProjects({ data: organization.id });
 
-    // Auto-redirect to project if only ONE project exists
+    // Auto-redirect to project default route if only ONE project exists
     if (projects.length === 1) {
       throw redirect({
-        to: '/$organizationId/$projectId',
+        to: getProjectDefaultRoute(),
         params: {
           organizationId: params.organizationId,
           projectId: projects[0].id,
@@ -46,14 +40,13 @@ export const Route = createFileRoute("/_app/$organizationId/")({
       });
     }
 
-    return { projects };
+    return { organization, projects };
   },
   component: OrganizationIndex,
 });
 
 function OrganizationIndex() {
-  const { projects } = Route.useLoaderData();
-  const organization = useOrganization();
+  const { organization, projects } = Route.useLoaderData();
 
   // Empty state - no projects
   if (projects.length === 0) {
@@ -92,7 +85,7 @@ function OrganizationIndex() {
         {projects.map((project: ProjectEntity) => (
           <a
             key={project.id}
-            href={`/${organization.slug || organization.id}/${project.id}`}
+            href={`/${organization.slug || organization.id}/${project.id}/servers/discovery`}
             className="block p-6 rounded-lg border border-border bg-card hover:border-primary hover:shadow-md transition-all"
           >
             <div className="flex items-start justify-between mb-2">

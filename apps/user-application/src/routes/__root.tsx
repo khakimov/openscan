@@ -5,6 +5,7 @@ import {
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router";
+import { createServerFn } from "@tanstack/react-start";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 import * as React from "react";
@@ -19,6 +20,7 @@ import { Toaster } from "sonner";
 import type { RouterContext } from "@/router";
 import { Spinner } from "@/components/ui/spinner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { getCurrentUser } from "@/server/utils/auth";
 
 const themeConfig = {
   attribute: "class" as const,
@@ -28,7 +30,30 @@ const themeConfig = {
   disableTransitionOnChange: false,
 };
 
+/**
+ * Fetch session on both SSR and client-side navigation
+ * During SSR: Executes directly in worker (has access to getRequest())
+ * During client nav: Makes HTTP to /_serverFn/... endpoint
+ */
+const fetchSession = createServerFn({ method: "GET" }).handler(async () => {
+  try {
+    const user = await getCurrentUser();
+    return {
+      session: {
+        user,
+        activeOrganizationId: user.organizationId,
+      },
+    };
+  } catch {
+    return { session: null };
+  }
+});
+
 export const Route = createRootRouteWithContext<RouterContext>()({
+  beforeLoad: async () => {
+    const session = await fetchSession();
+    return { session };
+  },
   head: () => ({
     meta: [
       {
@@ -47,21 +72,8 @@ export const Route = createRootRouteWithContext<RouterContext>()({
     links: [
       { rel: "stylesheet", href: appCss },
       { rel: "stylesheet", href: landingCss },
-      // Preload landing page fonts for better performance
-      {
-        rel: "preload",
-        href: "/fonts/TT-Firs-Neue-Var Roman.woff2",
-        as: "font",
-        type: "font/woff2",
-        crossOrigin: "anonymous",
-      },
-      {
-        rel: "preload",
-        href: "/fonts/UncutSans-Variable.woff2",
-        as: "font",
-        type: "font/woff2",
-        crossOrigin: "anonymous",
-      },
+      // Note: Font preloading removed - fonts load fast enough without preload
+      // and preloading caused warnings when navigating directly to app routes
       // SVG favicon for modern browsers (scales perfectly at any size)
       { rel: "icon", type: "image/svg+xml", href: "/favicon.svg" },
       // Fallback favicons for older browsers

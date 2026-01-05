@@ -11,7 +11,7 @@ const logger = createLogger({ name: 'discovery-device-scan-handler' });
 export const getActiveDeviceScans = createServerFn({
   method: 'POST',
 })
-  .inputValidator((data: { deviceId: string }) => {
+  .inputValidator((data: { deviceId: string; organizationId?: string }) => {
     if (!data?.deviceId) {
       throw new Error('Device ID is required');
     }
@@ -21,7 +21,7 @@ export const getActiveDeviceScans = createServerFn({
     const { deviceId } = data;
 
     try {
-      const organizationId = await getCurrentOrganizationId();
+      const organizationId = data.organizationId ?? (await getCurrentOrganizationId());
       const activeScans = await deviceManager.fetchActiveScans(organizationId, deviceId);
 
       logger.info('Retrieved active scans for device', {

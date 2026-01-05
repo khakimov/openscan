@@ -10,13 +10,12 @@ import {
 import { authClient } from "@/lib/auth-client";
 import { LogOut, Palette, Loader2, Bell } from "lucide-react";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
-import { useRouter } from "@tanstack/react-router";
 import { useState, Suspense } from "react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { toast } from "sonner";
-import { useSuspenseQuery } from "@tanstack/react-query";
+import { useSuspenseQuery, useQueryClient } from "@tanstack/react-query";
 import { useSaveNotificationPreferencesMutation } from "@/queries/notification-queries";
 
 export interface AccountDialogUser {
@@ -124,16 +123,21 @@ function NotificationPreferencesSection() {
 }
 
 export function AccountDialog({ children, user }: AccountDialogProps) {
-  const router = useRouter();
+  const queryClient = useQueryClient();
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   const signOut = async () => {
     setIsSigningOut(true);
     try {
+      // 1. Sign out via auth client (clears session on server)
       await authClient.signOut();
-      // Use TanStack Router to navigate to home page
-      // This preserves SPA benefits while clearing the session
-      await router.navigate({ to: "/" });
+
+      // 2. Clear all query cache to prevent stale data
+      queryClient.clear();
+
+      // 3. Force full page reload to landing page
+      // This ensures all state is cleared and no 401 errors from stale queries
+      window.location.href = "/";
     } catch (error) {
       console.error("Sign out failed:", error);
       setIsSigningOut(false);

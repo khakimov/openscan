@@ -27,6 +27,11 @@ export interface SetActiveOrganizationParams {
   organizationId: string;
 }
 
+export type SetActiveOrganizationHeadersResult = {
+  headers: Headers;
+  response: Organization | null;
+};
+
 /**
  * Organization API methods interface
  * Cast any better-auth instance to this type to access organization methods
@@ -37,10 +42,11 @@ export interface OrganizationAPI {
     headers: Headers | IncomingMessage["headers"];
   }): Promise<Organization>;
 
-  setActiveOrganization(params: {
+  setActiveOrganization<T extends boolean | undefined = undefined>(params: {
     body: SetActiveOrganizationParams;
     headers: Headers | IncomingMessage["headers"];
-  }): Promise<void>;
+    returnHeaders?: T;
+  }): Promise<T extends true ? SetActiveOrganizationHeadersResult : void>;
 
   listOrganizations(params: {
     headers: Headers | IncomingMessage["headers"];

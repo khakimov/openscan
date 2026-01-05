@@ -1,7 +1,6 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "@tanstack/react-router";
-import { type SubmitHandler, useForm } from "react-hook-form";
-import { z } from "zod/v4";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -11,9 +10,7 @@ import { InputWithLabel } from "@/components/shared/forms/input-with-label";
 import { Button } from "@/components/ui/button";
 
 const validator = z.object({
-  email: z
-    .union([z.literal(""), z.email("Please enter a valid email address")])
-    .refine((val) => val !== "", { message: "Email is required" }),
+  email: z.string().min(1, "Email is required").email("Please enter a valid email address"),
   password: z.string().min(1, "Password is required"),
 });
 
@@ -23,21 +20,31 @@ export function SignInEmailForm() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
 
-  const form = useForm<
-    z.input<typeof validator>,
-    any,
-    z.output<typeof validator>
-  >({
-    resolver: zodResolver(validator),
+  const form = useForm<IForm>({
+    defaultValues: {
+      email: "",
+      password: "",
+    },
   });
 
-  const onSubmit: SubmitHandler<IForm> = async (values) => {
+  const onSubmit = async (values: IForm) => {
+    // Validate with Zod
+    const result = validator.safeParse(values);
+    if (!result.success) {
+      // Set field errors from Zod
+      result.error.issues.forEach((err) => {
+        const path = err.path[0] as keyof IForm;
+        form.setError(path, { message: err.message });
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const { error } = await authClient.signIn.email({
-        email: values.email,
-        password: values.password,
+        email: result.data.email,
+        password: result.data.password,
       });
 
       if (error) {

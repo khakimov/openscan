@@ -1,3 +1,4 @@
+import { useSetActiveOrganizationMutation } from "@/queries/organization-mutations";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,6 +20,7 @@ import { useMemo, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAppParams } from "@/hooks/use-app-params";
 import { pushModal } from "@/modals";
+import { getProjectDefaultRouteParams } from "@/lib/navigation";
 
 type SelectorAlignment = "start" | "end" | "center";
 
@@ -50,6 +52,7 @@ export function LayoutProjectSelector({
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const params = useAppParams();
+  const setActiveOrganization = useSetActiveOrganizationMutation();
 
   // Get active project from URL params (if on project-scoped route)
   const activeProjectId = params.projectId;
@@ -129,9 +132,7 @@ export function LayoutProjectSelector({
                 className="flex items-center gap-2"
                 onSelect={() => {
                   setOpen(false);
-                  console.info("[LayoutProjectSelector] select organization", {
-                    organizationId: organization.id,
-                  });
+                  setActiveOrganization.mutate(organization.id);
                 }}
               >
                 <span className="truncate">
@@ -163,15 +164,11 @@ export function LayoutProjectSelector({
                 onSelect={() => {
                   setOpen(false);
 
-                  // Navigate to project dashboard when switching projects
+                  // Navigate to project default route when switching projects
                   const orgIdentifier = tenant?.slug || tenant?.id || params.organizationId;
                   if (orgIdentifier && project.id) {
                     navigate({
-                      to: '/$organizationId/$projectId',
-                      params: {
-                        organizationId: orgIdentifier,
-                        projectId: project.id,
-                      },
+                      ...getProjectDefaultRouteParams(orgIdentifier, project.id),
                     });
                   }
                 }}

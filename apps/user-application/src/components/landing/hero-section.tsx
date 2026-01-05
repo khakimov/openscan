@@ -28,9 +28,8 @@ export function HeroSection() {
         </h1>
 
         <p className="landing-caption mt-8 mb-4 max-w-2xl mx-auto opacity-90">
-          We discover, monitor, and help you fix exposed internet-facing
-          services, known vulnerabilities, and misconfigurations across your
-          apps, websites, and servers — before attackers exploit them.
+          Monitor your websites and servers in one place. Lock the doors before
+          anyone gets in.
         </p>
 
         <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">

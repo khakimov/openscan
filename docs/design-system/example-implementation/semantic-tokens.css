@@ -1,0 +1,186 @@
+/**
+ * Semantic Tokens - Intent-based color mappings
+ *
+ * These map primitive colors to meaningful usage contexts.
+ * Components should ALWAYS use these (never primitives directly).
+ *
+ * When you change a semantic mapping, all components update automatically.
+ * Example: Rebrand primary from pumpkin to blue by changing ONE line here.
+ */
+
+@layer base {
+  /* =====================================================
+     LIGHT THEME (Default)
+     ===================================================== */
+  :root {
+    /* ----- Interactive Colors ----- */
+    --color-primary:                var(--color-pumpkin-600);
+    --color-primary-hover:          var(--color-pumpkin-700);
+    --color-primary-active:         var(--color-pumpkin-800);
+    --color-primary-foreground:     var(--color-white);
+
+    --color-secondary:              var(--color-danube-600);
+    --color-secondary-hover:        var(--color-danube-700);
+    --color-secondary-active:       var(--color-danube-800);
+    --color-secondary-foreground:   var(--color-white);
+
+    --color-tertiary:               var(--color-slate-600);
+    --color-tertiary-hover:         var(--color-slate-700);
+    --color-tertiary-foreground:    var(--color-white);
+
+    /* ----- Status/Feedback Colors ----- */
+    --color-success:                var(--color-green-600);
+    --color-success-hover:          var(--color-green-700);
+    --color-success-foreground:     var(--color-white);
+    --color-success-subtle:         var(--color-green-50);
+    --color-success-border:         var(--color-green-200);
+
+    --color-warning:                var(--color-amber-600);
+    --color-warning-hover:          var(--color-amber-700);
+    --color-warning-foreground:     var(--color-white);
+    --color-warning-subtle:         var(--color-amber-50);
+    --color-warning-border:         var(--color-amber-200);
+
+    --color-danger:                 var(--color-red-600);
+    --color-danger-hover:           var(--color-red-700);
+    --color-danger-foreground:      var(--color-white);
+    --color-danger-subtle:          var(--color-red-50);
+    --color-danger-border:          var(--color-red-200);
+
+    --color-info:                   var(--color-blue-600);
+    --color-info-hover:             var(--color-blue-700);
+    --color-info-foreground:        var(--color-white);
+    --color-info-subtle:            var(--color-blue-50);
+    --color-info-border:            var(--color-blue-200);
+
+    /* ----- Surface Colors ----- */
+    --color-background:             var(--color-white);
+    --color-background-secondary:   var(--color-slate-50);
+
+    --color-surface:                var(--color-white);
+    --color-surface-elevated:       var(--color-white);
+    --color-surface-secondary:      var(--color-slate-50);
+    --color-surface-tertiary:       var(--color-slate-100);
+
+    --color-overlay:                oklch(0% 0 0 / 0.5);  /* Semi-transparent black */
+
+    /* ----- Text Colors ----- */
+    --color-text-primary:           var(--color-slate-900);
+    --color-text-secondary:         var(--color-slate-600);
+    --color-text-tertiary:          var(--color-slate-400);
+    --color-text-disabled:          var(--color-slate-300);
+    --color-text-inverse:           var(--color-white);
+
+    /* ----- Border Colors ----- */
+    --color-border:                 var(--color-slate-200);
+    --color-border-strong:          var(--color-slate-300);
+    --color-border-subtle:          var(--color-slate-100);
+
+    /* ----- Input Colors ----- */
+    --color-input-background:       var(--color-white);
+    --color-input-border:           var(--color-slate-300);
+    --color-input-border-hover:     var(--color-slate-400);
+    --color-input-border-focus:     var(--color-primary);
+    --color-input-disabled:         var(--color-slate-100);
+
+    /* ----- Special Purpose ----- */
+    --color-brand:                  var(--color-pumpkin-500);  /* Logo, brand elements */
+    --color-accent:                 var(--color-danube-500);   /* Highlights, badges */
+    --color-highlight:              var(--color-amber-200);    /* Text highlighting */
+
+    /* ----- Chart/Data Visualization ----- */
+    --color-chart-1:                var(--color-pumpkin-600);
+    --color-chart-2:                var(--color-danube-600);
+    --color-chart-3:                var(--color-green-600);
+    --color-chart-4:                var(--color-amber-600);
+    --color-chart-5:                var(--color-blue-600);
+  }
+
+  /* =====================================================
+     DARK THEME
+     ===================================================== */
+  .dark {
+    /* ----- Interactive Colors ----- */
+    /* Use lighter shades for better visibility on dark backgrounds */
+    --color-primary:                var(--color-pumpkin-500);
+    --color-primary-hover:          var(--color-pumpkin-400);
+    --color-primary-active:         var(--color-pumpkin-300);
+    --color-primary-foreground:     var(--color-slate-950);
+
+    --color-secondary:              var(--color-danube-500);
+    --color-secondary-hover:        var(--color-danube-400);
+    --color-secondary-active:       var(--color-danube-300);
+    --color-secondary-foreground:   var(--color-slate-950);
+
+    --color-tertiary:               var(--color-slate-400);
+    --color-tertiary-hover:         var(--color-slate-300);
+    --color-tertiary-foreground:    var(--color-slate-950);
+
+    /* ----- Status Colors ----- */
+    --color-success:                var(--color-green-500);
+    --color-success-hover:          var(--color-green-400);
+    --color-success-foreground:     var(--color-slate-950);
+    --color-success-subtle:         oklch(20% 0.045 142 / 0.2);  /* Darker with opacity */
+    --color-success-border:         var(--color-green-800);
+
+    --color-warning:                var(--color-amber-500);
+    --color-warning-hover:          var(--color-amber-400);
+    --color-warning-foreground:     var(--color-slate-950);
+    --color-warning-subtle:         oklch(20% 0.042 85 / 0.2);
+    --color-warning-border:         var(--color-amber-800);
+
+    --color-danger:                 var(--color-red-500);
+    --color-danger-hover:           var(--color-red-400);
+    --color-danger-foreground:      var(--color-white);
+    --color-danger-subtle:          oklch(20% 0.045 27 / 0.2);
+    --color-danger-border:          var(--color-red-800);
+
+    --color-info:                   var(--color-blue-500);
+    --color-info-hover:             var(--color-blue-400);
+    --color-info-foreground:        var(--color-slate-950);
+    --color-info-subtle:            oklch(20% 0.045 240 / 0.2);
+    --color-info-border:            var(--color-blue-800);
+
+    /* ----- Surface Colors ----- */
+    --color-background:             var(--color-slate-950);
+    --color-background-secondary:   var(--color-slate-900);
+
+    --color-surface:                var(--color-slate-900);
+    --color-surface-elevated:       var(--color-slate-800);
+    --color-surface-secondary:      var(--color-slate-800);
+    --color-surface-tertiary:       var(--color-slate-700);
+
+    --color-overlay:                oklch(0% 0 0 / 0.7);  /* Darker overlay for dark mode */
+
+    /* ----- Text Colors ----- */
+    --color-text-primary:           var(--color-slate-50);
+    --color-text-secondary:         var(--color-slate-400);
+    --color-text-tertiary:          var(--color-slate-500);
+    --color-text-disabled:          var(--color-slate-600);
+    --color-text-inverse:           var(--color-slate-950);
+
+    /* ----- Border Colors ----- */
+    --color-border:                 var(--color-slate-800);
+    --color-border-strong:          var(--color-slate-700);
+    --color-border-subtle:          var(--color-slate-900);
+
+    /* ----- Input Colors ----- */
+    --color-input-background:       var(--color-slate-900);
+    --color-input-border:           var(--color-slate-700);
+    --color-input-border-hover:     var(--color-slate-600);
+    --color-input-border-focus:     var(--color-primary);
+    --color-input-disabled:         var(--color-slate-800);
+
+    /* ----- Special Purpose ----- */
+    --color-brand:                  var(--color-pumpkin-400);
+    --color-accent:                 var(--color-danube-400);
+    --color-highlight:              var(--color-amber-900);
+
+    /* ----- Charts (slightly adjusted for dark) ----- */
+    --color-chart-1:                var(--color-pumpkin-500);
+    --color-chart-2:                var(--color-danube-500);
+    --color-chart-3:                var(--color-green-500);
+    --color-chart-4:                var(--color-amber-500);
+    --color-chart-5:                var(--color-blue-500);
+  }
+}

@@ -63,9 +63,10 @@ export class WorkflowOrchestratorRestate {
     if (!target) {
       throw new Error('No targets provided for port scan');
     }
+    const targetValue = (target as any).value as string;
 
     const result = await client.startPortScan({
-      target: target.value,
+      target: targetValue,
       ports: input.scanOptions?.requestedPorts?.join(','),
       protocol: 'tcp', // Default to tcp, can be made configurable
       aggressive: input.scanOptions?.aggressive,
@@ -74,7 +75,7 @@ export class WorkflowOrchestratorRestate {
 
     logger.info('Port scan workflow started via Restate', {
       scanId: result.scanId,
-      target: target.value,
+      target: targetValue,
     });
 
     return {

@@ -27,6 +27,7 @@ const ALLOWED_TYPES = new Set([
   'CVE_FIXED',
   'CVE_REGRESSED',
   'SERVICE_DRIFT',
+  'SERVER_PROMOTED',
 ] as const);
 
 export type AllowedNotificationType = typeof ALLOWED_TYPES extends Set<infer T> ? T : never;

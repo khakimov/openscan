@@ -78,7 +78,7 @@ This guide captures UI patterns worth standardizing across our apps. The notes c
     const { organizationId, projectId } = Route.useParams();
     return (
       <AppLayout skeleton>
-        <AssetsTabHeader organizationId={organizationId} projectId={projectId} disabled />
+        <ServersTabHeader organizationId={organizationId} projectId={projectId} disabled />
         <PageLoadingFallback compact />
       </AppLayout>
     );

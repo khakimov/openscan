@@ -18,11 +18,6 @@ import { normalizeDiscoveryResult } from '@/features/discovery/utils';
 
 const logger = createLogger({ name: 'discovery-handler' });
 
-logger.info('Discovery handler initialized', {
-  engine: 'Restate',
-  restateUrl: process.env.RESTATE_INGRESS_URL || 'http://localhost:8080',
-});
-
 export const startDiscoveryWorkflow = createServerFn({
   method: 'POST',
 })

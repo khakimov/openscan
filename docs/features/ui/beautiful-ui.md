@@ -151,7 +151,7 @@ const columnRef = useCallback((node: HTMLElement | null) => {
 
 ```typescript
 // apps/user-application/src/routes/_auth/assets.tsx
-function Assets() {
+function Servers() {
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
 
   const handleDevicesAdded = (deviceIds: string[]) => {
@@ -193,7 +193,7 @@ const handleAddDevices = () => {
 **Step 3: Components receive animation prop**
 
 ```typescript
-// apps/user-application/src/features/assets/components/device-card.tsx
+// apps/user-application/src/features/servers/components/device-card.tsx
 interface DeviceCardProps {
   device: TransformedDevice;
   isNewlyAdded?: boolean;  // ⬅️ Prop, not data field
@@ -253,7 +253,7 @@ Never mix these concerns!
 
 ### Problem 1: Device Card Scanning Status Flickers
 
-**Location:** `apps/user-application/src/features/assets/components/device-card.tsx`
+**Location:** `apps/user-application/src/features/servers/components/device-card.tsx`
 
 **Current Flow:**
 ```
@@ -498,10 +498,10 @@ export const Route = createFileRoute('/_auth/assets')({
   ),
 
   // 3. Component: Use cached data
-  component: AssetsPage,
+  component: ServersPage,
 });
 
-function AssetsPage() {
+function ServersPage() {
   // useSuspenseQuery uses cached data from loader
   // No loading state - data is already available!
   const { data } = useSuspenseQuery(deviceQueries.list());

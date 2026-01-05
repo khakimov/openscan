@@ -54,8 +54,9 @@ export async function detectScanChanges(params: {
   deviceId: string;
   currentScan: typeof scanRuns.$inferSelect;
   organizationId: string;
+  deviceName?: string; // Optional device name for SERVICE_DOWN/UP notifications
 }): Promise<ScanChange[]> {
-  const { deviceId, currentScan, organizationId } = params;
+  const { deviceId, currentScan, organizationId, deviceName } = params;
 
   // Step 1: Get recent scan history for comparison
   // We need up to 2 previous scans for regression detection:
@@ -96,7 +97,7 @@ export async function detectScanChanges(params: {
   }
 
   // Step 3: Run port, CVE (with regression detection), and service drift diffs
-  const portChanges = diffPorts(currentSummary, baselineSummary, deviceId);
+  const portChanges = diffPorts(currentSummary, baselineSummary, deviceId, deviceName);
   const cveChanges = diffCVEs(currentSummary, baselineSummary, deviceId, prevPrevSummary);
   const serviceDriftChanges = diffServiceDrift(currentSummary, baselineSummary, deviceId);
 

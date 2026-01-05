@@ -9,6 +9,10 @@ import {
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+interface NotificationIndicatorProps {
+  activeOrganizationId?: string | null;
+}
+
 /**
  * Notification Indicator - Pulsing Dot (OpenPanel tRPC pattern)
  *
@@ -18,11 +22,11 @@ import { cn } from '@/lib/utils';
  * - Green: Only LOW/INFO notifications
  * - Gray: No unread notifications
  *
- * Usage: Add next to navigation items (e.g., Assets in sidebar)
+ * Usage: Add next to navigation items (e.g., Servers in sidebar)
  *
  * Uses tRPC query with consistent polling for real-time badge updates.
  */
-export function NotificationIndicator() {
+export function NotificationIndicator({ activeOrganizationId }: NotificationIndicatorProps) {
   const trpcClient = useTRPCClient();
 
   // Poll unread count every 30 seconds (OpenPanel tRPC pattern)
@@ -32,6 +36,7 @@ export function NotificationIndicator() {
     staleTime: 30_000, // 30 seconds
     refetchInterval: 30_000, // Auto-refetch every 30 seconds
     refetchIntervalInBackground: true, // Keep polling when tab is inactive
+    enabled: !!activeOrganizationId, // Disable query if no active organization
   });
 
   const unreadCount = countData?.count ?? 0;

@@ -1,3 +1,4 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 import { useTRPCClient } from '@/integrations/trpc/react';
 import { onboardingStatusQueryKey } from '@/queries/onboarding-queries';
@@ -60,5 +61,21 @@ export const useUpdateOrganizationMutation = () => {
       trpcClient.onboarding.updateOrganization.mutate(data),
     successMessage: 'Organization updated successfully',
     invalidateKeys: [['organizations'], onboardingStatusQueryKey()],
+  });
+};
+
+export const useSetActiveOrganizationMutation = () => {
+  const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (organizationId: string) =>
+      trpcClient.organization.setActive.mutate({ organizationId }),
+    onSuccess: () => {
+      // Invalidate organization list to refresh activeOrganizationId
+      queryClient.invalidateQueries({
+        queryKey: ['organizations'],
+      });
+    },
   });
 };

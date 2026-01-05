@@ -18,15 +18,18 @@ const discoverySearchSchema = z.object({
 export const Route = createFileRoute("/onboarding/$projectId/discovery")({
   validateSearch: discoverySearchSchema,
   beforeLoad: async ({ context }) => {
-    // Redirect if not authenticated (OpenPanel pattern)
-    const sessionQuery = context.trpc.auth.session.queryOptions();
-    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
-
-    if (!sessionData?.session) {
+    // Session already fetched by __root.tsx (fetchSession server function - no HTTP during SSR)
+    // Redirect if not authenticated
+    if (!context.session?.session) {
       throw redirect({ to: "/onboarding" });
     }
   },
   loader: async ({ context }) => {
+    // Skip SSR data fetching on Cloudflare Workers (prevents 522 timeouts)
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const onboarding = await context.queryClient.ensureQueryData(
       context.trpc.onboarding.status.queryOptions()
@@ -55,20 +58,30 @@ function OnboardingDiscovery() {
   const navigate = useNavigate();
   const { projectId } = Route.useParams();
   const { domain: searchDomain } = Route.useSearch();
-  const { onboarding, savedDevices } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
   // Subscribe to onboarding query for reactive updates (e.g., after mutations)
   // OpenPanel pattern: Reuse queryOptions to ensure cache key stays in sync
   const statusOptions = trpc.onboarding.status.queryOptions();
-  useQuery({
+  const { data: onboarding } = useQuery({
     ...statusOptions,
     queryFn: () => trpcClient.onboarding.status.query(),
-    initialData: onboarding,
+    initialData: loaderData?.onboarding,
   });
 
-  // Subscribe to discovery devices query to keep "Already Saved Assets" list fresh
+  if (!onboarding || !loaderData) {
+    return (
+      <div className="p-8 space-y-8 flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  const savedDevices = loaderData.savedDevices || [];
+
+  // Subscribe to discovery devices query to keep "Already Saved Servers" list fresh
   // Only subscribe if we have an organizationId
   const devicesQuery = onboarding.organizationId
     ? useQuery({
@@ -162,7 +175,7 @@ function OnboardingDiscovery() {
       {displayedDevices.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Already Saved Assets</h3>
+            <h3 className="text-sm font-medium">Already Saved Servers</h3>
             <span className="text-xs text-muted-foreground">
               {displayedDevices.length} asset{displayedDevices.length !== 1 ? "s" : ""}
             </span>

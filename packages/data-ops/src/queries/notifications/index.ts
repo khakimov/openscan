@@ -51,3 +51,14 @@ export {
   updateEmailSeveritiesOrDisable,
   resetEmailSeveritiesToDefaults,
 } from './settings';
+
+export {
+  type ConfigurationDriftType,
+  type ConfigurationDriftPayload,
+  logConfigurationDrift,
+  logServerIPChanged,
+  logAppProductChanged,
+  logAppVersionChanged,
+  logWebTitleChanged,
+  logManualEdit,
+} from './configuration';

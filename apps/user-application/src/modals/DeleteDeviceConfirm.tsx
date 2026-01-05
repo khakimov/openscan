@@ -3,8 +3,10 @@ import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
 import { AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { useRouter } from "@tanstack/react-router";
+import { useRouter, useParams } from "@tanstack/react-router";
 import { useDeleteDeviceMutation } from "@/queries/device-queries";
+import { useQueryClient } from "@tanstack/react-query";
+import { deviceQueries } from "@/queries/device-queries";
 
 interface DeleteDeviceConfirmProps {
   deviceId: string;
@@ -18,6 +20,8 @@ export default function DeleteDeviceConfirm({
   onSuccess,
 }: DeleteDeviceConfirmProps) {
   const router = useRouter();
+  const params = useParams({ strict: false });
+  const queryClient = useQueryClient();
   const deleteMutation = useDeleteDeviceMutation();
 
   const handleDelete = async () => {
@@ -29,11 +33,28 @@ export default function DeleteDeviceConfirm({
             description: `${deviceName} has been removed from your inventory.`,
           });
 
-          // Force route refresh
-          await router.invalidate();
+          // Ensure queries are invalidated before navigation
+          await queryClient.invalidateQueries({
+            queryKey: deviceQueries.list.base,
+          });
+
+          popModal("DeleteDeviceConfirm");
+
+          // Redirect to discovery page if we have org and project params
+          if (params.organizationId && params.projectId) {
+            await router.navigate({
+              to: '/$organizationId/$projectId/servers/discovery',
+              params: {
+                organizationId: params.organizationId,
+                projectId: params.projectId,
+              },
+            });
+          } else {
+            // Fallback: just invalidate router if params missing
+            await router.invalidate();
+          }
 
           onSuccess?.();
-          popModal("DeleteDeviceConfirm");
         },
         onError: (error: any) => {
           toast.error("Failed to delete device", {

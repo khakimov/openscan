@@ -12,6 +12,8 @@ import { deviceManager } from './device-manager';
 import { generateScanId } from '../utils/workflow-helpers';
 import { determineScanScope } from '../utils/scan-scope';
 
+import type { ScanScope } from '@repo/data-ops/schema/enums';
+
 import type { PortScanInput } from '@repo/contracts';
 
 const logger = createLogger({ name: 'port-scan-service' });
@@ -37,7 +39,7 @@ export class PortScanService {
     const scanId = generateScanId('portscan', input.target);
 
     // Step 1: Create database record with embedded workflow tracking
-    const scope = determineScanScope(input.target);
+    const scope = determineScanScope(input.target) as ScanScope;
     const scanRun = await scanRecorder.createRun({
       tenantId,
       restateWorkflowId: scanId,

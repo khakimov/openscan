@@ -29,7 +29,6 @@ import {
   uploadScreenshot,
   generateR2Key,
 } from '@/server/services/r2-storage';
-import { env } from 'cloudflare:workers';
 import { HttpxPostbackSchema } from '@repo/contracts/postbacks';
 
 /**
@@ -162,7 +161,7 @@ export class HttpxPostbackHandler
           let r2Key: string | undefined;
 
           // Upload screenshot to R2 if base64 data is present
-          if (probe.screenshotBase64 && env.SCREENSHOTS) {
+          if (probe.screenshotBase64 && ctx.env?.SCREENSHOTS) {
             try {
               // Decode base64 to ArrayBuffer
               const buffer = Buffer.from(probe.screenshotBase64, 'base64');
@@ -181,7 +180,7 @@ export class HttpxPostbackHandler
 
               // Upload to R2
               r2Key = await uploadScreenshot(
-                env.SCREENSHOTS,
+                ctx.env.SCREENSHOTS,
                 key,
                 arrayBuffer,
                 {

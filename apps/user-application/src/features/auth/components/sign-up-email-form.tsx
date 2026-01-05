@@ -1,7 +1,6 @@
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "@tanstack/react-router";
-import { type SubmitHandler, useForm } from "react-hook-form";
-import { z } from "zod/v4";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -30,17 +29,34 @@ export function SignUpEmailForm() {
   const [isLoading, setIsLoading] = useState(false);
 
   const form = useForm<IForm>({
-    resolver: zodResolver(validator),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
   });
 
-  const onSubmit: SubmitHandler<IForm> = async (values) => {
+  const onSubmit = async (values: IForm) => {
+    // Validate with Zod
+    const result = validator.safeParse(values);
+    if (!result.success) {
+      // Set field errors from Zod
+      result.error.issues.forEach((err) => {
+        const path = err.path[0] as keyof IForm;
+        form.setError(path, { message: err.message });
+      });
+      return;
+    }
+
     setIsLoading(true);
 
     try {
       const { error } = await authClient.signUp.email({
-        email: values.email,
-        password: values.password,
-        name: `${values.firstName} ${values.lastName}`,
+        email: result.data.email,
+        password: result.data.password,
+        name: `${result.data.firstName} ${result.data.lastName}`,
       });
 
       if (error) {

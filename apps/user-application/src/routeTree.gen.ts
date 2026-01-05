@@ -16,6 +16,7 @@ import { Route as AppRouteImport } from './routes/_app'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as OnboardingIndexRouteImport } from './routes/onboarding.index'
 import { Route as OnboardingProjectRouteImport } from './routes/onboarding.project'
+import { Route as ApiTestAuthRouteImport } from './routes/api/test-auth'
 import { Route as ApiScreenshotsRouteImport } from './routes/api/screenshots'
 import { Route as PublicTermsRouteImport } from './routes/_public.terms'
 import { Route as PublicPrivacyRouteImport } from './routes/_public.privacy'
@@ -33,15 +34,16 @@ import { Route as AppOrganizationIdProjectIdRouteImport } from './routes/_app.$o
 import { Route as AppOrganizationIdProjectIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.index'
 import { Route as ApiInternalSchedulesReleaseSlotRouteImport } from './routes/api/internal/schedules/release-slot'
 import { Route as ApiInternalSchedulesCanExecuteRouteImport } from './routes/api/internal/schedules/can-execute'
+import { Route as AppOrganizationIdProjectIdServersRouteImport } from './routes/_app.$organizationId.$projectId.servers'
 import { Route as AppOrganizationIdProjectIdScansRouteImport } from './routes/_app.$organizationId.$projectId.scans'
-import { Route as AppOrganizationIdProjectIdAssetsRouteImport } from './routes/_app.$organizationId.$projectId.assets'
-import { Route as AppOrganizationIdProjectIdAssetsIndexRouteImport } from './routes/_app.$organizationId.$projectId.assets.index'
-import { Route as AppOrganizationIdProjectIdAssetsVerifiedRouteImport } from './routes/_app.$organizationId.$projectId.assets.verified'
-import { Route as AppOrganizationIdProjectIdAssetsDiscoveryRouteImport } from './routes/_app.$organizationId.$projectId.assets.discovery'
-import { Route as AppOrganizationIdProjectIdAssetsDeviceIdRouteImport } from './routes/_app.$organizationId.$projectId.assets.$deviceId'
-import { Route as AppOrganizationIdProjectIdAssetsDeviceIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.assets.$deviceId.index'
-import { Route as AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRouteImport } from './routes/_app.$organizationId.$projectId.assets.$deviceId.vulnerabilities'
-import { Route as AppOrganizationIdProjectIdAssetsDeviceIdScansRouteImport } from './routes/_app.$organizationId.$projectId.assets.$deviceId.scans'
+import { Route as AppOrganizationIdProjectIdServersIndexRouteImport } from './routes/_app.$organizationId.$projectId.servers.index'
+import { Route as AppOrganizationIdProjectIdServersVerifiedRouteImport } from './routes/_app.$organizationId.$projectId.servers.verified'
+import { Route as AppOrganizationIdProjectIdServersDiscoveryRouteImport } from './routes/_app.$organizationId.$projectId.servers.discovery'
+import { Route as AppOrganizationIdProjectIdServersDeviceIdRouteImport } from './routes/_app.$organizationId.$projectId.servers.$deviceId'
+import { Route as AppOrganizationIdProjectIdServersDeviceIdIndexRouteImport } from './routes/_app.$organizationId.$projectId.servers.$deviceId.index'
+import { Route as AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRouteImport } from './routes/_app.$organizationId.$projectId.servers.$deviceId.vulnerabilities'
+import { Route as AppOrganizationIdProjectIdServersDeviceIdScansRouteImport } from './routes/_app.$organizationId.$projectId.servers.$deviceId.scans'
+import { Route as AppOrganizationIdProjectIdServersDeviceIdActivityRouteImport } from './routes/_app.$organizationId.$projectId.servers.$deviceId.activity'
 
 const OnboardingRoute = OnboardingRouteImport.update({
   id: '/onboarding',
@@ -74,6 +76,11 @@ const OnboardingProjectRoute = OnboardingProjectRouteImport.update({
   id: '/project',
   path: '/project',
   getParentRoute: () => OnboardingRoute,
+} as any)
+const ApiTestAuthRoute = ApiTestAuthRouteImport.update({
+  id: '/api/test-auth',
+  path: '/api/test-auth',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiScreenshotsRoute = ApiScreenshotsRouteImport.update({
   id: '/api/screenshots',
@@ -167,59 +174,65 @@ const ApiInternalSchedulesCanExecuteRoute =
     path: '/api/internal/schedules/can-execute',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AppOrganizationIdProjectIdServersRoute =
+  AppOrganizationIdProjectIdServersRouteImport.update({
+    id: '/servers',
+    path: '/servers',
+    getParentRoute: () => AppOrganizationIdProjectIdRoute,
+  } as any)
 const AppOrganizationIdProjectIdScansRoute =
   AppOrganizationIdProjectIdScansRouteImport.update({
     id: '/scans',
     path: '/scans',
     getParentRoute: () => AppOrganizationIdProjectIdRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsRoute =
-  AppOrganizationIdProjectIdAssetsRouteImport.update({
-    id: '/assets',
-    path: '/assets',
-    getParentRoute: () => AppOrganizationIdProjectIdRoute,
-  } as any)
-const AppOrganizationIdProjectIdAssetsIndexRoute =
-  AppOrganizationIdProjectIdAssetsIndexRouteImport.update({
+const AppOrganizationIdProjectIdServersIndexRoute =
+  AppOrganizationIdProjectIdServersIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsVerifiedRoute =
-  AppOrganizationIdProjectIdAssetsVerifiedRouteImport.update({
+const AppOrganizationIdProjectIdServersVerifiedRoute =
+  AppOrganizationIdProjectIdServersVerifiedRouteImport.update({
     id: '/verified',
     path: '/verified',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsDiscoveryRoute =
-  AppOrganizationIdProjectIdAssetsDiscoveryRouteImport.update({
+const AppOrganizationIdProjectIdServersDiscoveryRoute =
+  AppOrganizationIdProjectIdServersDiscoveryRouteImport.update({
     id: '/discovery',
     path: '/discovery',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsDeviceIdRoute =
-  AppOrganizationIdProjectIdAssetsDeviceIdRouteImport.update({
+const AppOrganizationIdProjectIdServersDeviceIdRoute =
+  AppOrganizationIdProjectIdServersDeviceIdRouteImport.update({
     id: '/$deviceId',
     path: '/$deviceId',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute =
-  AppOrganizationIdProjectIdAssetsDeviceIdIndexRouteImport.update({
+const AppOrganizationIdProjectIdServersDeviceIdIndexRoute =
+  AppOrganizationIdProjectIdServersDeviceIdIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsDeviceIdRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersDeviceIdRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute =
-  AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRouteImport.update({
+const AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute =
+  AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRouteImport.update({
     id: '/vulnerabilities',
     path: '/vulnerabilities',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsDeviceIdRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersDeviceIdRoute,
   } as any)
-const AppOrganizationIdProjectIdAssetsDeviceIdScansRoute =
-  AppOrganizationIdProjectIdAssetsDeviceIdScansRouteImport.update({
+const AppOrganizationIdProjectIdServersDeviceIdScansRoute =
+  AppOrganizationIdProjectIdServersDeviceIdScansRouteImport.update({
     id: '/scans',
     path: '/scans',
-    getParentRoute: () => AppOrganizationIdProjectIdAssetsDeviceIdRoute,
+    getParentRoute: () => AppOrganizationIdProjectIdServersDeviceIdRoute,
+  } as any)
+const AppOrganizationIdProjectIdServersDeviceIdActivityRoute =
+  AppOrganizationIdProjectIdServersDeviceIdActivityRouteImport.update({
+    id: '/activity',
+    path: '/activity',
+    getParentRoute: () => AppOrganizationIdProjectIdServersDeviceIdRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -230,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
+  '/api/test-auth': typeof ApiTestAuthRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
@@ -241,18 +255,19 @@ export interface FileRoutesByFullPath {
   '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/app': typeof AuthAppIndexRoute
-  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRouteWithChildren
   '/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
+  '/$organizationId/$projectId/servers': typeof AppOrganizationIdProjectIdServersRouteWithChildren
   '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
   '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
-  '/$organizationId/$projectId/assets/$deviceId': typeof AppOrganizationIdProjectIdAssetsDeviceIdRouteWithChildren
-  '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
-  '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  '/$organizationId/$projectId/assets/': typeof AppOrganizationIdProjectIdAssetsIndexRoute
-  '/$organizationId/$projectId/assets/$deviceId/scans': typeof AppOrganizationIdProjectIdAssetsDeviceIdScansRoute
-  '/$organizationId/$projectId/assets/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute
-  '/$organizationId/$projectId/assets/$deviceId/': typeof AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute
+  '/$organizationId/$projectId/servers/$deviceId': typeof AppOrganizationIdProjectIdServersDeviceIdRouteWithChildren
+  '/$organizationId/$projectId/servers/discovery': typeof AppOrganizationIdProjectIdServersDiscoveryRoute
+  '/$organizationId/$projectId/servers/verified': typeof AppOrganizationIdProjectIdServersVerifiedRoute
+  '/$organizationId/$projectId/servers/': typeof AppOrganizationIdProjectIdServersIndexRoute
+  '/$organizationId/$projectId/servers/$deviceId/activity': typeof AppOrganizationIdProjectIdServersDeviceIdActivityRoute
+  '/$organizationId/$projectId/servers/$deviceId/scans': typeof AppOrganizationIdProjectIdServersDeviceIdScansRoute
+  '/$organizationId/$projectId/servers/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute
+  '/$organizationId/$projectId/servers/$deviceId/': typeof AppOrganizationIdProjectIdServersDeviceIdIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -260,6 +275,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
+  '/api/test-auth': typeof ApiTestAuthRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/$organizationId/dashboard': typeof AppOrganizationIdDashboardRoute
@@ -274,12 +290,13 @@ export interface FileRoutesByTo {
   '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
   '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdIndexRoute
-  '/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
-  '/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  '/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsIndexRoute
-  '/$organizationId/$projectId/assets/$deviceId/scans': typeof AppOrganizationIdProjectIdAssetsDeviceIdScansRoute
-  '/$organizationId/$projectId/assets/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute
-  '/$organizationId/$projectId/assets/$deviceId': typeof AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute
+  '/$organizationId/$projectId/servers/discovery': typeof AppOrganizationIdProjectIdServersDiscoveryRoute
+  '/$organizationId/$projectId/servers/verified': typeof AppOrganizationIdProjectIdServersVerifiedRoute
+  '/$organizationId/$projectId/servers': typeof AppOrganizationIdProjectIdServersIndexRoute
+  '/$organizationId/$projectId/servers/$deviceId/activity': typeof AppOrganizationIdProjectIdServersDeviceIdActivityRoute
+  '/$organizationId/$projectId/servers/$deviceId/scans': typeof AppOrganizationIdProjectIdServersDeviceIdScansRoute
+  '/$organizationId/$projectId/servers/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute
+  '/$organizationId/$projectId/servers/$deviceId': typeof AppOrganizationIdProjectIdServersDeviceIdIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -293,6 +310,7 @@ export interface FileRoutesById {
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/terms': typeof PublicTermsRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
+  '/api/test-auth': typeof ApiTestAuthRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding/': typeof OnboardingIndexRoute
   '/_app/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
@@ -304,18 +322,19 @@ export interface FileRoutesById {
   '/onboarding/$projectId/notifications': typeof OnboardingProjectIdNotificationsRoute
   '/_app/$organizationId/': typeof AppOrganizationIdIndexRoute
   '/_auth/app/': typeof AuthAppIndexRoute
-  '/_app/$organizationId/$projectId/assets': typeof AppOrganizationIdProjectIdAssetsRouteWithChildren
   '/_app/$organizationId/$projectId/scans': typeof AppOrganizationIdProjectIdScansRoute
+  '/_app/$organizationId/$projectId/servers': typeof AppOrganizationIdProjectIdServersRouteWithChildren
   '/api/internal/schedules/can-execute': typeof ApiInternalSchedulesCanExecuteRoute
   '/api/internal/schedules/release-slot': typeof ApiInternalSchedulesReleaseSlotRoute
   '/_app/$organizationId/$projectId/': typeof AppOrganizationIdProjectIdIndexRoute
-  '/_app/$organizationId/$projectId/assets/$deviceId': typeof AppOrganizationIdProjectIdAssetsDeviceIdRouteWithChildren
-  '/_app/$organizationId/$projectId/assets/discovery': typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
-  '/_app/$organizationId/$projectId/assets/verified': typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  '/_app/$organizationId/$projectId/assets/': typeof AppOrganizationIdProjectIdAssetsIndexRoute
-  '/_app/$organizationId/$projectId/assets/$deviceId/scans': typeof AppOrganizationIdProjectIdAssetsDeviceIdScansRoute
-  '/_app/$organizationId/$projectId/assets/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute
-  '/_app/$organizationId/$projectId/assets/$deviceId/': typeof AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute
+  '/_app/$organizationId/$projectId/servers/$deviceId': typeof AppOrganizationIdProjectIdServersDeviceIdRouteWithChildren
+  '/_app/$organizationId/$projectId/servers/discovery': typeof AppOrganizationIdProjectIdServersDiscoveryRoute
+  '/_app/$organizationId/$projectId/servers/verified': typeof AppOrganizationIdProjectIdServersVerifiedRoute
+  '/_app/$organizationId/$projectId/servers/': typeof AppOrganizationIdProjectIdServersIndexRoute
+  '/_app/$organizationId/$projectId/servers/$deviceId/activity': typeof AppOrganizationIdProjectIdServersDeviceIdActivityRoute
+  '/_app/$organizationId/$projectId/servers/$deviceId/scans': typeof AppOrganizationIdProjectIdServersDeviceIdScansRoute
+  '/_app/$organizationId/$projectId/servers/$deviceId/vulnerabilities': typeof AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute
+  '/_app/$organizationId/$projectId/servers/$deviceId/': typeof AppOrganizationIdProjectIdServersDeviceIdIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -327,6 +346,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/api/screenshots'
+    | '/api/test-auth'
     | '/onboarding/project'
     | '/onboarding/'
     | '/$organizationId/$projectId'
@@ -338,18 +358,19 @@ export interface FileRouteTypes {
     | '/onboarding/$projectId/notifications'
     | '/$organizationId/'
     | '/app'
-    | '/$organizationId/$projectId/assets'
     | '/$organizationId/$projectId/scans'
+    | '/$organizationId/$projectId/servers'
     | '/api/internal/schedules/can-execute'
     | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId/'
-    | '/$organizationId/$projectId/assets/$deviceId'
-    | '/$organizationId/$projectId/assets/discovery'
-    | '/$organizationId/$projectId/assets/verified'
-    | '/$organizationId/$projectId/assets/'
-    | '/$organizationId/$projectId/assets/$deviceId/scans'
-    | '/$organizationId/$projectId/assets/$deviceId/vulnerabilities'
-    | '/$organizationId/$projectId/assets/$deviceId/'
+    | '/$organizationId/$projectId/servers/$deviceId'
+    | '/$organizationId/$projectId/servers/discovery'
+    | '/$organizationId/$projectId/servers/verified'
+    | '/$organizationId/$projectId/servers/'
+    | '/$organizationId/$projectId/servers/$deviceId/activity'
+    | '/$organizationId/$projectId/servers/$deviceId/scans'
+    | '/$organizationId/$projectId/servers/$deviceId/vulnerabilities'
+    | '/$organizationId/$projectId/servers/$deviceId/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -357,6 +378,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/terms'
     | '/api/screenshots'
+    | '/api/test-auth'
     | '/onboarding/project'
     | '/onboarding'
     | '/$organizationId/dashboard'
@@ -371,12 +393,13 @@ export interface FileRouteTypes {
     | '/api/internal/schedules/can-execute'
     | '/api/internal/schedules/release-slot'
     | '/$organizationId/$projectId'
-    | '/$organizationId/$projectId/assets/discovery'
-    | '/$organizationId/$projectId/assets/verified'
-    | '/$organizationId/$projectId/assets'
-    | '/$organizationId/$projectId/assets/$deviceId/scans'
-    | '/$organizationId/$projectId/assets/$deviceId/vulnerabilities'
-    | '/$organizationId/$projectId/assets/$deviceId'
+    | '/$organizationId/$projectId/servers/discovery'
+    | '/$organizationId/$projectId/servers/verified'
+    | '/$organizationId/$projectId/servers'
+    | '/$organizationId/$projectId/servers/$deviceId/activity'
+    | '/$organizationId/$projectId/servers/$deviceId/scans'
+    | '/$organizationId/$projectId/servers/$deviceId/vulnerabilities'
+    | '/$organizationId/$projectId/servers/$deviceId'
   id:
     | '__root__'
     | '/'
@@ -389,6 +412,7 @@ export interface FileRouteTypes {
     | '/_public/privacy'
     | '/_public/terms'
     | '/api/screenshots'
+    | '/api/test-auth'
     | '/onboarding/project'
     | '/onboarding/'
     | '/_app/$organizationId/$projectId'
@@ -400,18 +424,19 @@ export interface FileRouteTypes {
     | '/onboarding/$projectId/notifications'
     | '/_app/$organizationId/'
     | '/_auth/app/'
-    | '/_app/$organizationId/$projectId/assets'
     | '/_app/$organizationId/$projectId/scans'
+    | '/_app/$organizationId/$projectId/servers'
     | '/api/internal/schedules/can-execute'
     | '/api/internal/schedules/release-slot'
     | '/_app/$organizationId/$projectId/'
-    | '/_app/$organizationId/$projectId/assets/$deviceId'
-    | '/_app/$organizationId/$projectId/assets/discovery'
-    | '/_app/$organizationId/$projectId/assets/verified'
-    | '/_app/$organizationId/$projectId/assets/'
-    | '/_app/$organizationId/$projectId/assets/$deviceId/scans'
-    | '/_app/$organizationId/$projectId/assets/$deviceId/vulnerabilities'
-    | '/_app/$organizationId/$projectId/assets/$deviceId/'
+    | '/_app/$organizationId/$projectId/servers/$deviceId'
+    | '/_app/$organizationId/$projectId/servers/discovery'
+    | '/_app/$organizationId/$projectId/servers/verified'
+    | '/_app/$organizationId/$projectId/servers/'
+    | '/_app/$organizationId/$projectId/servers/$deviceId/activity'
+    | '/_app/$organizationId/$projectId/servers/$deviceId/scans'
+    | '/_app/$organizationId/$projectId/servers/$deviceId/vulnerabilities'
+    | '/_app/$organizationId/$projectId/servers/$deviceId/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -421,6 +446,7 @@ export interface RootRouteChildren {
   PublicRoute: typeof PublicRouteWithChildren
   OnboardingRoute: typeof OnboardingRouteWithChildren
   ApiScreenshotsRoute: typeof ApiScreenshotsRoute
+  ApiTestAuthRoute: typeof ApiTestAuthRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
@@ -479,6 +505,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/onboarding/project'
       preLoaderRoute: typeof OnboardingProjectRouteImport
       parentRoute: typeof OnboardingRoute
+    }
+    '/api/test-auth': {
+      id: '/api/test-auth'
+      path: '/api/test-auth'
+      fullPath: '/api/test-auth'
+      preLoaderRoute: typeof ApiTestAuthRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/screenshots': {
       id: '/api/screenshots'
@@ -599,6 +632,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiInternalSchedulesCanExecuteRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_app/$organizationId/$projectId/servers': {
+      id: '/_app/$organizationId/$projectId/servers'
+      path: '/servers'
+      fullPath: '/$organizationId/$projectId/servers'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdRoute
+    }
     '/_app/$organizationId/$projectId/scans': {
       id: '/_app/$organizationId/$projectId/scans'
       path: '/scans'
@@ -606,121 +646,124 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppOrganizationIdProjectIdScansRouteImport
       parentRoute: typeof AppOrganizationIdProjectIdRoute
     }
-    '/_app/$organizationId/$projectId/assets': {
-      id: '/_app/$organizationId/$projectId/assets'
-      path: '/assets'
-      fullPath: '/$organizationId/$projectId/assets'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdRoute
-    }
-    '/_app/$organizationId/$projectId/assets/': {
-      id: '/_app/$organizationId/$projectId/assets/'
+    '/_app/$organizationId/$projectId/servers/': {
+      id: '/_app/$organizationId/$projectId/servers/'
       path: '/'
-      fullPath: '/$organizationId/$projectId/assets/'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsIndexRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsRoute
+      fullPath: '/$organizationId/$projectId/servers/'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersIndexRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersRoute
     }
-    '/_app/$organizationId/$projectId/assets/verified': {
-      id: '/_app/$organizationId/$projectId/assets/verified'
+    '/_app/$organizationId/$projectId/servers/verified': {
+      id: '/_app/$organizationId/$projectId/servers/verified'
       path: '/verified'
-      fullPath: '/$organizationId/$projectId/assets/verified'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsRoute
+      fullPath: '/$organizationId/$projectId/servers/verified'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersVerifiedRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersRoute
     }
-    '/_app/$organizationId/$projectId/assets/discovery': {
-      id: '/_app/$organizationId/$projectId/assets/discovery'
+    '/_app/$organizationId/$projectId/servers/discovery': {
+      id: '/_app/$organizationId/$projectId/servers/discovery'
       path: '/discovery'
-      fullPath: '/$organizationId/$projectId/assets/discovery'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsRoute
+      fullPath: '/$organizationId/$projectId/servers/discovery'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersDiscoveryRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersRoute
     }
-    '/_app/$organizationId/$projectId/assets/$deviceId': {
-      id: '/_app/$organizationId/$projectId/assets/$deviceId'
+    '/_app/$organizationId/$projectId/servers/$deviceId': {
+      id: '/_app/$organizationId/$projectId/servers/$deviceId'
       path: '/$deviceId'
-      fullPath: '/$organizationId/$projectId/assets/$deviceId'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsRoute
+      fullPath: '/$organizationId/$projectId/servers/$deviceId'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersDeviceIdRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersRoute
     }
-    '/_app/$organizationId/$projectId/assets/$deviceId/': {
-      id: '/_app/$organizationId/$projectId/assets/$deviceId/'
+    '/_app/$organizationId/$projectId/servers/$deviceId/': {
+      id: '/_app/$organizationId/$projectId/servers/$deviceId/'
       path: '/'
-      fullPath: '/$organizationId/$projectId/assets/$deviceId/'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdIndexRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdRoute
+      fullPath: '/$organizationId/$projectId/servers/$deviceId/'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersDeviceIdIndexRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersDeviceIdRoute
     }
-    '/_app/$organizationId/$projectId/assets/$deviceId/vulnerabilities': {
-      id: '/_app/$organizationId/$projectId/assets/$deviceId/vulnerabilities'
+    '/_app/$organizationId/$projectId/servers/$deviceId/vulnerabilities': {
+      id: '/_app/$organizationId/$projectId/servers/$deviceId/vulnerabilities'
       path: '/vulnerabilities'
-      fullPath: '/$organizationId/$projectId/assets/$deviceId/vulnerabilities'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdRoute
+      fullPath: '/$organizationId/$projectId/servers/$deviceId/vulnerabilities'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersDeviceIdRoute
     }
-    '/_app/$organizationId/$projectId/assets/$deviceId/scans': {
-      id: '/_app/$organizationId/$projectId/assets/$deviceId/scans'
+    '/_app/$organizationId/$projectId/servers/$deviceId/scans': {
+      id: '/_app/$organizationId/$projectId/servers/$deviceId/scans'
       path: '/scans'
-      fullPath: '/$organizationId/$projectId/assets/$deviceId/scans'
-      preLoaderRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdScansRouteImport
-      parentRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdRoute
+      fullPath: '/$organizationId/$projectId/servers/$deviceId/scans'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersDeviceIdScansRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersDeviceIdRoute
+    }
+    '/_app/$organizationId/$projectId/servers/$deviceId/activity': {
+      id: '/_app/$organizationId/$projectId/servers/$deviceId/activity'
+      path: '/activity'
+      fullPath: '/$organizationId/$projectId/servers/$deviceId/activity'
+      preLoaderRoute: typeof AppOrganizationIdProjectIdServersDeviceIdActivityRouteImport
+      parentRoute: typeof AppOrganizationIdProjectIdServersDeviceIdRoute
     }
   }
 }
 
-interface AppOrganizationIdProjectIdAssetsDeviceIdRouteChildren {
-  AppOrganizationIdProjectIdAssetsDeviceIdScansRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdScansRoute
-  AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute
-  AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute
+interface AppOrganizationIdProjectIdServersDeviceIdRouteChildren {
+  AppOrganizationIdProjectIdServersDeviceIdActivityRoute: typeof AppOrganizationIdProjectIdServersDeviceIdActivityRoute
+  AppOrganizationIdProjectIdServersDeviceIdScansRoute: typeof AppOrganizationIdProjectIdServersDeviceIdScansRoute
+  AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute: typeof AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute
+  AppOrganizationIdProjectIdServersDeviceIdIndexRoute: typeof AppOrganizationIdProjectIdServersDeviceIdIndexRoute
 }
 
-const AppOrganizationIdProjectIdAssetsDeviceIdRouteChildren: AppOrganizationIdProjectIdAssetsDeviceIdRouteChildren =
+const AppOrganizationIdProjectIdServersDeviceIdRouteChildren: AppOrganizationIdProjectIdServersDeviceIdRouteChildren =
   {
-    AppOrganizationIdProjectIdAssetsDeviceIdScansRoute:
-      AppOrganizationIdProjectIdAssetsDeviceIdScansRoute,
-    AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute:
-      AppOrganizationIdProjectIdAssetsDeviceIdVulnerabilitiesRoute,
-    AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute:
-      AppOrganizationIdProjectIdAssetsDeviceIdIndexRoute,
+    AppOrganizationIdProjectIdServersDeviceIdActivityRoute:
+      AppOrganizationIdProjectIdServersDeviceIdActivityRoute,
+    AppOrganizationIdProjectIdServersDeviceIdScansRoute:
+      AppOrganizationIdProjectIdServersDeviceIdScansRoute,
+    AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute:
+      AppOrganizationIdProjectIdServersDeviceIdVulnerabilitiesRoute,
+    AppOrganizationIdProjectIdServersDeviceIdIndexRoute:
+      AppOrganizationIdProjectIdServersDeviceIdIndexRoute,
   }
 
-const AppOrganizationIdProjectIdAssetsDeviceIdRouteWithChildren =
-  AppOrganizationIdProjectIdAssetsDeviceIdRoute._addFileChildren(
-    AppOrganizationIdProjectIdAssetsDeviceIdRouteChildren,
+const AppOrganizationIdProjectIdServersDeviceIdRouteWithChildren =
+  AppOrganizationIdProjectIdServersDeviceIdRoute._addFileChildren(
+    AppOrganizationIdProjectIdServersDeviceIdRouteChildren,
   )
 
-interface AppOrganizationIdProjectIdAssetsRouteChildren {
-  AppOrganizationIdProjectIdAssetsDeviceIdRoute: typeof AppOrganizationIdProjectIdAssetsDeviceIdRouteWithChildren
-  AppOrganizationIdProjectIdAssetsDiscoveryRoute: typeof AppOrganizationIdProjectIdAssetsDiscoveryRoute
-  AppOrganizationIdProjectIdAssetsVerifiedRoute: typeof AppOrganizationIdProjectIdAssetsVerifiedRoute
-  AppOrganizationIdProjectIdAssetsIndexRoute: typeof AppOrganizationIdProjectIdAssetsIndexRoute
+interface AppOrganizationIdProjectIdServersRouteChildren {
+  AppOrganizationIdProjectIdServersDeviceIdRoute: typeof AppOrganizationIdProjectIdServersDeviceIdRouteWithChildren
+  AppOrganizationIdProjectIdServersDiscoveryRoute: typeof AppOrganizationIdProjectIdServersDiscoveryRoute
+  AppOrganizationIdProjectIdServersVerifiedRoute: typeof AppOrganizationIdProjectIdServersVerifiedRoute
+  AppOrganizationIdProjectIdServersIndexRoute: typeof AppOrganizationIdProjectIdServersIndexRoute
 }
 
-const AppOrganizationIdProjectIdAssetsRouteChildren: AppOrganizationIdProjectIdAssetsRouteChildren =
+const AppOrganizationIdProjectIdServersRouteChildren: AppOrganizationIdProjectIdServersRouteChildren =
   {
-    AppOrganizationIdProjectIdAssetsDeviceIdRoute:
-      AppOrganizationIdProjectIdAssetsDeviceIdRouteWithChildren,
-    AppOrganizationIdProjectIdAssetsDiscoveryRoute:
-      AppOrganizationIdProjectIdAssetsDiscoveryRoute,
-    AppOrganizationIdProjectIdAssetsVerifiedRoute:
-      AppOrganizationIdProjectIdAssetsVerifiedRoute,
-    AppOrganizationIdProjectIdAssetsIndexRoute:
-      AppOrganizationIdProjectIdAssetsIndexRoute,
+    AppOrganizationIdProjectIdServersDeviceIdRoute:
+      AppOrganizationIdProjectIdServersDeviceIdRouteWithChildren,
+    AppOrganizationIdProjectIdServersDiscoveryRoute:
+      AppOrganizationIdProjectIdServersDiscoveryRoute,
+    AppOrganizationIdProjectIdServersVerifiedRoute:
+      AppOrganizationIdProjectIdServersVerifiedRoute,
+    AppOrganizationIdProjectIdServersIndexRoute:
+      AppOrganizationIdProjectIdServersIndexRoute,
   }
 
-const AppOrganizationIdProjectIdAssetsRouteWithChildren =
-  AppOrganizationIdProjectIdAssetsRoute._addFileChildren(
-    AppOrganizationIdProjectIdAssetsRouteChildren,
+const AppOrganizationIdProjectIdServersRouteWithChildren =
+  AppOrganizationIdProjectIdServersRoute._addFileChildren(
+    AppOrganizationIdProjectIdServersRouteChildren,
   )
 
 interface AppOrganizationIdProjectIdRouteChildren {
-  AppOrganizationIdProjectIdAssetsRoute: typeof AppOrganizationIdProjectIdAssetsRouteWithChildren
   AppOrganizationIdProjectIdScansRoute: typeof AppOrganizationIdProjectIdScansRoute
+  AppOrganizationIdProjectIdServersRoute: typeof AppOrganizationIdProjectIdServersRouteWithChildren
   AppOrganizationIdProjectIdIndexRoute: typeof AppOrganizationIdProjectIdIndexRoute
 }
 
 const AppOrganizationIdProjectIdRouteChildren: AppOrganizationIdProjectIdRouteChildren =
   {
-    AppOrganizationIdProjectIdAssetsRoute:
-      AppOrganizationIdProjectIdAssetsRouteWithChildren,
     AppOrganizationIdProjectIdScansRoute: AppOrganizationIdProjectIdScansRoute,
+    AppOrganizationIdProjectIdServersRoute:
+      AppOrganizationIdProjectIdServersRouteWithChildren,
     AppOrganizationIdProjectIdIndexRoute: AppOrganizationIdProjectIdIndexRoute,
   }
 
@@ -802,6 +845,7 @@ const rootRouteChildren: RootRouteChildren = {
   PublicRoute: PublicRouteWithChildren,
   OnboardingRoute: OnboardingRouteWithChildren,
   ApiScreenshotsRoute: ApiScreenshotsRoute,
+  ApiTestAuthRoute: ApiTestAuthRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
@@ -814,11 +858,10 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 
 import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.tsx'
+import type { createStart } from '@tanstack/react-start'
 declare module '@tanstack/react-start' {
   interface Register {
     ssr: true
     router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
   }
 }

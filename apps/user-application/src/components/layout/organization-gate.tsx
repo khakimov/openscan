@@ -1,8 +1,8 @@
 /**
  * OrganizationGate - Context provider for organization-scoped routes
  *
- * Provides organization data from loader to child routes via context.
- * Follows OpenPanel's "gate" pattern for keeping loader data accessible.
+ * Wraps child routes to provide organization context.
+ * Organization data should come from parent route loader.
  *
  * Usage in route:
  * ```tsx
@@ -16,13 +16,20 @@
  * }
  * ```
  *
- * Usage in child components:
+ * Usage in child routes:
  * ```tsx
- * const organization = useOrganization();
+ * // ✅ Each route has its own loader that returns the data it needs
+ * loader: async ({ params }) => {
+ *   const organization = await getOrganization({ data: params.organizationId });
+ *   return { organization };
+ * }
+ *
+ * // Then use Route.useLoaderData() to get the data
+ * const { organization } = Route.useLoaderData();
  * ```
  */
 
-import { createContext, useContext, type ReactNode } from 'react';
+import { type ReactNode } from 'react';
 
 export interface Organization {
   id: string;
@@ -30,37 +37,17 @@ export interface Organization {
   slug?: string | null;
 }
 
-const OrganizationContext = createContext<Organization | null>(null);
-
 export interface OrganizationGateProps {
   organization: Organization;
   children: ReactNode;
 }
 
 export function OrganizationGate({ organization, children }: OrganizationGateProps) {
-  return (
-    <OrganizationContext.Provider value={organization}>
-      {children}
-    </OrganizationContext.Provider>
-  );
-}
-
-/**
- * Hook to access organization from context
- * @throws Error if used outside OrganizationGate
- */
-export function useOrganization(): Organization {
-  const context = useContext(OrganizationContext);
-  if (!context) {
-    throw new Error('useOrganization must be used within OrganizationGate');
+  // Simple validation that organization exists
+  // In practice, this should never fail since parent route loader would throw first
+  if (!organization) {
+    throw new Error('Organization is required');
   }
-  return context;
-}
 
-/**
- * Hook to optionally access organization from context
- * Returns null if used outside OrganizationGate
- */
-export function useOrganizationOptional(): Organization | null {
-  return useContext(OrganizationContext);
+  return <>{children}</>;
 }

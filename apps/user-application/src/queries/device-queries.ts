@@ -13,6 +13,8 @@ import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
  * - Components: useQuery(trpc.device.detail.queryOptions({ deviceId }))
  */
 
+import { invalidateTRPCQuery } from '@/lib/query-utils';
+
 /**
  * Centralized device query key factory (tRPC pattern)
  *
@@ -118,7 +120,7 @@ export const useDeleteDeviceMutation = () => {
     mutationFn: (data: { deviceId: string }) =>
       trpcClient.device.remove.mutate(data),
     successMessage: 'Device deleted successfully',
-    invalidateKeys: [deviceQueries.list.base],
+    invalidateKeys: [deviceQueries.list.base], // Use base (unwrapped) for invalidation
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),
@@ -152,7 +154,7 @@ export const useUpdateDeviceMutation = (deviceId: string) => {
     },
     successMessage: 'Device updated successfully',
     invalidateKeys: [
-      deviceQueries.list.base,
+      deviceQueries.list.base, // Use base (unwrapped) for invalidation
       deviceQueries.detail.key(deviceId),
       deviceQueries.tagSuggestions.key(),
     ],
@@ -176,7 +178,7 @@ export const useVerifyDeviceMutation = () => {
       return response;
     },
     successMessage: 'Device verification updated',
-    invalidateKeys: [deviceQueries.list.base],
+    invalidateKeys: [deviceQueries.list.base], // Use base (unwrapped) for invalidation
   });
 };
 
@@ -199,7 +201,7 @@ export const useToggleDeviceVerificationMutation = () => {
     },
     successMessage: (_response, vars) =>
       vars.verify ? 'Device verified' : 'Device unverified',
-    invalidateKeys: [deviceQueries.list.base],
+    invalidateKeys: [deviceQueries.list.base], // Use base (unwrapped) for invalidation
   });
 };
 
@@ -279,16 +281,15 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
     },
     successMessage: (response) =>
       `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
-    invalidateKeys: [deviceQueries.list.base],
+    invalidateKeys: [deviceQueries.list.base], // Use base (unwrapped) for invalidation
     onSuccess: async () => {
       // Invalidate onboarding status cache (updates asset counts)
       await queryClient.invalidateQueries({ queryKey: onboardingStatusQueryKey() });
 
-      // Invalidate discovery devices cache using tRPC-compatible pattern
-      // Use partial matching to invalidate all discoveryDevices queries
-      await queryClient.invalidateQueries({
-        queryKey: [['onboarding', 'discoveryDevices']],
-      });
+      // Invalidate discovery devices cache using predicate matching
+      await queryClient.invalidateQueries(
+        invalidateTRPCQuery(['onboarding', 'discoveryDevices'])
+      );
     },
   });
 };

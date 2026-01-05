@@ -6,7 +6,7 @@ import {
 } from '@repo/data-ops';
 import { createLogger } from '@repo/logger';
 
-import type { ScanScope } from '../utils/scan-scope';
+import type { ScanScope } from '@repo/data-ops/schema/enums';
 
 type WorkflowStatus = 'PENDING' | 'RUNNING' | 'PAUSED' | 'SUCCEEDED' | 'FAILED' | 'CANCELED' | 'TIMEOUT';
 

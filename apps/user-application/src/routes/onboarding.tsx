@@ -5,6 +5,11 @@ import { StackedCardLayout } from "@/components/layout";
 
 export const Route = createFileRoute("/onboarding")({
   beforeLoad: async ({ context }) => {
+    // Skip SSR data fetching on Cloudflare Workers (prevents 522 timeouts)
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const statusQuery = context.trpc.onboarding.status.queryOptions();
 
@@ -23,6 +28,11 @@ export const Route = createFileRoute("/onboarding")({
     };
   },
   loader: async ({ context }) => {
+    // Skip SSR data fetching on Cloudflare Workers (prevents 522 timeouts)
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const statusQuery = context.trpc.onboarding.status.queryOptions();
 

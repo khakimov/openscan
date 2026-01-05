@@ -16,6 +16,7 @@
  */
 
 import { createFileRoute } from '@tanstack/react-router';
+import { initDatabase } from '@repo/data-ops/database/setup';
 import { handleUniversalPostback } from '../../../server/postback';
 import { env } from 'cloudflare:workers';
 
@@ -23,6 +24,9 @@ export const Route = createFileRoute('/api/internal/scan-results')({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        // Initialize database before any data-ops queries
+        initDatabase(env.DB);
+
         return handleUniversalPostback(request, env);
       },
     },

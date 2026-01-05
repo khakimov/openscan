@@ -6,9 +6,10 @@ import { NotificationBell } from "@/components/notifications/NotificationBell";
 interface HeaderProps {
   className?: string;
   onMobileMenuToggle?: () => void;
+  activeOrganizationId?: string | null;
 }
 
-export function Header({ className, onMobileMenuToggle }: HeaderProps) {
+export function Header({ className, onMobileMenuToggle, activeOrganizationId }: HeaderProps) {
   return (
     <header
       className={cn(
@@ -30,7 +31,7 @@ export function Header({ className, onMobileMenuToggle }: HeaderProps) {
 
       {/* Right side - Notification bell */}
       <div className="flex items-center gap-2">
-        <NotificationBell />
+        <NotificationBell activeOrganizationId={activeOrganizationId} />
       </div>
     </header>
   );

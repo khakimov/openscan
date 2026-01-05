@@ -1,9 +1,11 @@
-import { createFileRoute, Outlet, notFound, type ErrorComponentProps } from "@tanstack/react-router";
-import { TRPCClientError } from "@trpc/client";
+import { createFileRoute, Outlet, notFound, Link, useRouter, type ErrorComponentProps } from "@tanstack/react-router";
 import { createLogger } from "@repo/logger";
 import { ProjectGate } from "@/components/layout/project-gate";
 import { Spinner } from "@/components/ui/spinner";
-import { ErrorLayout } from "@/components/error-layout";
+import { Button } from "@/components/ui/button";
+import { useQueryErrorResetBoundary } from "@tanstack/react-query";
+import { FullPageErrorState } from "@/components/shared/full-page-error-state";
+import { getProject } from "@/server/project";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -39,77 +41,46 @@ const ProjectPendingShell = () => (
   </div>
 );
 
-type ProjectRouteError = {
-  status: number;
-  message: string;
-  code?: string;
-};
+/**
+ * Error boundary for project loader failures
+ * Handles project not found, access denied, etc.
+ */
+function ProjectErrorBoundary({ error, reset }: ErrorComponentProps) {
+  const router = useRouter();
+  const { reset: resetQuery } = useQueryErrorResetBoundary();
+  const { organizationId } = Route.useParams();
 
-const toProjectRouteError = (error: unknown): ProjectRouteError => {
-  // Handle tRPC errors first (preserves accurate status codes)
-  if (error instanceof TRPCClientError) {
-    const status = error.data?.httpStatus ?? 500;
-    return {
-      status,
-      message: error.message,
-      code: error.data?.code,
-    };
-  }
-
-  if (
-    typeof error === "object" &&
-    error !== null &&
-    "status" in error &&
-    "message" in error &&
-    typeof (error as any).status === "number" &&
-    typeof (error as any).message === "string"
-  ) {
-    return {
-      status: (error as any).status,
-      message: (error as any).message,
-      code:
-        "code" in error && typeof (error as any).code === "string"
-          ? (error as any).code
-          : undefined,
-    };
-  }
-
-  if (typeof error === "object" && error !== null) {
-    const statusCode =
-      "statusCode" in error && typeof (error as any).statusCode === "number"
-        ? (error as any).statusCode
-        : undefined;
-    const message =
-      "message" in error && typeof (error as any).message === "string"
-        ? (error as any).message
-        : undefined;
-    const code =
-      "code" in error && typeof (error as any).code === "string"
-        ? String((error as any).code)
-        : undefined;
-
-    if (statusCode) {
-      return {
-        status: statusCode,
-        message: message ?? "Unexpected error while resolving project",
-        code,
-      };
-    }
-  }
-
-  return {
-    status: 500,
-    message:
-      error instanceof Error
-        ? error.message
-        : "Unexpected error while resolving project",
-    code: "PROJECT_UNKNOWN_ERROR",
+  const handleRetry = () => {
+    resetQuery();
+    router.invalidate();
+    reset();
   };
-};
+
+  return (
+    <FullPageErrorState
+      title="Project Not Found"
+      description={
+        error instanceof Error
+          ? error.message
+          : 'The project you are looking for does not exist or you do not have access to it.'
+      }
+    >
+      <Button variant="outline" onClick={handleRetry}>
+        Try Again
+      </Button>
+      <Link to="/$organizationId" params={{ organizationId }}>
+        <Button variant="ghost">
+          Back to Projects
+        </Button>
+      </Link>
+    </FullPageErrorState>
+  );
+}
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId")({
   pendingComponent: ProjectPendingShell,
-  beforeLoad: async ({ params }) => {
+  errorComponent: ProjectErrorBoundary,
+  beforeLoad: async ({ params, context }) => {
     // Block reserved project IDs (these are org-level routes)
     if (RESERVED_PROJECT_IDS.includes(params.projectId)) {
       logger.warn("Attempted to access reserved project ID", {
@@ -117,92 +88,38 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId")({
       });
       throw notFound();
     }
+
+    const { projectId } = params;
+
+    // ✅ Get organization from parent context (set by organization route's beforeLoad)
+    const { organization } = context as { organization: { id: string; slug?: string | null } };
+
+    // ✅ Fetch project with validated org ID
+    const project = await getProject({
+      data: {
+        organizationId: organization.id,
+        projectId,
+      }
+    });
+
+    logger.info("Project layout loaded", {
+      organizationId: organization.id,
+      projectId,
+      projectName: project.name,
+    });
+
+    // ✅ Return organization and project in context for child routes
+    return {
+      organization,
+      project,
+    };
   },
-  loader: async ({ params, context }) => {
-    const { organizationId: orgParam, projectId } = params;
-
-    try {
-      // Get organization from parent loader to resolve slug → ID
-      const orgData = await context.queryClient.ensureQueryData(
-        context.trpc.organization.get.queryOptions({
-          organizationId: orgParam,
-        })
-      );
-
-      // Use real organization ID (not slug) for project queries
-      const organizationId = orgData.id;
-
-      // OpenPanel pattern: Use tRPC queryOptions for loader queries
-      const accessQuery = context.trpc.project.get.queryOptions({
-        organizationId,
-        projectId,
-      });
-      const project = await context.queryClient.fetchQuery(accessQuery);
-
-      // Prefetch projects for sidebar
-      const projectsQuery = context.trpc.project.listByOrg.queryOptions({
-        organizationId,
-      });
-      await context.queryClient.prefetchQuery(projectsQuery);
-
-      logger.info("Project layout loaded", {
-        organizationId,
-        projectId,
-        projectName: project.name,
-      });
-
-      return {
-        projectId,
-        project,
-      };
-    } catch (error) {
-      throw toProjectRouteError(error);
-    }
-  },
-  errorComponent: ProjectError,
   component: ProjectLayout,
 });
 
-function ProjectError({ error }: ErrorComponentProps) {
-  const payload = toProjectRouteError(error);
-  const status = payload.status;
-  const code = payload.code;
-  const message = payload.message;
-  const is403 = status === 403;
-
-  return (
-    <ErrorLayout
-      status={status}
-      title={is403 ? "Access Denied" : "Project Not Found"}
-      message={
-        is403
-          ? "You don't have access to this project."
-          : message
-      }
-      technicalDetails={
-        code ? (
-          <dl className="text-sm text-muted-foreground">
-            <div className="grid grid-cols-[auto,1fr] gap-x-4 gap-y-1">
-              <dt className="font-semibold">Error code</dt>
-              <dd>{code}</dd>
-            </div>
-          </dl>
-        ) : null
-      }
-      actions={[
-        { label: "Go Home", to: "/", variant: "default" },
-        {
-          label: "Go Back",
-          onClick: () => window.history.back(),
-          variant: "outline",
-        },
-      ]}
-    />
-  );
-}
-
 function ProjectLayout() {
-  const { project } = Route.useLoaderData();
+  // ✅ Get project from beforeLoad context (organization also available to children)
+  const { project } = Route.useRouteContext();
 
   return (
     <ProjectGate project={project}>

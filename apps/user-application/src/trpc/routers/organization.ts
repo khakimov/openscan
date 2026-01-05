@@ -99,7 +99,7 @@ export const organizationRouter = createTRPCRouter({
    * List all organizations for the current user
    * Replaces getUserOrganizations server function
    *
-   * Used by: _app.tsx root loader for sidebar
+   * Used by: _app.tsx root loader for sidebar, org picker
    */
   list: protectedProcedure.query(async ({ ctx }) => {
     try {
@@ -136,7 +136,10 @@ export const organizationRouter = createTRPCRouter({
         };
       });
 
-      return organizations;
+      return {
+        organizations,
+        activeOrganizationId: ctx.user.organizationId,
+      };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('Failed to list organizations', { error: errorMessage });
@@ -147,4 +150,60 @@ export const organizationRouter = createTRPCRouter({
       });
     }
   }),
+
+  /**
+   * Set the active organization for the current user
+   * Stores Set-Cookie headers so tRPC route handler can forward them
+   */
+  setActive: protectedProcedure
+    .input(z.object({ organizationId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      try {
+        const auth = getAuth();
+        const orgAPI = getOrganizationAPI(auth);
+
+        logger.info('Setting active organization', {
+          userId: ctx.user.id,
+          organizationId: input.organizationId,
+        });
+
+        // Call Better Auth to update session
+        const response = await orgAPI.setActiveOrganization({
+          body: { organizationId: input.organizationId },
+          headers: ctx.request.headers,
+          returnHeaders: true,
+        });
+
+        // Extract Set-Cookie headers from response
+        const setCookieHeaders: string[] = [];
+        response.headers?.forEach?.((value, key) => {
+          if (key.toLowerCase() === 'set-cookie') {
+            setCookieHeaders.push(value);
+          }
+        });
+
+        logger.info('Extracted Set-Cookie headers from org API', {
+          count: setCookieHeaders.length,
+        });
+
+        // Store headers for route handler to forward
+        ctx.setPendingCookies(setCookieHeaders);
+
+        return {
+          success: true,
+          organization: response.response,
+        };
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        logger.error('Failed to set active organization', {
+          organizationId: input.organizationId,
+          error: errorMessage,
+        });
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to set active organization',
+        });
+      }
+    }),
 });

@@ -396,6 +396,119 @@ describe("Notification Pipeline (Integration)", () => {
       console.log("✅ Detected CLOSED_PORT change:", changes[0]);
     });
 
+    it("should NOT notify for standard ports (22, 80, 443, 8080, 8443) on verified devices", async () => {
+      const db = getDb();
+
+      // Create device with verificationStatus = VERIFIED
+      const [device] = await db
+        .insert(devices)
+        .values({
+          organizationId: testOrgId,
+          name: "test-device-verified-standard-ports",
+          source: "TEST",
+          scope: "EXTERNAL",
+          state: "AVAILABLE",
+          verificationStatus: "VERIFIED", // ✅ Verified/Monitored device
+        })
+        .returning();
+      testDataIds.devices.push(device.id);
+
+      // Baseline: No ports
+      const [baselineScan] = await db
+        .insert(scanRuns)
+        .values({
+          organizationId: testOrgId,
+          restateWorkflowId: "baseline-no-ports",
+          workflowKind: "DISCOVERY",
+          workflowStatus: "SUCCEEDED",
+          workflowStartedAt: new Date("2025-01-19T10:00:00Z"),
+          workflowFinishedAt: new Date("2025-01-19T10:05:00Z"),
+          scanType: "PORT",
+          scope: "EXTERNAL",
+          target: "test-device-verified-standard-ports",
+          requestedById: testUserId,
+          status: "SUCCEEDED",
+          startedAt: new Date("2025-01-19T10:00:00Z"),
+          completedAt: new Date("2025-01-19T10:05:00Z"),
+          resultSummary: {
+            target: "test-device-verified-standard-ports",
+            portSnapshots: [],
+            completedAt: new Date("2025-01-19T10:05:00Z").toISOString(),
+          } as EnrichedScanResultSummary,
+        })
+        .returning();
+      testDataIds.scanRuns.push(baselineScan.id);
+
+      await db.insert(scanRunDevices).values({
+        runId: baselineScan.id,
+        deviceId: device.id,
+        organizationId: testOrgId,
+        role: "TARGET",
+        metadata: {},
+      });
+
+      // New scan: Port 443 (HTTPS) opened - should be filtered by STANDARD_PORTS_ALLOWLIST
+      const [newScan] = await db
+        .insert(scanRuns)
+        .values({
+          organizationId: testOrgId,
+          restateWorkflowId: "new-standard-port-443",
+          workflowKind: "DISCOVERY",
+          workflowStatus: "SUCCEEDED",
+          workflowStartedAt: new Date("2025-01-19T11:00:00Z"),
+          workflowFinishedAt: new Date("2025-01-19T11:05:00Z"),
+          scanType: "PORT",
+          scope: "EXTERNAL",
+          target: "test-device-verified-standard-ports",
+          requestedById: testUserId,
+          status: "SUCCEEDED",
+          startedAt: new Date("2025-01-19T11:00:00Z"),
+          completedAt: new Date("2025-01-19T11:05:00Z"),
+          resultSummary: {
+            target: "test-device-verified-standard-ports",
+            portSnapshots: [
+              {
+                port: 443,
+                protocol: "tcp",
+                state: "open",
+                service: {
+                  name: "https",
+                  product: null,
+                  version: null,
+                  cpe: null,
+                },
+                metadata: {
+                  lastSeenAt: new Date("2025-01-19T11:05:00Z").toISOString(),
+                },
+              },
+            ],
+            completedAt: new Date("2025-01-19T11:05:00Z").toISOString(),
+          } as EnrichedScanResultSummary,
+        })
+        .returning();
+      testDataIds.scanRuns.push(newScan.id);
+
+      await db.insert(scanRunDevices).values({
+        runId: newScan.id,
+        deviceId: device.id,
+        organizationId: testOrgId,
+        role: "TARGET",
+        metadata: {},
+      });
+
+      // Run change detection
+      const changes = await detectScanChanges({
+        deviceId: device.id,
+        currentScan: newScan,
+        organizationId: testOrgId,
+      });
+
+      // Assertions: Port 443 should be filtered (no notification)
+      expect(changes).toHaveLength(0);
+
+      console.log("✅ Port 443 (standard port) did NOT trigger notification on VERIFIED device");
+    });
+
     it("should treat first scan as discovery (legacy parity)", async () => {
       const db = getDb();
 
@@ -413,7 +526,8 @@ describe("Notification Pipeline (Integration)", () => {
         .returning();
       testDataIds.devices.push(device.id);
 
-      // Create first scan with 2 ports (443 HTTPS + 22 SSH)
+      // Create first scan with 2 ports (3389 RDP + 22 SSH)
+      // Note: Using port 3389 instead of 443 since 443 is now in STANDARD_PORTS_ALLOWLIST
       const [firstScan] = await db
         .insert(scanRuns)
         .values({
@@ -434,11 +548,11 @@ describe("Notification Pipeline (Integration)", () => {
             target: "test-device-first-scan",
             portSnapshots: [
               {
-                port: 443,
+                port: 3389,
                 protocol: "tcp",
                 state: "open",
                 service: {
-                  name: "https",
+                  name: "ms-wbt-server",
                   product: null,
                   version: null,
                   cpe: null,
@@ -485,18 +599,13 @@ describe("Notification Pipeline (Integration)", () => {
 
       // Legacy parity: First scan should create NEW_PORT notifications
       // (treating "no baseline" as baseline of 0 ports)
-      expect(changes).toHaveLength(2);
+      // Note: Port 22 (SSH) is now in STANDARD_PORTS_ALLOWLIST, so only RDP notifies
+      expect(changes).toHaveLength(1);
       expect(changes[0]).toMatchObject({
         type: "NEW_PORT",
-        severity: "LOW", // Port 443 HTTPS
-        title: expect.stringContaining("443"),
-        fingerprint: `new_port:${device.id}:tcp:443:unknown:unknown:https`,
-      });
-      expect(changes[1]).toMatchObject({
-        type: "NEW_PORT",
-        severity: "MEDIUM", // Port 22 SSH
-        title: expect.stringContaining("22"),
-        fingerprint: `new_port:${device.id}:tcp:22:OpenSSH:9.0:ssh`,
+        severity: "HIGH", // Port 3389 RDP
+        title: expect.stringContaining("3389"),
+        fingerprint: `new_port:${device.id}:tcp:3389:unknown:unknown:ms-wbt-server`,
       });
 
       console.log("✅ First scan treated as discovery:", {

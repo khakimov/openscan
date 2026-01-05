@@ -10,6 +10,7 @@ import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { useCompleteOnboardingMutation } from "@/queries";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getProjectDefaultRouteParams } from "@/lib/navigation";
 
 const SEVERITY_OPTIONS = [
   { value: "CRITICAL", label: "Critical", color: "text-red-500" },
@@ -20,15 +21,18 @@ const SEVERITY_OPTIONS = [
 
 export const Route = createFileRoute("/onboarding/$projectId/notifications")({
   beforeLoad: async ({ context }) => {
-    // Redirect if not authenticated (OpenPanel pattern)
-    const sessionQuery = context.trpc.auth.session.queryOptions();
-    const sessionData = await context.queryClient.ensureQueryData(sessionQuery);
-
-    if (!sessionData?.session) {
+    // Session already fetched by __root.tsx (fetchSession server function - no HTTP during SSR)
+    // Redirect if not authenticated
+    if (!context.session?.session) {
       throw redirect({ to: "/onboarding" });
     }
   },
   loader: async ({ context }) => {
+    // Skip SSR data fetching on Cloudflare Workers (prevents 522 timeouts)
+    if (typeof window === 'undefined') {
+      return;
+    }
+
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const onboarding = await context.queryClient.ensureQueryData(
       context.trpc.onboarding.status.queryOptions()
@@ -56,18 +60,34 @@ function Onboarding2Notifications() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { projectId } = Route.useParams();
-  const { onboarding, preferences, organizationId, orgIdentifier } = Route.useLoaderData();
+  const loaderData = Route.useLoaderData();
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
   // Subscribe to onboarding query for reactive updates (e.g., after mutations)
   // OpenPanel pattern: Reuse queryOptions to ensure cache key stays in sync
   const statusOptions = trpc.onboarding.status.queryOptions();
-  useQuery({
+  const { data: onboarding } = useQuery({
     ...statusOptions,
     queryFn: () => trpcClient.onboarding.status.query(),
-    initialData: onboarding,
+    initialData: loaderData?.onboarding,
   });
+
+  const { data: preferences } = useQuery({
+    ...trpc.notification.preferences.queryOptions(),
+    queryFn: () => trpcClient.notification.preferences.query(),
+    initialData: loaderData?.preferences,
+  });
+
+  if (!onboarding || !loaderData || !preferences) {
+    return (
+      <div className="p-8 space-y-8 flex items-center justify-center">
+        <div className="text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  const { organizationId, orgIdentifier } = loaderData;
 
   // Mutation using tRPC
   const savePreferencesMutation = useMutation({
@@ -91,10 +111,9 @@ function Onboarding2Notifications() {
     // Invalidate onboarding status to refresh cache
     await queryClient.invalidateQueries({ queryKey: statusOptions.queryKey });
 
-    // Navigate to dashboard using slug (prevents double redirect)
+    // Navigate to Servers Discovery using centralized navigation utility
     navigate({
-      to: "/$organizationId/$projectId",
-      params: { organizationId: orgIdentifier || organizationId!, projectId },
+      ...getProjectDefaultRouteParams(orgIdentifier || organizationId!, projectId),
     });
   };
 

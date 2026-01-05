@@ -108,10 +108,23 @@ export function useMutationWithToast<TData, TVariables = void, TContext = unknow
         await onSuccess(data, variables, context);
       }
 
-      // Invalidate queries
+      // Invalidate queries using predicate matching for tRPC-style nested keys
+      // tRPC keys are structured as: [['procedure', 'path'], { input: {...}, type: 'query' }]
+      // When invalidating with ['procedure', 'path'], we match the first element
       await Promise.all(
         invalidateKeys.map((key) =>
-          queryClient.invalidateQueries({ queryKey: key })
+          queryClient.invalidateQueries({
+            predicate: (query) => {
+              const queryKey = query.queryKey;
+              // Check if first element of query key matches our invalidation key
+              if (Array.isArray(queryKey) && Array.isArray(queryKey[0])) {
+                // tRPC format: [['device', 'list'], { input: {...} }]
+                return JSON.stringify(queryKey[0]) === JSON.stringify(key);
+              }
+              // Fallback to exact match for non-tRPC keys
+              return JSON.stringify(queryKey) === JSON.stringify(key);
+            }
+          })
         )
       );
     },

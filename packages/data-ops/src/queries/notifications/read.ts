@@ -38,6 +38,10 @@ export async function getNotifications(
     conditions.push(eq(notifications.deviceId, validated.deviceId));
   }
 
+  if (validated.module) {
+    conditions.push(eq(notifications.module, validated.module));
+  }
+
   if (validated.unreadOnly) {
     conditions.push(isNull(notifications.readAt));
   }

@@ -1,6 +1,6 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies } from '../schema';
+import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies, notifications } from '../schema';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { derivePortStats } from '../types/cve-enrichment';
@@ -11,6 +11,8 @@ import {
   type NmapServiceDetection,
   type HttpxProbeData,
 } from '@repo/contracts/device/resolvers';
+import { createServerPromotedNotification } from '../notifications/catalog';
+import { resolveAndUpsertTargets } from './devices/resolution';
 
 // Helper: Convert D1 timestamp_ms (number | null) to Date | undefined
 function toDateOrUndefined(timestamp: number | null | undefined): Date | undefined {
@@ -583,7 +585,7 @@ export async function deleteDevice(deviceId: string, organizationId: string) {
 
 /**
  * Create multiple devices from discovery
- * Skips devices that already exist (based on name + organizationId)
+ * Uses DNS resolution to normalize targets before persisting
  */
 export async function createMultipleDevicesFromDiscovery(
   targets: Array<{ host: string; ip?: string }>,
@@ -596,7 +598,6 @@ export async function createMultipleDevicesFromDiscovery(
   }
 ) {
   const db = getDb();
-  const createdDevices = [];
 
   // Default values for options
   const {
@@ -606,6 +607,7 @@ export async function createMultipleDevicesFromDiscovery(
     verificationStatus = 'CANDIDATE'
   } = options || {};
 
+  // Validate project access if provided
   if (projectId) {
     const [project] = await db
       .select({ id: projects.id })
@@ -621,87 +623,54 @@ export async function createMultipleDevicesFromDiscovery(
     }
   }
 
-  for (const target of targets) {
-    // Check if device already exists in this specific project (or org-wide if no project)
-    // Build duplicate check conditions
-    const duplicateCheckConditions = [
-      eq(devices.organizationId, organizationId),
-      eq(devices.name, target.host)
-    ];
-
-    // If projectId is provided, scope check to that specific project
-    // This allows same hostname in different projects within same org
-    if (projectId) {
-      duplicateCheckConditions.push(eq(devices.projectId, projectId));
+  // Use DNS resolution system to normalize and persist targets
+  // Pass full target objects with fallback IPs for private zones
+  const newDeviceIds = await resolveAndUpsertTargets(
+    targets, // Now passes { host, ip? } directly
+    organizationId,
+    {
+      projectId,
+      source,
+      scope,
+      dnsTimeout: 5000,
+      throwOnDnsError: false, // Graceful degradation
     }
+  );
 
-    const devicesWithSameName = await db
-      .select()
-      .from(devices)
-      .where(and(...duplicateCheckConditions));
-
-    // If IP is provided, check if the name+IP combination exists in this scope
-    if (target.ip && devicesWithSameName.length > 0) {
-      // Get IPs for devices with same name in this project/org
-      const deviceIds = devicesWithSameName.map((d: any) => d.id);
-      const existingIps = await db
-        .select()
-        .from(deviceIps)
-        .where(and(
-          inArray(deviceIps.deviceId, deviceIds),
-          eq(deviceIps.ip, target.ip)
-        ));
-
-      if (existingIps.length > 0) {
-        // Device with same name AND IP exists in this scope, skip
-        const scope = projectId ? `project ${projectId}` : 'organization';
-        console.log(`Device ${target.host} with IP ${target.ip} already exists in ${scope}, skipping`);
-        continue;
-      }
-    } else if (!target.ip && devicesWithSameName.length > 0) {
-      // No IP provided, but device with same name exists in this scope - skip
-      const scope = projectId ? `project ${projectId}` : 'organization';
-      console.log(`Device ${target.host} already exists in ${scope} (no IP check), skipping`);
-      continue;
-    }
-
-    const [device] = await db
-      .insert(devices)
-      .values({
-        organizationId,
-        projectId,
-        name: target.host,
-        source,
-        scope,
-        state: 'AVAILABLE',
-        verificationStatus,
-      })
-      .returning();
-
-    // Create IP if provided
-    if (target.ip && device) {
-      await db.insert(deviceIps).values({
-        organizationId,
-        deviceId: device.id,
-        ip: target.ip,
-        primary: sql`1`,
-      });
-
-      createdDevices.push({
-        ...device,
-        ip: target.ip,
-        tags: [],
-      });
-    } else {
-      createdDevices.push({
-        ...device,
-        ip: null,
-        tags: [],
-      });
-    }
+  // Early return if no new devices were created
+  if (newDeviceIds.length === 0) {
+    return [];
   }
 
-  return createdDevices;
+  // Update verification status if specified (DNS resolver creates as CANDIDATE)
+  if (verificationStatus !== 'CANDIDATE') {
+    await db
+      .update(devices)
+      .set({ verificationStatus })
+      .where(inArray(devices.id, newDeviceIds));
+  }
+
+  // Fetch newly created devices with IPs for backward compatibility
+  const createdDevices = await db.query.devices.findMany({
+    where: and(
+      eq(devices.organizationId, organizationId),
+      inArray(devices.id, newDeviceIds)
+    ),
+    with: {
+      deviceIps: {
+        where: eq(deviceIps.primary, sql`1`),
+        limit: 1,
+      },
+    },
+  });
+
+  // Transform to match legacy return format
+  type DeviceWithIps = typeof createdDevices[number];
+  return createdDevices.map((device: DeviceWithIps) => ({
+    ...device,
+    ip: device.deviceIps?.[0]?.ip ?? null,
+    tags: [],
+  }));
 }
 
 /**
@@ -713,6 +682,20 @@ export async function updateDevice(
   organizationId: string
 ) {
   const db = getDb();
+
+  // Fetch current device state BEFORE update (for promotion detection)
+  const [previousDevice] = await db
+    .select()
+    .from(devices)
+    .where(and(
+      eq(devices.id, deviceId),
+      eq(devices.organizationId, organizationId)
+    ))
+    .limit(1);
+
+  if (!previousDevice) {
+    throw new Error('Device not found');
+  }
 
   // Extract non-device fields
   const { ip, tags: newTags, ...deviceUpdates } = updates;
@@ -728,7 +711,7 @@ export async function updateDevice(
     .returning();
 
   if (!updatedDevice) {
-    throw new Error('Device not found');
+    throw new Error('Device not found after update');
   }
 
   // Update IP if provided
@@ -794,7 +777,36 @@ export async function updateDevice(
   }
 
   // Return updated device with IP and tags
+  // Note: Server promotion notification is handled by caller (has access to env binding for queue)
   return getDeviceById(deviceId, organizationId);
+}
+
+/**
+ * Detect if device was just promoted to VERIFIED status
+ *
+ * Call this helper after updateDevice() to check if promotion notification should be sent.
+ * Returns device info if promoted, null otherwise.
+ */
+export async function detectDevicePromotion(params: {
+  deviceId: string;
+  organizationId: string;
+  previousStatus: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED' | null;
+  newStatus: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
+}): Promise<{ deviceId: string; deviceName: string; organizationId: string } | null> {
+  const { deviceId, organizationId, previousStatus, newStatus } = params;
+
+  // Check if promoted from non-VERIFIED to VERIFIED
+  const wasPromoted = previousStatus !== 'VERIFIED' && newStatus === 'VERIFIED';
+
+  if (!wasPromoted) {
+    return null;
+  }
+
+  // Fetch device name
+  const device = await getDeviceById(deviceId, organizationId);
+  const deviceName = device?.name || device?.ip || deviceId;
+
+  return { deviceId, deviceName, organizationId };
 }
 
 /**

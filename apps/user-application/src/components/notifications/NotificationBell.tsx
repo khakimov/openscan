@@ -18,7 +18,9 @@ import {
 } from '@/queries';
 import { useTRPCClient } from '@/integrations/trpc/react';
 import { NotificationList } from './NotificationList';
+import { NotificationFilterTabs } from './NotificationFilterTabs';
 import { useState } from 'react';
+import type { NotificationModule } from '@repo/contracts';
 
 /**
  * Notification Bell Component (OpenPanel tRPC pattern)
@@ -26,6 +28,7 @@ import { useState } from 'react';
  * Features:
  * - Real-time unread badge (polls every 30s)
  * - Slide-out sheet with notification list
+ * - Module-based filtering (All, Vuln, Network, Config, Lifecycle)
  * - Mark as read (individual + bulk)
  * - Severity-based styling (CRITICAL=red, HIGH=orange, etc.)
  *
@@ -33,8 +36,15 @@ import { useState } from 'react';
  * - Add to Header component in the top-right corner
  * - Automatically appears after first scan completes
  */
-export function NotificationBell() {
+type ModuleFilter = 'ALL' | NotificationModule;
+
+interface NotificationBellProps {
+  activeOrganizationId?: string | null;
+}
+
+export function NotificationBell({ activeOrganizationId }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [moduleFilter, setModuleFilter] = useState<ModuleFilter>('ALL');
   const trpcClient = useTRPCClient();
 
   // Poll unread count every 30 seconds (OpenPanel tRPC pattern)
@@ -44,14 +54,16 @@ export function NotificationBell() {
     staleTime: 30_000, // 30 seconds
     refetchInterval: 30_000, // Auto-refetch every 30 seconds
     refetchIntervalInBackground: true, // Keep polling when tab is inactive
+    enabled: !!activeOrganizationId, // Disable if no active organization
   });
   const unreadCount = countData?.count ?? 0;
 
-  // Fetch full notifications when sheet opens
+  // Fetch full notifications when sheet opens (filtered by module)
+  const module = moduleFilter === 'ALL' ? undefined : moduleFilter;
   const { data: notificationsData, isLoading } = useQuery({
-    queryKey: notificationQueries.list.key({ unreadOnly: false }),
-    queryFn: () => trpcClient.notification.list.query({ unreadOnly: false }),
-    enabled: isOpen, // Only fetch when sheet is open
+    queryKey: notificationQueries.list.key({ unreadOnly: false, module }),
+    queryFn: () => trpcClient.notification.list.query({ unreadOnly: false, module }),
+    enabled: isOpen && !!activeOrganizationId, // Only fetch when sheet is open AND active org exists
     staleTime: 30_000,
   });
 
@@ -102,28 +114,37 @@ export function NotificationBell() {
           </SheetDescription>
         </SheetHeader>
 
-        <ScrollArea className="h-[calc(100vh-12rem)] mt-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
-              Loading notifications...
-            </div>
-          ) : notifications.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Bell className="h-12 w-12 text-muted-foreground/50 mb-4" />
-              <p className="text-sm font-medium text-muted-foreground">
-                No notifications yet
-              </p>
-              <p className="text-xs text-muted-foreground/70 mt-1">
-                You'll be notified when scans detect new ports or vulnerabilities
-              </p>
-            </div>
-          ) : (
-            <NotificationList
-              notifications={notifications}
-              onMarkAsRead={(id) => markAsReadMutation.mutate(id)}
-              isMarkingAsRead={markAsReadMutation.isPending}
-            />
-          )}
+        <NotificationFilterTabs
+          value={moduleFilter}
+          onValueChange={setModuleFilter}
+          className="mt-6"
+        />
+
+        <ScrollArea className="h-[calc(100vh-16rem)] mt-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
+                Loading notifications...
+              </div>
+            ) : notifications.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <Bell className="h-12 w-12 text-muted-foreground/50 mb-4" />
+                <p className="text-sm font-medium text-muted-foreground">
+                  No notifications yet
+                </p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
+                  {moduleFilter === 'ALL'
+                    ? "You'll be notified when scans detect new ports or vulnerabilities"
+                    : `No ${moduleFilter.toLowerCase().replace('_', ' ')} notifications`
+                  }
+                </p>
+              </div>
+            ) : (
+              <NotificationList
+                notifications={notifications}
+                onMarkAsRead={(id) => markAsReadMutation.mutate(id)}
+                isMarkingAsRead={markAsReadMutation.isPending}
+              />
+            )}
         </ScrollArea>
       </SheetContent>
     </Sheet>

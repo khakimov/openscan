@@ -6,10 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useCreateDevicesFromDiscoveryMutation, deviceQueries } from "@/queries/device-queries";
+import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
 import { Loader2, Plus } from "lucide-react";
 import { toast } from "sonner";
-import { useQueryClient } from "@tanstack/react-query";
 import { useParams } from "@tanstack/react-router";
 
 // Form validation schema
@@ -31,7 +30,11 @@ const AddDeviceSchema = z.object({
 
 type AddDeviceFormData = z.infer<typeof AddDeviceSchema>;
 
-export default function AddDevice() {
+interface AddDeviceProps {
+  onDevicesAdded?: (deviceIds: string[]) => void; // Callback with newly created device IDs
+}
+
+export default function AddDevice({ onDevicesAdded }: AddDeviceProps = {}) {
   const {
     register,
     handleSubmit,
@@ -39,8 +42,6 @@ export default function AddDevice() {
   } = useForm<AddDeviceFormData>({
     resolver: zodResolver<AddDeviceFormData, any, AddDeviceFormData>(AddDeviceSchema),
   });
-
-  const queryClient = useQueryClient();
 
   // Get current project ID from route params
   const { projectId } = useParams({ strict: false });
@@ -71,16 +72,20 @@ export default function AddDevice() {
       },
       {
         onSuccess: async (response) => {
-          // Wait for device list to refetch before closing modal
-          // This ensures user sees devices immediately when modal closes
-          // Use tRPC-compatible base key for device list
-          await queryClient.refetchQueries({ queryKey: deviceQueries.list.base });
-
           const deviceCount = response.devices?.length ?? 0;
+          const deviceIds = response.devices?.map((d: { id: string }) => d.id) ?? [];
+
           toast.success("Devices added successfully", {
             description: `${deviceCount} device(s) created and scans initiated.`,
           });
+
+          // Notify parent of newly added device IDs (for glow animation)
+          onDevicesAdded?.(deviceIds);
+
           popModal("AddDevice");
+
+          // Let the mutation hook's invalidateKeys handle the refetch
+          // This allows the page to show loading state properly
         },
         onError: (error: any) => {
           toast.error("Failed to add devices", {

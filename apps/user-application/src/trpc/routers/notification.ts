@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, createTRPCRouter } from '../trpc';
-import type { TrpcContext } from '../context';
+import type { TrpcContext } from '../trpc';
 import {
   getNotifications,
   markNotificationAsRead,
@@ -49,6 +49,7 @@ export const notificationRouter = createTRPCRouter({
     .input(z.object({
       unreadOnly: z.boolean().optional().default(false),
       deviceId: z.string().optional(),
+      module: z.enum(['NETWORK_SECURITY', 'VULNERABILITY_MANAGEMENT', 'DEVICE_LIFECYCLE', 'CONFIGURATION']).optional(),
       limit: z.number().int().positive().max(100).optional().default(50),
       offset: z.number().int().nonnegative().optional().default(0),
     }))
@@ -61,6 +62,7 @@ export const notificationRouter = createTRPCRouter({
         userId: user.id,
         unreadOnly: input.unreadOnly,
         deviceId: input.deviceId,
+        module: input.module,
         limit: input.limit,
         offset: input.offset,
       });
@@ -69,6 +71,7 @@ export const notificationRouter = createTRPCRouter({
         organizationId,
         userId: user.id,
         deviceId: input.deviceId ?? null,
+        module: input.module ?? null,
         unreadOnly: input.unreadOnly,
         limit: input.limit,
         offset: input.offset,

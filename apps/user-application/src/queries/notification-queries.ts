@@ -1,5 +1,6 @@
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
-import { useTRPCClient } from '@/integrations/trpc/react';
+import { useTRPC, useTRPCClient } from '@/integrations/trpc/react';
+import { useQuery } from '@tanstack/react-query';
 
 /**
  * Notification Query Key Factory (OpenPanel tRPC pattern)
@@ -45,6 +46,7 @@ export const notificationQueries = {
       limit?: number;
       offset?: number;
       deviceId?: string;
+      module?: string;
     }) => [
       ['notification', 'list'],
       {
@@ -73,6 +75,24 @@ export const notificationQueries = {
     // Full tRPC tuple key
     key: () => [['notification', 'preferences'], { input: undefined, type: 'query' as const }] as const,
   },
+};
+
+// ========================================
+// Query Hooks (tRPC pattern)
+// ========================================
+
+/**
+ * Get notifications for a specific device
+ * Used in Activity tab to show device changelog
+ */
+export const useDeviceNotifications = (deviceId: string) => {
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+
+  return useQuery({
+    ...trpc.notification.list.queryOptions({ deviceId }),
+    queryFn: () => trpcClient.notification.list.query({ deviceId }),
+  });
 };
 
 // ========================================

@@ -1,0 +1,53 @@
+# Test email templates by sending to a specified email address
+# Usage: just test-<template-name> <email-address>
+# Example: just test-new-cve me@example.com
+
+# Test new CVE email
+test-new-cve email:
+    #!/usr/bin/env bash
+    curl -X POST https://data-service.saipe.workers.dev/debug/enqueue \
+      -H "Content-Type: application/json" \
+      -d '{
+        "notificationId": "test-new-cve-'$(date +%s)'",
+        "recipients": ["{{email}}"],
+        "eventType": "new-cve",
+        "payload": {
+          "severity": "HIGH",
+          "deviceName": "web-server-01.example.com",
+          "cveId": "CVE-2024-12345",
+          "cvssScore": 8.5,
+          "description": "Remote code execution vulnerability in Apache Struts 2.x",
+          "documentationUrl": "https://nvd.nist.gov/vuln/detail/CVE-2024-12345",
+          "scanLink": "https://app.sec.rocks/devices/web-server-01",
+          "projectName": "Production Web Servers"
+        }
+      }'
+
+# Test critical port email
+test-critical-port email:
+    #!/usr/bin/env bash
+    curl -X POST https://data-service.saipe.workers.dev/debug/enqueue \
+      -H "Content-Type: application/json" \
+      -d '{
+        "notificationId": "test-critical-port-'$(date +%s)'",
+        "recipients": ["{{email}}"],
+        "eventType": "critical-port",
+        "payload": {
+          "severity": "HIGH",
+          "deviceName": "app-server-03.example.com",
+          "portDisplay": "8080",
+          "protocol": "tcp",
+          "detectedService": "Apache Tomcat 9.0.56",
+          "scanLink": "https://app.sec.rocks/devices/app-server-03/ports/8080",
+          "projectName": "Application Tier"
+        }
+      }'
+
+# List all available test commands
+list:
+    @echo "Available email template tests:"
+    @echo "  just test-new-cve <email>         - New CVE detected"
+    @echo "  just test-critical-port <email>   - Critical port detected"
+
+# Default recipe
+default: list

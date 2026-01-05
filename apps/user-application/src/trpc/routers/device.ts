@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, createTRPCRouter } from '../trpc';
-import type { TrpcContext } from '../context';
+import type { TrpcContext } from '../trpc';
 import {
   getDevicesForTenant,
   validateProjectAccess,
@@ -24,6 +24,7 @@ import {
 } from '@/server/devices/scan-presets';
 import { startPortScanWorkflow } from '@/server/discovery';
 import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
+import { notifyServerPromoted } from '@/server/notifications/notify-server-promoted';
 import { createLogger } from '@repo/logger';
 
 const logger = createLogger({ name: 'device-trpc' });
@@ -66,7 +67,7 @@ export const deviceRouter = createTRPCRouter({
       sortDirection: z.enum(['asc', 'desc']).optional().default('desc'),
     }))
     .query(async ({ ctx, input }) => {
-      let organizationId = requireOrganizationId(ctx);
+      let organizationId: string;
       const user = ctx.user;
       let projectId: string | undefined;
 
@@ -90,6 +91,8 @@ export const deviceRouter = createTRPCRouter({
 
         organizationId = access.organization.id;
         projectId = access.project.id;
+      } else {
+        organizationId = requireOrganizationId(ctx);
       }
 
       // Fetch devices using data-ops
@@ -106,14 +109,146 @@ export const deviceRouter = createTRPCRouter({
     }),
 
   /**
+   * List devices with details (activeScans + scanHistory) - optimized query
+   * Reduces N+1 queries by fetching all related data upfront
+   */
+  listWithDetails: protectedProcedure
+    .input(z.object({
+      verificationStatus: z
+        .union([
+          z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']),
+          z.array(z.enum(['CANDIDATE', 'VERIFIED', 'EXCLUDED']))
+        ])
+        .optional(),
+      projectId: z.string().optional(),
+      page: z.number().optional().default(1),
+      pageSize: z.number().optional().default(50),
+      sortColumn: z.string().optional().default('discoveredAt'),
+      sortDirection: z.enum(['asc', 'desc']).optional().default('desc'),
+      includeHistory: z.boolean().optional().default(true),
+      historyLimit: z.number().int().positive().optional().default(10),
+    }))
+    .query(async ({ ctx, input }) => {
+      let organizationId: string;
+      const user = ctx.user;
+      let projectId: string | undefined;
+
+      // If projectId provided, validate access and derive organizationId
+      if (input.projectId) {
+        const derivedOrgId = await getOrganizationIdFromProject(input.projectId);
+        if (!derivedOrgId) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Project not found'
+          });
+        }
+
+        const access = await validateProjectAccess(user.id, input.projectId, derivedOrgId);
+        if (!access) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Project not found or access denied'
+          });
+        }
+
+        organizationId = access.organization.id;
+        projectId = access.project.id;
+      } else {
+        organizationId = requireOrganizationId(ctx);
+      }
+
+      // Fetch devices using data-ops
+      const devicesResponse = await getDevicesForTenant(organizationId, {
+        page: input.page,
+        pageSize: input.pageSize,
+        sortColumn: input.sortColumn,
+        sortDirection: input.sortDirection,
+        verificationStatus: input.verificationStatus,
+        projectId,
+      });
+
+      // Fetch active scans and history for all devices in parallel
+      const deviceIds = devicesResponse.items.map((d: { id: string }) => d.id);
+
+      const [activeScansResults, historyResults] = await Promise.all([
+        // Fetch active scans for all devices
+        Promise.all(
+          deviceIds.map(async (deviceId: string) => {
+            const result = await getActiveDeviceScans({ data: { deviceId, organizationId } });
+            return { deviceId, scans: result.success ? result.activeScans ?? [] : [] };
+          })
+        ),
+        // Fetch scan history for all devices (if requested)
+        input.includeHistory
+          ? Promise.all(
+              deviceIds.map(async (deviceId: string) => {
+                const history = await getDeviceScanHistory(organizationId, deviceId, input.historyLimit);
+                return { deviceId, history };
+              })
+            )
+          : [],
+      ]);
+
+      // Build lookup maps for O(1) access
+      const activeScansByDevice = new Map(
+        activeScansResults.map((r: { deviceId: string; scans: any[] }) => [r.deviceId, r.scans])
+      );
+      const historyByDevice = new Map(
+        historyResults.map((r: { deviceId: string; history: any[] }) => [r.deviceId, r.history])
+      );
+
+      // Enrich devices with their related data
+      const enrichedItems = devicesResponse.items.map((device: any) => ({
+        ...device,
+        activeScans: activeScansByDevice.get(device.id) ?? [],
+        scanHistory: input.includeHistory ? (historyByDevice.get(device.id) ?? []) : undefined,
+      }));
+
+      logger.info('Fetched devices with details', {
+        deviceCount: enrichedItems.length,
+        includeHistory: input.includeHistory,
+      });
+
+      return {
+        ...devicesResponse,
+        items: enrichedItems,
+      };
+    }),
+
+  /**
    * Get single device detail
    */
   detail: protectedProcedure
     .input(z.object({
       deviceId: z.string().min(1, 'Device ID is required'),
+      projectId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const organizationId = requireOrganizationId(ctx);
+      let organizationId: string;
+      const user = ctx.user;
+
+      // If projectId provided, validate access and derive organizationId
+      if (input.projectId) {
+        const derivedOrgId = await getOrganizationIdFromProject(input.projectId);
+        if (!derivedOrgId) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Project not found'
+          });
+        }
+
+        const access = await validateProjectAccess(user.id, input.projectId, derivedOrgId);
+        if (!access) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Project not found or access denied'
+          });
+        }
+
+        organizationId = access.organization.id;
+      } else {
+        organizationId = requireOrganizationId(ctx);
+      }
 
       logger.info('Fetching device detail via tRPC', {
         deviceId: input.deviceId,
@@ -144,8 +279,9 @@ export const deviceRouter = createTRPCRouter({
     .input(z.object({
       deviceId: z.string().min(1, 'Device ID is required'),
       page: z.number().int().positive().optional().default(1),
+      projectId: z.string().optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const { deviceId } = input;
 
       logger.info('Returning mock vulnerabilities for device via tRPC', { deviceId });
@@ -193,9 +329,27 @@ export const deviceRouter = createTRPCRouter({
     .input(z.object({
       deviceId: z.string().min(1, 'Device ID is required'),
       limit: z.number().int().positive().optional().default(10),
+      projectId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const organizationId = requireOrganizationId(ctx);
+      let organizationId: string;
+      const user = ctx.user;
+
+      // If projectId provided, validate access and derive organizationId
+      if (input.projectId) {
+        const derivedOrgId = await getOrganizationIdFromProject(input.projectId);
+        if (!derivedOrgId) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' });
+        }
+        const access = await validateProjectAccess(user.id, input.projectId, derivedOrgId);
+        if (!access) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Project not found or access denied' });
+        }
+        organizationId = access.organization.id;
+      } else {
+        organizationId = requireOrganizationId(ctx);
+      }
+
       const { deviceId, limit } = input;
 
       logger.info('Fetching scan history via tRPC', {
@@ -238,16 +392,33 @@ export const deviceRouter = createTRPCRouter({
   activeScans: protectedProcedure
     .input(z.object({
       deviceId: z.string().min(1, 'Device ID is required'),
+      projectId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const organizationId = requireOrganizationId(ctx);
+      let organizationId: string;
+      const user = ctx.user;
+
+      // If projectId provided, validate access and derive organizationId
+      if (input.projectId) {
+        const derivedOrgId = await getOrganizationIdFromProject(input.projectId);
+        if (!derivedOrgId) {
+          throw new TRPCError({ code: 'NOT_FOUND', message: 'Project not found' });
+        }
+        const access = await validateProjectAccess(user.id, input.projectId, derivedOrgId);
+        if (!access) {
+          throw new TRPCError({ code: 'FORBIDDEN', message: 'Project not found or access denied' });
+        }
+        organizationId = access.organization.id;
+      } else {
+        organizationId = requireOrganizationId(ctx);
+      }
 
       logger.info('Fetching active device scans via tRPC', {
         deviceId: input.deviceId,
         organizationId
       });
 
-      const result = await getActiveDeviceScans({ data: { deviceId: input.deviceId } });
+      const result = await getActiveDeviceScans({ data: { deviceId: input.deviceId, organizationId } });
 
       if (!result.success) {
         throw new TRPCError({
@@ -330,6 +501,15 @@ export const deviceRouter = createTRPCRouter({
         updateFields: Object.keys(input.updates),
       });
 
+      // Fetch current device state before update
+      const currentDevice = await getDeviceById(input.deviceId, organizationId);
+      if (!currentDevice) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Device not found',
+        });
+      }
+
       const updatedDevice = await updateDevice(
         input.deviceId,
         input.updates as DeviceUpdateData,
@@ -347,6 +527,46 @@ export const deviceRouter = createTRPCRouter({
         deviceId: updatedDevice.id,
         name: updatedDevice.name,
       });
+
+      // Log manual edit notification for audit trail
+      try {
+        const { logManualEdit } = await import('@repo/data-ops');
+        const changedFields = Object.keys(input.updates).filter((key) => {
+          const oldValue = (currentDevice as any)[key];
+          const newValue = input.updates[key as keyof typeof input.updates];
+          return JSON.stringify(oldValue) !== JSON.stringify(newValue);
+        });
+
+        if (changedFields.length > 0) {
+          await logManualEdit({
+            deviceId: input.deviceId,
+            deviceName: updatedDevice.name || updatedDevice.ip || input.deviceId,
+            organizationId,
+            userId: ctx.user.id,
+            userEmail: ctx.user.email || 'unknown',
+            changedFields,
+            changes: Object.fromEntries(
+              changedFields.map((field) => [
+                field,
+                {
+                  from: (currentDevice as any)[field],
+                  to: input.updates[field as keyof typeof input.updates],
+                },
+              ])
+            ),
+          });
+          logger.info('Manual edit notification logged', {
+            deviceId: input.deviceId,
+            changedFields,
+          });
+        }
+      } catch (error) {
+        logger.error('Failed to log manual edit notification', {
+          deviceId: input.deviceId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        // Don't fail the update if notification fails
+      }
 
       return {
         success: true,
@@ -405,6 +625,32 @@ export const deviceRouter = createTRPCRouter({
         organizationId,
       });
 
+      // Send celebration notification if device was promoted to VERIFIED
+      if (currentDevice.verificationStatus !== 'VERIFIED' && input.status === 'VERIFIED') {
+        try {
+          await notifyServerPromoted(
+            {
+              deviceId: input.deviceId,
+              deviceName: currentDevice.name || currentDevice.ip || input.deviceId,
+              organizationId,
+              previousStatus: currentDevice.verificationStatus,
+              newStatus: input.status,
+            },
+            ctx.env
+          );
+          logger.info('Server promoted notification sent', {
+            deviceId: input.deviceId,
+            deviceName: currentDevice.name,
+          });
+        } catch (error) {
+          logger.error('Failed to send server promoted notification', {
+            error: error instanceof Error ? error.message : String(error),
+            deviceId: input.deviceId,
+          });
+          // Don't fail the verification if notification fails
+        }
+      }
+
       return {
         success: true,
         device: transformDeviceForUI(updatedDevice),
@@ -442,12 +688,39 @@ export const deviceRouter = createTRPCRouter({
       }
 
       if (input.verify) {
+        const previousStatus = device.verificationStatus;
         await verifyDeviceDB(input.deviceId, organizationId, user.id, input.note);
 
         logger.info('Device verified (scheduling not yet implemented)', {
           deviceId: device.id,
           interval: input.interval,
         });
+
+        // Send celebration notification if device was promoted to VERIFIED
+        if (previousStatus !== 'VERIFIED') {
+          try {
+            await notifyServerPromoted(
+              {
+                deviceId: input.deviceId,
+                deviceName: device.name || device.ip || input.deviceId,
+                organizationId,
+                previousStatus,
+                newStatus: 'VERIFIED',
+              },
+              ctx.env
+            );
+            logger.info('Server promoted notification sent (toggleVerification)', {
+              deviceId: input.deviceId,
+              deviceName: device.name,
+            });
+          } catch (error) {
+            logger.error('Failed to send server promoted notification (toggleVerification)', {
+              error: error instanceof Error ? error.message : String(error),
+              deviceId: input.deviceId,
+            });
+            // Don't fail the verification if notification fails
+          }
+        }
 
         return {
           success: true,
@@ -611,7 +884,7 @@ export const deviceRouter = createTRPCRouter({
       logger.info('Successfully created devices from discovery', {
         organizationId,
         createdCount: createdDevices.length,
-        deviceIds: createdDevices.map((device) => device.id),
+        deviceIds: createdDevices.map((device: { id: string }) => device.id),
       });
 
       return {

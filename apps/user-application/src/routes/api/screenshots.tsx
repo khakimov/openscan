@@ -15,6 +15,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { getCurrentOrganizationId } from '@/server/utils/auth';
 import { getDeviceById } from '@repo/data-ops';
+import { initDatabase } from '@repo/data-ops/database/setup';
 import { createLogger } from '@repo/logger';
 import { env } from 'cloudflare:workers';
 
@@ -24,6 +25,9 @@ export const Route = createFileRoute('/api/screenshots')({
   server: {
     handlers: {
       GET: async ({ request }) => {
+        // Initialize database before any data-ops queries
+        initDatabase(env.DB);
+
         try {
           // Parse query parameters
           const url = new URL(request.url);
