@@ -217,6 +217,7 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
     invalidateKeys: [deviceQueries.activeScans.key(deviceId)],
     toastOnSuccess: false,
 
+    // Optimistic update: Show scan as pending immediately
     onMutate: async (variables) => {
       await queryClient.cancelQueries({
         queryKey: deviceQueries.activeScans.key(deviceId),
@@ -226,6 +227,7 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
         deviceQueries.activeScans.key(deviceId),
       );
 
+      // Add optimistic scan to cache
       queryClient.setQueryData(
         deviceQueries.activeScans.key(deviceId),
         (old: any[] = []) => [
@@ -243,6 +245,7 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
       return { previousScans };
     },
 
+    // Rollback on error
     onError: (_err, _variables, context) => {
       if (context?.previousScans) {
         queryClient.setQueryData(
@@ -252,8 +255,11 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
       }
     },
 
+    // Refetch to get real scan data from server
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: deviceQueries.activeScans.key(deviceId) });
+      queryClient.invalidateQueries({
+        queryKey: deviceQueries.activeScans.key(deviceId),
+      });
     },
   });
 };

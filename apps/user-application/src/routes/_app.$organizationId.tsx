@@ -4,7 +4,6 @@ import {
   notFound,
   redirect,
 } from "@tanstack/react-router";
-import { OrganizationGate } from "@/components/layout/organization-gate";
 import { Spinner } from "@/components/ui/spinner";
 import { getOrganization, syncActiveOrganization } from "@/server/organization";
 
@@ -111,13 +110,7 @@ export const Route = createFileRoute("/_app/$organizationId")({
 });
 
 function OrganizationLayout() {
-  // ✅ Get organization from beforeLoad context
-  const { organization } = Route.useRouteContext();
-
-  // ✅ Pass organization to child routes via Outlet context
-  return (
-    <OrganizationGate organization={organization}>
-      <Outlet />
-    </OrganizationGate>
-  );
+  // Organization is guaranteed by beforeLoad (throws if not found)
+  // No guard needed - just render children
+  return <Outlet />;
 }

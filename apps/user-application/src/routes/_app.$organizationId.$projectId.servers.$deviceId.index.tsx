@@ -4,6 +4,8 @@ import { DeviceScheduleList } from "@/components/shared/device-schedule-list";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
+import { useEffect } from "react";
+import { continueScanScheduleTour } from "@/components/shared/onboarding-guide";
 
 /**
  * Pending component for device overview tab
@@ -20,6 +22,11 @@ function DeviceOverview() {
   const { deviceId, projectId } = Route.useParams();
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
+
+  // Continue onboarding tour if navigated here from sheet
+  useEffect(() => {
+    continueScanScheduleTour();
+  }, []);
 
   // Fetch device (React Query will dedupe with parent query)
   const { data: device } = useQuery({
@@ -39,10 +46,12 @@ function DeviceOverview() {
       />
 
       {/* Scan Schedules Section */}
-      <DeviceScheduleList
-        deviceId={deviceId}
-        deviceName={device.name}
-      />
+      <div data-tour="scan-schedule">
+        <DeviceScheduleList
+          deviceId={deviceId}
+          deviceName={device.name}
+        />
+      </div>
     </div>
   );
 }

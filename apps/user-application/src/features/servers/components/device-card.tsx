@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   XCircle,
   Shield,
+  Bug,
 } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
@@ -30,14 +31,12 @@ import {
   deviceQueries,
 } from "@/queries/device-queries";
 import { invalidateTRPCQuery } from "@/lib/query-utils";
-import { useEffect, useRef } from "react";
-
-type ActiveScan = {
-  id: string;
-  deviceId: string;
-  status: string;
-  createdAt: string;
-};
+import { useEffect, useRef, useMemo } from "react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type ScanHistoryItem = {
   id: string;
@@ -48,8 +47,7 @@ type ScanHistoryItem = {
 
 interface DeviceCardProps {
   device: TransformedDevice & {
-    activeScans?: ActiveScan[];
-    scanHistory?: ScanHistoryItem[];
+    scanHistory?: ScanHistoryItem[]; // Optional - will poll if not provided
   };
   isNewlyAdded?: boolean; // Visual indicator for newly added devices
 }
@@ -71,23 +69,62 @@ function getScanTarget(device: TransformedDevice): string | null {
   return target || null;
 }
 
+// Aggregate CVE counts from port snapshots
+function aggregateCVECounts(portSnapshots: TransformedDevice["portSnapshots"]): {
+  totalCves: number;
+  criticalCount: number;
+  highCount: number;
+  maxCvssScore: number | undefined;
+} {
+  if (!portSnapshots || portSnapshots.length === 0) {
+    return { totalCves: 0, criticalCount: 0, highCount: 0, maxCvssScore: undefined };
+  }
+
+  let totalCves = 0;
+  let criticalCount = 0;
+  let highCount = 0;
+  let maxCvssScore: number | undefined;
+
+  for (const port of portSnapshots) {
+    if (port.enrichment?.summary) {
+      totalCves += port.enrichment.summary.cveCount ?? 0;
+      criticalCount += port.enrichment.summary.criticalCount ?? 0;
+      highCount += port.enrichment.summary.highCount ?? 0;
+      if (port.enrichment.summary.maxCvssScore !== undefined) {
+        maxCvssScore = maxCvssScore === undefined
+          ? port.enrichment.summary.maxCvssScore
+          : Math.max(maxCvssScore, port.enrichment.summary.maxCvssScore);
+      }
+    }
+  }
+
+  return { totalCves, criticalCount, highCount, maxCvssScore };
+}
+
+// Risk level descriptions for tooltip
+const RISK_LEVEL_DESCRIPTIONS: Record<string, string> = {
+  CRITICAL: "Critical vulnerabilities detected - immediate action required",
+  HIGH: "High-severity issues found - prioritize remediation",
+  MEDIUM: "Moderate risk - review and address when possible",
+  LOW: "Low risk - minor issues that should be monitored",
+  SECURE: "No significant vulnerabilities detected",
+  UNKNOWN: "Not yet scanned - run a scan to assess risk",
+};
+
 export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
   const queryClient = useQueryClient();
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
-  // Use pre-fetched active scans from device.listWithDetails (if available)
-  // Otherwise fall back to individual query with polling
-  const shouldPollActiveScans = !device.activeScans; // Only poll if not pre-fetched
-  const { data: polledActiveScans = [] } = useQuery({
+  // Always use separate activeScans query with polling
+  // This simplifies cache management - mutations only need to invalidate one query
+  const { data: activeScans = [] } = useQuery({
     ...trpc.device.activeScans.queryOptions({ deviceId: device.id }),
     queryFn: () => trpcClient.device.activeScans.query({ deviceId: device.id }),
-    enabled: shouldPollActiveScans, // Only run if not pre-fetched
-    // Keep polling while the server still sees active scans
+    // Poll every 5 seconds while scans are active, stop when done
     refetchInterval: (query) => (query.state.data && query.state.data.length > 0 ? 5000 : false),
   });
 
-  const activeScans = device.activeScans ?? polledActiveScans;
   const isScanning = activeScans.length > 0;
 
   // Side effect: Invalidate device queries when scan completes (transition detection)
@@ -119,6 +156,12 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
   const totalScans = device.scanStats?.totalScans ?? 0;
   const lastScanAt = device.scanStats?.lastScanAt;
   const hasScanHistory = totalScans > 0;
+
+  // Aggregate CVE counts from port snapshots
+  const cveStats = useMemo(
+    () => aggregateCVECounts(device.portSnapshots),
+    [device.portSnapshots]
+  );
 
   // Use pre-fetched scan history from device.listWithDetails (if available)
   // Otherwise fall back to individual query
@@ -193,10 +236,11 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
       }
     >
       <div
-        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 border ${!isActivelyScanning && !isNewlyAdded ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'}`}
+        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 border ${!isActivelyScanning && !isNewlyAdded ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'} ${device.isScanned ? 'min-h-[340px]' : ''}`}
         style={{
           backgroundColor: '#262626'
         }}
+        data-tour="device-card"
       >
         {/* Header */}
         <div className="p-4">
@@ -210,7 +254,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
         </div>
 
         {/* Badges */}
-        <div className="flex gap-2 mt-2">
+        <div className="flex flex-wrap gap-2 mt-2">
           {/* Scan Status Badge */}
           {isActivelyScanning ? (
             <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center gap-1">
@@ -227,16 +271,59 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
             </span>
           )}
 
-          {/* Status & Risk - only show if scanned */}
+          {/* Status - only show if offline (warning indicator) */}
+          {device.status === 'offline' && (
+            <span className={getDeviceStatusBadgeClass(device.status)}>
+              {device.status}
+            </span>
+          )}
+
+          {/* Risk level - only show if scanned */}
           {device.isScanned && (
-            <>
-              <span className={getDeviceStatusBadgeClass(device.status)}>
-                {device.status}
-              </span>
-              <span className={getRiskLevelBadgeClass(device.riskLevel)}>
-                {device.riskLevel}
-              </span>
-            </>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={`${getRiskLevelBadgeClass(device.riskLevel)} cursor-help`}>
+                  {device.riskLevel}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <p className="text-sm">
+                  {RISK_LEVEL_DESCRIPTIONS[device.riskLevel] || RISK_LEVEL_DESCRIPTIONS.UNKNOWN}
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          )}
+
+          {/* CVE Count Badge - show if has vulnerabilities */}
+          {device.isScanned && cveStats.totalCves > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className={`px-2 py-1 text-xs rounded-full flex items-center gap-1 cursor-help ${
+                  cveStats.criticalCount > 0
+                    ? "bg-red-500/10 text-red-400 border border-red-500/30"
+                    : cveStats.highCount > 0
+                      ? "bg-orange-500/10 text-orange-400 border border-orange-500/30"
+                      : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/30"
+                }`}>
+                  <Bug className="w-3 h-3" />
+                  {cveStats.totalCves} CVE{cveStats.totalCves !== 1 ? "s" : ""}
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="max-w-xs">
+                <div className="text-sm space-y-1">
+                  <p className="font-medium">{cveStats.totalCves} vulnerabilities detected</p>
+                  {cveStats.criticalCount > 0 && (
+                    <p className="text-red-400">{cveStats.criticalCount} critical</p>
+                  )}
+                  {cveStats.highCount > 0 && (
+                    <p className="text-orange-400">{cveStats.highCount} high</p>
+                  )}
+                  {cveStats.maxCvssScore !== undefined && (
+                    <p className="text-muted-foreground">Max CVSS: {cveStats.maxCvssScore.toFixed(1)}</p>
+                  )}
+                </div>
+              </TooltipContent>
+            </Tooltip>
           )}
 
           {/* WAF/Proxy Pattern Badge */}
@@ -281,16 +368,26 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
         )}
       </div>
 
-      {/* Scan Chart */}
-      {totalScans > 1 && scanHistory.length > 0 && (
+      {/* Scan Chart - show when 2+ scans, or placeholder for scanned devices */}
+      {device.isScanned && (
         <div className="p-4 py-3">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-medium">Ports Activity</div>
-            <div className="text-xs text-muted-foreground">
-              {scanHistory.length} {scanHistory.length === 1 ? "scan" : "scans"}
+          {totalScans > 1 && scanHistory.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm font-medium">Ports Activity</div>
+                <div className="text-xs text-muted-foreground">
+                  {scanHistory.length} {scanHistory.length === 1 ? "scan" : "scans"}
+                </div>
+              </div>
+              <DeviceScanChart scanHistory={scanHistory} className="h-12" />
+            </>
+          ) : (
+            <div className="h-12 flex items-center justify-center">
+              <span className="text-xs text-muted-foreground">
+                {totalScans === 1 ? "Run another scan to see activity chart" : "No scan history yet"}
+              </span>
             </div>
-          </div>
-          <DeviceScanChart scanHistory={scanHistory} className="h-12" />
+          )}
         </div>
       )}
 
@@ -314,6 +411,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
             type="button"
             onClick={handleScan}
             disabled={isActivelyScanning}
+            data-tour="scan-btn"
             className={
               isActivelyScanning
                 ? "opacity-50 cursor-not-allowed"

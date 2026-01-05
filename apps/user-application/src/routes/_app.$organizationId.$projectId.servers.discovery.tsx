@@ -116,35 +116,30 @@ function ServersDiscovery() {
         onAddDevice={handleAddDevice}
       />
 
-      <DevicesContent newlyAddedIds={newlyAddedIds} projectId={project.id} />
+      <DevicesContent newlyAddedIds={newlyAddedIds} projectId={project.id} organizationId={orgParam} />
     </Padding>
   );
 }
 
 function DevicesContent({
   newlyAddedIds,
-  projectId
+  projectId,
+  organizationId,
 }: {
   newlyAddedIds: Set<string>;
   projectId: string;
+  organizationId: string;
 }) {
-  // Client-side fetch (devices are dynamic data that changes frequently)
-  // Using listWithDetails to avoid N+1 queries (fetches devices + activeScans + scanHistory in one request)
+  // Use flat list query - DeviceCards fetch their own activeScans/scanHistory via polling
   const trpcClient = useTRPCClient();
   const { data: devicesResponse, isFetching } = useQuery({
-    queryKey: [...deviceQueries.list.key({ verificationStatus, projectId }), 'withDetails'],
-    queryFn: () => trpcClient.device.listWithDetails.query({
+    queryKey: deviceQueries.list.key({ verificationStatus, projectId }),
+    queryFn: () => trpcClient.device.list.query({
       verificationStatus,
       projectId,
-      includeHistory: true,
-      historyLimit: 10,
     }),
     placeholderData: keepPreviousData,
-    // Refetch on window focus to get latest devices
     refetchOnWindowFocus: true,
-    // Note: No list-level polling needed - individual device cards handle scan status polling
-    // and invalidate the list query when scans complete (see device-card.tsx:74-86)
-    refetchInterval: false,
   });
 
   // Memoize devices array to prevent unnecessary re-renders
@@ -177,6 +172,7 @@ function DevicesContent({
           devices={devices}
           newlyAddedIds={newlyAddedIds}
           projectId={projectId}
+          organizationId={organizationId}
         />
       )}
 

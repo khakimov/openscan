@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { getAuth } from '@repo/data-ops/auth/server';
+import { getActiveOrganizationId } from '@repo/data-ops/auth/organization-api';
 import { env } from 'cloudflare:workers';
 
 /**
@@ -19,7 +20,7 @@ export const Route = createFileRoute('/api/test-auth')({
             email: session.user.email,
             name: session.user.name,
           } : null,
-          activeOrganizationId: (session as any)?.activeOrganizationId || null,
+          activeOrganizationId: session ? getActiveOrganizationId(session) ?? null : null,
         }, null, 2), {
           headers: { 'Content-Type': 'application/json' },
         });

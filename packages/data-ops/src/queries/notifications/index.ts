@@ -62,3 +62,22 @@ export {
   logWebTitleChanged,
   logManualEdit,
 } from './configuration';
+
+// User notification preferences
+export {
+  GetUserPreferencesSchema,
+  type GetUserPreferencesInput,
+  UpdateUserPreferencesSchema,
+  type UpdateUserPreferencesInput,
+  MuteDeviceSchema,
+  type MuteDeviceInput,
+  type ResolvedUserPreferences,
+  getUserNotificationPreferences,
+  resolveUserPreferences,
+  updateUserNotificationPreferences,
+  muteDevice,
+  unmuteDevice,
+  disableEmailNotifications,
+  enableEmailNotifications,
+  getEmailRecipients,
+} from './user-preferences';

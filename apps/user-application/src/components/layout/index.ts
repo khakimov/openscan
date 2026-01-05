@@ -14,12 +14,6 @@ export { PageSection } from './page-section';
 
 // Gate components
 export {
-  OrganizationGate,
-  type Organization,
-  type OrganizationGateProps,
-} from './organization-gate';
-
-export {
   ProjectGate,
   useProject,
   useProjectOptional,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { useQueryErrorResetBoundary } from "@tanstack/react-query";
 import { FullPageErrorState } from "@/components/shared/full-page-error-state";
 import { getProject } from "@/server/project";
+import { OnboardingGuide } from "@/components/shared/onboarding-guide";
 
 const logger = createLogger({ name: "project-layout" });
 
@@ -124,6 +125,7 @@ function ProjectLayout() {
   return (
     <ProjectGate project={project}>
       <Outlet />
+      <OnboardingGuide />
     </ProjectGate>
   );
 }

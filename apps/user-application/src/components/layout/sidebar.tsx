@@ -273,6 +273,7 @@ export function Sidebar({ className }: SidebarProps = {}) {
                       "text-muted-foreground hover:text-foreground hover:bg-accent"
                   )}
                   onClick={() => navigate({ to: item.href })}
+                  data-tour={`nav-${item.name.toLowerCase()}`}
                 >
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   {!isCollapsed && (
@@ -302,6 +303,7 @@ export function Sidebar({ className }: SidebarProps = {}) {
               "flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50",
               isCollapsed && "justify-center"
             )}
+            data-tour="user-menu"
           >
             {!isCollapsed && (
               <AccountDialog user={user}>
@@ -443,6 +445,7 @@ export function Sidebar({ className }: SidebarProps = {}) {
                       "text-muted-foreground hover:text-foreground hover:bg-accent"
                   )}
                   onClick={() => navigate({ to: item.href })}
+                  data-tour={`nav-${item.name.toLowerCase()}`}
                 >
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
@@ -460,7 +463,10 @@ export function Sidebar({ className }: SidebarProps = {}) {
 
         {/* User Profile - Always visible at bottom */}
         <div className="mt-auto border-t border-border p-4 space-y-2">
-          <div className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50">
+          <div
+            className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50"
+            data-tour="user-menu"
+          >
             <AccountDialog user={user}>
               <Button
                 variant="ghost"

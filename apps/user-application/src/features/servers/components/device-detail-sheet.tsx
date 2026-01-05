@@ -18,7 +18,7 @@ import { Pencil, Trash2, Scan, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
-import { Link, useParams } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
@@ -174,6 +174,7 @@ function DeviceDetailSheetItem({
                 projectId,
                 deviceId: device.id,
               }}
+              data-tour="view-details-btn"
             >
               <Button variant="outline" className="w-full gap-2">
                 <ExternalLink className="h-4 w-4" />

@@ -83,22 +83,22 @@ function DevicePage() {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
+  // All hooks must be called before any early returns
+  const scanMutation = useStartDeviceScanMutation(deviceId);
+
   // Load device detail with tRPC
-  // Note: organizationId comes from session on server, not from params
   const { data: device } = useQuery({
-    ...trpc.device.detail.queryOptions({ deviceId, projectId: project.id }),
-    queryFn: () => trpcClient.device.detail.query({ deviceId, projectId: project.id }),
+    ...trpc.device.detail.queryOptions({ deviceId, projectId: project?.id ?? "" }),
+    queryFn: () => trpcClient.device.detail.query({ deviceId, projectId: project?.id ?? "" }),
+    enabled: !!project?.id,
   });
+
+  // Prefer slug for friendly URLs
+  const orgParam = organization?.slug ?? organization?.id;
 
   if (!device) {
     return <PageLoadingFallback />;
   }
-
-  // Scan mutation
-  const scanMutation = useStartDeviceScanMutation(deviceId);
-
-  // Prefer slug for friendly URLs
-  const orgParam = organization.slug ?? organization.id;
 
   // Action handlers
   const handleEdit = () => {

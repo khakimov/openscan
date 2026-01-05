@@ -143,3 +143,63 @@ export const organizationNotificationSettingsRelations = relations(organizationN
     references: [organization.id],
   }),
 }));
+
+/**
+ * User Notification Preferences
+ *
+ * Purpose: Per-user notification preferences that override organization defaults
+ *
+ * Pattern:
+ * - One row per user per organization (composite unique constraint)
+ * - emailEnabled: true/false to opt-in/opt-out of email notifications
+ * - emailAllowedSeverities: null = inherit org defaults, array = override
+ * - mutedDevices: array of device IDs to mute (no notifications for these devices)
+ * - telegramChatId: Telegram chat ID for Telegram delivery (null = disabled)
+ *
+ * Priority Chain:
+ * 1. User preferences (if exists)
+ * 2. Organization settings (if exists)
+ * 3. System defaults (CRITICAL, HIGH)
+ */
+export const userNotificationPreferences = sqliteTable('user_notification_preferences', {
+  id: cuidText().primaryKey(),
+  userId: text('user_id').notNull().references(() => auth_user.id, { onDelete: 'cascade' }),
+  organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
+
+  // Email preferences
+  emailEnabled: integer('email_enabled', { mode: 'boolean' }).notNull().default(true),
+
+  // Override org severity settings (null = inherit from org)
+  emailAllowedSeverities: text('email_allowed_severities', { mode: 'json' })
+    .$type<Array<'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO'> | null>(),
+
+  // Mute notifications for specific devices
+  mutedDevices: text('muted_devices', { mode: 'json' })
+    .$type<string[]>()
+    .default(sql`'[]'`),
+
+  // Telegram delivery (future feature)
+  telegramEnabled: integer('telegram_enabled', { mode: 'boolean' }).notNull().default(false),
+  telegramChatId: text('telegram_chat_id'),
+
+  // Timestamps
+  createdAt: now(),
+  updatedAt: updatedAt(),
+}, (t) => ({
+  // Unique constraint: one row per user per organization
+  userOrgIdx: uniqueIndex('user_notification_prefs_user_org_idx').on(t.userId, t.organizationId),
+  // Query: SELECT * WHERE organizationId = ?
+  orgIdx: index('user_notification_prefs_org_idx').on(t.organizationId),
+}));
+
+// Relations
+export const userNotificationPreferencesRelations = relations(userNotificationPreferences, ({ one }) => ({
+  user: one(auth_user, {
+    fields: [userNotificationPreferences.userId],
+    references: [auth_user.id],
+  }),
+  organization: one(organization, {
+    fields: [userNotificationPreferences.organizationId],
+    references: [organization.id],
+  }),
+}));

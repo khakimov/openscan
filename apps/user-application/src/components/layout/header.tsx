@@ -30,7 +30,7 @@ export function Header({ className, onMobileMenuToggle, activeOrganizationId }: 
       </div>
 
       {/* Right side - Notification bell */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" data-tour="notifications-btn">
         <NotificationBell activeOrganizationId={activeOrganizationId} />
       </div>
     </header>

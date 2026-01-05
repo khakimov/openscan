@@ -89,11 +89,11 @@ export function ServersTabHeader({
         </div>
         {showActions && (
           <div className="hidden lg:flex gap-2">
-            <Button onClick={handleAddDevice} disabled={disabled}>
+            <Button onClick={handleAddDevice} disabled={disabled} data-tour="add-server-btn">
               <PlusIcon className="h-4 w-4" />
               Add Servers
             </Button>
-            <Button onClick={handleStartDiscovery} disabled={disabled}>
+            <Button onClick={handleStartDiscovery} disabled={disabled} data-tour="start-discovery-btn">
               <Radar className="h-4 w-4" />
               Start Discovery
             </Button>

@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { fetchRequestHandler } from '@trpc/server/adapters/fetch';
 import { getAuth } from '@repo/data-ops/auth/server';
+import { getActiveOrganizationId } from '@repo/data-ops/auth/organization-api';
 import { createLogger } from '@repo/logger';
 import { env } from 'cloudflare:workers';
 
@@ -35,7 +36,7 @@ async function createTrpcContext(request: Request, env: Env, pendingCookies: str
       email: session.user.email ?? null,
       name: session.user.name ?? null,
       emailVerified: Boolean(session.user.emailVerified),
-      organizationId: (session as any).activeOrganizationId ?? null,
+      organizationId: getActiveOrganizationId(session) ?? null,
     },
     pendingCookies,
     setPendingCookies: (cookies: string[]) => {

@@ -1,6 +1,7 @@
 import type { MessageBatch } from 'cloudflare:workers';
 import { WorkerEntrypoint } from 'cloudflare:workers';
 import { Hono } from 'hono';
+import { initDatabase, markNotificationEmailSent } from '@repo/data-ops';
 import {
   sendCriticalPortEmail,
   sendNewCveEmail,
@@ -89,33 +90,71 @@ async function handleNotificationDelivery(
   job: NotificationDeliveryMessage,
   env: Env
 ): Promise<void> {
-  // TODO: hydrate notification detail via data-ops API
+  // Initialize database for marking notifications as sent
+  initDatabase(env.DB);
+
   console.log('Received notification delivery job', {
     notificationId: job.notificationId,
     channels: job.targetChannels,
     eventType: job.eventType,
   });
 
+  const sentNotificationIds: string[] = [];
+
   for (const channel of job.targetChannels) {
     if (channel === 'email') {
-      await deliverEmail(job, env);
+      const ids = await deliverEmail(job, env);
+      sentNotificationIds.push(...ids);
     }
 
     if (channel === 'telegram') {
-      await deliverTelegram(job, env);
+      const ids = await deliverTelegram(job, env);
+      // Telegram IDs are tracked separately - don't add to emailSent
+      // Future: Add telegramSent column to notifications table
+      console.log('Telegram delivery returned', { ids });
+    }
+  }
+
+  // Mark all sent notifications as email sent in database
+  if (sentNotificationIds.length > 0) {
+    const markResults = await Promise.allSettled(
+      sentNotificationIds.map((id) =>
+        markNotificationEmailSent(id, job.organizationId)
+      )
+    );
+
+    const succeeded = markResults.filter((r) => r.status === 'fulfilled').length;
+    const failed = markResults.filter((r) => r.status === 'rejected').length;
+
+    console.log('Marked notifications as email sent', {
+      total: sentNotificationIds.length,
+      succeeded,
+      failed,
+    });
+
+    if (failed > 0) {
+      const errors = markResults
+        .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+        .map((r) => r.reason);
+      console.error('Some notifications failed to mark as sent', { errors });
     }
   }
 }
 
+/**
+ * Delivers email and returns list of notification IDs that were sent
+ * For batch emails, returns all batch item notification IDs
+ * For single emails, returns the job's notification ID
+ */
 async function deliverEmail(
   job: NotificationDeliveryMessage,
   env: Env
-): Promise<void> {
+): Promise<string[]> {
   if (job.recipients.length === 0) {
     console.log('No email recipients for notification, skipping send', {
       notificationId: job.notificationId,
     });
-    return;
+    return [];
   }
 
   // Handle batch notifications
@@ -136,7 +175,9 @@ async function deliverEmail(
         })
       )
     );
-    return;
+
+    // Return all batch item notification IDs for marking as sent
+    return job.batchItems.map((item) => item.notificationId);
   }
 
   switch (job.eventType) {
@@ -369,18 +410,146 @@ async function deliverEmail(
         notificationId: job.notificationId,
         eventType: job.eventType,
       });
+      return [];
     }
   }
+
+  // Email was sent for this notification
+  return [job.notificationId];
+}
+
+/**
+ * Format notification for Telegram message
+ * Uses Markdown formatting for better readability
+ */
+function formatTelegramMessage(job: NotificationDeliveryMessage): string {
+  const severityEmoji: Record<Severity, string> = {
+    CRITICAL: '🔴',
+    HIGH: '🟠',
+    MEDIUM: '🟡',
+    LOW: '🔵',
+    INFO: 'ℹ️',
+  };
+
+  const emoji = severityEmoji[job.severity as Severity] ?? '📢';
+  const title = job.notificationTitle ?? 'Security Alert';
+  const message = job.notificationMessage ?? '';
+
+  const payload = job.payload as Record<string, unknown>;
+  const deviceName = (payload.deviceName as string) ?? '';
+  const scanLink = (payload.scanLink as string) ?? '';
+
+  let text = `${emoji} *${escapeMarkdown(title)}*\n`;
+
+  if (message) {
+    text += `\n${escapeMarkdown(message)}\n`;
+  }
+
+  if (deviceName) {
+    text += `\n🖥 Server: ${escapeMarkdown(deviceName)}`;
+  }
+
+  if (scanLink) {
+    text += `\n\n[View Details](${scanLink})`;
+  }
+
+  return text;
+}
+
+/**
+ * Escape special characters for Telegram Markdown
+ */
+function escapeMarkdown(text: string): string {
+  return text.replace(/([_*\[\]()~`>#+=|{}.!-])/g, '\\$1');
+}
+
+/**
+ * Send message to Telegram chat via Bot API
+ */
+async function sendTelegramMessage(
+  botToken: string,
+  chatId: string,
+  text: string
+): Promise<boolean> {
+  const url = `https://api.telegram.org/bot${botToken}/sendMessage`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      chat_id: chatId,
+      text,
+      parse_mode: 'MarkdownV2',
+      disable_web_page_preview: false,
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    console.error('Telegram API error', {
+      status: response.status,
+      error,
+    });
+    return false;
+  }
+
+  return true;
 }
 
 async function deliverTelegram(
   job: NotificationDeliveryMessage,
   env: Env
-): Promise<void> {
-  console.log('Telegram delivery placeholder', {
+): Promise<string[]> {
+  if (!env.TELEGRAM_BOT_TOKEN) {
+    console.log('Telegram bot token not configured, skipping delivery', {
+      notificationId: job.notificationId,
+    });
+    return [];
+  }
+
+  // Get Telegram recipients from job payload
+  // These are chat IDs from user preferences
+  const telegramRecipients = (job.payload.telegramRecipients as string[]) ?? [];
+
+  if (telegramRecipients.length === 0) {
+    console.log('No Telegram recipients for notification, skipping', {
+      notificationId: job.notificationId,
+    });
+    return [];
+  }
+
+  const message = formatTelegramMessage(job);
+  const sentNotificationIds: string[] = [];
+
+  console.log('Sending Telegram notifications', {
     notificationId: job.notificationId,
-    botTokenPresent: Boolean(env.TELEGRAM_BOT_TOKEN),
+    recipientCount: telegramRecipients.length,
   });
+
+  // Send to all Telegram chat IDs
+  const results = await Promise.allSettled(
+    telegramRecipients.map((chatId) =>
+      sendTelegramMessage(env.TELEGRAM_BOT_TOKEN!, chatId, message)
+    )
+  );
+
+  const succeeded = results.filter(
+    (r) => r.status === 'fulfilled' && r.value
+  ).length;
+  const failed = results.length - succeeded;
+
+  console.log('Telegram delivery complete', {
+    notificationId: job.notificationId,
+    succeeded,
+    failed,
+  });
+
+  // Return notification ID if at least one delivery succeeded
+  if (succeeded > 0) {
+    sentNotificationIds.push(job.notificationId);
+  }
+
+  return sentNotificationIds;
 }
 
 export default class NotificationDeliveryWorker extends WorkerEntrypoint<Env> {

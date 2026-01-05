@@ -40,7 +40,10 @@ export function CardActions({ children }: CardActionsProps) {
       onMouseDown={(e) => e.stopPropagation()}
     >
       <DropdownMenu>
-        <DropdownMenuTrigger className="flex h-8 w-8 items-center justify-center rounded hover:border focus:outline-none focus:ring-0 focus:border-transparent">
+        <DropdownMenuTrigger
+          className="flex h-8 w-8 items-center justify-center rounded hover:border focus:outline-none focus:ring-0 focus:border-transparent"
+          data-tour="card-menu-trigger"
+        >
           <MoreHorizontal size={16} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-[200px]">
