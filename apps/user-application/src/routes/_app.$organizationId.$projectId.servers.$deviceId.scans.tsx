@@ -233,14 +233,14 @@ function ScanCard({ scan }: { scan: ScanRun }) {
             {/* Critical and High - Always visible */}
             {actionableCount > 0 && (
               <div className="flex flex-wrap gap-2">
-                {summary?.totalCritical && summary.totalCritical > 0 && (
+                {(summary?.totalCritical ?? 0) > 0 && (
                   <Badge variant="destructive">
-                    {summary.totalCritical} Critical
+                    {summary?.totalCritical} Critical
                   </Badge>
                 )}
-                {summary?.totalHigh && summary.totalHigh > 0 && (
+                {(summary?.totalHigh ?? 0) > 0 && (
                   <Badge variant="destructive" className="bg-orange-500 hover:bg-orange-600">
-                    {summary.totalHigh} High
+                    {summary?.totalHigh} High
                   </Badge>
                 )}
               </div>
@@ -261,14 +261,14 @@ function ScanCard({ scan }: { scan: ScanRun }) {
                 </CollapsibleTrigger>
                 <CollapsibleContent className="pt-2">
                   <div className="flex flex-wrap gap-2">
-                    {summary?.totalMedium && summary.totalMedium > 0 && (
+                    {(summary?.totalMedium ?? 0) > 0 && (
                       <Badge variant="secondary">
-                        {summary.totalMedium} Medium
+                        {summary?.totalMedium} Medium
                       </Badge>
                     )}
-                    {summary?.totalLow && summary.totalLow > 0 && (
+                    {(summary?.totalLow ?? 0) > 0 && (
                       <Badge variant="outline">
-                        {summary.totalLow} Low
+                        {summary?.totalLow} Low
                       </Badge>
                     )}
                   </div>
