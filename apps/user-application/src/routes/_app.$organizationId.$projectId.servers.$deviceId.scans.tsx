@@ -102,7 +102,6 @@ function DeviceScansPage() {
  * Individual scan card with improved UX
  */
 function ScanCard({ scan }: { scan: ScanRun }) {
-  const [showLowRisk, setShowLowRisk] = useState(false);
   const [showOtherServices, setShowOtherServices] = useState(false);
 
   const resultSummary = scan.resultSummary as EnrichedScanResultSummary | undefined;
@@ -116,7 +115,6 @@ function ScanCard({ scan }: { scan: ScanRun }) {
 
   // Calculate actionable issues (Critical + High)
   const actionableCount = (summary?.totalCritical || 0) + (summary?.totalHigh || 0);
-  const lowRiskCount = (summary?.totalMedium || 0) + (summary?.totalLow || 0);
 
   // Group ports by category
   const portGroups = groupPortsByCategory(openPorts);
@@ -227,54 +225,31 @@ function ScanCard({ scan }: { scan: ScanRun }) {
           <p className="text-sm text-muted-foreground">No open ports detected</p>
         )}
 
-        {/* Vulnerability Summary */}
-        {cveEnrichment && (
-          <div className="pt-3 border-t space-y-2">
-            {/* Critical and High - Always visible */}
-            {actionableCount > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {(summary?.totalCritical ?? 0) > 0 && (
-                  <Badge variant="destructive">
-                    {summary?.totalCritical} Critical
-                  </Badge>
-                )}
-                {(summary?.totalHigh ?? 0) > 0 && (
-                  <Badge variant="destructive" className="bg-orange-500 hover:bg-orange-600">
-                    {summary?.totalHigh} High
-                  </Badge>
-                )}
-              </div>
-            )}
-
-            {/* Medium and Low - Collapsible */}
-            {lowRiskCount > 0 && (
-              <Collapsible open={showLowRisk} onOpenChange={setShowLowRisk}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-auto p-0 text-muted-foreground hover:text-foreground">
-                    {showLowRisk ? (
-                      <ChevronDown className="h-4 w-4 mr-1" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4 mr-1" />
-                    )}
-                    {lowRiskCount} low-risk finding{lowRiskCount > 1 ? 's' : ''}
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent className="pt-2">
-                  <div className="flex flex-wrap gap-2">
-                    {(summary?.totalMedium ?? 0) > 0 && (
-                      <Badge variant="secondary">
-                        {summary?.totalMedium} Medium
-                      </Badge>
-                    )}
-                    {(summary?.totalLow ?? 0) > 0 && (
-                      <Badge variant="outline">
-                        {summary?.totalLow} Low
-                      </Badge>
-                    )}
-                  </div>
-                </CollapsibleContent>
-              </Collapsible>
-            )}
+        {/* Vulnerability Summary - All counts inline with visual hierarchy */}
+        {cveEnrichment && (summary?.totalCves ?? 0) > 0 && (
+          <div className="pt-3 border-t">
+            <div className="flex flex-wrap items-center gap-2">
+              {(summary?.totalCritical ?? 0) > 0 && (
+                <Badge variant="destructive">
+                  {summary?.totalCritical} Critical
+                </Badge>
+              )}
+              {(summary?.totalHigh ?? 0) > 0 && (
+                <Badge variant="destructive" className="bg-orange-500 hover:bg-orange-600">
+                  {summary?.totalHigh} High
+                </Badge>
+              )}
+              {(summary?.totalMedium ?? 0) > 0 && (
+                <Badge variant="secondary" className="text-muted-foreground">
+                  {summary?.totalMedium} Medium
+                </Badge>
+              )}
+              {(summary?.totalLow ?? 0) > 0 && (
+                <Badge variant="outline" className="text-muted-foreground border-muted">
+                  {summary?.totalLow} Low
+                </Badge>
+              )}
+            </div>
           </div>
         )}
       </CardContent>
