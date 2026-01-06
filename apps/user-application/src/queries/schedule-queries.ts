@@ -247,8 +247,10 @@ export const useDeleteScheduleMutation = () => {
   const queryClient = useQueryClient();
 
   // Optimistic delete: Update UI immediately, rollback on error
+  // Include both list and listByDevice queries for proper cache invalidation
   const optimistic = createOptimisticScheduleDeleteHandlers([
     scheduleQueries.list.base,
+    ['schedule', 'listByDevice'], // Also update device-specific schedule lists
   ]);
 
   return useMutationWithToast({
@@ -256,7 +258,7 @@ export const useDeleteScheduleMutation = () => {
     mutationFn: (data: { scheduleId: string }) =>
       trpcClient.schedule.delete.mutate(data),
     successMessage: 'Schedule deleted successfully',
-    invalidateKeys: [scheduleQueries.list.base],
+    invalidateKeys: [scheduleQueries.list.base, ['schedule', 'listByDevice']],
     onMutate: (variables) => optimistic.onMutate(variables, queryClient),
     onError: (err, variables, context) => optimistic.onError(err, variables, context, queryClient),
     onSettled: () => optimistic.onSettled(queryClient),
