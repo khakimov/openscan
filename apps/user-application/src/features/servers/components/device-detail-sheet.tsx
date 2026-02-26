@@ -19,6 +19,7 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import { Link } from "@tanstack/react-router";
+import { useState } from "react";
 
 interface DeviceDetailSheetProps {
   devices: TransformedDevice[];
@@ -69,9 +70,9 @@ function DeviceDetailSheetItem({
   // Validate device.id is actually a valid ID (not a URL path)
   const isValidDeviceId = Boolean(device.id && !device.id.includes('/') && !device.id.includes('?'));
 
-  // Each device has its own Sheet with its own data loading using tRPC
-  // Note: organizationId comes from session on server, not passed as parameter
-  const shouldFetch = isValidDeviceId;
+  // Lazy load device detail - only fetch when Sheet is opened
+  // This eliminates N+1 queries on page load (was fetching detail for ALL devices immediately)
+  const [isOpen, setIsOpen] = useState(false);
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
@@ -84,7 +85,11 @@ function DeviceDetailSheetItem({
       deviceId: device.id,
       projectId: projectId ?? undefined,
     }),
-    enabled: shouldFetch,
+    // Only fetch when: valid ID AND Sheet is open
+    // This reduces 22 immediate calls to only when user clicks a device
+    enabled: isValidDeviceId && isOpen,
+    // Keep data for 5 minutes after Sheet closes to avoid re-fetching if reopened
+    staleTime: 5 * 60 * 1000,
   });
 
   // Action handlers
@@ -108,7 +113,7 @@ function DeviceDetailSheetItem({
   };
 
   return (
-    <Sheet>
+    <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
         <div className="cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-lg transition-colors">
           <DeviceCard device={device} isNewlyAdded={isNewlyAdded} />

@@ -31,6 +31,7 @@ import {
   deviceQueries,
 } from "@/queries/device-queries";
 import { invalidateTRPCQuery } from "@/lib/query-utils";
+import { useDeviceActiveScans, useDeviceList } from "@/features/servers/context";
 import { useEffect, useRef, useMemo } from "react";
 import {
   Tooltip,
@@ -116,19 +117,15 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
   const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
-  // Always use separate activeScans query with polling
-  // This simplifies cache management - mutations only need to invalidate one query
-  const { data: activeScans = [] } = useQuery({
-    ...trpc.device.activeScans.queryOptions({ deviceId: device.id }),
-    queryFn: () => trpcClient.device.activeScans.query({ deviceId: device.id }),
-    // Poll every 5 seconds while scans are active, stop when done
-    refetchInterval: (query) => (query.state.data && query.state.data.length > 0 ? 5000 : false),
-  });
+  // Use active scans from DeviceListContext (fetched in bulk by parent)
+  // This eliminates N+1 queries - all devices' active scans come from single parent query
+  const { activeScans, hasAnyActiveScans } = useDeviceActiveScans(device.id);
+  const { refresh } = useDeviceList();
 
   const isScanning = activeScans.length > 0;
 
-  // Side effect: Invalidate device queries when scan completes (transition detection)
-  // This is a legitimate useEffect per TanStack docs - external side effect for cache invalidation
+  // Side effect: Refresh device list when THIS device's scan completes
+  // Parent's polling will pick up new scans, but we help by refreshing when we detect completion
   const prevActiveScanCount = useRef(activeScans.length);
   useEffect(() => {
     const hadScans = prevActiveScanCount.current > 0;
@@ -136,13 +133,15 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
 
     // Detect completion: had scans → no scans
     if (hadScans && !nowHasScans) {
-      // Invalidate device detail and list queries to fetch fresh scan results
+      // Refresh the device list to get fresh scan results
+      void refresh();
+      // Also invalidate device detail queries
       queryClient.invalidateQueries({ queryKey: deviceQueries.detail.key(device.id) });
       queryClient.invalidateQueries(invalidateTRPCQuery(deviceQueries.list.base));
     }
 
     prevActiveScanCount.current = activeScans.length;
-  }, [activeScans.length, device.id, queryClient]);
+  }, [activeScans.length, device.id, queryClient, refresh]);
 
   // Scan mutation (using centralized hook)
   const scanMutation = useStartDeviceScanMutation(device.id);

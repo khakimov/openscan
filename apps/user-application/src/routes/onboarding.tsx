@@ -13,13 +13,8 @@ export const Route = createFileRoute("/onboarding")({
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const statusQuery = context.trpc.onboarding.status.queryOptions();
 
-    // Prefetch onboarding status into React Query cache (SSR + client navigation)
-    await context.queryClient.prefetchQuery(statusQuery);
-
-    // Inject into router context so child routes have synchronous access
-    // Guard: fallback to fetchQuery if prefetch somehow failed
-    const onboarding = context.queryClient.getQueryData(statusQuery.queryKey)
-      ?? await context.queryClient.fetchQuery(statusQuery);
+    // Ensure data is fetched and cached (deduplicates concurrent requests)
+    const onboarding = await context.queryClient.ensureQueryData(statusQuery);
 
     return {
       context: {
@@ -36,10 +31,8 @@ export const Route = createFileRoute("/onboarding")({
     // OpenPanel pattern: Use tRPC queryOptions for onboarding status
     const statusQuery = context.trpc.onboarding.status.queryOptions();
 
-    // Make onboarding available via Route.useLoaderData()
-    // Guard: fallback to fetchQuery if cache is empty
-    const onboarding = context.queryClient.getQueryData(statusQuery.queryKey)
-      ?? await context.queryClient.fetchQuery(statusQuery);
+    // Read from cache set by beforeLoad (no server call)
+    const onboarding = context.queryClient.getQueryData(statusQuery.queryKey);
 
     return {
       onboarding,

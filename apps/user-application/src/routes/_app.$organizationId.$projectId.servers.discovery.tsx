@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { DeviceDetailSheet } from "@/features/servers";
+import { DeviceListProvider, useDeviceList } from "@/features/servers/context";
 import { Shield } from "lucide-react";
 import { pushModal } from "@/modals";
 import { useTRPCClient } from "@/integrations/trpc/react";
 import { deviceQueries } from "@/queries/device-queries";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
 import { ServersTabHeader } from "@/components/shared/servers-tab-header";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Spinner } from "@/components/ui/spinner";
@@ -116,8 +117,36 @@ function ServersDiscovery() {
         onAddDevice={handleAddDevice}
       />
 
-      <DevicesContent newlyAddedIds={newlyAddedIds} projectId={project.id} organizationId={orgParam} />
+      <DevicesContentWrapper 
+        newlyAddedIds={newlyAddedIds} 
+        projectId={project.id} 
+        organizationId={orgParam} 
+      />
     </Padding>
+  );
+}
+
+// Wrapper provides DeviceListContext to eliminate N+1 queries
+function DevicesContentWrapper({
+  newlyAddedIds,
+  projectId,
+  organizationId,
+}: {
+  newlyAddedIds: Set<string>;
+  projectId: string;
+  organizationId: string;
+}) {
+  return (
+    <DeviceListProvider 
+      projectId={projectId} 
+      verificationStatus={verificationStatus}
+    >
+      <DevicesContent 
+        newlyAddedIds={newlyAddedIds} 
+        projectId={projectId} 
+        organizationId={organizationId} 
+      />
+    </DeviceListProvider>
   );
 }
 
@@ -130,34 +159,20 @@ function DevicesContent({
   projectId: string;
   organizationId: string;
 }) {
-  // Use flat list query - DeviceCards fetch their own activeScans/scanHistory via polling
-  const trpcClient = useTRPCClient();
-  const { data: devicesResponse, isFetching } = useQuery({
-    queryKey: deviceQueries.list.key({ verificationStatus, projectId }),
-    queryFn: () => trpcClient.device.list.query({
-      verificationStatus,
-      projectId,
-    }),
-    placeholderData: keepPreviousData,
-    refetchOnWindowFocus: true,
-  });
-
-  // Memoize devices array to prevent unnecessary re-renders
-  const devices = useMemo(
-    () => devicesResponse?.items ?? [],
-    [devicesResponse?.items]
-  );
+  // Use device list from context (fetched in bulk with active scans)
+  // This replaces N individual queries with 1 bulk query
+  const { devices, isLoading, isFetching } = useDeviceList();
 
   return (
     <div className="relative">
-      {isFetching && devicesResponse && (
+      {isFetching && !isLoading && (
         <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-background/70 backdrop-blur-sm">
           <Spinner size="lg" />
           <span className="text-sm text-muted-foreground">Refreshing devices…</span>
         </div>
       )}
 
-      {!devicesResponse ? (
+      {isLoading ? (
         <PageLoadingFallback compact />
       ) : devices.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -174,13 +189,6 @@ function DevicesContent({
           projectId={projectId}
           organizationId={organizationId}
         />
-      )}
-
-      {devicesResponse && devicesResponse.totalPages > 1 && (
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          Page {devicesResponse.page} of {devicesResponse.totalPages} (
-          {devicesResponse.totalCount} total devices)
-        </div>
       )}
     </div>
   );

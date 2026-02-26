@@ -1,4 +1,4 @@
-import { eq, desc, and, lt, or, sql } from 'drizzle-orm';
+import { eq, desc, and, lt, or, sql, inArray } from 'drizzle-orm';
 import { getDb } from '../database/setup';
 import { scanRuns, scanRunDevices } from '../schema/orchestration';
 import { devices } from '../schema/inventory';
@@ -295,6 +295,50 @@ export async function getActiveScansForDevice(
   return results.map((result: any) => ({
     scanRun: result.scan_runs,
   }));
+}
+
+/**
+ * Get active scans for multiple devices in a single query (batch operation)
+ * Returns a map of deviceId -> array of active scans
+ */
+export async function getActiveScansForDevices(
+  organizationId: string,
+  deviceIds: string[]
+): Promise<Map<string, Array<{ scanRun: ScanRun }>>> {
+  const db = getDb();
+
+  // Return empty map if no device IDs
+  if (deviceIds.length === 0) {
+    return new Map();
+  }
+
+  const results = await db
+    .select({
+      scanRun: scanRuns,
+      deviceId: scanRunDevices.deviceId,
+    })
+    .from(scanRuns)
+    .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+    .where(and(
+      inArray(scanRunDevices.deviceId, deviceIds),
+      eq(scanRunDevices.organizationId, organizationId),
+      eq(scanRuns.workflowStatus, 'RUNNING')
+    ));
+
+  // Group results by deviceId
+  const scansByDevice = new Map<string, Array<{ scanRun: ScanRun }>>();
+  
+  for (const result of results) {
+    const deviceId = result.deviceId;
+    if (!scansByDevice.has(deviceId)) {
+      scansByDevice.set(deviceId, []);
+    }
+    scansByDevice.get(deviceId)!.push({
+      scanRun: result.scanRun as ScanRun,
+    });
+  }
+
+  return scansByDevice;
 }
 
 /**

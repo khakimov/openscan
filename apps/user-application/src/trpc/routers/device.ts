@@ -14,6 +14,7 @@ import {
   createMultipleDevicesFromDiscovery,
   verifyDevice as verifyDeviceDB,
   unverifyDevice as unverifyDeviceDB,
+  getActiveScansForDevices,
   type DeviceUpdateData,
 } from '@repo/data-ops';
 import { transformDeviceForUI } from '@/server/devices/transforms';
@@ -23,7 +24,7 @@ import {
   getScanPresetDescription,
 } from '@/server/devices/scan-presets';
 import { startPortScanWorkflow } from '@/server/discovery';
-import { getActiveDeviceScans } from '@/server/discovery/workflows/device-scan-handler';
+// Note: Using batch getActiveScansForDevices from @repo/data-ops instead of individual getActiveDeviceScans
 import { notifyServerPromoted } from '@/server/notifications/notify-server-promoted';
 import { createLogger } from '@repo/logger';
 
@@ -170,14 +171,10 @@ export const deviceRouter = createTRPCRouter({
       // Fetch active scans and history for all devices in parallel
       const deviceIds = devicesResponse.items.map((d: { id: string }) => d.id);
 
-      const [activeScansResults, historyResults] = await Promise.all([
-        // Fetch active scans for all devices
-        Promise.all(
-          deviceIds.map(async (deviceId: string) => {
-            const result = await getActiveDeviceScans({ data: { deviceId, organizationId } });
-            return { deviceId, scans: result.success ? result.activeScans ?? [] : [] };
-          })
-        ),
+      // Use batch query for active scans (single query for all devices)
+      const [activeScansByDevice, historyResults] = await Promise.all([
+        // Fetch all active scans in a single batch query
+        getActiveScansForDevices(organizationId, deviceIds),
         // Fetch scan history for all devices (if requested)
         input.includeHistory
           ? Promise.all(
@@ -189,10 +186,7 @@ export const deviceRouter = createTRPCRouter({
           : [],
       ]);
 
-      // Build lookup maps for O(1) access
-      const activeScansByDevice = new Map(
-        activeScansResults.map((r: { deviceId: string; scans: any[] }) => [r.deviceId, r.scans])
-      );
+      // Build lookup map for history
       const historyByDevice = new Map(
         historyResults.map((r: { deviceId: string; history: any[] }) => [r.deviceId, r.history])
       );
@@ -200,13 +194,14 @@ export const deviceRouter = createTRPCRouter({
       // Enrich devices with their related data
       const enrichedItems = devicesResponse.items.map((device: any) => ({
         ...device,
-        activeScans: activeScansByDevice.get(device.id) ?? [],
+        activeScans: activeScansByDevice.get(device.id)?.map(s => s.scanRun.restateWorkflowId) ?? [],
         scanHistory: input.includeHistory ? (historyByDevice.get(device.id) ?? []) : undefined,
       }));
 
       logger.info('Fetched devices with details', {
         deviceCount: enrichedItems.length,
         includeHistory: input.includeHistory,
+        activeScansQueries: 1, // Batch query
       });
 
       return {

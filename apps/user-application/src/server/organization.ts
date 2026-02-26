@@ -61,6 +61,14 @@ export const listOrganizations = createServerFn({ method: 'GET' }).handler(async
     const env = getEnv();
     const request = getRequest();
     const auth = getAuth(env);
+
+    // Check for valid session before calling org API
+    const session = await auth.api.getSession({ headers: request.headers });
+    if (!session?.user) {
+      logger.debug('No authenticated session for listOrganizations');
+      return [];
+    }
+
     const orgAPI = getOrganizationAPI(auth);
 
     // Better-auth organization API uses request context for session
@@ -101,7 +109,14 @@ export const listOrganizations = createServerFn({ method: 'GET' }).handler(async
     return organizations;
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    logger.error('Failed to list organizations', { error: errorMessage });
+    
+    // Don't log auth failures as errors - they're expected for unauthenticated users
+    if (errorMessage.includes('Authentication required') || errorMessage.includes('Unauthorized')) {
+      logger.debug('Unauthenticated request for listOrganizations');
+    } else {
+      logger.error('Failed to list organizations', { error: errorMessage });
+    }
+    
     throw new Error('Failed to fetch organizations');
   }
 });
