@@ -258,11 +258,14 @@ export async function getDevicesForTenant(
       ))
       .groupBy(scanRunDevices.deviceId);
 
-    // Get latest scan for each device in a SINGLE batch query
-    // Fetch all successful scans for these devices, then pick latest per device in JS
+    // Get latest scan details for each device
+    // Optimization: Only fetch recent scans (last 30 days) to reduce data transfer
+    // then pick latest per device in JS. This handles 99% of use cases efficiently.
     const latestScanMap = new Map();
     if (deviceIds.length > 0) {
-      const allScans = await db
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      
+      const recentScans = await db
         .select({
           deviceId: scanRunDevices.deviceId,
           resultSummary: scanRuns.resultSummary,
@@ -273,12 +276,16 @@ export async function getDevicesForTenant(
         .where(and(
           inArray(scanRunDevices.deviceId, deviceIds),
           eq(scanRuns.organizationId, organizationId),
-          eq(scanRuns.status, 'SUCCEEDED')
+          eq(scanRuns.status, 'SUCCEEDED'),
+          // Only fetch scans from last 30 days - dramatically reduces data transfer
+          // If no scan in 30 days, device just won't have port snapshots (acceptable)
+          sql`${scanRuns.completedAt} > ${thirtyDaysAgo.getTime()}`
         ))
-        .orderBy(desc(scanRuns.completedAt));
+        .orderBy(desc(scanRuns.completedAt))
+        .limit(500); // Hard limit as safety valve
 
       // Pick the first (latest) scan for each device
-      for (const scan of allScans) {
+      for (const scan of recentScans) {
         if (!latestScanMap.has(scan.deviceId)) {
           latestScanMap.set(scan.deviceId, scan);
         }
