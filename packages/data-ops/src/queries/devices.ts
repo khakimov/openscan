@@ -239,33 +239,31 @@ export async function getDevicesForTenant(
     tagsMap.get(deviceId)!.push(tag.name);
   });
 
-  // Get scan statistics for each device using junction table
+  // Get scan statistics AND latest scan details in PARALLEL (both use same 30-day filter)
   const scanStatsMap = new Map();
   if (deviceIds.length > 0) {
-    // Get scan stats per device using junction table
-    const scanStats = await db
-      .select({
-        deviceId: scanRunDevices.deviceId,
-        scanCount: sql<number>`count(*)`.as('scan_count'),
-        lastScanAt: sql<number>`max(${scanRuns.completedAt})`.as('last_scan_at'),
-      })
-      .from(scanRuns)
-      .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
-      .where(and(
-        inArray(scanRunDevices.deviceId, deviceIds),
-        eq(scanRuns.organizationId, organizationId),
-        eq(scanRuns.status, 'SUCCEEDED')
-      ))
-      .groupBy(scanRunDevices.deviceId);
-
-    // Get latest scan details for each device
-    // Optimization: Only fetch recent scans (last 30 days) to reduce data transfer
-    // then pick latest per device in JS. This handles 99% of use cases efficiently.
-    const latestScanMap = new Map();
-    if (deviceIds.length > 0) {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    
+    // Run both queries in parallel for speed
+    const [scanStats, recentScans] = await Promise.all([
+      // Query 1: Get scan counts per device (GROUP BY)
+      db
+        .select({
+          deviceId: scanRunDevices.deviceId,
+          scanCount: sql<number>`count(*)`.as('scan_count'),
+          lastScanAt: sql<number>`max(${scanRuns.completedAt})`.as('last_scan_at'),
+        })
+        .from(scanRuns)
+        .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+        .where(and(
+          inArray(scanRunDevices.deviceId, deviceIds),
+          eq(scanRuns.organizationId, organizationId),
+          eq(scanRuns.status, 'SUCCEEDED')
+        ))
+        .groupBy(scanRunDevices.deviceId),
       
-      const recentScans = await db
+      // Query 2: Get recent scan details (for port snapshots)
+      db
         .select({
           deviceId: scanRunDevices.deviceId,
           resultSummary: scanRuns.resultSummary,
@@ -277,18 +275,17 @@ export async function getDevicesForTenant(
           inArray(scanRunDevices.deviceId, deviceIds),
           eq(scanRuns.organizationId, organizationId),
           eq(scanRuns.status, 'SUCCEEDED'),
-          // Only fetch scans from last 30 days - dramatically reduces data transfer
-          // If no scan in 30 days, device just won't have port snapshots (acceptable)
           sql`${scanRuns.completedAt} > ${thirtyDaysAgo.getTime()}`
         ))
         .orderBy(desc(scanRuns.completedAt))
-        .limit(500); // Hard limit as safety valve
+        .limit(500)
+    ]);
 
-      // Pick the first (latest) scan for each device
-      for (const scan of recentScans) {
-        if (!latestScanMap.has(scan.deviceId)) {
-          latestScanMap.set(scan.deviceId, scan);
-        }
+    // Build latest scan map from recentScans
+    const latestScanMap = new Map();
+    for (const scan of recentScans) {
+      if (!latestScanMap.has(scan.deviceId)) {
+        latestScanMap.set(scan.deviceId, scan);
       }
     }
 
