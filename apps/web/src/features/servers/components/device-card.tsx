@@ -139,6 +139,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
       queryClient.invalidateQueries({ queryKey: deviceQueries.detail.key(device.id) });
       queryClient.invalidateQueries(invalidateTRPCQuery(deviceQueries.list.base));
       queryClient.invalidateQueries(invalidateTRPCQuery(deviceQueries.listWithDetails.base));
+      queryClient.invalidateQueries(invalidateTRPCQuery(deviceQueries.counts.base));
     }
     prevActiveScanCount.current = activeScans.length;
   }, [activeScans.length, device.id, queryClient, refresh]);

@@ -33,6 +33,9 @@ export const deviceQueries = {
   listWithDetails: {
     base: ['device', 'listWithDetails'] as const,
   },
+  counts: {
+    base: ['device', 'counts'] as const,
+  },
   detail: {
     key: (deviceId: string) => [
       ['device', 'detail'],
@@ -87,7 +90,7 @@ export const useDeleteDeviceMutation = () => {
     mutationFn: (data: { deviceId: string }) =>
       trpcClient.device.remove.mutate(data),
     successMessage: 'Device deleted successfully',
-    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base],
+    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
   });
 };
 
@@ -123,6 +126,7 @@ export const useUpdateDeviceMutation = (deviceId: string) => {
     invalidateKeys: [
       deviceQueries.list.base,
       deviceQueries.listWithDetails.base,
+      deviceQueries.counts.base,
       deviceQueries.detail.key(deviceId),
       deviceQueries.tagSuggestions.key(),
     ],
@@ -153,7 +157,7 @@ export const useVerifyDeviceMutation = () => {
       return response;
     },
     successMessage: 'Device verification updated',
-    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base],
+    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
 
     // Optimistic update: Change status immediately
     onMutate: async (variables) => {
@@ -219,7 +223,7 @@ export const useToggleDeviceVerificationMutation = () => {
       return response;
     },
     successMessage: (response) => response.verified ? 'Device verified' : 'Device unverified',
-    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base],
+    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
 
     // Optimistic update: Toggle status immediately
     onMutate: async (variables) => {
@@ -271,7 +275,7 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
     mutationFn: (data: { deviceId: string; target: string; preset: 'QUICK' | 'STANDARD' | 'THOROUGH' }) =>
       trpcClient.device.startScan.mutate(data),
     successMessage: 'Scan started successfully',
-    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base],
+    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
     toastOnSuccess: false,
 
     // Optimistic update: inject pending scan into listWithDetails cache
@@ -330,7 +334,7 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
     },
     successMessage: (response) =>
       `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
-    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base],
+    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [['onboarding', 'status'], { input: undefined, type: 'query' as const }] });
       await queryClient.invalidateQueries(

@@ -7,6 +7,7 @@ import { pushModal } from "@/modals";
 import { useState, useEffect, useRef } from "react";
 import { ServersTabHeader } from "@/components/shared/servers-tab-header";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
+import { useServerCounts } from "./_app.$organizationId.$projectId.servers";
 
 /**
  * Pending component for servers verified tab
@@ -122,7 +123,9 @@ function DevicesContent({
   onStartDiscovery?: () => void;
 }) {
   // Use device list from context (fetched in bulk with active scans)
-  const { devices, isLoading, counts } = useDeviceList();
+  const { devices, isLoading } = useDeviceList();
+  // Counts from parent layout — persists across tab switches
+  const counts = useServerCounts();
 
   return (
     <div>

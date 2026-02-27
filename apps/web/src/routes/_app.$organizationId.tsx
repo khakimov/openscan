@@ -19,20 +19,16 @@ export const Route = createFileRoute("/_app/$organizationId")({
 
     const identifier = params.organizationId;
 
-    // Parallel: org details + projects
-    const [organization, projects] = await Promise.all([
-      context.queryClient.ensureQueryData(
-        context.trpc.organization.get.queryOptions({ organizationId: identifier })
-      ),
-      context.queryClient
-        .ensureQueryData(
-          // We don't know the resolved org ID yet, but for slug lookups
-          // the org.get call resolves it. For now use identifier and let
-          // the cache handle it after redirect.
-          context.trpc.project.listByOrg.queryOptions({ organizationId: identifier })
-        )
-        .catch(() => []),
-    ]);
+    // Fetch org first (resolves slug → ID), then projects with resolved ID
+    const organization = await context.queryClient.ensureQueryData(
+      context.trpc.organization.get.queryOptions({ organizationId: identifier })
+    );
+
+    const projects = await context.queryClient
+      .ensureQueryData(
+        context.trpc.project.listByOrg.queryOptions({ organizationId: organization.id })
+      )
+      .catch(() => [] as any[]);
 
     // Redirect ID → slug for cleaner URLs
     if (organization.slug && identifier === organization.id) {
