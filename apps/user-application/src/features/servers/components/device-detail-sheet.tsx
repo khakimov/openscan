@@ -120,7 +120,7 @@ function DeviceDetailSheetItem({
         </div>
       </SheetTrigger>
       <SheetContent
-        className="w-full sm:w-[90vw] sm:min-w-[640px] lg:w-[80vw] lg:min-w-[800px] max-w-[1200px]"
+        className="w-[90vw] sm:w-[85vw] sm:max-w-[900px] lg:w-[80vw] lg:max-w-[1000px]"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         <SheetHeader className="mb-6">

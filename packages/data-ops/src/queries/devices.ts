@@ -258,38 +258,29 @@ export async function getDevicesForTenant(
       ))
       .groupBy(scanRunDevices.deviceId);
 
-    // Get latest scan for each device using window function (SQLite/ROW_NUMBER)
-    // Only fetches the latest scan per device, not all scans
+    // Get latest scan for each device in a SINGLE batch query
+    // Fetch all successful scans for these devices, then pick latest per device in JS
     const latestScanMap = new Map();
     if (deviceIds.length > 0) {
-      const dbClient = getDb();
-      const placeholders = deviceIds.map(() => '?').join(',');
-      
-      const query = `
-        WITH ranked_scans AS (
-          SELECT 
-            srd.device_id,
-            sr.result_summary,
-            ROW_NUMBER() OVER (PARTITION BY srd.device_id ORDER BY sr.completed_at DESC) as rn
-          FROM scan_runs sr
-          INNER JOIN scan_run_devices srd ON sr.id = srd.run_id
-          WHERE srd.device_id IN (${placeholders})
-            AND sr.organization_id = ?
-            AND sr.status = 'SUCCEEDED'
-        )
-        SELECT device_id, result_summary
-        FROM ranked_scans
-        WHERE rn = 1
-      `;
-      
-      const result = await dbClient.run(query, [...deviceIds, organizationId]);
-      
-      if (result?.results) {
-        for (const row of result.results) {
-          latestScanMap.set(row.device_id, {
-            deviceId: row.device_id,
-            resultSummary: row.result_summary,
-          });
+      const allScans = await db
+        .select({
+          deviceId: scanRunDevices.deviceId,
+          resultSummary: scanRuns.resultSummary,
+          completedAt: scanRuns.completedAt,
+        })
+        .from(scanRuns)
+        .innerJoin(scanRunDevices, eq(scanRuns.id, scanRunDevices.runId))
+        .where(and(
+          inArray(scanRunDevices.deviceId, deviceIds),
+          eq(scanRuns.organizationId, organizationId),
+          eq(scanRuns.status, 'SUCCEEDED')
+        ))
+        .orderBy(desc(scanRuns.completedAt));
+
+      // Pick the first (latest) scan for each device
+      for (const scan of allScans) {
+        if (!latestScanMap.has(scan.deviceId)) {
+          latestScanMap.set(scan.deviceId, scan);
         }
       }
     }

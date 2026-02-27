@@ -206,7 +206,7 @@ export function PortDetailDrawer({
 
       {/* Screenshot Modal */}
       <Dialog open={screenshotModalOpen} onOpenChange={setScreenshotModalOpen}>
-        <DialogContent className="max-w-5xl max-h-[90vh] p-0" aria-describedby={undefined}>
+        <DialogContent className="max-w-[calc(100%-2rem)] sm:max-w-3xl lg:max-w-5xl max-h-[90vh] p-0" aria-describedby={undefined}>
           <DialogHeader className="p-6 pb-2">
             <DialogTitle>
               Screenshot: {port.httpxProbe?.scheme}://{deviceDetail?.name || deviceDetail?.ip}:{port.port}
