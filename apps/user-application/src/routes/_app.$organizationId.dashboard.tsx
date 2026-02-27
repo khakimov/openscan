@@ -1,23 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ProjectEntity } from '@repo/contracts/project';
-import { getOrganization } from '@/server/organization';
-import { listProjects } from '@/server/project';
 
 export const Route = createFileRoute('/_app/$organizationId/dashboard')({
-  loader: async ({ params }) => {
-    // ✅ Resolve organization (slug or ID) - fast direct DB query
-    const organization = await getOrganization({ data: params.organizationId });
-
-    // ✅ List projects for organization
-    const projects = await listProjects({ data: organization.id });
-
-    return { organization, projects };
-  },
   component: Dashboard,
 });
 
 function Dashboard() {
-  const { organization, projects } = Route.useLoaderData();
+  const { organization, projects } = Route.useRouteContext();
 
   return (
     <div className="container mx-auto p-8">
@@ -26,7 +15,6 @@ function Dashboard() {
         Welcome to your organization dashboard
       </p>
 
-      {/* Project Selector */}
       {projects.length > 0 ? (
         <div>
           <h2 className="text-xl font-semibold mb-4">Your Projects</h2>

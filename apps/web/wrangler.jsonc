@@ -1,0 +1,52 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sec-rocks",
+  "compatibility_date": "2025-09-02",
+  "compatibility_flags": ["nodejs_compat"],
+  "main": "./worker/index.ts",
+  "observability": {
+    "enabled": true
+  },
+  "upload_source_maps": true,
+  "vars": {
+    "NECTO_API_URL": "https://necto.sec.rocks",
+    "RESTATE_INGRESS_URL": "https://201k7hktgm99xk9cb3f5btv7x9w.env.us.restate.cloud",
+    "APP_URL": "https://sec.rocks",
+    "BETTER_AUTH_URL": "https://sec.rocks",
+    "NODE_ENV": "production"
+  },
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/trpc/*", "/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "sec-db",
+      "database_id": "93d2bd33-3b3e-42f3-a982-39b790922949",
+      "preview_database_id": "test-sec-db",
+      "migrations_dir": "../../packages/data-ops/migrations"
+    }
+  ],
+  "analytics_engine_datasets": [
+    {
+      "binding": "ANALYTICS",
+      "dataset": "postback_events"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "SCREENSHOTS",
+      "bucket_name": "openscan-screenshots",
+      "preview_bucket_name": "openscan-screenshots-dev"
+    }
+  ],
+  "queues": {
+    "producers": [
+      {
+        "queue": "notification-delivery",
+        "binding": "NOTIFICATION_DELIVERY_PRODUCER"
+      }
+    ]
+  }
+}

@@ -1,12 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
-import { DeviceDetailSheet } from "@/features/servers";
-import { DeviceListProvider, useDeviceList } from "@/features/servers/context";
+import { DeviceDetailSheet } from "@/features/servers/components/device-detail-sheet";
+import { DeviceListProvider, useDeviceList } from "@/features/servers/context/device-list-context";
 import { Shield } from "lucide-react";
 import { pushModal } from "@/modals";
-import { useTRPCClient } from "@/integrations/trpc/react";
-import { deviceQueries } from "@/queries/device-queries";
-import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useRef } from "react";
 import { ServersTabHeader } from "@/components/shared/servers-tab-header";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
@@ -15,11 +12,11 @@ import { Spinner } from "@/components/ui/spinner";
 /**
  * Pending component for assets verified tab
  * Keeps tabs and action buttons visible with inline spinner
- *
- * Note: Cannot use context hooks in pending component (renders before gate mounts)
+ * Uses prefetched counts from parent route context
  */
 const ServersVerifiedPending = () => {
   const { organizationId, projectId } = Route.useParams();
+  const { deviceCounts } = Route.useRouteContext();
 
   return (
     <Padding>
@@ -27,6 +24,8 @@ const ServersVerifiedPending = () => {
         organizationId={organizationId}
         projectId={projectId}
         disabled
+        foundCount={deviceCounts ? deviceCounts.CANDIDATE + deviceCounts.EXCLUDED : undefined}
+        monitoredCount={deviceCounts?.VERIFIED}
       />
       <PageLoadingFallback compact />
     </Padding>
@@ -46,29 +45,9 @@ function ServersVerified() {
   // ✅ Get organization and project from parent route context (via beforeLoad)
   const { organization, project } = Route.useRouteContext();
   const [newlyAddedIds, setNewlyAddedIds] = useState<Set<string>>(new Set());
-  const trpcClient = useTRPCClient();
 
   // Prefer slug over ID for friendly URLs (OpenPanel pattern)
   const orgParam = organization.slug ?? organization.id;
-
-  // Query counts for tab badges
-  const { data: discoveryData } = useQuery({
-    queryKey: deviceQueries.list.key({ verificationStatus: ["CANDIDATE", "EXCLUDED"], projectId: project.id }),
-    queryFn: () => trpcClient.device.list.query({
-      verificationStatus: ["CANDIDATE", "EXCLUDED"],
-      projectId: project.id,
-    }),
-  });
-
-  const { data: verifiedData } = useQuery({
-    queryKey: deviceQueries.list.key({ verificationStatus: ["VERIFIED"], projectId: project.id }),
-    queryFn: () => trpcClient.device.list.query({
-      verificationStatus: ["VERIFIED"],
-      projectId: project.id,
-    }),
-  });
-
-  // Track timer for cleanup (external side effect - legitimate useEffect use case)
   const resetTimeoutRef = useRef<number | undefined>(undefined);
 
   const handleDiscoveryCreated = () => {
@@ -100,18 +79,11 @@ function ServersVerified() {
 
   return (
     <Padding>
-      <ServersTabHeader
-        organizationId={orgParam}
-        projectId={project.id}
-        foundCount={discoveryData?.totalCount}
-        monitoredCount={verifiedData?.totalCount}
-        onStartDiscovery={handleStartDiscovery}
-      />
-
       <DevicesContentWrapper 
         newlyAddedIds={newlyAddedIds} 
         projectId={project.id} 
-        organizationId={orgParam} 
+        organizationId={orgParam}
+        onStartDiscovery={handleStartDiscovery}
       />
     </Padding>
   );
@@ -122,10 +94,12 @@ function DevicesContentWrapper({
   newlyAddedIds,
   projectId,
   organizationId,
+  onStartDiscovery,
 }: {
   newlyAddedIds: Set<string>;
   projectId: string;
   organizationId: string;
+  onStartDiscovery?: () => void;
 }) {
   return (
     <DeviceListProvider 
@@ -135,7 +109,8 @@ function DevicesContentWrapper({
       <DevicesContent 
         newlyAddedIds={newlyAddedIds} 
         projectId={projectId} 
-        organizationId={organizationId} 
+        organizationId={organizationId}
+        onStartDiscovery={onStartDiscovery}
       />
     </DeviceListProvider>
   );
@@ -145,13 +120,19 @@ function DevicesContent({
   newlyAddedIds,
   projectId,
   organizationId,
+  onStartDiscovery,
 }: {
   newlyAddedIds: Set<string>;
   projectId: string;
   organizationId: string;
+  onStartDiscovery?: () => void;
 }) {
   // Use device list from context (fetched in bulk with active scans)
-  const { devices, isLoading, isFetching } = useDeviceList();
+  const { devices, isLoading, isFetching, counts: contextCounts } = useDeviceList();
+  
+  // Use prefetched counts from parent route as fallback while loading
+  const { deviceCounts: prefetchedCounts } = Route.useRouteContext();
+  const counts = contextCounts ?? prefetchedCounts;
 
   return (
     <div className="relative">
@@ -162,6 +143,13 @@ function DevicesContent({
         </div>
       )}
 
+      <ServersTabHeader
+        organizationId={organizationId}
+        projectId={projectId}
+        foundCount={counts ? counts.CANDIDATE + counts.EXCLUDED : undefined}
+        monitoredCount={counts?.VERIFIED}
+        onStartDiscovery={onStartDiscovery}
+      />
       {isLoading ? (
         <PageLoadingFallback compact />
       ) : devices.length === 0 ? (

@@ -10,6 +10,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useQuery } from '@tanstack/react-query';
 import {
   notificationQueries,
@@ -18,7 +19,6 @@ import {
 } from '@/queries';
 import { useTRPCClient } from '@/integrations/trpc/react';
 import { NotificationList } from './NotificationList';
-import { NotificationFilterTabs } from './NotificationFilterTabs';
 import { useState } from 'react';
 import type { NotificationModule } from '@repo/contracts';
 
@@ -41,6 +41,15 @@ type ModuleFilter = 'ALL' | NotificationModule;
 interface NotificationBellProps {
   activeOrganizationId?: string | null;
 }
+
+// Filter tabs configuration
+const NOTIFICATION_FILTER_TABS = [
+  { value: 'ALL' as const, label: 'All' },
+  { value: 'VULNERABILITY_MANAGEMENT' as const, label: 'Vuln' },
+  { value: 'NETWORK_SECURITY' as const, label: 'Network' },
+  { value: 'CONFIGURATION' as const, label: 'Config' },
+  { value: 'DEVICE_LIFECYCLE' as const, label: 'Lifecycle' },
+];
 
 export function NotificationBell({ activeOrganizationId }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false);
@@ -114,11 +123,19 @@ export function NotificationBell({ activeOrganizationId }: NotificationBellProps
           </SheetDescription>
         </SheetHeader>
 
-        <NotificationFilterTabs
+        <Tabs
           value={moduleFilter}
-          onValueChange={setModuleFilter}
+          onValueChange={(v) => setModuleFilter(v as ModuleFilter)}
           className="mt-6"
-        />
+        >
+          <TabsList className="grid w-full grid-cols-5">
+            {NOTIFICATION_FILTER_TABS.map((tab) => (
+              <TabsTrigger key={tab.value} value={tab.value}>
+                {tab.label}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </Tabs>
 
         <ScrollArea className="h-[calc(100vh-16rem)] mt-4">
             {isLoading ? (

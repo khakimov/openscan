@@ -8,7 +8,13 @@ import {
   getTagBadgeClass,
   getRiskLevelBorderClass,
 } from "@repo/constants";
-import { CardActions, CardActionsItem } from "@/components/shared/card";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Pencil,
   Trash,
@@ -18,6 +24,7 @@ import {
   XCircle,
   Shield,
   Bug,
+  MoreHorizontal,
 } from "lucide-react";
 import { pushModal } from "@/modals";
 import { toast } from "sonner";
@@ -31,7 +38,7 @@ import {
   deviceQueries,
 } from "@/queries/device-queries";
 import { invalidateTRPCQuery } from "@/lib/query-utils";
-import { useDeviceActiveScans, useDeviceList } from "@/features/servers/context";
+import { useDeviceActiveScans, useDeviceList } from "@/features/servers/context/device-list-context";
 import { useEffect, useRef, useMemo } from "react";
 import {
   Tooltip,
@@ -119,7 +126,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
 
   // Use active scans from DeviceListContext (fetched in bulk by parent)
   // This eliminates N+1 queries - all devices' active scans come from single parent query
-  const { activeScans, hasAnyActiveScans } = useDeviceActiveScans(device.id);
+  const { activeScans } = useDeviceActiveScans(device.id);
   const { refresh } = useDeviceList();
 
   const isScanning = activeScans.length > 0;
@@ -404,152 +411,168 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
       )}
 
       {/* Actions */}
-      <CardActions>
-        <CardActionsItem className="w-full text-blue-600" asChild>
-          <button
-            type="button"
-            onClick={handleScan}
-            disabled={isActivelyScanning}
-            data-tour="scan-btn"
-            className={
-              isActivelyScanning
-                ? "opacity-50 cursor-not-allowed"
-                : ""
-            }
+      <div
+        className="absolute right-2 top-2 z-10"
+        onClick={(e) => e.stopPropagation()}
+        onMouseDown={(e) => e.stopPropagation()}
+      >
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            className="flex h-8 w-8 items-center justify-center rounded hover:border focus:outline-none focus:ring-0 focus:border-transparent"
+            data-tour="card-menu-trigger"
           >
-            {scanMutation.isPending ? (
-              <Loader2 size={16} className="animate-spin" />
-            ) : (
-              <Radar size={16} />
-            )}
-            {isActivelyScanning ? "Scanning..." : "Scan"}
-          </button>
-        </CardActionsItem>
-
-        <CardActionsItem className="w-full" asChild>
-          <button
-            type="button"
-            onClick={() =>
-              pushModal("EditDevice", { deviceId: device.id, device })
-            }
-          >
-            <Pencil size={16} />
-            Edit
-          </button>
-        </CardActionsItem>
-
-        {device.verificationStatus !== "VERIFIED" && (
-          <CardActionsItem className="w-full text-green-600" asChild>
-            <button
-              type="button"
-              onClick={() =>
-                verificationToggleMutation.mutate(
-                  {
-                    deviceId: device.id,
-                    verify: true,
-                    interval: "1h",
-                  },
-                  {
-                    onSuccess: (result) => {
-                      toast.success(result.message || "Device verification updated");
-                    },
-                    onError: (error) => {
-                      toast.error("Failed to update device", {
-                        description: error instanceof Error ? error.message : "Unknown error",
-                      });
-                    },
+            <MoreHorizontal size={16} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-[200px]">
+            <DropdownMenuGroup>
+              <DropdownMenuItem className="w-full text-blue-600" asChild>
+                <button
+                  type="button"
+                  onClick={handleScan}
+                  disabled={isActivelyScanning}
+                  data-tour="scan-btn"
+                  className={
+                    isActivelyScanning
+                      ? "opacity-50 cursor-not-allowed"
+                      : ""
                   }
-                )
-              }
-              disabled={verificationToggleMutation.isPending}
-            >
-              <CheckCircle2 size={16} />
-              Verify & Monitor
-            </button>
-          </CardActionsItem>
-        )}
+                >
+                  {scanMutation.isPending ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Radar size={16} />
+                  )}
+                  {isActivelyScanning ? "Scanning..." : "Scan"}
+                </button>
+              </DropdownMenuItem>
 
-        {device.verificationStatus === "VERIFIED" && (
-          <CardActionsItem className="w-full text-gray-600" asChild>
-            <button
-              type="button"
-              onClick={() =>
-                verificationToggleMutation.mutate(
-                  {
-                    deviceId: device.id,
-                    verify: false,
-                  },
-                  {
-                    onSuccess: (result) => {
-                      toast.success(result.message || "Device verification updated");
-                    },
-                    onError: (error) => {
-                      toast.error("Failed to update device", {
-                        description: error instanceof Error ? error.message : "Unknown error",
-                      });
-                    },
+              <DropdownMenuItem className="w-full" asChild>
+                <button
+                  type="button"
+                  onClick={() =>
+                    pushModal("EditDevice", { deviceId: device.id, device })
                   }
-                )
-              }
-              disabled={verificationToggleMutation.isPending}
-            >
-              <XCircle size={16} />
-              Unverify (Stop Monitoring)
-            </button>
-          </CardActionsItem>
-        )}
+                >
+                  <Pencil size={16} />
+                  Edit
+                </button>
+              </DropdownMenuItem>
 
-        {device.verificationStatus === "CANDIDATE" && (
-          <CardActionsItem className="w-full text-orange-600" asChild>
-            <button
-              type="button"
-              onClick={() =>
-                verificationMutation.mutate(
-                  {
-                    deviceId: device.id,
-                    status: "EXCLUDED",
-                    note: "Manually excluded",
-                  },
-                  {
-                    onSuccess: (_result, variables) => {
-                      const labels = {
-                        VERIFIED: "verified",
-                        EXCLUDED: "excluded",
-                        CANDIDATE: "reset to candidate",
-                      };
-                      toast.success(`Device ${labels[variables.status]}`);
-                    },
-                    onError: (error) => {
-                      toast.error("Failed to update device", {
-                        description: error instanceof Error ? error.message : "Unknown error",
-                      });
-                    },
+              {device.verificationStatus !== "VERIFIED" && (
+                <DropdownMenuItem className="w-full text-green-600" asChild>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      verificationToggleMutation.mutate(
+                        {
+                          deviceId: device.id,
+                          verify: true,
+                          interval: "1h",
+                        },
+                        {
+                          onSuccess: (result) => {
+                            toast.success(result.message || "Device verification updated");
+                          },
+                          onError: (error) => {
+                            toast.error("Failed to update device", {
+                              description: error instanceof Error ? error.message : "Unknown error",
+                            });
+                          },
+                        }
+                      )
+                    }
+                    disabled={verificationToggleMutation.isPending}
+                  >
+                    <CheckCircle2 size={16} />
+                    Verify & Monitor
+                  </button>
+                </DropdownMenuItem>
+              )}
+
+              {device.verificationStatus === "VERIFIED" && (
+                <DropdownMenuItem className="w-full text-gray-600" asChild>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      verificationToggleMutation.mutate(
+                        {
+                          deviceId: device.id,
+                          verify: false,
+                        },
+                        {
+                          onSuccess: (result) => {
+                            toast.success(result.message || "Device verification updated");
+                          },
+                          onError: (error) => {
+                            toast.error("Failed to update device", {
+                              description: error instanceof Error ? error.message : "Unknown error",
+                            });
+                          },
+                        }
+                      )
+                    }
+                    disabled={verificationToggleMutation.isPending}
+                  >
+                    <XCircle size={16} />
+                    Unverify (Stop Monitoring)
+                  </button>
+                </DropdownMenuItem>
+              )}
+
+              {device.verificationStatus === "CANDIDATE" && (
+                <DropdownMenuItem className="w-full text-orange-600" asChild>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      verificationMutation.mutate(
+                        {
+                          deviceId: device.id,
+                          status: "EXCLUDED",
+                          note: "Manually excluded",
+                        },
+                        {
+                          onSuccess: (_result, variables) => {
+                            const labels = {
+                              VERIFIED: "verified",
+                              EXCLUDED: "excluded",
+                              CANDIDATE: "reset to candidate",
+                            };
+                            toast.success(`Device ${labels[variables.status]}`);
+                          },
+                          onError: (error) => {
+                            toast.error("Failed to update device", {
+                              description: error instanceof Error ? error.message : "Unknown error",
+                            });
+                          },
+                        }
+                      )
+                    }
+                    disabled={verificationMutation.isPending}
+                  >
+                    <XCircle size={16} />
+                    Exclude Device
+                  </button>
+                </DropdownMenuItem>
+              )}
+
+              <DropdownMenuItem className="w-full text-destructive" asChild>
+                <button
+                  type="button"
+                  onClick={() =>
+                    pushModal("DeleteDeviceConfirm", {
+                      deviceId: device.id,
+                      deviceName: device.name,
+                    })
                   }
-                )
-              }
-              disabled={verificationMutation.isPending}
-            >
-              <XCircle size={16} />
-              Exclude Device
-            </button>
-          </CardActionsItem>
-        )}
-
-        <CardActionsItem className="w-full text-destructive" asChild>
-          <button
-            type="button"
-            onClick={() =>
-              pushModal("DeleteDeviceConfirm", {
-                deviceId: device.id,
-                deviceName: device.name,
-              })
-            }
-          >
-            <Trash size={16} />
-            Delete
-          </button>
-        </CardActionsItem>
-      </CardActions>
+                >
+                  <Trash size={16} />
+                  Delete
+                </button>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
       </div>
     </div>
   );

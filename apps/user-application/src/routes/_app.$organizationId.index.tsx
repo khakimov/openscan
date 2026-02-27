@@ -3,31 +3,15 @@ import { Padding } from "@/components/ui/padding";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, FolderIcon } from "lucide-react";
 import { pushModal } from "@/modals";
-import { SectionHeaderSkeleton, CardGridSkeleton } from "@/components/shared/skeletons";
 import type { ProjectEntity } from "@repo/contracts/project";
+import type { OrganizationRouteContext } from "@/router";
 import { getProjectDefaultRoute } from "@/lib/navigation";
-import { getOrganization } from "@/server/organization";
-import { listProjects } from "@/server/project";
-
-/**
- * Pending component for organization index
- * Shows skeleton for project grid while loading
- */
-const OrganizationIndexPending = () => (
-  <Padding>
-    <SectionHeaderSkeleton />
-    <CardGridSkeleton columns={3} rows={2} />
-  </Padding>
-);
+import { OrganizationIndexPending } from "@/components/shared/pending-shells";
 
 export const Route = createFileRoute("/_app/$organizationId/")({
   pendingComponent: OrganizationIndexPending,
-  loader: async ({ params }) => {
-    // ✅ Resolve organization (slug or ID) - fast direct DB query
-    const organization = await getOrganization({ data: params.organizationId });
-
-    // ✅ List projects for organization
-    const projects = await listProjects({ data: organization.id });
+  beforeLoad: async ({ params, context }) => {
+    const { projects } = context as OrganizationRouteContext;
 
     // Auto-redirect to project default route if only ONE project exists
     if (projects.length === 1) {
@@ -40,15 +24,15 @@ export const Route = createFileRoute("/_app/$organizationId/")({
       });
     }
 
-    return { organization, projects };
+    // Context already contains organization and projects from parent route
+    // No need to return them again
   },
   component: OrganizationIndex,
 });
 
 function OrganizationIndex() {
-  const { organization, projects } = Route.useLoaderData();
+  const { organization, projects } = Route.useRouteContext() as OrganizationRouteContext;
 
-  // Empty state - no projects
   if (projects.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -65,7 +49,6 @@ function OrganizationIndex() {
     );
   }
 
-  // Project list - show grid of project cards
   return (
     <Padding>
       <div className="mb-6 flex items-center justify-between">

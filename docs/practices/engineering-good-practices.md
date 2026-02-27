@@ -403,7 +403,7 @@ Treat this document as a living playbook—add new snippets as we scale more flo
 - **Tabs & Navigation** – Update `PageTabsLink` (`apps/user-application/src/components/navigation/page-tabs.tsx`) to pass `to`/`params` plus `preload="intent"` so tabs in `.../assets/discovery.tsx` and `.../$deviceId.tsx` prefetch consistently and stop hand-crafting URLs.
 - **Router Spinner** – Reuse `InlineRouterSpinner` (`apps/user-application/src/components/ui/inline-router-spinner.tsx`) in every top-level header; add it to routes that still show manual loaders (e.g. `.../assets/verified.tsx`, `.../scans.tsx`) to give users uniform transition feedback.
 - **Suspense Fallback Panel** – Keep using the `Suspense` + `<Spinner size="lg" />` panel established in `src/routes/_app.$organizationId.$projectId.scans.tsx`; wrap new data tables and detail panes the same way instead of bespoke skeletons.
-- **Optimistic Mutations** – Prefer the helpers in `src/lib/optimistic-updates.ts` when mutating devices/schedules. New mutations should follow the pattern in `src/queries/device-queries.ts:182` so optimistic delete/toggle behaviour stays consistent.
+- **Optimistic Mutations** – Follow the patterns in `docs/optimistic-ui.md`. Use simple invalidation for most mutations (Pattern 1). Use inline optimistic updates only for status toggles where instant feedback matters (Pattern 2). Avoid generic helper factories.
 - **Query Definitions** – Centralize loader + component data fetching through `queryOptions()` factories (`src/queries/*.ts`). When adding a feature, create a query module first and call `queryClient.ensureQueryData(...)` inside the route loader like `.../assets/discovery.tsx:19` to keep SSR and client usage aligned.
 
 ---

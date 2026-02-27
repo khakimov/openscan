@@ -7,7 +7,7 @@ import { Loader2 } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
-import { useCompleteOnboardingMutation } from "@/queries";
+import { useCompleteOnboardingMutation, onboardingQueries } from "@/queries";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { getProjectDefaultRouteParams } from "@/lib/navigation";
@@ -109,7 +109,7 @@ function Onboarding2Notifications() {
   // Handle navigation after successful onboarding completion
   const handleOnboardingComplete = async () => {
     // Invalidate onboarding status to refresh cache
-    await queryClient.invalidateQueries({ queryKey: statusOptions.queryKey });
+    await queryClient.invalidateQueries({ queryKey: onboardingQueries.status.key() });
 
     // Navigate to Servers Discovery using centralized navigation utility
     navigate({

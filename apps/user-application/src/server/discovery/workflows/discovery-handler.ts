@@ -14,7 +14,7 @@ import type {
   DiscoveryWorkflowStatusResult,
   DiscoveryWorkflowResultsResult,
 } from './types';
-import { normalizeDiscoveryResult } from '@/features/discovery/utils';
+import { normalizeDiscoveryResult } from '@/features/discovery/utils/normalize-workflow-results';
 
 const logger = createLogger({ name: 'discovery-handler' });
 

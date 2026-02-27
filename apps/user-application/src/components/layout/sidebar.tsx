@@ -1,91 +1,31 @@
 import { useState, useEffect } from "react";
-import { Home, Menu, Shield, ScanLine, XIcon, Loader2 } from "lucide-react";
+import { Menu, XIcon, Loader2 } from "lucide-react";
 import {
   useNavigate,
   useRouterState,
   useRouter,
-  useRouteContext,
+  getRouteApi,
+  useMatch,
 } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import type { inferRouterOutputs } from "@trpc/server";
+
 
 import { AccountDialog } from "@/components/auth/account-dialog";
-import { LayoutProjectSelector } from "@/components/layout/layout-project-selector";
+import { LayoutProjectSelector, type LayoutProjectSelectorProps } from "@/components/layout/layout-project-selector";
 import { NotificationIndicator } from "@/components/notifications/NotificationIndicator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { useTRPC } from "@/integrations/trpc/react";
-import type { RouterContext } from "@/router";
-import type { AppRouter } from "@/trpc/router";
+import type { OrganizationRouteContext, RouterContext } from "@/router";
+import { buildNavigationItems } from "@/lib/navigation";
+import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
+import { useQuery } from "@tanstack/react-query";
 
-type RouterOutputs = inferRouterOutputs<AppRouter>;
-type ProjectListByOrgOutput = RouterOutputs["project"]["listByOrg"];
+// Get typed route context
+const rootRouteApi = getRouteApi("/_app");
+const orgRouteApi = getRouteApi("/_app/$organizationId");
 
-interface NavigationItem {
-  name: string;
-  icon: React.ComponentType<{ className?: string }>;
-  href: string;
-  badge?: string | number;
-}
-
-/**
- * Build navigation items with organization and project
- * If projectId is available, build project-scoped URLs
- * Otherwise, build org-level URLs
- */
-function getNavigationItems(
-  organization: SidebarOrganization | null,
-  projectId?: string
-): NavigationItem[] {
-  if (!organization) {
-    return [];
-  }
-
-  // Prefer slug over ID for cleaner URLs (OpenPanel pattern)
-  const orgIdentifier = organization.slug || organization.id;
-
-  // If on a project-scoped route, use project URLs
-  if (projectId) {
-    return [
-      {
-        name: "Servers",
-        icon: Shield,
-        href: `/${orgIdentifier}/${projectId}/servers`,
-      },
-      {
-        name: "Scans",
-        icon: ScanLine,
-        href: `/${orgIdentifier}/${projectId}/scans`,
-      },
-    ];
-  }
-
-  // Otherwise, use org-level URLs (project list)
-  return [
-    {
-      name: "Projects",
-      icon: Home,
-      href: `/${orgIdentifier}`,
-    },
-  ];
-}
-
-export interface SidebarOrganization {
-  id: string;
-  name: string | null;
-  slug?: string | null;
-}
-
-export interface SidebarProject {
-  id: string;
-  name: string | null;
-  domain?: string | null;
-  description?: string | null;
-}
-
-export interface SidebarUser {
+interface SidebarUser {
   id: string;
   name?: string | null;
   email?: string | null;
@@ -96,14 +36,53 @@ interface SidebarProps {
   className?: string;
 }
 
-type AuthSessionResult = RouterOutputs["auth"]["session"];
-
 export function Sidebar({ className }: SidebarProps = {}) {
-  const routeContext = useRouteContext({ strict: false }) as RouterContext & {
-    session?: AuthSessionResult;
-  };
-  const sessionResult = routeContext.session;
-  const session = sessionResult?.session ?? null;
+  const trpc = useTRPC();
+  const trpcClient = useTRPCClient();
+  const navigate = useNavigate();
+  const router = useRouter();
+  const routerState = useRouterState();
+
+  // Get initial data from route context (SSR/hydration)
+  const { session: sessionContext, organizations: initialOrganizations } = 
+    rootRouteApi.useRouteContext() as RouterContext;
+  const { organization: initialOrganization, projects: initialProjects } = 
+    orgRouteApi.useRouteContext() as OrganizationRouteContext;
+
+  // Subscribe to tRPC queries for reactive updates after mutations
+  // OpenPanel pattern: useQuery with queryOptions from tRPC proxy
+  const { data: orgListData } = useQuery({
+    ...trpc.organization.list.queryOptions(),
+    queryFn: () => trpcClient.organization.list.query(),
+  });
+  const organizations = orgListData?.organizations ?? initialOrganizations ?? [];
+
+  const orgMatch = useMatch({ from: "/_app/$organizationId", shouldThrow: false });
+  const orgContext = orgMatch?.context as OrganizationRouteContext | undefined;
+  const organizationId = orgContext?.organization?.id ?? initialOrganization?.id;
+
+  // Subscribe to organization detail query for reactive updates
+  const { data: organizationData } = useQuery({
+    ...trpc.organization.get.queryOptions({ organizationId: organizationId ?? '' }),
+    queryFn: () => trpcClient.organization.get.query({ organizationId: organizationId! }),
+    enabled: !!organizationId,
+  });
+  const organization = organizationData ?? initialOrganization;
+
+  // Subscribe to projects query for reactive updates
+  const { data: projectsData } = useQuery({
+    ...trpc.project.listByOrg.queryOptions({ organizationId: organizationId ?? '' }),
+    queryFn: () => trpcClient.project.listByOrg.query({ organizationId: organizationId! }),
+    enabled: !!organizationId,
+  });
+  const projects = projectsData ?? initialProjects ?? [];
+
+  const session = sessionContext?.session;
+  const orgList = organizations ?? [];
+  // Type assertion to fix type mismatch between ProjectEntity and SelectorProject
+  const projectList = (projects ?? []) as LayoutProjectSelectorProps['projects'];
+  const activeOrganization = organization ?? null;
+
   const user: SidebarUser | null = session?.user
     ? {
         id: session.user.id,
@@ -113,107 +92,32 @@ export function Sidebar({ className }: SidebarProps = {}) {
       }
     : null;
 
-  const navigate = useNavigate();
-  const router = useRouter();
-  const routerState = useRouterState();
   const currentPath = routerState.location.pathname;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Get organizationId and projectId from URL if on project-scoped route
-  // Use routerState.matches to reliably extract params from any matched route in the tree
-  const matchWithOrg = routerState.matches.find(
-    (match) => "organizationId" in match.params
-  );
-  const organizationIdFromUrl =
-    matchWithOrg && "organizationId" in matchWithOrg.params
-      ? (matchWithOrg.params.organizationId as string)
-      : undefined;
-
+  // Get projectId from URL if on project-scoped route
   const matchWithProject = routerState.matches.find(
     (match) => "projectId" in match.params
   );
-  const projectId =
-    matchWithProject && "projectId" in matchWithProject.params
-      ? (matchWithProject.params.projectId as string)
-      : undefined;
+  const projectId = matchWithProject && 'projectId' in matchWithProject.params 
+    ? String(matchWithProject.params.projectId) 
+    : undefined;
 
-  const trpc = useTRPC();
+  // Build navigation items based on current organization and project
+  const navigationItems = buildNavigationItems(activeOrganization, projectId);
 
-  const { data: organizationsResult, isLoading: organizationsLoading } =
-    useQuery(trpc.organization.list.queryOptions());
-
-  const organizationsData = organizationsResult?.organizations ?? [];
-
-  const sidebarOrganizations: SidebarOrganization[] = organizationsData.map(
-    (org) => ({
-      id: org.id,
-      name: org.name ?? null,
-      slug: org.slug ?? null,
-    })
-  );
-
-  const organizationFromUrl = organizationIdFromUrl
-    ? sidebarOrganizations.find(
-        (org) =>
-          org.id === organizationIdFromUrl || org.slug === organizationIdFromUrl
-      ) ?? null
-    : null;
-
-  const activeOrganizationFromSession = session?.activeOrganizationId
-    ? sidebarOrganizations.find(
-        (org) => org.id === session.activeOrganizationId
-      ) ?? null
-    : null;
-
-  const effectiveOrganization: SidebarOrganization | null =
-    organizationFromUrl ??
-    activeOrganizationFromSession ??
-    sidebarOrganizations[0] ??
-    null;
-
-  const organizationId = effectiveOrganization?.id;
-
-  const projectQuery = useQuery({
-    ...trpc.project.listByOrg.queryOptions({
-      organizationId: organizationId ?? "",
-    }),
-    enabled: Boolean(organizationId),
-  });
-
-  const projectData: ProjectListByOrgOutput = (projectQuery.data ??
-    []) as ProjectListByOrgOutput;
-
-  const projects: SidebarProject[] = projectData.map(
-    (project: ProjectListByOrgOutput[number]) => ({
-      id: project.id,
-      name: project.name ?? null,
-      domain: project.domain ?? null,
-      description: project.description ?? null,
-    })
-  );
-
-  const hasProjects = projects.length > 0;
-
-  const isInitialLoading =
-    organizationsLoading || (projectQuery.isLoading && !hasProjects);
-
-  const organizations = sidebarOrganizations;
-
-  const fallbackText = user?.name
-    ? user.name.charAt(0).toUpperCase()
-    : user?.email?.charAt(0).toUpperCase() || "U";
-
-  // Build navigation items based on effective organization and current project
-  const navigationItems = getNavigationItems(effectiveOrganization, projectId);
-
-  // Auto-close mobile menu on navigation using router.subscribe (proper TanStack Router pattern)
+  // Auto-close mobile menu on navigation
   useEffect(() => {
     const unsubscribe = router.subscribe("onResolved", () => {
       setIsMobileMenuOpen(false);
     });
     return unsubscribe;
   }, [router]);
+
+  const fallbackText = user?.name
+    ? user.name.charAt(0).toUpperCase()
+    : user?.email?.charAt(0).toUpperCase() || "U";
 
   return (
     <>
@@ -232,10 +136,10 @@ export function Sidebar({ className }: SidebarProps = {}) {
               <div className="min-w-0 flex-1">
                 <LayoutProjectSelector
                   align="start"
-                  projects={projects}
-                  organizations={organizations}
-                  tenant={effectiveOrganization}
-                  isLoading={isInitialLoading}
+                  projects={projectList}
+                  organizations={orgList}
+                  tenant={activeOrganization}
+                  activeProjectId={projectId}
                 />
               </div>
             </div>
@@ -253,13 +157,7 @@ export function Sidebar({ className }: SidebarProps = {}) {
         <ScrollArea className="flex-1 px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              // Dashboard (org root) should only match exactly
-              // Other routes can match by prefix (with trailing slash to avoid partial matches)
-              const isDashboard = item.name === "Dashboard";
-              const isActive = isDashboard
-                ? currentPath === item.href
-                : currentPath === item.href ||
-                  currentPath.startsWith(item.href + "/");
+              const isActive = currentPath.startsWith(item.href);
 
               return (
                 <Button
@@ -283,11 +181,6 @@ export function Sidebar({ className }: SidebarProps = {}) {
                         <NotificationIndicator
                           activeOrganizationId={session?.activeOrganizationId}
                         />
-                      )}
-                      {item.badge && (
-                        <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                          {item.badge}
-                        </span>
                       )}
                     </>
                   )}
@@ -360,7 +253,7 @@ export function Sidebar({ className }: SidebarProps = {}) {
         </div>
       </div>
 
-      {/* Mobile Backdrop Overlay - Always rendered, controlled by pointer-events */}
+      {/* Mobile Backdrop Overlay */}
       <button
         type="button"
         onClick={() => setIsMobileMenuOpen(false)}
@@ -376,11 +269,11 @@ export function Sidebar({ className }: SidebarProps = {}) {
       <div
         className={cn(
           "lg:hidden fixed left-0 top-0 z-40 flex h-dvh w-56 flex-col border-r border-border bg-background transition-transform",
-          "-translate-x-56", // hidden by default on mobile
-          isMobileMenuOpen && "translate-x-0" // slide in when active
+          "-translate-x-56",
+          isMobileMenuOpen && "translate-x-0"
         )}
       >
-        {/* Toggle Button - Positioned outside sidebar (mobile only) */}
+        {/* Toggle Button */}
         <div className="absolute -right-16 flex h-16 items-center gap-2 lg:hidden">
           <Button
             variant="outline"
@@ -394,7 +287,6 @@ export function Sidebar({ className }: SidebarProps = {}) {
               <Menu className="h-2 w-2" />
             )}
           </Button>
-          {/* Loading spinner (shows during navigation) */}
           {routerState.isLoading && (
             <Button
               variant="outline"
@@ -413,10 +305,10 @@ export function Sidebar({ className }: SidebarProps = {}) {
             <div className="min-w-0 flex-1">
               <LayoutProjectSelector
                 align="start"
-                projects={projects}
-                organizations={organizations}
-                tenant={effectiveOrganization}
-                isLoading={isInitialLoading}
+                projects={projectList}
+                organizations={orgList}
+                tenant={activeOrganization}
+                activeProjectId={projectId}
               />
             </div>
           </div>
@@ -426,13 +318,7 @@ export function Sidebar({ className }: SidebarProps = {}) {
         <ScrollArea className="px-3 py-4">
           <nav className="space-y-2">
             {navigationItems.map((item) => {
-              // Dashboard (org root) should only match exactly
-              // Other routes can match by prefix (with trailing slash to avoid partial matches)
-              const isDashboard = item.name === "Dashboard";
-              const isActive = isDashboard
-                ? currentPath === item.href
-                : currentPath === item.href ||
-                  currentPath.startsWith(item.href + "/");
+              const isActive = currentPath.startsWith(item.href);
 
               return (
                 <Button
@@ -450,18 +336,13 @@ export function Sidebar({ className }: SidebarProps = {}) {
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
                   {item.name === "Servers" && <NotificationIndicator />}
-                  {item.badge && (
-                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
-                      {item.badge}
-                    </span>
-                  )}
                 </Button>
               );
             })}
           </nav>
         </ScrollArea>
 
-        {/* User Profile - Always visible at bottom */}
+        {/* User Profile */}
         <div className="mt-auto border-t border-border p-4 space-y-2">
           <div
             className="flex items-center gap-3 rounded-lg px-3 py-2 bg-muted/50"

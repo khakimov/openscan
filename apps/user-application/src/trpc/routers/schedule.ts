@@ -18,7 +18,7 @@ import {
   resolveIntervalConfig,
   restateScheduleClient,
 } from '@/server/schedules/utils';
-import { normalizeSchedule, normalizeScheduleList } from '@/features/schedules/utils';
+import { normalizeSchedule, normalizeScheduleList } from '@/features/schedules/utils/normalize-schedule';
 
 const logger = createLogger({ name: 'schedule-trpc' });
 

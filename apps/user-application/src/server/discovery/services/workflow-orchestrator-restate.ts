@@ -35,7 +35,7 @@ export class WorkflowOrchestratorRestate {
           scope: 'EXTERNAL', // DiscoveryRequest doesn't include scope, defaulting to EXTERNAL
         },
       ],
-      tools: request.tools || ['subfinder'], // Use requested tools or default to subfinder
+      tools: (request.tools || ['subfinder']) as ('subfinder' | 'amass' | 'assetfinder')[], // Use requested tools or default to subfinder
     };
 
     const result = await client.startDiscovery(restateInput);

@@ -61,6 +61,9 @@ export const notificationQueries = {
    * Matches: context.trpc.notification.unreadCount.queryOptions().queryKey
    */
   unreadCount: {
+    // Base key for invalidating all unread count queries
+    base: ['notification', 'unreadCount'] as const,
+    // Full tRPC tuple key
     key: () => [['notification', 'unreadCount'], { input: undefined, type: 'query' as const }] as const,
   },
 
@@ -112,7 +115,7 @@ export const useMarkNotificationAsReadMutation = () => {
     successMessage: 'Notification marked as read',
     invalidateKeys: [
       notificationQueries.list.all,
-      notificationQueries.unreadCount.key(),
+      notificationQueries.unreadCount.base,
     ],
     toastOnSuccess: false, // Silent for better UX
   });
@@ -130,7 +133,7 @@ export const useMarkAllNotificationsAsReadMutation = () => {
     successMessage: 'All notifications marked as read',
     invalidateKeys: [
       notificationQueries.list.all,
-      notificationQueries.unreadCount.key(),
+      notificationQueries.unreadCount.base,
     ],
   });
 };

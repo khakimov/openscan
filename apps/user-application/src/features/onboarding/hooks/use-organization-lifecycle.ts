@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
-import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
+import { useTRPCClient } from "@/integrations/trpc/react";
+import { onboardingQueries, organizationQueries } from "@/queries/organization-queries";
+import { projectQueries } from "@/queries/project-queries";
 
 export interface OrganizationFormData {
   organizationName: string;
@@ -44,12 +46,10 @@ export function useOrganizationLifecycle({
   projectId,
 }: UseOrganizationLifecycleOptions) {
   const queryClient = useQueryClient();
-  const trpc = useTRPC();
   const trpcClient = useTRPCClient();
   const [error, setError] = useState<string | null>(null);
 
-  // Get queryOptions for invalidation
-  const statusOptions = trpc.onboarding.status.queryOptions();
+  // Use base path for invalidation (matches all onboarding status queries)
 
   /**
    * Mutation function: Sets up organization and project
@@ -130,7 +130,10 @@ export function useOrganizationLifecycle({
     mutationKey: ["onboarding", "setup"],
     mutationFn: setupMutationFn,
     successMessage: `${hasOrganization ? "Updated" : "Created"} organization and project`,
-    invalidateKeys: [statusOptions.queryKey],
+    invalidateKeys: [
+      onboardingQueries.status.base,
+      organizationQueries.list.base,
+    ],
     toastOnSuccess: false, // Silent - onboarding flow handles navigation
     onSuccess: async (result) => {
       if (!result.success) return;
@@ -138,9 +141,33 @@ export function useOrganizationLifecycle({
       // Seed React Query cache with fresh onboarding status
       // This triggers instant UI updates across all components using tRPC query
       const nextStatus = await trpcClient.onboarding.status.query();
-      queryClient.setQueryData(statusOptions.queryKey, nextStatus);
+      queryClient.setQueryData(onboardingQueries.status.key(), nextStatus);
 
-      console.log("[useOrganizationLifecycle] Cache seeded with fresh onboarding status");
+      // Also seed organization and project data for instant sidebar updates
+      const orgs = await trpcClient.organization.list.query();
+      queryClient.setQueryData(organizationQueries.list.key(), orgs);
+
+      if (result.organizationId) {
+        // Invalidate and seed specific organization detail
+        const org = await trpcClient.organization.get.query({
+          organizationId: result.organizationId,
+        });
+        queryClient.setQueryData(
+          organizationQueries.detail.key(result.organizationId),
+          org
+        );
+
+        // Invalidate and seed projects for this organization
+        const projects = await trpcClient.project.listByOrg.query({
+          organizationId: result.organizationId,
+        });
+        queryClient.setQueryData(
+          projectQueries.listByOrg.key(result.organizationId),
+          projects
+        );
+      }
+
+      console.log("[useOrganizationLifecycle] Cache seeded with fresh data");
     },
     onError: (err) => {
       const errorMessage =

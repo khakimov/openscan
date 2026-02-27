@@ -12,6 +12,8 @@ export { deviceQueries } from './device-queries';
 export { scanQueries } from './scan-queries';
 export { discoveryQueries } from './discovery-queries';
 export { scheduleQueries } from './schedule-queries';
+export { organizationQueries, onboardingQueries } from './organization-queries';
+export { projectQueries } from './project-queries';
 
 // Notification queries
 export {
@@ -21,12 +23,7 @@ export {
   useSaveNotificationPreferencesMutation,
 } from './notification-queries';
 
-// Onboarding queries (deprecated - migrated to tRPC)
-// Use context.trpc.onboarding.* instead
-export {
-  onboardingStatusQueryKey,
-  discoveryDevicesQueryKey,
-} from './onboarding-queries';
+
 
 // Device mutation hooks
 export {
@@ -51,6 +48,9 @@ export {
   useUpdateOrganizationMutation,
   useSetActiveOrganizationMutation,
 } from './organization-mutations';
+
+// Re-export onboardingQueries from organization-queries for backward compatibility
+// (previously defined in organization-mutations.ts)
 
 // Schedule mutation hooks
 export {

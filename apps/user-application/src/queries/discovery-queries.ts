@@ -4,7 +4,7 @@ import {
   getScanWorkflowStatusDB,
   getScanWorkflowResultsDB,
   startDiscoveryWorkflow,
-} from '@/server/discovery';
+} from '@/server/discovery/index';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
 export const discoveryQueries = {

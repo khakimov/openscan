@@ -1,46 +1,50 @@
 /**
- * Discovery request type (migrated from Temporal contracts)
+ * Workflow Helper Functions
+ *
+ * Shared utilities for discovery workflows
  */
-export interface DiscoveryRequest {
-  target: string;
-  scanType: string;
-  tools: Array<'subfinder' | 'amass' | 'assetfinder'>;
-}
 
-export function normalizeTargetForScanId(target: string) {
-  return target.replace(/[^a-zA-Z0-9]/g, '-');
+import { normalizeDiscoveryResult as normalizeResult } from '@/features/discovery/utils/normalize-workflow-results';
+
+// Re-export normalize function
+export { normalizeResult as normalizeDiscoveryResult };
+
+/**
+ * Generate a unique workflow ID for discovery
+ */
+export function generateWorkflowId(prefix: string, target: string): string {
+  const sanitizedTarget = target.replace(/[^a-zA-Z0-9.-]/g, '_');
+  return `${prefix}-${sanitizedTarget}-${Date.now()}`;
 }
 
 /**
- * Generate scanId (Restate workflow key)
- * Format: "{prefix}-{normalized-target}-{timestamp}"
- * Example: "portscan-192-168-1-1-1760694114399"
+ * Generate a unique scan ID
  */
-export function generateScanId(prefix: string, target: string) {
-  return `${prefix}-${normalizeTargetForScanId(target)}-${Date.now()}`;
-}
-
-// Legacy alias for backward compatibility during migration
-export const generateWorkflowId = generateScanId;
-export const normalizeTargetForWorkflowId = normalizeTargetForScanId;
-
-export function buildDiscoveryRequest(target: string): DiscoveryRequest {
-  return {
-    target,
-    scanType: 'basic',
-    tools: ['subfinder'],
-  };
+export function generateScanId(prefix: string, target: string): string {
+  const sanitizedTarget = target.replace(/[^a-zA-Z0-9.-]/g, '_');
+  return `${prefix}-${sanitizedTarget}-${Date.now()}`;
 }
 
 /**
- * Re-export the centralized normalizer for any legacy callers
- * The actual implementation is in @/features/discovery/utils
+ * Extract error message from unknown error
  */
-export { normalizeDiscoveryResult } from '@/features/discovery/utils';
-
-export function extractErrorMessage(error: unknown) {
+export function extractErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-  return String(error);
+  if (typeof error === 'string') {
+    return error;
+  }
+  return 'Unknown error occurred';
+}
+
+/**
+ * Discovery request type
+ */
+export interface DiscoveryRequest {
+  target: string;
+  organizationId: string;
+  projectId?: string;
+  tools?: string[];
+  enablePingSweep?: boolean;
 }

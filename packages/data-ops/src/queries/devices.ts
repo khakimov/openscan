@@ -908,3 +908,45 @@ export async function unverifyDevice(deviceId: string, organizationId: string) {
 }
 
 // Scan schedule functions moved to queries/scan-schedules.ts
+
+/**
+ * Get device counts by verification status for a project
+ * Efficient single-query approach using conditional aggregation
+ */
+export async function getDeviceCounts(
+  organizationId: string,
+  projectId?: string
+): Promise<{
+  CANDIDATE: number;
+  VERIFIED: number;
+  EXCLUDED: number;
+  total: number;
+}> {
+  const db = getDb();
+
+  const whereConditions: SQL[] = [eq(devices.organizationId, organizationId)];
+
+  if (projectId) {
+    whereConditions.push(eq(devices.projectId, projectId));
+  }
+
+  const where = and(...whereConditions);
+
+  // Single query with conditional aggregation for all counts
+  const [result] = await db
+    .select({
+      CANDIDATE: sql<number>`sum(case when ${devices.verificationStatus} = 'CANDIDATE' then 1 else 0 end)`,
+      VERIFIED: sql<number>`sum(case when ${devices.verificationStatus} = 'VERIFIED' then 1 else 0 end)`,
+      EXCLUDED: sql<number>`sum(case when ${devices.verificationStatus} = 'EXCLUDED' then 1 else 0 end)`,
+      total: sql<number>`count(*)`,
+    })
+    .from(devices)
+    .where(where);
+
+  return {
+    CANDIDATE: Number(result?.CANDIDATE || 0),
+    VERIFIED: Number(result?.VERIFIED || 0),
+    EXCLUDED: Number(result?.EXCLUDED || 0),
+    total: Number(result?.total || 0),
+  };
+}

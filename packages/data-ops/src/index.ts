@@ -111,6 +111,9 @@ export {
 // Explicitly re-export getDeviceByIdGlobal (internal use only)
 export { getDeviceByIdGlobal } from './queries/devices';
 
+// Export device counts query
+export { getDeviceCounts } from './queries/devices';
+
 // Export CVE enrichment types & schemas (schema-first pattern)
 export type {
   CVESeverity,

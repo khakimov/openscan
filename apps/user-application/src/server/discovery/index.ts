@@ -5,10 +5,10 @@ export {
   getScanWorkflowResultsDB,
 } from './workflows/discovery-handler';
 
+export { startPortScanWorkflow } from './workflows/port-scan/start';
 export {
-  startPortScanWorkflow,
   cancelPortScanWorkflowExecution,
   getPortScanState,
-} from './workflows/port-scan';
+} from './workflows/port-scan/lifecycle';
 
 export { getActiveDeviceScans } from './workflows/device-scan-handler';

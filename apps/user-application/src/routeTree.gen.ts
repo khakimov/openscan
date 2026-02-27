@@ -18,6 +18,7 @@ import { Route as OnboardingIndexRouteImport } from './routes/onboarding.index'
 import { Route as OnboardingProjectRouteImport } from './routes/onboarding.project'
 import { Route as ApiTestAuthRouteImport } from './routes/api/test-auth'
 import { Route as ApiScreenshotsRouteImport } from './routes/api/screenshots'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as PublicTermsRouteImport } from './routes/_public.terms'
 import { Route as PublicPrivacyRouteImport } from './routes/_public.privacy'
 import { Route as LoginLoginRouteImport } from './routes/_login.login'
@@ -28,6 +29,7 @@ import { Route as OnboardingProjectIdNotificationsRouteImport } from './routes/o
 import { Route as OnboardingProjectIdDiscoveryRouteImport } from './routes/onboarding.$projectId.discovery'
 import { Route as ApiTrpcSplatRouteImport } from './routes/api/trpc.$'
 import { Route as ApiInternalScanResultsRouteImport } from './routes/api/internal/scan-results'
+import { Route as ApiEchoSplatRouteImport } from './routes/api/echo.$'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth.$'
 import { Route as AppOrganizationIdDashboardRouteImport } from './routes/_app.$organizationId.dashboard'
 import { Route as AppOrganizationIdProjectIdRouteImport } from './routes/_app.$organizationId.$projectId'
@@ -87,6 +89,11 @@ const ApiScreenshotsRoute = ApiScreenshotsRouteImport.update({
   path: '/api/screenshots',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PublicTermsRoute = PublicTermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -137,6 +144,11 @@ const ApiTrpcSplatRoute = ApiTrpcSplatRouteImport.update({
 const ApiInternalScanResultsRoute = ApiInternalScanResultsRouteImport.update({
   id: '/api/internal/scan-results',
   path: '/api/internal/scan-results',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiEchoSplatRoute = ApiEchoSplatRouteImport.update({
+  id: '/api/echo/$',
+  path: '/api/echo/$',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
@@ -242,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginLoginRoute
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
   '/api/test-auth': typeof ApiTestAuthRoute
   '/onboarding/project': typeof OnboardingProjectRoute
@@ -249,6 +262,7 @@ export interface FileRoutesByFullPath {
   '/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
   '/$organizationId/dashboard': typeof AppOrganizationIdDashboardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/echo/$': typeof ApiEchoSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
@@ -274,12 +288,14 @@ export interface FileRoutesByTo {
   '/login': typeof LoginLoginRoute
   '/privacy': typeof PublicPrivacyRoute
   '/terms': typeof PublicTermsRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
   '/api/test-auth': typeof ApiTestAuthRoute
   '/onboarding/project': typeof OnboardingProjectRoute
   '/onboarding': typeof OnboardingIndexRoute
   '/$organizationId/dashboard': typeof AppOrganizationIdDashboardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/echo/$': typeof ApiEchoSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
@@ -309,6 +325,7 @@ export interface FileRoutesById {
   '/_login/login': typeof LoginLoginRoute
   '/_public/privacy': typeof PublicPrivacyRoute
   '/_public/terms': typeof PublicTermsRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/screenshots': typeof ApiScreenshotsRoute
   '/api/test-auth': typeof ApiTestAuthRoute
   '/onboarding/project': typeof OnboardingProjectRoute
@@ -316,6 +333,7 @@ export interface FileRoutesById {
   '/_app/$organizationId/$projectId': typeof AppOrganizationIdProjectIdRouteWithChildren
   '/_app/$organizationId/dashboard': typeof AppOrganizationIdDashboardRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/echo/$': typeof ApiEchoSplatRoute
   '/api/internal/scan-results': typeof ApiInternalScanResultsRoute
   '/api/trpc/$': typeof ApiTrpcSplatRoute
   '/onboarding/$projectId/discovery': typeof OnboardingProjectIdDiscoveryRoute
@@ -345,6 +363,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/terms'
+    | '/api/health'
     | '/api/screenshots'
     | '/api/test-auth'
     | '/onboarding/project'
@@ -352,6 +371,7 @@ export interface FileRouteTypes {
     | '/$organizationId/$projectId'
     | '/$organizationId/dashboard'
     | '/api/auth/$'
+    | '/api/echo/$'
     | '/api/internal/scan-results'
     | '/api/trpc/$'
     | '/onboarding/$projectId/discovery'
@@ -377,12 +397,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/privacy'
     | '/terms'
+    | '/api/health'
     | '/api/screenshots'
     | '/api/test-auth'
     | '/onboarding/project'
     | '/onboarding'
     | '/$organizationId/dashboard'
     | '/api/auth/$'
+    | '/api/echo/$'
     | '/api/internal/scan-results'
     | '/api/trpc/$'
     | '/onboarding/$projectId/discovery'
@@ -411,6 +433,7 @@ export interface FileRouteTypes {
     | '/_login/login'
     | '/_public/privacy'
     | '/_public/terms'
+    | '/api/health'
     | '/api/screenshots'
     | '/api/test-auth'
     | '/onboarding/project'
@@ -418,6 +441,7 @@ export interface FileRouteTypes {
     | '/_app/$organizationId/$projectId'
     | '/_app/$organizationId/dashboard'
     | '/api/auth/$'
+    | '/api/echo/$'
     | '/api/internal/scan-results'
     | '/api/trpc/$'
     | '/onboarding/$projectId/discovery'
@@ -445,9 +469,11 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRouteWithChildren
   PublicRoute: typeof PublicRouteWithChildren
   OnboardingRoute: typeof OnboardingRouteWithChildren
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiScreenshotsRoute: typeof ApiScreenshotsRoute
   ApiTestAuthRoute: typeof ApiTestAuthRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiEchoSplatRoute: typeof ApiEchoSplatRoute
   ApiInternalScanResultsRoute: typeof ApiInternalScanResultsRoute
   ApiTrpcSplatRoute: typeof ApiTrpcSplatRoute
   AuthAppIndexRoute: typeof AuthAppIndexRoute
@@ -520,6 +546,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiScreenshotsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_public/terms': {
       id: '/_public/terms'
       path: '/terms'
@@ -588,6 +621,13 @@ declare module '@tanstack/react-router' {
       path: '/api/internal/scan-results'
       fullPath: '/api/internal/scan-results'
       preLoaderRoute: typeof ApiInternalScanResultsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/echo/$': {
+      id: '/api/echo/$'
+      path: '/api/echo/$'
+      fullPath: '/api/echo/$'
+      preLoaderRoute: typeof ApiEchoSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/$': {
@@ -844,9 +884,11 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRouteWithChildren,
   PublicRoute: PublicRouteWithChildren,
   OnboardingRoute: OnboardingRouteWithChildren,
+  ApiHealthRoute: ApiHealthRoute,
   ApiScreenshotsRoute: ApiScreenshotsRoute,
   ApiTestAuthRoute: ApiTestAuthRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiEchoSplatRoute: ApiEchoSplatRoute,
   ApiInternalScanResultsRoute: ApiInternalScanResultsRoute,
   ApiTrpcSplatRoute: ApiTrpcSplatRoute,
   AuthAppIndexRoute: AuthAppIndexRoute,

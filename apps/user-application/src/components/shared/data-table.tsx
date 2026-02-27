@@ -1,4 +1,3 @@
-import { cn } from "@/utils/cn";
 import {
   flexRender,
   getCoreRowModel,
@@ -22,19 +21,7 @@ declare module "@tanstack/react-table" {
 
 export const ACTIONS = "__actions__";
 
-export function TableButtons({
-  children,
-  className,
-}: {
-  children: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <div className={cn("mb-2 flex flex-wrap items-center gap-2", className)}>
-      {children}
-    </div>
-  );
-}
+// TableButtons removed - use inline div with className="mb-2 flex flex-wrap items-center gap-2" instead
 
 export function DataTable<TData>({ columns, data }: DataTableProps<TData>) {
   const table = useReactTable({

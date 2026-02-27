@@ -60,19 +60,42 @@ interface UseMutationWithToastProps<TData, TVariables = void, TContext = unknown
  *
  * Standardizes mutation handling across the app with:
  * - Uniform toast notifications for success/error
- * - Automatic query invalidation
+ * - Automatic query invalidation (supports tRPC and simple keys)
  * - Centralized error logging
  * - Optional custom callbacks
  *
  * @example
  * ```ts
- * const createProjectMutation = useMutationWithToast({
- *   mutationKey: ["project", "create"],
- *   mutationFn: (payload) => createProject(payload),
- *   successMessage: ({ project }) => `Project ${project.name} created`,
- *   invalidateKeys: [["projects"], ["onboarding-status"]],
+ * // RECOMMENDED: Use query factory .base for invalidation
+ * const deleteDeviceMutation = useMutationWithToast({
+ *   mutationKey: ["device", "delete"],
+ *   mutationFn: (data) => trpcClient.device.remove.mutate(data),
+ *   successMessage: 'Device deleted successfully',
+ *   invalidateKeys: [deviceQueries.list.base],  // Uses ['device', 'list']
  * });
+ *
+ * // Multiple invalidations
+ * invalidateKeys: [
+ *   deviceQueries.list.base,           // ['device', 'list']
+ *   scheduleQueries.list.base,         // ['schedule', 'list']
+ *   ['organizations'],                 // Simple path
+ * ],
+ *
+ * // Prefix matching: ['device'] invalidates all device.* queries
+ * invalidateKeys: [['device']]
+ *
+ * // For optimistic updates, use .key() to get specific query key
+ * onMutate: async (variables) => {
+ *   const queryKey = deviceQueries.detail.key(variables.deviceId);
+ *   await queryClient.cancelQueries({ queryKey });
+ *   // ... optimistic update
+ * }
  * ```
+ *
+ * Query Key Patterns:
+ * - Simple path: ['device', 'list'] - matches all device list queries regardless of params
+ * - Full tRPC tuple: [['device', 'list'], { input: {...}, type: 'query' }] - specific query instance
+ * - The invalidation logic uses prefix matching, so ['device'] matches ['device', 'list'], ['device', 'detail'], etc.
  */
 export function useMutationWithToast<TData, TVariables = void, TContext = unknown>({
   mutationFn,
@@ -108,23 +131,13 @@ export function useMutationWithToast<TData, TVariables = void, TContext = unknow
         await onSuccess(data, variables, context);
       }
 
-      // Invalidate queries using predicate matching for tRPC-style nested keys
-      // tRPC keys are structured as: [['procedure', 'path'], { input: {...}, type: 'query' }]
-      // When invalidating with ['procedure', 'path'], we match the first element
+      // Invalidate queries by key prefix
+      // TanStack Query's built-in prefix matching handles both formats:
+      // - Simple path: ['device', 'list'] matches all device.list queries
+      // - Full tRPC tuple: [['device', 'list'], { input: {...} }] matches exact query
       await Promise.all(
         invalidateKeys.map((key) =>
-          queryClient.invalidateQueries({
-            predicate: (query) => {
-              const queryKey = query.queryKey;
-              // Check if first element of query key matches our invalidation key
-              if (Array.isArray(queryKey) && Array.isArray(queryKey[0])) {
-                // tRPC format: [['device', 'list'], { input: {...} }]
-                return JSON.stringify(queryKey[0]) === JSON.stringify(key);
-              }
-              // Fallback to exact match for non-tRPC keys
-              return JSON.stringify(queryKey) === JSON.stringify(key);
-            }
-          })
+          queryClient.invalidateQueries({ queryKey: key })
         )
       );
     },

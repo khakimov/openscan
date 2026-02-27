@@ -68,6 +68,7 @@ function createBetterAuth(
     trustedOrigins: [
       'http://localhost:3000',
       'http://localhost:13000',
+      'http://localhost:13001',
       'https://sec.rocks',
     ],
     emailAndPassword: {

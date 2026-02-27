@@ -26,19 +26,19 @@
 
 ## Pause Schedule
 - **UI trigger**: `apps/user-application/src/components/shared/device-schedule-list.tsx:58` routes pause actions through `usePauseScheduleMutation`.
-- **Optimistic client update**: `apps/user-application/src/queries/schedule-queries.ts:122` swaps `status` → `PAUSED` in both list and detail caches before the server responds, rolling back on error.
+- **Inline optimistic update**: `apps/user-application/src/queries/schedule-queries.ts` swaps `status` → `PAUSED` in both list and detail caches before the server responds (Pattern 2 from `docs/optimistic-ui.md`), rolling back on error.
 - **tRPC pause handler**: `apps/user-application/src/trpc/routers/schedule.ts:313` updates DB via `pauseScanSchedule`, then tells Restate to pause timers with `restateScheduleClient.pauseSchedule`.
 - **Data-ops audit**: `packages/data-ops/src/queries/scan-schedules.ts:203` flips `isActive` false, stamps `pausedAt`, and writes a `PAUSED` event for history.
 
 ## Resume Schedule
 - **UI trigger**: `apps/user-application/src/components/shared/device-schedule-list.tsx:73` calls `useResumeScheduleMutation` when analysts hit “Resume”.
-- **Optimistic client update**: `apps/user-application/src/queries/schedule-queries.ts:183` restores `status: 'ACTIVE'` with failure counters cleared, giving instant feedback.
+- **Inline optimistic update**: `apps/user-application/src/queries/schedule-queries.ts` restores `status: 'ACTIVE'` with failure counters cleared (Pattern 2 from `docs/optimistic-ui.md`), giving instant feedback.
 - **tRPC resume workflow**: `apps/user-application/src/trpc/routers/schedule.ts:349` runs `resumeScanSchedule`, then `restateScheduleClient.resumeSchedule` to restart timers and return the next run timestamp.
 - **DB update**: `packages/data-ops/src/queries/scan-schedules.ts:237` resets pause metadata and logs a `RESUMED` event so auditors know why the schedule restarted.
 
 ## Delete Schedule
 - **UI confirm**: `apps/user-application/src/components/shared/device-schedule-list.tsx:93` opens a confirmation dialog before calling `useDeleteScheduleMutation`.
-- **Optimistic removal**: `apps/user-application/src/queries/schedule-queries.ts:244` leverages `createOptimisticScheduleDeleteHandlers` so the row disappears immediately while keeping rollback context.
+- **Simple invalidation**: `apps/user-application/src/queries/schedule-queries.ts` performs the delete and invalidates the schedule list on success. No optimistic delete needed—cleaner and less error-prone.
 - **tRPC deletion**: `apps/user-application/src/trpc/routers/schedule.ts:394` soft-deletes via `deleteScanSchedule` and instructs Restate to purge timers with `deleteSchedule`.
 - **Data-ops logging**: `packages/data-ops/src/queries/scan-schedules.ts:318` marks status `DELETED`, clears activity, and records an audit event.
 

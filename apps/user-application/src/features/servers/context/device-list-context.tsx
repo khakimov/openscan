@@ -14,7 +14,7 @@
  * - Lazy loading for device detail (Sheet only)
  */
 
-import { createContext, useContext, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useCallback, useMemo, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
 import type { TransformedDevice } from "@repo/contracts/device";
@@ -25,11 +25,19 @@ interface DeviceWithActiveScans extends TransformedDevice {
   activeScans: string[]; // Array of Restate workflow IDs
 }
 
+export interface DeviceCounts {
+  CANDIDATE: number;
+  VERIFIED: number;
+  EXCLUDED: number;
+  total: number;
+}
+
 interface DeviceListContextValue {
   devices: DeviceWithActiveScans[];
+  counts: DeviceCounts | undefined;
   isLoading: boolean;
   isFetching: boolean;
-  error: Error | null;
+  error: unknown;
   /** Manually refresh device list (e.g., after mutations) */
   refresh: () => Promise<void>;
   /** Get active scans for a specific device (from cached data) */
@@ -93,10 +101,13 @@ export function DeviceListProvider({
   const devices = devicesResponse?.items ?? [];
 
   // Build lookup map for O(1) access by child components
-  const activeScansByDevice = new Map<string, string[]>();
-  devices.forEach((device: DeviceWithActiveScans) => {
-    activeScansByDevice.set(device.id, device.activeScans ?? []);
-  });
+  const activeScansByDevice = useMemo(() => {
+    const map = new Map<string, string[]>();
+    devices.forEach((device: DeviceWithActiveScans) => {
+      map.set(device.id, device.activeScans ?? []);
+    });
+    return map;
+  }, [devices]);
 
   const getDeviceActiveScans = useCallback(
     (deviceId: string): string[] => {
@@ -119,11 +130,14 @@ export function DeviceListProvider({
     });
   }, [queryClient, trpc.device.listWithDetails, projectId, verificationStatus]);
 
+  const counts = devicesResponse?.counts;
+
   const value: DeviceListContextValue = {
     devices,
+    counts,
     isLoading,
     isFetching,
-    error: error ?? null,
+    error,
     refresh,
     getDeviceActiveScans,
     hasAnyActiveScans,
@@ -146,9 +160,10 @@ export function useDeviceList() {
 
 export function useDeviceActiveScans(deviceId: string) {
   const { getDeviceActiveScans, hasAnyActiveScans } = useDeviceList();
+  const activeScans = getDeviceActiveScans(deviceId);
   return {
-    activeScans: getDeviceActiveScans(deviceId),
-    hasActiveScans: getDeviceActiveScans(deviceId).length > 0,
+    activeScans,
+    hasActiveScans: activeScans.length > 0,
     hasAnyActiveScans,
   };
 }

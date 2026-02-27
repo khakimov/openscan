@@ -3,6 +3,7 @@ import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query
 import type { QueryClient } from "@tanstack/react-query";
 import type { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import type { inferRouterOutputs } from "@trpc/server";
+import type { OrganizationEntity, ProjectEntity } from "@repo/contracts/organization";
 
 import * as TanstackQuery from "./integrations/tanstack-query/root-provider";
 import { getServerEnvs } from "./server/get-envs";
@@ -13,8 +14,24 @@ import type { AppRouter } from "./trpc/router";
 import { routeTree } from "./routeTree.gen";
 
 /**
+ * Organization summary (minimal info from listOrganizations)
+ */
+export interface OrganizationSummary {
+  id: string;
+  name: string | null;
+  slug: string | null;
+  metadata: Record<string, {}> | null;
+}
+
+/**
  * Typed router context available to all routes
  * Cloudflare Workers pattern: Only includes options proxy (not raw client)
+ * 
+ * Route context inheritance:
+ * - __root.tsx: provides session
+ * - _app.tsx: provides organizations (OrganizationSummary[])
+ * - _app.$organizationId.tsx: provides organization (OrganizationEntity) + projects (ProjectEntity[])
+ * - _app.$organizationId.$projectId.tsx: provides project (ProjectEntity)
  */
 export interface RouterContext {
   queryClient: QueryClient;
@@ -23,6 +40,11 @@ export interface RouterContext {
   isSelfHosted: boolean;
   onboarding?: OnboardingStatus;
   session?: inferRouterOutputs<AppRouter>["auth"]["session"];
+  // Route-level data (inherited by child routes)
+  organizations?: OrganizationSummary[];
+  organization?: OrganizationEntity;
+  projects?: ProjectEntity[];
+  project?: ProjectEntity;
 }
 
 /**
@@ -30,6 +52,23 @@ export interface RouterContext {
  */
 export interface OnboardingRouteContext extends RouterContext {
   onboarding: OnboardingStatus;
+}
+
+/**
+ * Organization route context - guarantees organization and projects are present
+ * Available in: _app.$organizationId/* routes
+ */
+export interface OrganizationRouteContext extends RouterContext {
+  organization: OrganizationEntity;
+  projects: ProjectEntity[];
+}
+
+/**
+ * Project route context - guarantees project is present
+ * Available in: _app.$organizationId.$projectId/* routes
+ */
+export interface ProjectRouteContext extends OrganizationRouteContext {
+  project: ProjectEntity;
 }
 
 // Create a new router instance

@@ -12,7 +12,7 @@
 - **Delete**:
   - `trpc.device.remove` (`apps/user-application/src/trpc/routers/device.ts:276`) enforces session auth, verifies ownership with `getDeviceById`, and aborts with `NOT_FOUND` if missing.
   - Physical delete executes through `deleteDevice` (`packages/data-ops/src/queries/devices.ts:570`), scoped by organizationId to prevent cross-tenant removal.
-  - `useDeleteDeviceMutation` (`apps/user-application/src/queries/device-queries.ts:114`) performs the mutation with optimistic cache removal via `createOptimisticDeleteHandlers` (`apps/user-application/src/lib/optimistic-updates.ts:30`) and invalidates `deviceQueries.list.base` on settle.
+  - `useDeleteDeviceMutation` (`apps/user-application/src/queries/device-queries.ts`) performs the mutation and invalidates `deviceQueries.list.base` on success. No optimistic delete needed—simple invalidation is sufficient.
 
 - **Update**:
   - `trpc.device.update` (`apps/user-application/src/trpc/routers/device.ts:302`) zod-validates allowed fields (name, ip, scope, tags, notes) and ensures the caller belongs to the device’s organization.

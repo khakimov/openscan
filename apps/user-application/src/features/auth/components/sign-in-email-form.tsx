@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 
 import { authClient } from "@/lib/auth-client";
-import { InputWithLabel } from "@/components/shared/forms/input-with-label";
+import { InputWithLabel } from "@/components/shared/input-with-label";
 import { Button } from "@/components/ui/button";
 
 const validator = z.object({

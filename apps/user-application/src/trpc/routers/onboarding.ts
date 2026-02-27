@@ -48,7 +48,7 @@ export const onboardingRouter = createTRPCRouter({
     try {
 
       // Fetch organizations via Better Auth API
-      const auth = getAuth();
+      const auth = getAuth(ctx.env);
       const orgAPI = getOrganizationAPI(auth);
       const orgResult = await orgAPI.listOrganizations({
         headers: ctx.request.headers,
@@ -296,7 +296,7 @@ export const onboardingRouter = createTRPCRouter({
           timezone: input.timezone,
         });
 
-        const auth = getAuth();
+        const auth = getAuth(ctx.env);
         const orgAPI = getOrganizationAPI(auth);
 
         const result = await orgAPI.createOrganization({

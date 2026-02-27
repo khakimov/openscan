@@ -12,7 +12,8 @@ import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { useAppParams } from "@/hooks/use-app-params";
 import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
-import { useTRPC, useTRPCClient } from "@/integrations/trpc/react";
+import { useTRPCClient } from "@/integrations/trpc/react";
+import { projectQueries } from "@/queries/project-queries";
 
 // Form validation schema
 const AddProjectSchema = z.object({
@@ -42,7 +43,6 @@ export default function AddProject() {
 
   const navigate = useNavigate();
   const params = useAppParams();
-  const trpc = useTRPC();
   const trpcClient = useTRPCClient();
 
   // Create project mutation (using tRPC)
@@ -55,9 +55,9 @@ export default function AddProject() {
         description: data.description,
         domain: data.domain,
       }),
-    // Invalidate the tRPC query that fetches project list for this organization
+    // Invalidate the project list query for this organization
     invalidateKeys: [
-      trpc.project.listByOrg.queryOptions({ organizationId: params.organizationId }).queryKey,
+      projectQueries.listByOrg.key(params.organizationId),
     ],
     toastOnSuccess: false, // We'll show custom toast with navigation action
     onSuccess: async (response) => {

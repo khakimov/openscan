@@ -5,10 +5,9 @@ import {
 } from "@tanstack/react-router";
 import { Suspense } from "react";
 
-import { AppLayout } from "@/components/layout";
+import { AppLayout } from "@/components/layout/app-layout";
 import { Sidebar } from "@/components/layout/sidebar";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
-import { listOrganizations } from "@/server/organization";
 
 export const Route = createFileRoute("/_app")({
   beforeLoad: async ({ context, location }) => {
@@ -16,8 +15,11 @@ export const Route = createFileRoute("/_app")({
       throw redirect({ to: "/", search: { redirect: location.href } });
     }
 
-    // Check if user has completed onboarding (has at least one organization)
-    const organizations = await listOrganizations();
+    // OpenPanel pattern: Use tRPC queryOptions for organization list
+    // This ensures data is cached in React Query and can be invalidated by mutations
+    const { organizations } = await context.queryClient.ensureQueryData(
+      context.trpc.organization.list.queryOptions()
+    );
 
     if (organizations.length === 0) {
       // User signed in but hasn't completed onboarding - redirect to onboarding
@@ -25,7 +27,6 @@ export const Route = createFileRoute("/_app")({
     }
 
     // If user lands on /_app root without an org in URL, redirect to first org
-    // This handles direct navigation to /app or bookmark to old URLs
     if (location.pathname === '/_app' || location.pathname === '/_app/') {
       const firstOrg = organizations[0];
       const orgIdentifier = firstOrg.slug || firstOrg.id;
@@ -36,7 +37,11 @@ export const Route = createFileRoute("/_app")({
       });
     }
 
-    return { session: context.session };
+    // Pass organizations to all child routes
+    return { 
+      session: context.session,
+      organizations,
+    };
   },
   component: AppLayoutComponent,
 });

@@ -1,24 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
-import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
-
-/**
- * Pending component for project dashboard
- * Uses compact inline spinner to keep tabs visible
- */
-const ProjectDashboardPending = () => (
-  <Padding>
-    <div className="flex items-center mb-4">
-      <PageTabs>
-        <PageTabsLink to=".">
-          Dashboard
-        </PageTabsLink>
-      </PageTabs>
-    </div>
-    <PageLoadingFallback compact />
-  </Padding>
-);
+import { ProjectDashboardPending } from "@/components/shared/pending-shells";
+import type { ProjectRouteContext } from "@/router";
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/")({
   pendingComponent: ProjectDashboardPending,
@@ -27,7 +11,7 @@ export const Route = createFileRoute("/_app/$organizationId/$projectId/")({
 
 function ProjectDashboard() {
   // ✅ Get project from parent route context (via beforeLoad)
-  const { project } = Route.useRouteContext();
+  const { project } = Route.useRouteContext() as ProjectRouteContext;
 
   return (
     <Padding>

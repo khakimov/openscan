@@ -103,7 +103,7 @@ export const organizationRouter = createTRPCRouter({
    */
   list: protectedProcedure.query(async ({ ctx }) => {
     try {
-      const auth = getAuth();
+      const auth = getAuth(ctx.env);
       const orgAPI = getOrganizationAPI(auth);
 
       // Better-auth organization API uses request context for session
@@ -159,7 +159,7 @@ export const organizationRouter = createTRPCRouter({
     .input(z.object({ organizationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
-        const auth = getAuth();
+        const auth = getAuth(ctx.env);
         const orgAPI = getOrganizationAPI(auth);
 
         logger.info('Setting active organization', {

@@ -17,8 +17,7 @@ import {
   PlusIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
-import { useAppParams } from "@/hooks/use-app-params";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { pushModal } from "@/modals";
 import { getProjectDefaultRouteParams } from "@/lib/navigation";
 
@@ -34,12 +33,12 @@ interface SelectorProject extends SelectorEntity {
   description?: string | null;
 }
 
-interface LayoutProjectSelectorProps {
+export interface LayoutProjectSelectorProps {
   align?: SelectorAlignment;
   projects?: SelectorProject[];
   organizations?: SelectorEntity[];
   tenant?: SelectorEntity | null;
-  isLoading?: boolean;
+  activeProjectId?: string;
 }
 
 export function LayoutProjectSelector({
@@ -47,15 +46,13 @@ export function LayoutProjectSelector({
   projects = [],
   organizations = [],
   tenant = null,
-  isLoading = false,
+  activeProjectId,
 }: LayoutProjectSelectorProps) {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const params = useAppParams();
+  const params = useParams({ strict: false });
   const setActiveOrganization = useSetActiveOrganizationMutation();
 
-  // Get active project from URL params (if on project-scoped route)
-  const activeProjectId = params.projectId;
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0];
 
   const activeOrganizationId = useMemo(
@@ -64,10 +61,6 @@ export function LayoutProjectSelector({
   );
 
   const organizationDisplayName = useMemo(() => {
-    if (isLoading) {
-      return "Loading…";
-    }
-
     if (tenant?.name) {
       return tenant.name;
     }
@@ -75,28 +68,11 @@ export function LayoutProjectSelector({
     const matchedOrg = organizations.find(
       (org) => org.id === activeOrganizationId,
     );
-    if (matchedOrg?.name) {
-      return matchedOrg.name;
-    }
+    return matchedOrg?.name ?? organizations[0]?.name ?? "No organization";
+  }, [activeOrganizationId, organizations, tenant?.name]);
 
-    if (organizations[0]?.name) {
-      return organizations[0].name;
-    }
-
-    return "No organization";
-  }, [activeOrganizationId, isLoading, organizations, tenant?.name]);
-
-  const projectDisplayName = useMemo(() => {
-    if (isLoading) {
-      return "Loading…";
-    }
-
-    if (activeProject?.name) {
-      return activeProject.name;
-    }
-
-    return "No project";
-  }, [activeProject?.name, isLoading]);
+  const projectDisplayName = activeProject?.name ?? "No project";
+  const isLoading = !tenant;
 
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
@@ -111,9 +87,7 @@ export function LayoutProjectSelector({
         >
           <Building2Icon size={16} className="shrink-0" />
           <span className="mx-2 truncate">
-            {activeProjectId
-              ? projectDisplayName
-              : organizationDisplayName}
+            {activeProjectId ? projectDisplayName : organizationDisplayName}
           </span>
           <ChevronsUpDownIcon className="ml-auto h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -122,9 +96,7 @@ export function LayoutProjectSelector({
         <DropdownMenuLabel>Organizations</DropdownMenuLabel>
         <DropdownMenuGroup>
           {organizations.length === 0 ? (
-            <DropdownMenuItem disabled>
-              {isLoading ? "Loading…" : "No organizations"}
-            </DropdownMenuItem>
+            <DropdownMenuItem disabled>No organizations</DropdownMenuItem>
           ) : (
             organizations.map((organization) => (
               <DropdownMenuItem
@@ -153,9 +125,7 @@ export function LayoutProjectSelector({
         <DropdownMenuLabel>Projects</DropdownMenuLabel>
         <DropdownMenuGroup>
           {projects.length === 0 ? (
-            <DropdownMenuItem disabled>
-              {isLoading ? "Loading…" : "No projects"}
-            </DropdownMenuItem>
+            <DropdownMenuItem disabled>No projects</DropdownMenuItem>
           ) : (
             projects.map((project) => (
               <DropdownMenuItem
@@ -163,8 +133,6 @@ export function LayoutProjectSelector({
                 className="flex items-center gap-2"
                 onSelect={() => {
                   setOpen(false);
-
-                  // Navigate to project default route when switching projects
                   const orgIdentifier = tenant?.slug || tenant?.id || params.organizationId;
                   if (orgIdentifier && project.id) {
                     navigate({

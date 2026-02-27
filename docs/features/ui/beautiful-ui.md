@@ -577,26 +577,26 @@ function MyComponent() {
 }
 ```
 
-### Pattern 3: Optimistic Delete
+### Pattern 3: Simple Invalidation (Default)
+
+For deletes and most mutations, simple invalidation is cleaner than optimistic updates:
 
 ```typescript
-// Already implemented in device-queries.ts!
+// Current simplified approach in device-queries.ts
 export const useDeleteDeviceMutation = () => {
+  const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  const optimistic = createOptimisticDeleteHandlers([
-    ['devices'], // Update all device list queries
-  ]);
-
   return useMutation({
-    mutationFn: deleteDevice,
-    onMutate: (variables) => optimistic.onMutate(variables, queryClient),
-    onError: (err, variables, context) =>
-      optimistic.onError(err, variables, context, queryClient),
-    onSettled: () => optimistic.onSettled(queryClient),
+    ...trpc.device.remove.mutationOptions(),
+    onSuccess: () => {
+      queryClient.invalidateQueries(trpc.device.list.pathFilter());
+    },
   });
 };
 ```
+
+See `docs/optimistic-ui.md` for the complete guide on when to use optimistic updates vs simple invalidation.
 
 ---
 

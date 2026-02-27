@@ -1,11 +1,23 @@
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
-import { useBreakpoint } from '@/hooks/useBreakpoint';
 import { subMonths } from 'date-fns';
-import { useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 
 import { popModal } from '.';
 import { ModalContent, ModalHeader } from './Modal/Container';
+
+// Inline simple breakpoint check instead of 37-line hook
+function useIsBelowSm() {
+  return useSyncExternalStore(
+    (callback) => {
+      const mq = window.matchMedia('(max-width: 639px)');
+      mq.addEventListener('change', callback);
+      return () => mq.removeEventListener('change', callback);
+    },
+    () => window.matchMedia('(max-width: 639px)').matches,
+    () => false
+  );
+}
 
 type Props = {
   onChange: (payload: { startDate: Date; endDate: Date }) => void;
@@ -18,7 +30,7 @@ export default function DateRangerPicker({
   startDate: initialStartDate,
   endDate: initialEndDate,
 }: Props) {
-  const { isBelowSm } = useBreakpoint('sm');
+  const isBelowSm = useIsBelowSm();
   const [startDate, setStartDate] = useState(initialStartDate);
   const [endDate, setEndDate] = useState(initialEndDate);
 

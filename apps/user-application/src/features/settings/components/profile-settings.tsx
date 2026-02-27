@@ -5,8 +5,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { InputWithLabel } from '@/components/shared/forms/input-with-label'
-import { Widget, WidgetBody, WidgetHead } from '@/components/ui/widget'
+import { InputWithLabel } from '@/components/shared/input-with-label'
 
 interface ProfileSettingsProps {
   user: any
@@ -91,11 +90,11 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
     <section className="max-w-screen-sm space-y-6">
       {/* Profile Information */}
       <form onSubmit={handleSubmit(onSubmitProfile)}>
-        <Widget>
-          <WidgetHead>
+        <div className="rounded-lg border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <span className="title">Profile Information</span>
-          </WidgetHead>
-          <WidgetBody className="space-y-4">
+          </div>
+          <div className="p-6 space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <InputWithLabel
                 label="First Name"
@@ -134,17 +133,17 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                 Save Profile
               </Button>
             </div>
-          </WidgetBody>
-        </Widget>
+          </div>
+        </div>
       </form>
 
       {/* Change Password */}
       <form onSubmit={handleSubmit(onSubmitPassword)}>
-        <Widget>
-          <WidgetHead>
+        <div className="rounded-lg border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <span className="title">Change Password</span>
-          </WidgetHead>
-          <WidgetBody className="space-y-4">
+          </div>
+          <div className="p-6 space-y-4">
             <InputWithLabel
               label="Current Password"
               type="password"
@@ -185,16 +184,16 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
                 Update Password
               </Button>
             </div>
-          </WidgetBody>
-        </Widget>
+          </div>
+        </div>
       </form>
 
       {/* Account Actions */}
-      <Widget>
-        <WidgetHead>
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <span className="title">Account Actions</span>
-        </WidgetHead>
-        <WidgetBody>
+        </div>
+        <div className="p-6">
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-foreground mb-2">
@@ -222,8 +221,8 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
               </Button>
             </div>
           </div>
-        </WidgetBody>
-      </Widget>
+        </div>
+      </div>
     </section>
   )
 }

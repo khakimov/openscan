@@ -4,62 +4,19 @@ import {
   notFound,
   redirect,
 } from "@tanstack/react-router";
-import { Spinner } from "@/components/ui/spinner";
-import { getOrganization, syncActiveOrganization } from "@/server/organization";
-
-// Reserved organization IDs that cannot be used (minimal approach from OpenPanel)
-const RESERVED_ORGANIZATION_IDS = [
-  "api", // API routes
-  "onboarding", // Onboarding flow
-  "login", // Auth routes
-  ".well-known", // OIDC/security standards
-];
-
-// File extensions to block from routing
-const FILE_EXTENSIONS = [
-  "jpg",
-  "jpeg",
-  "png",
-  "gif",
-  "bmp",
-  "tiff",
-  "ico", // Images
-  "js",
-  "xml",
-  "txt",
-  "json",
-  "webmanifest", // Static files
-  "css",
-  "map",
-  "woff",
-  "woff2",
-  "ttf",
-  "eot", // Fonts
-];
-
-/**
- * Check if path looks like a static file request
- */
-const isStaticFile = (path: string): boolean => {
-  return FILE_EXTENSIONS.some((extension) => path.endsWith(`.${extension}`));
-};
-
-/**
- * Pending shell for organization route
- * Shows centered spinner while organization loader resolves
- * Keeps parent layout (_app) mounted
- */
-const OrganizationPendingShell = () => (
-  <div className="flex h-[60vh] items-center justify-center">
-    <Spinner size="md" wait="delay-200" />
-  </div>
-);
+import { syncActiveOrganization } from "@/server/organization";
+import type { OrganizationRouteContext } from "@/router";
+import {
+  isReservedOrganizationId,
+  isStaticFile,
+} from "@/lib/reserved-ids";
+import { OrganizationPendingShell } from "@/components/shared/pending-shells";
 
 export const Route = createFileRoute("/_app/$organizationId")({
   pendingComponent: OrganizationPendingShell,
   beforeLoad: async ({ params, location, context }) => {
     // Block reserved organization IDs
-    if (RESERVED_ORGANIZATION_IDS.includes(params.organizationId)) {
+    if (isReservedOrganizationId(params.organizationId)) {
       throw notFound();
     }
 
@@ -70,8 +27,17 @@ export const Route = createFileRoute("/_app/$organizationId")({
 
     const identifier = params.organizationId;
 
-    // ✅ Fetch organization and add to context for child routes
-    const organization = await getOrganization({ data: identifier });
+    // OpenPanel pattern: Use tRPC queryOptions for organization data
+    // This ensures data is cached in React Query and can be invalidated by mutations
+    const organization = await context.queryClient.ensureQueryData(
+      context.trpc.organization.get.queryOptions({ organizationId: identifier })
+    );
+
+    // Fetch projects using the resolved organization ID (not the slug)
+    // Projects are stored with organizationId, not slug
+    const projects = await context.queryClient.ensureQueryData(
+      context.trpc.project.listByOrg.queryOptions({ organizationId: organization.id })
+    ).catch(() => []);
 
     // Redirect from ID to slug for cleaner URLs
     if (organization.slug && identifier === organization.id) {
@@ -84,14 +50,10 @@ export const Route = createFileRoute("/_app/$organizationId")({
       });
     }
 
-    // ✅ Sync URL organization → session (if different)
-    // This ensures deep links work immediately and session stays in sync with navigation
+    // Sync URL organization → session (if different)
     const session = context.session?.session;
     const currentSessionOrgId = session?.activeOrganizationId;
 
-    // Only sync if:
-    // 1. User is authenticated (has session)
-    // 2. URL org differs from session org
     if (session && currentSessionOrgId !== organization.id) {
       await syncActiveOrganization({
         data: {
@@ -101,16 +63,15 @@ export const Route = createFileRoute("/_app/$organizationId")({
       });
     }
 
-    // ✅ Return organization in context for child routes to access
+    // Return organization and projects in context for child routes
     return {
       organization,
-    };
+      projects,
+    } satisfies Pick<OrganizationRouteContext, "organization" | "projects">;
   },
   component: OrganizationLayout,
 });
 
 function OrganizationLayout() {
-  // Organization is guaranteed by beforeLoad (throws if not found)
-  // No guard needed - just render children
   return <Outlet />;
 }

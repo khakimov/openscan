@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" class="dark" suppressHydrationWarning>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>sec.rocks | Continuous Attack Surface Monitoring</title>
+    <meta name="description" content="Proactive security for teams of any size. Discover vulnerabilities, monitor your attack surface, and prevent breaches." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/site.webmanifest" />
+    <script>
+      ;(() => {
+        try {
+          var storageKey = "ui-theme";
+          var stored = window.localStorage ? window.localStorage.getItem(storageKey) : null;
+          var resolved = stored || "system";
+          if (resolved === "system") {
+            resolved = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+          }
+          if (resolved !== "dark" && resolved !== "light") resolved = "dark";
+          var root = document.documentElement;
+          root.classList.remove("light", "dark");
+          root.classList.add(resolved);
+        } catch (err) {}
+      })();
+    </script>
+  </head>
+  <body class="font-[family-name:var(--font-family-regular)]">
+    <div id="app"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,247 @@
+/**
+ * @deprecated This file is deprecated and will be removed. See docs/optimistic-ui.md for the new simplified patterns.
+ * 
+ * The new approach:
+ * - Pattern 1: Simple invalidation on success (for 80% of mutations)
+ * - Pattern 2: Inline optimistic updates when actually needed (10-15 lines, no abstractions)
+ * 
+ * Do not use createOptimisticDeleteHandlers or createOptimisticScheduleDeleteHandlers.
+ * They are over-engineered for our use case.
+ */
+
+import type { QueryClient, QueryKey } from '@tanstack/react-query';
+
+/**
+ * Optimistic update helpers for TanStack Query mutations
+ * Based on TanStack Query best practices for optimistic updates
+ *
+ * @see https://tanstack.com/query/latest/docs/framework/react/guides/optimistic-updates
+ */
+
+/**
+ * Creates optimistic delete handlers for mutations
+ *
+ * Handles:
+ * - Cancel in-flight queries to prevent race conditions
+ * - Snapshot previous state for rollback
+ * - Optimistically remove item from cache
+ * - Rollback on error
+ * - Refetch after completion
+ *
+ * **tRPC Support**: Now works with tRPC tuple keys like `[['device', 'list'], { input, type }]`
+ * by using `getQueriesData` / `setQueriesData` with partial matching.
+ *
+ * @param queryKeys - Array of query keys to update (supports both legacy and tRPC tuple keys)
+ * @returns Object with onMutate, onError, onSettled handlers to spread into useMutation
+ *
+ * @example
+ * ```ts
+ * // Legacy key format
+ * const optimistic = createOptimisticDeleteHandlers([['devices']]);
+ *
+ * // tRPC tuple key format
+ * const optimistic = createOptimisticDeleteHandlers([
+ *   [['device', 'list']]  // Partial key matches all device list queries
+ * ]);
+ *
+ * export const useDeleteDeviceMutation = () => {
+ *   const queryClient = useQueryClient();
+ *   return useMutation({
+ *     mutationFn: deleteDevice,
+ *     onMutate: (vars) => optimistic.onMutate(vars, queryClient),
+ *     onError: (err, vars, ctx) => optimistic.onError(err, vars, ctx, queryClient),
+ *     onSettled: () => optimistic.onSettled(queryClient),
+ *   });
+ * };
+ * ```
+ */
+export const createOptimisticDeleteHandlers = <T extends { id: string }>(
+  queryKeys: readonly QueryKey[],
+) => ({
+  /**
+   * onMutate: Run before mutation executes
+   * - Cancel queries to prevent race conditions
+   * - Snapshot current data for rollback
+   * - Optimistically update cache (remove item)
+   */
+  onMutate: async (
+    variables: { deviceId?: string; id?: string },
+    queryClient: QueryClient,
+  ) => {
+    // Support both {deviceId} and {id} patterns
+    const id = variables.deviceId || variables.id;
+    if (!id) {
+      console.warn('createOptimisticDeleteHandlers: No id found in variables', variables);
+      return;
+    }
+
+    // Cancel any outgoing refetches (prevent race conditions)
+    await Promise.all(queryKeys.map((key) => queryClient.cancelQueries({ queryKey: key })));
+
+    // Snapshot the previous values for ALL matching query keys
+    // Use getQueriesData for tRPC tuple key support (partial matching)
+    const snapshots = queryKeys.flatMap((key) =>
+      queryClient.getQueriesData({ queryKey: key }).map(([queryKey, data]) => ({
+        key: queryKey,
+        data,
+      }))
+    );
+
+    // Optimistically remove the item from ALL matching query caches
+    queryKeys.forEach((key) => {
+      queryClient.setQueriesData({ queryKey: key }, (old: any) => {
+        if (!old) return old;
+
+        // Handle both array format and { items: [] } format
+        const items = Array.isArray(old) ? old : old.items;
+        if (!items) return old;
+
+        const filtered = items.filter((item: T) => item.id !== id);
+
+        // Return in same format as input
+        return Array.isArray(old) ? filtered : { ...old, items: filtered };
+      });
+    });
+
+    // Return context for onError and onSettled
+    return { snapshots, deletedId: id };
+  },
+
+  /**
+   * onError: Run if mutation fails
+   * - Rollback to snapshot
+   */
+  onError: (
+    _err: unknown,
+    _variables: unknown,
+    context: { snapshots?: Array<{ key: readonly unknown[]; data: unknown }> } | undefined,
+    queryClient: QueryClient,
+  ) => {
+    // Rollback: restore all snapshots (works with both exact and partial keys)
+    context?.snapshots?.forEach(({ key, data }) => {
+      queryClient.setQueryData(key as unknown[], data);
+    });
+  },
+
+  /**
+   * onSettled: Run after mutation completes (success or error)
+   * - Refetch to ensure consistency with server
+   */
+  onSettled: (queryClient: QueryClient) => {
+    // Invalidate all queries to refetch from server (partial matching works for tRPC keys)
+    queryKeys.forEach((key) => {
+      queryClient.invalidateQueries({ queryKey: key });
+    });
+  },
+});
+
+/**
+ * Creates optimistic delete handlers for schedules (uses scheduleId instead of id)
+ *
+ * Same as createOptimisticDeleteHandlers but matches on scheduleId field
+ *
+ * **tRPC Support**: Now works with tRPC tuple keys by using `getQueriesData` / `setQueriesData`
+ *
+ * @param queryKeys - Array of query keys to update (supports both legacy and tRPC tuple keys)
+ * @returns Object with onMutate, onError, onSettled handlers to spread into useMutation
+ *
+ * @example
+ * ```ts
+ * const optimistic = createOptimisticScheduleDeleteHandlers([['schedules']]);
+ *
+ * export const useDeleteScheduleMutation = () => {
+ *   const queryClient = useQueryClient();
+ *   return useMutation({
+ *     mutationFn: deleteSchedule,
+ *     onMutate: (vars) => optimistic.onMutate(vars, queryClient),
+ *     onError: (err, vars, ctx) => optimistic.onError(err, vars, ctx, queryClient),
+ *     onSettled: () => optimistic.onSettled(queryClient),
+ *   });
+ * };
+ * ```
+ */
+export const createOptimisticScheduleDeleteHandlers = <T extends { scheduleId: string }>(
+  queryKeys: readonly QueryKey[],
+) => ({
+  /**
+   * onMutate: Run before mutation executes
+   * - Cancel queries to prevent race conditions
+   * - Snapshot current data for rollback
+   * - Optimistically update cache (remove schedule)
+   */
+  onMutate: async (
+    variables: { scheduleId: string },
+    queryClient: QueryClient,
+  ) => {
+    const { scheduleId } = variables;
+    if (!scheduleId) {
+      console.warn('createOptimisticScheduleDeleteHandlers: No scheduleId found in variables', variables);
+      return;
+    }
+
+    // Cancel any outgoing refetches (prevent race conditions)
+    await Promise.all(queryKeys.map((key) => queryClient.cancelQueries({ queryKey: key })));
+
+    // Snapshot the previous values for ALL matching query keys
+    // Use getQueriesData for tRPC tuple key support (partial matching)
+    const snapshots = queryKeys.flatMap((key) =>
+      queryClient.getQueriesData({ queryKey: key }).map(([queryKey, data]) => ({
+        key: queryKey,
+        data,
+      }))
+    );
+
+    // Optimistically remove the schedule from ALL matching query caches
+    queryKeys.forEach((key) => {
+      queryClient.setQueriesData({ queryKey: key }, (old: any) => {
+        if (!old) return old;
+
+        // Handle both array format and { items: [] } format
+        const items = Array.isArray(old) ? old : old.schedules || old.items;
+        if (!items) return old;
+
+        const filtered = items.filter((item: T) => item.scheduleId !== scheduleId);
+
+        // Return in same format as input
+        if (Array.isArray(old)) {
+          return filtered;
+        } else if (old.schedules) {
+          return { ...old, schedules: filtered };
+        } else {
+          return { ...old, items: filtered };
+        }
+      });
+    });
+
+    // Return context for onError and onSettled
+    return { snapshots, deletedScheduleId: scheduleId };
+  },
+
+  /**
+   * onError: Run if mutation fails
+   * - Rollback to snapshot
+   */
+  onError: (
+    _err: unknown,
+    _variables: unknown,
+    context: { snapshots?: Array<{ key: readonly unknown[]; data: unknown }> } | undefined,
+    queryClient: QueryClient,
+  ) => {
+    // Rollback: restore all snapshots (works with both exact and partial keys)
+    context?.snapshots?.forEach(({ key, data }) => {
+      queryClient.setQueryData(key as unknown[], data);
+    });
+  },
+
+  /**
+   * onSettled: Run after mutation completes (success or error)
+   * - Refetch to ensure consistency with server
+   */
+  onSettled: (queryClient: QueryClient) => {
+    // Invalidate all queries to refetch from server (partial matching works for tRPC keys)
+    queryKeys.forEach((key) => {
+      queryClient.invalidateQueries({ queryKey: key });
+    });
+  },
+});
+

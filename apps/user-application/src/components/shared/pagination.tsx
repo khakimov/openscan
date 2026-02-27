@@ -5,21 +5,13 @@ import {
   ChevronsLeftIcon,
 } from "lucide-react";
 import type { Dispatch, SetStateAction } from "react";
-import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
 
-export function usePagination(take: number) {
-  const [page, setPage] = useState(0);
-  return {
-    take,
-    skip: page * take,
-    setPage,
-    page,
-    paginate: <T,>(data: T[]): T[] =>
-      data.slice(page * take, (page + 1) * take),
-  };
-}
+// usePagination hook removed - inline the simple logic instead:
+// const [page, setPage] = useState(0);
+// const skip = page * take;
+// const paginated = data.slice(page * take, (page + 1) * take);
 
 export function Pagination({
   take,

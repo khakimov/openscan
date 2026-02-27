@@ -1,7 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 import { useTRPCClient } from '@/integrations/trpc/react';
-import { onboardingStatusQueryKey } from '@/queries/onboarding-queries';
+import { onboardingQueries, organizationQueries } from './organization-queries';
+import { projectQueries } from './project-queries';
+
+// Re-export for convenience
+export { onboardingQueries, organizationQueries, projectQueries };
 
 /**
  * Organization Mutation Hooks (OpenPanel tRPC pattern)
@@ -17,7 +21,11 @@ export const useCompleteOnboardingMutation = () => {
     mutationFn: (data: { organizationId: string }) =>
       trpcClient.onboarding.completeOnboarding.mutate(data),
     successMessage: 'Onboarding completed successfully!',
-    invalidateKeys: [onboardingStatusQueryKey()],
+    invalidateKeys: [
+      onboardingQueries.status.base,
+      organizationQueries.list.base,
+      organizationQueries.detail.base,
+    ],
   });
 };
 
@@ -29,12 +37,16 @@ export const useCreateOrganizationMutation = () => {
     mutationFn: (data: { name: string; slug?: string; timezone?: string }) =>
       trpcClient.onboarding.createOrganization.mutate(data),
     successMessage: (response) => `Organization "${response.organization.name}" created`,
-    invalidateKeys: [['organizations'], onboardingStatusQueryKey()],
+    invalidateKeys: [
+      onboardingQueries.status.base,
+      organizationQueries.list.base,
+    ],
   });
 };
 
 export const useCreateProjectMutation = () => {
   const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
 
   return useMutationWithToast({
     mutationKey: ['project', 'create'],
@@ -46,21 +58,37 @@ export const useCreateProjectMutation = () => {
     }) => trpcClient.onboarding.createProject.mutate(data),
     successMessage: (response) => `Project "${response.project.name}" created`,
     invalidateKeys: [
-      ['organizations'], // Invalidate all org-scoped data
-      onboardingStatusQueryKey(),
+      onboardingQueries.status.base,
+      organizationQueries.list.base,
     ],
+    onSuccess: async (_data, variables) => {
+      // Also invalidate the specific project list for this organization
+      await queryClient.invalidateQueries({
+        queryKey: projectQueries.listByOrg.key(variables.organizationId),
+      });
+    },
   });
 };
 
 export const useUpdateOrganizationMutation = () => {
   const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
 
   return useMutationWithToast({
     mutationKey: ['organization', 'update'],
     mutationFn: (data: { organizationId: string; name: string; timezone?: string | null }) =>
       trpcClient.onboarding.updateOrganization.mutate(data),
     successMessage: 'Organization updated successfully',
-    invalidateKeys: [['organizations'], onboardingStatusQueryKey()],
+    invalidateKeys: [
+      onboardingQueries.status.base,
+      organizationQueries.list.base,
+    ],
+    onSuccess: async (_data, variables) => {
+      // Invalidate the specific organization detail
+      await queryClient.invalidateQueries({
+        queryKey: organizationQueries.detail.key(variables.organizationId),
+      });
+    },
   });
 };
 
@@ -71,10 +99,13 @@ export const useSetActiveOrganizationMutation = () => {
   return useMutation({
     mutationFn: (organizationId: string) =>
       trpcClient.organization.setActive.mutate({ organizationId }),
-    onSuccess: () => {
-      // Invalidate organization list to refresh activeOrganizationId
+    onSuccess: (_data, organizationId) => {
+      // Invalidate organization queries to refresh activeOrganizationId
       queryClient.invalidateQueries({
-        queryKey: ['organizations'],
+        queryKey: organizationQueries.list.base,
+      });
+      queryClient.invalidateQueries({
+        queryKey: organizationQueries.detail.key(organizationId),
       });
     },
   });

@@ -4,6 +4,7 @@ import { protectedProcedure, createTRPCRouter } from '../trpc';
 import type { TrpcContext } from '../trpc';
 import {
   getDevicesForTenant,
+  getDeviceCounts,
   validateProjectAccess,
   getOrganizationIdFromProject,
   getDeviceById,
@@ -23,7 +24,7 @@ import {
   type ScanPresetType,
   getScanPresetDescription,
 } from '@/server/devices/scan-presets';
-import { startPortScanWorkflow } from '@/server/discovery';
+import { startPortScanWorkflow, getActiveDeviceScans } from '@/server/discovery/index';
 // Note: Using batch getActiveScansForDevices from @repo/data-ops instead of individual getActiveDeviceScans
 import { notifyServerPromoted } from '@/server/notifications/notify-server-promoted';
 import { createLogger } from '@repo/logger';
@@ -110,6 +111,27 @@ export const deviceRouter = createTRPCRouter({
     }),
 
   /**
+   * Get device counts by verification status
+   * Lightweight endpoint for tab counters (no device data)
+   */
+  counts: protectedProcedure
+    .input(z.object({
+      projectId: z.string().optional(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const user = ctx.user;
+      const organizationId = requireOrganizationId(ctx);
+
+      // If projectId provided, validate access
+      if (input.projectId) {
+        await validateProjectAccess(user.id, input.projectId, organizationId);
+      }
+
+      const counts = await getDeviceCounts(organizationId, input.projectId);
+      return counts;
+    }),
+
+  /**
    * List devices with details (activeScans + scanHistory) - optimized query
    * Reduces N+1 queries by fetching all related data upfront
    */
@@ -158,15 +180,18 @@ export const deviceRouter = createTRPCRouter({
         organizationId = requireOrganizationId(ctx);
       }
 
-      // Fetch devices using data-ops
-      const devicesResponse = await getDevicesForTenant(organizationId, {
-        page: input.page,
-        pageSize: input.pageSize,
-        sortColumn: input.sortColumn,
-        sortDirection: input.sortDirection,
-        verificationStatus: input.verificationStatus,
-        projectId,
-      });
+      // Fetch devices, counts, and active scans in parallel
+      const [devicesResponse, counts] = await Promise.all([
+        getDevicesForTenant(organizationId, {
+          page: input.page,
+          pageSize: input.pageSize,
+          sortColumn: input.sortColumn,
+          sortDirection: input.sortDirection,
+          verificationStatus: input.verificationStatus,
+          projectId,
+        }),
+        getDeviceCounts(organizationId, projectId),
+      ]);
 
       // Fetch active scans and history for all devices in parallel
       const deviceIds = devicesResponse.items.map((d: { id: string }) => d.id);
@@ -207,6 +232,7 @@ export const deviceRouter = createTRPCRouter({
       return {
         ...devicesResponse,
         items: enrichedItems,
+        counts,
       };
     }),
 
@@ -532,24 +558,21 @@ export const deviceRouter = createTRPCRouter({
           return JSON.stringify(oldValue) !== JSON.stringify(newValue);
         });
 
-        if (changedFields.length > 0) {
+        // Log manual edit notifications for each changed field
+        for (const field of changedFields) {
+          const oldValue = String((currentDevice as any)[field] ?? '');
+          const newValue = String(input.updates[field as keyof typeof input.updates] ?? '');
           await logManualEdit({
             deviceId: input.deviceId,
             deviceName: updatedDevice.name || updatedDevice.ip || input.deviceId,
             organizationId,
-            userId: ctx.user.id,
-            userEmail: ctx.user.email || 'unknown',
-            changedFields,
-            changes: Object.fromEntries(
-              changedFields.map((field) => [
-                field,
-                {
-                  from: (currentDevice as any)[field],
-                  to: input.updates[field as keyof typeof input.updates],
-                },
-              ])
-            ),
+            fieldChanged: field,
+            oldValue,
+            newValue,
+            editedBy: ctx.user.email || ctx.user.id,
           });
+        }
+        if (changedFields.length > 0) {
           logger.info('Manual edit notification logged', {
             deviceId: input.deviceId,
             changedFields,

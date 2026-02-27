@@ -5,8 +5,7 @@ import { useForm } from 'react-hook-form'
 import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { InputWithLabel } from '@/components/shared/forms/input-with-label'
-import { Widget, WidgetBody, WidgetHead } from '@/components/ui/widget'
+import { InputWithLabel } from '@/components/shared/input-with-label'
 
 interface OrganizationForm {
   name: string
@@ -44,11 +43,11 @@ export function OrganizationSettings() {
   return (
     <section className="max-w-screen-sm space-y-6">
       <form onSubmit={handleSubmit(onSubmit)}>
-        <Widget>
-          <WidgetHead>
+        <div className="rounded-lg border border-border bg-card shadow-sm">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <span className="title">Organization Details</span>
-          </WidgetHead>
-          <WidgetBody className="space-y-4">
+          </div>
+          <div className="p-6 space-y-4">
             <InputWithLabel
               label="Organization Name"
               placeholder="Enter organization name"
@@ -81,15 +80,15 @@ export function OrganizationSettings() {
                 Save Changes
               </Button>
             </div>
-          </WidgetBody>
-        </Widget>
+          </div>
+        </div>
       </form>
 
-      <Widget>
-        <WidgetHead>
+      <div className="rounded-lg border border-border bg-card shadow-sm">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <span className="title">Danger Zone</span>
-        </WidgetHead>
-        <WidgetBody>
+        </div>
+        <div className="p-6">
           <div className="space-y-4">
             <div>
               <h4 className="text-sm font-medium text-foreground mb-2">
@@ -103,8 +102,8 @@ export function OrganizationSettings() {
               </Button>
             </div>
           </div>
-        </WidgetBody>
-      </Widget>
+        </div>
+      </div>
     </section>
   )
 }

@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { PageTabs, PageTabsLink } from "@/components/navigation/page-tabs";
-import { ScansTable } from "@/features/scans";
+import { ScansTable } from "@/features/scans/components/table";
 import { fallback, zodValidator } from "@tanstack/zod-adapter";
 import { z } from "zod";
 import { PageLoadingFallback } from "@/components/shared/page-loading-fallback";
 import { Suspense } from "react";
-import { OverviewRange } from "@/features/overview";
+import { OverviewRange } from "@/features/overview/components/overview-range";
 
 // Search params schema with proper validation
 const scansSearchSchema = z.object({
