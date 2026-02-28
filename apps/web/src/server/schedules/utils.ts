@@ -1,10 +1,5 @@
 import type { ScheduleInterval } from '@repo/data-ops';
-
-/**
- * Restate configuration values (env-backed)
- */
-const RESTATE_INGRESS_URL = process.env.RESTATE_INGRESS_URL || 'http://localhost:8080';
-const RESTATE_API_KEY = process.env.RESTATE_API_KEY || '';
+import { getRestateUrl, getRestateApiKey, type EnvBindings } from '@/lib/config';
 
 type ScheduleFrequency =
   | 'EVERY_30_MINUTES'
@@ -21,14 +16,16 @@ export class RestateScheduleClient {
   private readonly baseUrl: string;
   private readonly headers: HeadersInit;
 
-  constructor(baseUrl = RESTATE_INGRESS_URL, apiKey = RESTATE_API_KEY) {
-    this.baseUrl = baseUrl;
+  constructor(baseUrl?: string, apiKey?: string, env?: EnvBindings) {
+    // Use lazy evaluation to get env values at call time, not module load time
+    this.baseUrl = baseUrl ?? getRestateUrl(env);
     this.headers = {
       'Content-Type': 'application/json',
     };
 
-    if (apiKey) {
-      this.headers['Authorization'] = `Bearer ${apiKey}`;
+    const key = apiKey ?? getRestateApiKey(env);
+    if (key) {
+      this.headers['Authorization'] = `Bearer ${key}`;
     }
   }
 
@@ -146,9 +143,12 @@ export class RestateScheduleClient {
 }
 
 /**
- * Singleton Restate client used by schedule server functions.
+ * Factory for Restate schedule client.
+ * Creates a new instance per call to ensure env bindings are fresh (Cloudflare Workers).
  */
-export const restateScheduleClient = new RestateScheduleClient();
+export function getRestateScheduleClient(env?: EnvBindings) {
+  return new RestateScheduleClient(undefined, undefined, env);
+}
 
 /**
  * Server-controlled frequency mapping

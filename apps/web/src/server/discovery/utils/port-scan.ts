@@ -1,16 +1,6 @@
 import type { PortScanInput, ScannerInput, ScanScope } from '@repo/contracts';
 
-/**
- * Get the callback URL for scan result postbacks
- * Uses BETTER_AUTH_URL to construct the server's internal endpoint
- */
-function getCallbackUrl(): string | undefined {
-  const serverUrl = process.env.BETTER_AUTH_URL;
-  if (!serverUrl) {
-    return undefined;
-  }
-  return `${serverUrl}/api/internal/scan-results`;
-}
+import { getScanResultsCallbackUrl, type EnvBindings } from '@/lib/config';
 
 export function buildScannerInput(params: {
   tenantId: string;
@@ -18,8 +8,9 @@ export function buildScannerInput(params: {
   input: PortScanInput;
   scope: ScanScope;
   scanRunId: string;
+  env?: EnvBindings;
 }): ScannerInput {
-  const { tenantId, userId, input, scope, scanRunId } = params;
+  const { tenantId, userId, input, scope, scanRunId, env } = params;
   const targetType = /^\d{1,3}(?:\.\d{1,3}){3}$/.test(input.target)
     ? 'IP_ADDRESS'
     : 'DOMAIN';
@@ -61,7 +52,12 @@ export function buildScannerInput(params: {
   }
 
   // Build metadata with callbackUrl and deviceId
-  const callbackUrl = getCallbackUrl();
+  let callbackUrl: string | undefined;
+  try {
+    callbackUrl = getScanResultsCallbackUrl(env);
+  } catch {
+    callbackUrl = undefined;
+  }
   const metadata: Record<string, unknown> = {};
   let hasMetadata = false;
 

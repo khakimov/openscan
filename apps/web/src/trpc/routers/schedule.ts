@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { protectedProcedure, createTRPCRouter } from '../trpc';
-import type { TrpcContext } from '../trpc';
+import { protectedProcedure, createTRPCRouter, requireOrganizationId } from '../trpc';
 import {
   createScanSchedule,
   getScanScheduleById,
@@ -16,25 +15,13 @@ import { createLogger } from '@repo/logger';
 import {
   calculateNextExecutionTime,
   resolveIntervalConfig,
-  restateScheduleClient,
+  getRestateScheduleClient,
 } from '@/server/schedules/utils';
 import { normalizeSchedule, normalizeScheduleList } from '@/features/schedules/utils/normalize-schedule';
 
 const logger = createLogger({ name: 'schedule-trpc' });
 
-/**
- * Helper to require organizationId from protected context
- */
-function requireOrganizationId(ctx: { user: NonNullable<TrpcContext['user']> }): string {
-  const organizationId = ctx.user.organizationId;
-  if (!organizationId) {
-    throw new TRPCError({
-      code: 'PRECONDITION_FAILED',
-      message: 'User has no organizations. Please create an organization first.',
-    });
-  }
-  return organizationId;
-}
+
 
 const CreateScheduleSchema = z.object({
   deviceId: z.string().min(1),
@@ -153,7 +140,7 @@ export const scheduleRouter = createTRPCRouter({
         // Optionally get runtime state from Restate
         let runtimeState;
         try {
-          runtimeState = await restateScheduleClient.getScheduleState(input.scheduleId);
+          runtimeState = await getRestateScheduleClient(ctx.env).getScheduleState(input.scheduleId);
         } catch (error) {
           logger.warn('Failed to get Restate state', {
             scheduleId: input.scheduleId,
@@ -248,7 +235,7 @@ export const scheduleRouter = createTRPCRouter({
 
         // Step 2: Start Restate timer
         try {
-          const restateResult = await restateScheduleClient.scheduleDeviceScan(
+          const restateResult = await getRestateScheduleClient(ctx.env).scheduleDeviceScan(
             scheduleId,
             {
               config: {
@@ -326,7 +313,7 @@ export const scheduleRouter = createTRPCRouter({
         await pauseScanSchedule(input.scheduleId, organizationId, ctx.user.id);
 
         // Step 2: Cancel Restate timer
-        await restateScheduleClient.pauseSchedule(input.scheduleId, ctx.user.id);
+        await getRestateScheduleClient(ctx.env).pauseSchedule(input.scheduleId, ctx.user.id);
 
         logger.info('Schedule paused', { scheduleId: input.scheduleId });
 
@@ -362,7 +349,7 @@ export const scheduleRouter = createTRPCRouter({
         await resumeScanSchedule(input.scheduleId, organizationId, ctx.user.id);
 
         // Step 2: Restart Restate timer
-        const restateResult = await restateScheduleClient.resumeSchedule(
+        const restateResult = await getRestateScheduleClient(ctx.env).resumeSchedule(
           input.scheduleId,
           ctx.user.id
         );
@@ -407,7 +394,7 @@ export const scheduleRouter = createTRPCRouter({
         await deleteScanSchedule(input.scheduleId, organizationId, ctx.user.id);
 
         // Step 2: Cancel Restate timer
-        await restateScheduleClient.deleteSchedule(input.scheduleId, ctx.user.id);
+        await getRestateScheduleClient(ctx.env).deleteSchedule(input.scheduleId, ctx.user.id);
 
         logger.info('Schedule deleted', { scheduleId: input.scheduleId });
 
