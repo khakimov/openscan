@@ -52,19 +52,9 @@ export function buildScannerInput(params: {
   }
 
   // Build metadata with callbackUrl and deviceId
-  let callbackUrl: string | undefined;
-  try {
-    callbackUrl = getScanResultsCallbackUrl(env);
-  } catch {
-    callbackUrl = undefined;
-  }
-  const metadata: Record<string, unknown> = {};
-  let hasMetadata = false;
-
-  if (callbackUrl) {
-    metadata.callbackUrl = callbackUrl;
-    hasMetadata = true;
-  }
+  const callbackUrl = getScanResultsCallbackUrl(env);
+  const metadata: Record<string, unknown> = { callbackUrl };
+  let hasMetadata = true;
 
   if (input.deviceId) {
     metadata.deviceId = input.deviceId;
