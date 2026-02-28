@@ -1,4 +1,4 @@
-import { protectedProcedure, createTRPCRouter } from '../trpc';
+import { protectedProcedure, createTRPCRouter, requireOrganizationId } from '../trpc';
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createLogger } from "@repo/logger";
@@ -220,13 +220,7 @@ export const onboardingRouter = createTRPCRouter({
           });
         } else {
           // Use organization from user context
-          if (!ctx.user.organizationId) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: 'No organization context available',
-            });
-          }
-          organizationId = ctx.user.organizationId;
+          organizationId = requireOrganizationId(ctx);
           logger.info("Fetching discovery devices from session", {
             organizationId,
             userId: ctx.user.id,
