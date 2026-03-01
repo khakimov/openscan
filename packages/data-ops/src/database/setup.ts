@@ -1,6 +1,7 @@
 // packages/data-ops/database/setup.ts
 import { drizzle } from "drizzle-orm/d1";
 import type { D1Database } from "@cloudflare/workers-types";
+import * as schema from '../schema';
 
 let db: any; // Using any to support both D1 and better-sqlite3 for testing
 
@@ -13,7 +14,8 @@ export function initDatabase(binding: D1Database | any, force = false) {
     db = binding;
   } else {
     // Otherwise assume it's a D1Database binding
-    db = drizzle(binding);
+    // Pass schema to enable relational query API (db.query.*)
+    db = drizzle(binding, { schema });
   }
   return db;
 }
