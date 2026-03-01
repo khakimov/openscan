@@ -15,50 +15,43 @@ export function buildScannerInput(params: {
     ? 'IP_ADDRESS'
     : 'DOMAIN';
 
-  const isExtendScan = input.isExtendScan ?? Boolean(input.deviceId);
+  const isExtendScan = input.isExtendScan ?? !!input.deviceId;
 
   const scanOptions: NonNullable<ScannerInput['scanOptions']> = {};
-  let hasScanOptions = false;
 
   if (input.ports?.length) {
     scanOptions.requestedPorts = input.ports;
-    hasScanOptions = true;
   }
 
   if (input.seedPorts?.length) {
     scanOptions.seedPorts = input.seedPorts;
-    hasScanOptions = true;
   }
 
   if (input.additionalPortRanges?.length) {
     scanOptions.additionalPortRanges = input.additionalPortRanges;
-    hasScanOptions = true;
   }
 
   if (input.aggressive !== undefined) {
     scanOptions.aggressive = input.aggressive;
-    hasScanOptions = true;
   }
 
   const resolvedMode = input.mode ?? (isExtendScan ? 'EXTEND' : undefined);
   if (resolvedMode) {
     scanOptions.mode = resolvedMode;
-    hasScanOptions = true;
   }
 
   if (input.scanProfile) {
     scanOptions.profile = input.scanProfile;
-    hasScanOptions = true;
   }
 
-  // Build metadata with callbackUrl and deviceId
+  const hasScanOptions = Object.keys(scanOptions).length > 0;
+
+  // Build metadata with callbackUrl and deviceId (always present since callbackUrl is required)
   const callbackUrl = getScanResultsCallbackUrl(env);
   const metadata: Record<string, unknown> = { callbackUrl };
-  let hasMetadata = true;
 
   if (input.deviceId) {
     metadata.deviceId = input.deviceId;
-    hasMetadata = true;
   }
 
   return {
@@ -80,6 +73,6 @@ export function buildScannerInput(params: {
       } as ScannerInput['targets'][number],
     ],
     scanOptions: hasScanOptions ? scanOptions : undefined,
-    metadata: hasMetadata ? metadata : undefined,
+    metadata,
   };
 }

@@ -20,6 +20,7 @@ import {
   buildFailureAnalytics,
 } from '../analytics';
 import { getRestateHttpClient } from '@/server/utils/restate-http-client';
+import { getRestateUrl, getScanResultsCallbackUrl } from '@/lib/config';
 import { PortScanPostbackSchema } from '@repo/contracts/postbacks';
 import type { CVEEnrichment } from '@repo/data-ops';
 import {
@@ -366,11 +367,9 @@ export class PortScanPostbackHandler
 
       try {
         // Use Restate HTTP client for consistent invocation
-        const restateClient = getRestateHttpClient(
-          ctx.env?.RESTATE_INGRESS_URL || process.env.RESTATE_INGRESS_URL
-        );
+        const restateClient = getRestateHttpClient(getRestateUrl(ctx.env));
 
-        const callbackUrl = `${ctx.env?.APP_URL || process.env.APP_URL || 'https://sec-rocks.saipe.workers.dev'}/api/internal/scan-results`;
+        const callbackUrl = getScanResultsCallbackUrl(ctx.env);
 
         await restateClient.startHttpxProbe({
           target: data.target,

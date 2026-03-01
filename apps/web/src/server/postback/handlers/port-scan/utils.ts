@@ -86,7 +86,7 @@ function hasServiceMetadata(service: unknown): service is { name?: string; produ
   }
 
   const candidate = service as { name?: string; product?: string };
-  return Boolean(candidate.name || candidate.product);
+  return !!(candidate.name || candidate.product);
 }
 
 /**

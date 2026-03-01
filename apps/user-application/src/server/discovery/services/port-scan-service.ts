@@ -11,10 +11,12 @@ import { scanRecorder } from './scan-recorder';
 import { deviceManager } from './device-manager';
 import { generateScanId } from '../utils/workflow-helpers';
 import { determineScanScope } from '../utils/scan-scope';
+import { getScanResultsCallbackUrl } from '@/lib/config';
 
 import type { ScanScope } from '@repo/data-ops/schema/enums';
 
 import type { PortScanInput } from '@repo/contracts';
+import { env } from 'cloudflare:workers';
 
 const logger = createLogger({ name: 'port-scan-service' });
 
@@ -75,9 +77,7 @@ export class PortScanService {
     const client = getRestateHttpClient();
 
     // Build callback URL for postback
-    // Use APP_URL if set, otherwise fall back to BETTER_AUTH_URL (which should be set for auth)
-    const baseUrl = process.env.APP_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000';
-    const callbackUrl = `${baseUrl}/api/internal/scan-results`;
+    const callbackUrl = getScanResultsCallbackUrl(env);
 
     const scanResult = await client.startPortScan({
       target: input.target,

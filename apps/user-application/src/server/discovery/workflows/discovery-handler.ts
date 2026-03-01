@@ -1,9 +1,11 @@
 import { createServerFn } from '@tanstack/react-start';
 import { createLogger } from '@repo/logger';
+import { env } from 'cloudflare:workers';
 
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
 import { getRestateHttpClient } from '../../utils/restate-http-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
+import { getScanResultsCallbackUrl } from '@/lib/config';
 import { getCurrentOrganizationId, getCurrentUser } from '../../utils/auth';
 import {
   createScanRun,
@@ -68,8 +70,7 @@ export const startDiscoveryWorkflow = createServerFn({
       });
 
       // Step 3: Build callback URL for postback
-      const baseUrl = process.env.APP_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000';
-      const callbackUrl = `${baseUrl}/api/internal/scan-results`;
+      const callbackUrl = getScanResultsCallbackUrl(env);
 
       logger.info('Generated callback URL for discovery postback', {
         callbackUrl,

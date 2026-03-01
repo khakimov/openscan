@@ -1,15 +1,16 @@
 import type { PortScanInput, ScannerInput, ScanScope } from '@repo/contracts';
+import { getScanResultsCallbackUrl } from '@/lib/config';
 
 /**
  * Get the callback URL for scan result postbacks
  * Uses BETTER_AUTH_URL to construct the server's internal endpoint
  */
 function getCallbackUrl(): string | undefined {
-  const serverUrl = process.env.BETTER_AUTH_URL;
-  if (!serverUrl) {
+  try {
+    return getScanResultsCallbackUrl();
+  } catch {
     return undefined;
   }
-  return `${serverUrl}/api/internal/scan-results`;
 }
 
 export function buildScannerInput(params: {

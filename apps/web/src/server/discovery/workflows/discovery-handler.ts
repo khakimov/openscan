@@ -3,6 +3,7 @@ import { createLogger } from '@repo/logger';
 import { StartDiscoverySchema } from '../schemas/discovery-schemas';
 import { getRestateHttpClient } from '../../utils/restate-http-client';
 import { generateWorkflowId } from '../utils/workflow-helpers';
+import { getScanResultsCallbackUrl, type EnvBindings } from '@/lib/config';
 import {
   createScanRun,
   getScanRunByRestateWorkflowId,
@@ -18,12 +19,15 @@ const logger = createLogger({ name: 'discovery-handler' });
 
 export async function startDiscoveryWorkflow({
   data,
+  env,
 }: {
   data: {
     target: string;
     organizationId: string;
     userId: string;
   };
+  /** Cloudflare Workers env bindings (optional - falls back to process.env) */
+  env?: EnvBindings;
 }): Promise<DiscoveryWorkflowStartResult> {
   logger.info('Discovery input validation', { data });
   const result = StartDiscoverySchema.safeParse(data);
@@ -69,11 +73,7 @@ export async function startDiscoveryWorkflow({
       organizationId,
     });
 
-    const baseUrl =
-      process.env.APP_URL ||
-      process.env.BETTER_AUTH_URL ||
-      'http://localhost:3000';
-    const callbackUrl = `${baseUrl}/api/internal/scan-results`;
+    const callbackUrl = getScanResultsCallbackUrl(env);
 
     logger.info('Generated callback URL for discovery postback', {
       callbackUrl,

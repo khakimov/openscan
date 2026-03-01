@@ -11,10 +11,12 @@ import { scanRecorder } from './scan-recorder';
 import { deviceManager } from './device-manager';
 import { generateScanId } from '../utils/workflow-helpers';
 import { determineScanScope } from '../utils/scan-scope';
+import { getScanResultsCallbackUrl } from '@/lib/config';
 
 import type { ScanScope } from '@repo/data-ops/schema/enums';
 
 import type { PortScanInput } from '@repo/contracts';
+import type { EnvBindings } from '@/lib/config';
 
 const logger = createLogger({ name: 'port-scan-service' });
 
@@ -22,6 +24,8 @@ export interface StartPortScanParams {
   input: PortScanInput;
   tenantId: string;
   userId: string;
+  /** Cloudflare Workers env bindings (optional - falls back to process.env) */
+  env?: EnvBindings;
 }
 
 export class PortScanService {
@@ -33,7 +37,7 @@ export class PortScanService {
    * 4. Update scan status
    */
   async startScan(params: StartPortScanParams) {
-    const { input, tenantId, userId } = params;
+    const { input, tenantId, userId, env } = params;
 
     // Generate scanId (Restate workflow key) for tracking
     const scanId = generateScanId('portscan', input.target);
@@ -75,9 +79,7 @@ export class PortScanService {
     const client = getRestateHttpClient();
 
     // Build callback URL for postback
-    // Use APP_URL if set, otherwise fall back to BETTER_AUTH_URL (which should be set for auth)
-    const baseUrl = process.env.APP_URL || process.env.BETTER_AUTH_URL || 'http://localhost:3000';
-    const callbackUrl = `${baseUrl}/api/internal/scan-results`;
+    const callbackUrl = getScanResultsCallbackUrl(env);
 
     const scanResult = await client.startPortScan({
       target: input.target,

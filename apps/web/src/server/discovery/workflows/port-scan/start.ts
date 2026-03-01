@@ -3,6 +3,7 @@ import { createLogger } from '@repo/logger';
 import { extractErrorMessage } from '../../utils/workflow-helpers';
 import { PortScanSchema } from '../../schemas/port-scan-schemas';
 import { portScanService } from '../../services/port-scan-service';
+import type { EnvBindings } from '@/lib/config';
 
 import type { PortScanInput } from '@repo/contracts';
 import type { PortScanStartResult } from '../types';
@@ -11,8 +12,11 @@ const logger = createLogger({ name: 'discovery-port-scan-start' });
 
 export async function startPortScanWorkflow({
   data,
+  env,
 }: {
   data: PortScanInput & { organizationId?: string; userId?: string };
+  /** Cloudflare Workers env bindings (optional - falls back to process.env) */
+  env?: EnvBindings;
 }): Promise<PortScanStartResult> {
   const input = data;
 
@@ -45,6 +49,7 @@ export async function startPortScanWorkflow({
       input,
       tenantId: organizationId,
       userId,
+      env,
     });
 
     logger.info('Port scan started', {

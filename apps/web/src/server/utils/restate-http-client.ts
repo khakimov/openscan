@@ -6,6 +6,7 @@
  */
 
 import { createLogger } from '@repo/logger';
+import { getRestateUrl, getRestateApiKey } from '@/lib/config';
 
 const logger = createLogger({ name: 'restate-http-client' });
 
@@ -74,8 +75,8 @@ export class RestateHttpClient {
 
   constructor(baseUrl?: string) {
     // Default to Restate Cloud URL or localhost
-    this.baseUrl = baseUrl || process.env.RESTATE_INGRESS_URL || 'http://localhost:8080';
-    this.apiKey = process.env.RESTATE_API_KEY;
+    this.baseUrl = baseUrl || getRestateUrl();
+    this.apiKey = getRestateApiKey();
   }
 
   /**
