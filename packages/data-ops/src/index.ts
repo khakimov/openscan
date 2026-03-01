@@ -42,6 +42,7 @@ export {
   createDevicesInProject,
   type CreateDevicesInProjectInput,
   type CreateDevicesFromDiscoveryInput,
+  type EnrichedDevice,
 } from './queries/devices';
 
 // Export DNS resolution and asset normalization

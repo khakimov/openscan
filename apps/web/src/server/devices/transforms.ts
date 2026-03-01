@@ -1,13 +1,13 @@
-import type { PortSnapshot } from '@repo/data-ops';
+import type { PortSnapshot, EnrichedDevice } from '@repo/data-ops';
 import type { TransformedDevice } from '@repo/contracts/device';
 
 /**
  * Transform database device to match UI expectations.
  * Parses portSnapshots through Zod schema for single source of truth.
  */
-export function transformDeviceForUI(dbDevice: any): TransformedDevice {
+export function transformDeviceForUI(dbDevice: EnrichedDevice): TransformedDevice {
   // Extract scan stats (portSnapshots now populated by data-ops queries)
-  const scanStats = dbDevice.scanStats as any;
+  const scanStats = dbDevice.scanStats;
 
   // Get portSnapshots from scanStats (populated by data-ops with lastSeen/httpxProbe)
   // Fallback to empty array if not present (unscanned devices)

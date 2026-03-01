@@ -3,7 +3,8 @@ import { getDb } from '../database/setup';
 import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies, notifications } from '../schema';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
-import { derivePortStats } from '../types/cve-enrichment';
+import { derivePortStats, type PortSnapshot } from '../types/cve-enrichment';
+import type { Device } from '../types';
 import {
   normalizeNmap,
   normalizeHttpx,
@@ -125,6 +126,26 @@ export type DeviceQueryParams = {
   projectId?: string; // Filter by project
 };
 
+/** Device enriched with IP, tags, and scan stats — returned by getDevicesForTenant/getDeviceById */
+export type EnrichedDevice = Device & {
+  ip: string | null;
+  tags: string[];
+  scanStats?: {
+    scanCount: number;
+    totalScans: number;
+    lastScanAt: Date | undefined;
+    portScanStats: {
+      totalOpenPorts: number;
+      portsWithService: number;
+      portsStored: number;
+      serviceDetectionRate: number;
+      suspiciousAllPortsOpen: boolean;
+      scanPattern: string;
+    };
+    portSnapshots: PortSnapshot[];
+  };
+};
+
 export type DeviceUpdateData = {
   name?: string;
   ip?: string;
@@ -149,7 +170,13 @@ export type DeviceUpdateData = {
 export async function getDevicesForTenant(
   organizationId: string,
   params: DeviceQueryParams = {}
-) {
+): Promise<{
+  items: EnrichedDevice[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}> {
   const db = getDb();
   const {
     page = 1,
@@ -208,7 +235,7 @@ export async function getDevicesForTenant(
     .offset(offset);
 
   // Get primary IPs for each device
-  const deviceIds = deviceList.map((d: any) => d.id);
+  const deviceIds = (deviceList as Device[]).map((d) => d.id);
   const ips = deviceIds.length > 0
     ? await db
         .select()
@@ -232,9 +259,9 @@ export async function getDevicesForTenant(
     : [];
 
   // Map IPs and tags to devices
-  const ipMap = new Map(ips.map((ip: any) => [ip.deviceId, ip.ip]));
+  const ipMap = new Map((ips as Array<{ deviceId: string; ip: string }>).map((ip) => [ip.deviceId, ip.ip]));
   const tagsMap = new Map<string, string[]>();
-  deviceTagsData.forEach(({ deviceId, tag }: any) => {
+  (deviceTagsData as Array<{ deviceId: string; tag: { name: string } }>).forEach(({ deviceId, tag }) => {
     if (!tagsMap.has(deviceId)) tagsMap.set(deviceId, []);
     tagsMap.get(deviceId)!.push(tag.name);
   });
@@ -320,7 +347,7 @@ export async function getDevicesForTenant(
   }
 
   // Combine data
-  const items = deviceList.map((device: any) => ({
+  const items: EnrichedDevice[] = (deviceList as Device[]).map((device) => ({
     ...device,
     ip: ipMap.get(device.id) || null,
     tags: tagsMap.get(device.id) || [],
