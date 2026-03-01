@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import {
-  discoveryQueries,
   useStartDiscoveryMutation,
+  useDiscoveryWorkflowStatus,
+  useDiscoveryWorkflowResults,
 } from '@/queries/discovery-queries';
 import { useCreateDevicesFromDiscoveryMutation } from '@/queries/device-queries';
 import type { DiscoveryResultItem } from '@/components/discovery/discovery-results-table';
@@ -75,20 +75,16 @@ export function useDiscoveryWorkflow({
   const startDiscoveryMutation = useStartDiscoveryMutation();
   const addDevicesMutation = useCreateDevicesFromDiscoveryMutation();
 
-  // Database polling for workflow status (postback updates database)
-  // Following OpenPanel pattern: always call useQuery, push condition into enabled
-  // This keeps hook call order stable (Rules of Hooks) while preventing null cache entries
-  const workflowStatusQuery = useQuery(
-    discoveryQueries.workflowStatus(scanId || '', { enabled: !!scanId })
-  );
+  // Database polling for workflow status via tRPC (postback updates database)
+  // Always call hook, push condition into enabled (Rules of Hooks)
+  const workflowStatusQuery = useDiscoveryWorkflowStatus(scanId || '', {
+    enabled: !!scanId,
+  });
 
   // Automatically fetch results from database when workflow completes
-  // Following OpenPanel pattern: always call useQuery, push condition into enabled
-  const workflowResultsQuery = useQuery(
-    discoveryQueries.workflowResults(scanId || '', {
-      enabled: !!scanId && workflowStatusQuery.data?.isCompleted === true,
-    })
-  );
+  const workflowResultsQuery = useDiscoveryWorkflowResults(scanId || '', {
+    enabled: !!scanId && workflowStatusQuery.data?.isCompleted === true,
+  });
 
   // Derive UI state from React Query data
   const workflowStatus = workflowStatusQuery.data;

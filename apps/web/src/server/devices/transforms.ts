@@ -65,7 +65,7 @@ export function transformDeviceForUI(dbDevice: EnrichedDevice): TransformedDevic
     totalOpenPorts: openPortCount,
     portSnapshots,
     scanStats: computedScanStats,
-    verificationStatus: dbDevice.verificationStatus,
+    verificationStatus: dbDevice.verificationStatus as 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED',
     verifiedAt: dbDevice.verifiedAt ? new Date(dbDevice.verifiedAt).toISOString() : null,
     verifiedBy: dbDevice.verifiedBy,
     verificationNote: dbDevice.verificationNote,

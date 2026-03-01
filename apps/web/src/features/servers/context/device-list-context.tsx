@@ -18,11 +18,12 @@ import { createContext, useContext, useCallback, useMemo, type ReactNode } from 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTRPC } from "@/integrations/trpc/react";
 import type { TransformedDevice } from "@repo/contracts/device";
+import { transformDeviceForUI } from "@/server/devices/transforms";
 
-// Active scans are just workflow IDs (strings) returned from the batch query
-// This is a lightweight format to minimize data transfer
+// TransformedDevice enriched with active scans and optional scan history
 interface DeviceWithActiveScans extends TransformedDevice {
   activeScans: string[]; // Array of Restate workflow IDs
+  scanHistory?: unknown[];
 }
 
 export interface DeviceCounts {
@@ -83,7 +84,7 @@ export function DeviceListProvider({
     refetchInterval: (query) => {
       const devices = query.state.data?.items ?? [];
       const hasActiveScans = devices.some(
-        (d: DeviceWithActiveScans) => d.activeScans.length > 0
+        (d) => d.activeScans.length > 0
       );
       return hasActiveScans ? pollingInterval : false;
     },
@@ -91,12 +92,20 @@ export function DeviceListProvider({
     placeholderData: (previousData) => previousData,
   });
 
-  const devices = devicesResponse?.items ?? [];
+  // Transform raw EnrichedDevice items to TransformedDevice + activeScans/scanHistory
+  const devices: DeviceWithActiveScans[] = useMemo(() => {
+    const rawItems = devicesResponse?.items ?? [];
+    return rawItems.map((item) => ({
+      ...transformDeviceForUI(item),
+      activeScans: item.activeScans,
+      scanHistory: item.scanHistory,
+    }));
+  }, [devicesResponse?.items]);
 
   // Build lookup map for O(1) access by child components
   const activeScansByDevice = useMemo(() => {
     const map = new Map<string, string[]>();
-    devices.forEach((device: DeviceWithActiveScans) => {
+    devices.forEach((device) => {
       map.set(device.id, device.activeScans ?? []);
     });
     return map;
@@ -110,7 +119,7 @@ export function DeviceListProvider({
   );
 
   const hasAnyActiveScans = devices.some(
-    (d: DeviceWithActiveScans) => d.activeScans.length > 0
+    (d) => d.activeScans.length > 0
   );
 
   const refresh = useCallback(async () => {

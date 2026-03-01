@@ -1,62 +1,73 @@
-import { queryOptions } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
+import { useTRPC, useTRPCClient } from '@/integrations/trpc/react';
 import { QUERY_CONFIG } from '@repo/constants';
-import {
-  getScanWorkflowStatusDB,
-  getScanWorkflowResultsDB,
-  startDiscoveryWorkflow,
-} from '@/server/discovery/index';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 
+/**
+ * Discovery query key factory (tRPC pattern)
+ */
 export const discoveryQueries = {
-  // Workflow status (polls database for postback updates)
-  // Following OpenPanel pattern: accept options to override enabled/staleTime/etc
-  workflowStatus: (scanId: string, options?: { enabled?: boolean }) =>
-    queryOptions({
-      queryKey: ['discovery-workflow-status', scanId],
-      queryFn: () => getScanWorkflowStatusDB({ data: { scanId } }),
-      enabled: options?.enabled ?? !!scanId,
-      refetchInterval: (query) => {
-        const data = query.state.data;
-        // Stop polling when workflow is complete or failed
-        if (data?.isCompleted || data?.isFailed) {
-          return false;
-        }
-        // Poll every 3 seconds (database polling is fast and efficient)
-        return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3;
-      },
-      staleTime: 0, // Always fetch fresh status during active discovery
-    }),
-
-  // Workflow results (fetched once when workflow completes)
-  // Following OpenPanel pattern: accept options to override enabled/staleTime/etc
-  workflowResults: (scanId: string, options?: { enabled?: boolean }) =>
-    queryOptions({
-      queryKey: ['discovery-workflow-results', scanId],
-      queryFn: () => getScanWorkflowResultsDB({ data: { scanId } }),
-      enabled: options?.enabled ?? false, // Only fetch when workflow is completed
-      staleTime: Infinity, // Results don't change once fetched
-    }),
+  workflowStatus: {
+    base: ['discovery', 'workflowStatus'] as const,
+  },
+  workflowResults: {
+    base: ['discovery', 'workflowResults'] as const,
+  },
 };
 
 /**
- * Discovery mutation hooks (following TanStack Router best practice)
+ * Hook: Poll discovery workflow status via tRPC
  *
- * Benefits:
- * - Centralized invalidation logic
- * - Reusable across components
- * - Type-safe
- * - Follows official TanStack pattern from kitchen-sink-react-query example
- *
- * Usage in components:
- * const startDiscoveryMutation = useStartDiscoveryMutation();
- * startDiscoveryMutation.mutate({ target: 'example.com' });
+ * Follows the same tRPC query pattern as scan-queries.ts.
+ * Automatically stops polling when workflow completes or fails.
  */
+export function useDiscoveryWorkflowStatus(scanId: string, options?: { enabled?: boolean }) {
+  const trpc = useTRPC();
 
-export const useStartDiscoveryMutation = () =>
-  useMutationWithToast({
+  return useQuery({
+    ...trpc.discovery.workflowStatus.queryOptions({ scanId }),
+    enabled: options?.enabled ?? !!scanId,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      if (data?.isCompleted || data?.isFailed) {
+        return false;
+      }
+      return QUERY_CONFIG.REFETCH_INTERVAL.SECONDS_3;
+    },
+    staleTime: 0,
+  });
+}
+
+/**
+ * Hook: Fetch discovery workflow results via tRPC
+ *
+ * Only fetches when explicitly enabled (workflow completed).
+ * Results are cached indefinitely since they don't change.
+ */
+export function useDiscoveryWorkflowResults(scanId: string, options?: { enabled?: boolean }) {
+  const trpc = useTRPC();
+
+  return useQuery({
+    ...trpc.discovery.workflowResults.queryOptions({ scanId }),
+    enabled: options?.enabled ?? false,
+    staleTime: Infinity,
+  });
+}
+
+/**
+ * Start discovery mutation (following device-queries pattern)
+ *
+ * Usage:
+ *   const startDiscovery = useStartDiscoveryMutation();
+ *   startDiscovery.mutate({ target: 'example.com' });
+ */
+export const useStartDiscoveryMutation = () => {
+  const trpcClient = useTRPCClient();
+
+  return useMutationWithToast({
     mutationKey: ['discovery', 'start'],
     mutationFn: async (data: { target: string }) => {
-      const response = await startDiscoveryWorkflow({ data });
+      const response = await trpcClient.discovery.start.mutate(data);
       if (!response.success) {
         throw new Error(response.error || 'Failed to start discovery');
       }
@@ -64,6 +75,6 @@ export const useStartDiscoveryMutation = () =>
     },
     successMessage: (response) =>
       `Discovery started for ${response.target}`,
-    // Invalidate all scan queries (both list and table, all projectIds)
     invalidateKeys: [['scans'], ['scans-table']],
   });
+};

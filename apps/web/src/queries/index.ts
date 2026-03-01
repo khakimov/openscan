@@ -35,9 +35,11 @@ export {
   useCreateDevicesFromDiscoveryMutation,
 } from './device-queries';
 
-// Discovery mutation hooks
+// Discovery hooks
 export {
   useStartDiscoveryMutation,
+  useDiscoveryWorkflowStatus,
+  useDiscoveryWorkflowResults,
 } from './discovery-queries';
 
 // Organization mutation hooks

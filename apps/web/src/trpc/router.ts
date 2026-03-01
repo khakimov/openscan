@@ -6,6 +6,7 @@ import { deviceRouter } from './routers/device';
 import { notificationRouter } from './routers/notification';
 import { onboardingRouter } from './routers/onboarding';
 import { scanRouter } from './routers/scan';
+import { discoveryRouter } from './routers/discovery';
 import { scheduleRouter } from './routers/schedule';
 
 export const appRouter = createTRPCRouter({
@@ -16,6 +17,7 @@ export const appRouter = createTRPCRouter({
   notification: notificationRouter,
   onboarding: onboardingRouter,
   scan: scanRouter,
+  discovery: discoveryRouter,
   schedule: scheduleRouter,
 });
 
