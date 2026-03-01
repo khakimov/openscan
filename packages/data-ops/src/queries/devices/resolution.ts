@@ -11,7 +11,7 @@
  * 4. Refresh separately - background jobs can update stale data
  */
 
-import { eq, and } from 'drizzle-orm';
+import { eq, and, sql } from 'drizzle-orm';
 import { getDb } from '../../database/setup';
 import { devices, deviceIps, deviceHostnames } from '../../schema/inventory';
 import { isIP, isIPv4, isIPv6 } from '@repo/contracts/network/ip-utils';
@@ -346,14 +346,15 @@ export async function upsertResolvedDevice(
   // Step 1.5: Fetch current primary IP (before upsert) for drift detection
   let oldPrimaryIp: string | null = null;
   if (!isNew) {
-    const currentPrimaryIp = await db.query.deviceIps.findFirst({
-      where: and(
+    const [currentPrimaryIp] = await db
+      .select({ ip: deviceIps.ip })
+      .from(deviceIps)
+      .where(and(
         eq(deviceIps.organizationId, organizationId),
         eq(deviceIps.deviceId, deviceId),
-        eq(deviceIps.primary, true)
-      ),
-      columns: { ip: true },
-    });
+        eq(deviceIps.primary, sql`1`)
+      ))
+      .limit(1);
     oldPrimaryIp = currentPrimaryIp?.ip ?? null;
   }
 
@@ -426,13 +427,14 @@ async function ensureDevice(
   const db = getDb();
 
   // Check if device exists by name within organization
-  const existing = await db.query.devices.findFirst({
-    where: and(
+  const [existing] = await db
+    .select({ id: devices.id })
+    .from(devices)
+    .where(and(
       eq(devices.organizationId, organizationId),
       eq(devices.name, name)
-    ),
-    columns: { id: true },
-  });
+    ))
+    .limit(1);
 
   if (existing) {
     // Update lastSeenAt
@@ -477,14 +479,15 @@ async function upsertIps(
     const isPrimary = i === 0; // First IP is primary
 
     // Check if IP already exists for this device
-    const existing = await db.query.deviceIps.findFirst({
-      where: and(
+    const [existing] = await db
+      .select({ id: deviceIps.id })
+      .from(deviceIps)
+      .where(and(
         eq(deviceIps.organizationId, organizationId),
         eq(deviceIps.deviceId, deviceId),
         eq(deviceIps.ip, ip)
-      ),
-      columns: { id: true },
-    });
+      ))
+      .limit(1);
 
     if (existing) {
       // Update existing IP
@@ -528,15 +531,16 @@ async function upsertHostnames(
 
   for (const { hostname, type } of hostnames) {
     // Check if hostname already exists for this device
-    const existing = await db.query.deviceHostnames.findFirst({
-      where: and(
+    const [existing] = await db
+      .select({ id: deviceHostnames.id })
+      .from(deviceHostnames)
+      .where(and(
         eq(deviceHostnames.organizationId, organizationId),
         eq(deviceHostnames.deviceId, deviceId),
         eq(deviceHostnames.hostname, hostname),
         eq(deviceHostnames.type, type)
-      ),
-      columns: { id: true },
-    });
+      ))
+      .limit(1);
 
     if (existing) {
       // Update lastSeenAt
