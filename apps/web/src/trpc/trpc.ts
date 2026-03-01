@@ -33,3 +33,21 @@ const isAuthed = t.middleware(({ ctx, next }) => {
 });
 
 export const protectedProcedure = t.procedure.use(isAuthed);
+
+/**
+ * Helper to require organizationId from protected context
+ * Throws PRECONDITION_FAILED if user has no organizations
+ *
+ * Context already performs fallback to first org during onboarding,
+ * so this only fails when user truly has no organizations.
+ */
+export function requireOrganizationId(ctx: { user: NonNullable<TrpcContext['user']> }): string {
+  const organizationId = ctx.user.organizationId;
+  if (!organizationId) {
+    throw new TRPCError({
+      code: 'PRECONDITION_FAILED',
+      message: 'User has no organizations. Please create an organization first.',
+    });
+  }
+  return organizationId;
+}

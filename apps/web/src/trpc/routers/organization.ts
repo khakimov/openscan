@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, createTRPCRouter } from '../trpc';
+import { parseJsonMetadata } from '../utils/metadata';
+import { getErrorMessage } from '@/lib/utils';
 import { getAuth } from '@repo/data-ops/auth/server';
 import { getOrganizationAPI } from '@repo/data-ops/auth/organization-api';
 import {
@@ -61,17 +63,7 @@ export const organizationRouter = createTRPCRouter({
         });
 
         // Parse metadata safely - invalid JSON shouldn't block access
-        let parsedMetadata: Record<string, {}> | null = null;
-        if (org.metadata) {
-          try {
-            parsedMetadata = JSON.parse(org.metadata) as Record<string, {}>;
-          } catch (err) {
-            logger.warn('Failed to parse organization metadata', {
-              organizationId: org.id,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
+        const parsedMetadata = parseJsonMetadata(org.metadata);
 
         return {
           id: org.id,
@@ -82,7 +74,7 @@ export const organizationRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to get organization by identifier', {
           organizationIdentifier: input.organizationId,
           error: errorMessage,
@@ -113,26 +105,11 @@ export const organizationRouter = createTRPCRouter({
 
       // Normalize metadata (Better-auth may return JSON string)
       const organizations = (result ?? []).map((org) => {
-        let parsedMetadata: Record<string, {}> | null = null;
-
-        if (org.metadata && typeof org.metadata === 'string') {
-          try {
-            parsedMetadata = JSON.parse(org.metadata) as Record<string, {}>;
-          } catch (err) {
-            logger.warn('Failed to parse organization metadata', {
-              organizationId: org.id,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        } else if (org.metadata && typeof org.metadata === 'object') {
-          parsedMetadata = org.metadata as Record<string, {}>;
-        }
-
         return {
           id: org.id,
           name: org.name ?? null,
           slug: org.slug ?? null,
-          metadata: parsedMetadata,
+          metadata: parseJsonMetadata(org.metadata),
         };
       });
 
@@ -141,7 +118,7 @@ export const organizationRouter = createTRPCRouter({
         activeOrganizationId: ctx.user.organizationId,
       };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       logger.error('Failed to list organizations', { error: errorMessage });
 
       throw new TRPCError({
@@ -194,7 +171,7 @@ export const organizationRouter = createTRPCRouter({
           organization: response.response,
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to set active organization', {
           organizationId: input.organizationId,
           error: errorMessage,
@@ -266,8 +243,7 @@ export const organizationRouter = createTRPCRouter({
 
         return { updated: true, organizationId: org.id };
       } catch (error) {
-        const errorMessage =
-          error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error("Failed to sync active organization", {
           organizationId: org.id,
           error: errorMessage,

@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { protectedProcedure, createTRPCRouter } from '../trpc';
-import type { TrpcContext } from '../trpc';
+import { protectedProcedure, createTRPCRouter, requireOrganizationId } from '../trpc';
 import {
   getScanRunsWithArtifacts,
   validateProjectAccess,
@@ -11,19 +10,7 @@ import { createLogger } from '@repo/logger';
 
 const logger = createLogger({ name: 'scan-trpc' });
 
-/**
- * Helper to require organizationId from protected context
- */
-function requireOrganizationId(ctx: { user: NonNullable<TrpcContext['user']> }): string {
-  const organizationId = ctx.user.organizationId;
-  if (!organizationId) {
-    throw new TRPCError({
-      code: 'PRECONDITION_FAILED',
-      message: 'User has no organizations. Please create an organization first.',
-    });
-  }
-  return organizationId;
-}
+
 
 export const scanRouter = createTRPCRouter({
   /**

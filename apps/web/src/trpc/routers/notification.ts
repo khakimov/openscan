@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { protectedProcedure, createTRPCRouter } from '../trpc';
-import type { TrpcContext } from '../trpc';
+import { protectedProcedure, createTRPCRouter, requireOrganizationId } from '../trpc';
 import {
   getNotifications,
   markNotificationAsRead,
@@ -19,23 +18,7 @@ import { createLogger } from '@repo/logger';
 
 const logger = createLogger({ name: 'notification-trpc' });
 
-/**
- * Helper to require organizationId from protected context
- * Throws PRECONDITION_FAILED if user has no organizations
- *
- * Context already performs fallback to first org during onboarding,
- * so this only fails when user truly has no organizations.
- */
-function requireOrganizationId(ctx: { user: NonNullable<TrpcContext['user']> }): string {
-  const organizationId = ctx.user.organizationId;
-  if (!organizationId) {
-    throw new TRPCError({
-      code: 'PRECONDITION_FAILED',
-      message: 'User has no organizations. Please create an organization first.',
-    });
-  }
-  return organizationId;
-}
+
 
 /**
  * Notification router - OpenPanel pattern

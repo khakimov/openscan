@@ -2,6 +2,9 @@ import { protectedProcedure, createTRPCRouter, requireOrganizationId } from '../
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createLogger } from "@repo/logger";
+import { getErrorMessage } from '@/lib/utils';
+import { requireOrgAccess } from '../utils/org-access';
+import { parseJsonMetadata } from '../utils/metadata';
 import {
   getDefaultProject,
   getOrganizationById as getOrgByIdData,
@@ -40,7 +43,7 @@ export const onboardingRouter = createTRPCRouter({
       id: ctx.user.id,
       email: ctx.user.email ?? null,
       name: ctx.user.name ?? null,
-      emailVerified: Boolean(ctx.user.emailVerified),
+      emailVerified: ctx.user.emailVerified,
       organizationId: ctx.user.organizationId ?? undefined,
     };
     let organizations: OnboardingOrganizationSummary[] = [];
@@ -56,28 +59,12 @@ export const onboardingRouter = createTRPCRouter({
 
       // Normalize metadata (Better Auth stores as string)
       // orgResult is already the array of organizations, no .data property
-      organizations = orgResult.map((org: any) => {
-        let metadata: Record<string, any> = {};
-        if (org.metadata) {
-          try {
-            metadata = typeof org.metadata === 'string'
-              ? JSON.parse(org.metadata)
-              : org.metadata;
-          } catch (err) {
-            logger.warn("Failed to parse organization metadata", {
-              organizationId: org.id,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
-        }
-
-        return {
-          id: org.id,
-          name: org.name,
-          slug: org.slug ?? null,
-          metadata,
-        };
-      }) ?? [];
+      organizations = orgResult.map((org: any) => ({
+        id: org.id,
+        name: org.name,
+        slug: org.slug ?? null,
+        metadata: parseJsonMetadata(org.metadata),
+      })) ?? [];
 
       const primaryOrganizationId = organizations[0]?.id ?? null;
 
@@ -98,29 +85,18 @@ export const onboardingRouter = createTRPCRouter({
       // getUserOrganizations() still returns stale data without onboardingCompleted=true
       const freshOrgData = await getOrgByIdData(primaryOrganizationId);
 
-      let organizationMetadata: Record<string, any> = {};
-      if (freshOrgData?.metadata) {
-        try {
-          organizationMetadata = JSON.parse(freshOrgData.metadata) as Record<string, any>;
-          logger.debug("Organization metadata from database (fresh)", {
-            organizationId: primaryOrganizationId,
-            metadata: organizationMetadata,
-            onboardingCompleted: organizationMetadata?.onboardingCompleted,
-          });
-        } catch (err) {
-          logger.warn("Failed to parse fresh organization metadata", {
-            organizationId: primaryOrganizationId,
-            error: err instanceof Error ? err.message : String(err),
-          });
-        }
-      }
+      const organizationMetadata = parseJsonMetadata(freshOrgData?.metadata);
+      logger.debug("Organization metadata from database (fresh)", {
+        organizationId: primaryOrganizationId,
+        metadata: organizationMetadata,
+        onboardingCompleted: organizationMetadata?.onboardingCompleted,
+      });
 
       const organizationRecord = organizations.find(
         (org) => org.id === primaryOrganizationId,
       );
 
       const defaultProject = await getDefaultProject(primaryOrganizationId);
-      const hasProject = Boolean(defaultProject);
 
       const organizationSummary: OnboardingOrganizationSummary = {
         id: primaryOrganizationId,
@@ -145,7 +121,7 @@ export const onboardingRouter = createTRPCRouter({
           ? organizationMetadata.maxOnboardingStep
           : undefined;
 
-      const inferredStep = hasProject ? 3 : 2;
+      const inferredStep = defaultProject ? 3 : 2;
       const maxStep =
         storedMaxStep !== undefined
           ? Math.max(storedMaxStep, inferredStep)
@@ -163,8 +139,7 @@ export const onboardingRouter = createTRPCRouter({
         onboardingCompleted,
       } satisfies OnboardingStatus;
     } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const errorMessage = getErrorMessage(error);
       logger.error("Failed to compute onboarding status", {
         error: errorMessage,
       });
@@ -265,7 +240,7 @@ export const onboardingRouter = createTRPCRouter({
 
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: error instanceof Error ? error.message : 'Failed to fetch discovery devices',
+          message: getErrorMessage(error) || 'Failed to fetch discovery devices',
         });
       }
     }),
@@ -326,21 +301,7 @@ export const onboardingRouter = createTRPCRouter({
             : result.createdAt?.toISOString?.() ?? new Date().toISOString();
 
         // Normalize metadata (Better-auth may return JSON string)
-        let normalizedMetadata: Record<string, {}> | null = null;
-        if (result.metadata) {
-          if (typeof result.metadata === 'string') {
-            try {
-              normalizedMetadata = JSON.parse(result.metadata) as Record<string, {}>;
-            } catch (err) {
-              logger.warn('Failed to parse created organization metadata', {
-                organizationId: result.id,
-                error: err instanceof Error ? err.message : String(err),
-              });
-            }
-          } else if (typeof result.metadata === 'object') {
-            normalizedMetadata = result.metadata as Record<string, {}>;
-          }
-        }
+        const normalizedMetadata = parseJsonMetadata(result.metadata);
 
         return {
           organization: {
@@ -353,7 +314,7 @@ export const onboardingRouter = createTRPCRouter({
           },
         };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to create organization', {
           error: errorMessage,
           input,
@@ -381,21 +342,7 @@ export const onboardingRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const orgAccess = await validateOrganizationAccess(ctx.user.id, input.organizationId);
-
-        if (!orgAccess) {
-          logger.warn('Organization access denied during project onboarding', {
-            userId: ctx.user.id,
-            organizationId: input.organizationId,
-            projectId: input.projectId,
-          });
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Organization not found or access denied',
-          });
-        }
-
-        const organizationId = orgAccess.id;
+        const organizationId = await requireOrgAccess(ctx.user.id, input.organizationId);
 
         if (input.projectId) {
           logger.info('Updating project during onboarding', {
@@ -450,7 +397,7 @@ export const onboardingRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to create or update project', {
           error: errorMessage,
           input,
@@ -477,23 +424,12 @@ export const onboardingRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       try {
-        const orgAccess = await validateOrganizationAccess(ctx.user.id, input.organizationId);
+        const organizationId = await requireOrgAccess(ctx.user.id, input.organizationId);
 
-        if (!orgAccess) {
-          logger.warn('Organization update denied during onboarding', {
-            userId: ctx.user.id,
-            organizationId: input.organizationId,
-          });
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Organization not found or access denied',
-          });
-        }
-
-        await updateOrgOnboardingData(orgAccess.id, input.name, input.timezone ?? null);
+        await updateOrgOnboardingData(organizationId, input.name, input.timezone ?? null);
 
         logger.info('Organization updated during onboarding', {
-          organizationId: orgAccess.id,
+          organizationId,
           userId: ctx.user.id,
         });
 
@@ -501,7 +437,7 @@ export const onboardingRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to update organization during onboarding', {
           error: errorMessage,
           input,
@@ -522,23 +458,12 @@ export const onboardingRouter = createTRPCRouter({
     .input(z.object({ organizationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
-        const orgAccess = await validateOrganizationAccess(ctx.user.id, input.organizationId);
+        const organizationId = await requireOrgAccess(ctx.user.id, input.organizationId);
 
-        if (!orgAccess) {
-          logger.warn('Organization access denied when completing onboarding', {
-            userId: ctx.user.id,
-            organizationId: input.organizationId,
-          });
-          throw new TRPCError({
-            code: 'FORBIDDEN',
-            message: 'Organization not found or access denied',
-          });
-        }
-
-        await markOnboardingCompleteData(orgAccess.id);
+        await markOnboardingCompleteData(organizationId);
 
         logger.info('Onboarding marked as complete', {
-          organizationId: orgAccess.id,
+          organizationId,
           userId: ctx.user.id,
         });
 
@@ -546,7 +471,7 @@ export const onboardingRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to mark onboarding as complete', {
           error: errorMessage,
           input,

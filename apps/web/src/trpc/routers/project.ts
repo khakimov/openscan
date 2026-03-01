@@ -3,6 +3,7 @@ import { TRPCError } from '@trpc/server';
 import { protectedProcedure, createTRPCRouter } from '../trpc';
 import { getProjectsForOrganization, validateProjectAccess, createProject, validateOrganizationAccess } from '@repo/data-ops';
 import { createLogger } from '@repo/logger';
+import { getErrorMessage } from '@/lib/utils';
 
 const logger = createLogger({ name: 'project-router' });
 
@@ -108,7 +109,7 @@ export const projectRouter = createTRPCRouter({
       } catch (error) {
         if (error instanceof TRPCError) throw error;
 
-        const errorMessage = error instanceof Error ? error.message : String(error);
+        const errorMessage = getErrorMessage(error);
         logger.error('Failed to create project', {
           error: errorMessage,
           input,

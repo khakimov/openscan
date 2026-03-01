@@ -12,6 +12,7 @@ import {
   getDeviceById,
 } from '@repo/data-ops';
 import { createLogger } from '@repo/logger';
+import { getErrorMessage } from '@/lib/utils';
 import {
   calculateNextExecutionTime,
   resolveIntervalConfig,
@@ -79,7 +80,7 @@ export const scheduleRouter = createTRPCRouter({
         return normalizeScheduleList(schedules);
       } catch (err) {
         logger.error('Failed to fetch schedules', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           organizationId,
         });
         throw new TRPCError({
@@ -109,7 +110,7 @@ export const scheduleRouter = createTRPCRouter({
         return normalizeScheduleList(schedules);
       } catch (err) {
         logger.error('Failed to fetch device schedules', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           deviceId: input.deviceId,
         });
         throw new TRPCError({
@@ -144,7 +145,7 @@ export const scheduleRouter = createTRPCRouter({
         } catch (error) {
           logger.warn('Failed to get Restate state', {
             scheduleId: input.scheduleId,
-            error: error instanceof Error ? error.message : String(error),
+            error: getErrorMessage(error),
           });
         }
 
@@ -158,7 +159,7 @@ export const scheduleRouter = createTRPCRouter({
         if (err instanceof TRPCError) throw err;
 
         logger.error('Failed to get schedule', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           scheduleId: input.scheduleId,
         });
         throw new TRPCError({
@@ -266,7 +267,7 @@ export const scheduleRouter = createTRPCRouter({
         } catch (restateError) {
           logger.error('Failed to start Restate timer', {
             scheduleId,
-            error: restateError instanceof Error ? restateError.message : String(restateError),
+            error: getErrorMessage(restateError),
           });
 
           // Return partial success - schedule exists in DB but timer not started
@@ -284,12 +285,12 @@ export const scheduleRouter = createTRPCRouter({
         if (err instanceof TRPCError) throw err;
 
         logger.error('Failed to create schedule', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           deviceId: input.deviceId,
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to create schedule: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to create schedule: ${getErrorMessage(err)}`,
         });
       }
     }),
@@ -320,12 +321,12 @@ export const scheduleRouter = createTRPCRouter({
         return { success: true };
       } catch (err) {
         logger.error('Failed to pause schedule', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           scheduleId: input.scheduleId,
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to pause schedule: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to pause schedule: ${getErrorMessage(err)}`,
         });
       }
     }),
@@ -365,12 +366,12 @@ export const scheduleRouter = createTRPCRouter({
         };
       } catch (err) {
         logger.error('Failed to resume schedule', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           scheduleId: input.scheduleId,
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to resume schedule: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to resume schedule: ${getErrorMessage(err)}`,
         });
       }
     }),
@@ -401,12 +402,12 @@ export const scheduleRouter = createTRPCRouter({
         return { success: true };
       } catch (err) {
         logger.error('Failed to delete schedule', {
-          error: err instanceof Error ? err.message : String(err),
+          error: getErrorMessage(err),
           scheduleId: input.scheduleId,
         });
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: `Failed to delete schedule: ${err instanceof Error ? err.message : String(err)}`,
+          message: `Failed to delete schedule: ${getErrorMessage(err)}`,
         });
       }
     }),
