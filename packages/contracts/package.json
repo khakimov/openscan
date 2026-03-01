@@ -13,6 +13,10 @@
       "types": "./dist/result.d.ts",
       "import": "./dist/result.js"
     },
+    "./port": {
+      "types": "./dist/port.d.ts",
+      "import": "./dist/port.js"
+    },
     "./device": {
       "types": "./dist/device.d.ts",
       "import": "./dist/device.js"
@@ -60,6 +64,10 @@
     "./network/dns-resolver": {
       "types": "./dist/network/dns-resolver.d.ts",
       "import": "./dist/network/dns-resolver.js"
+    },
+    "./notifications": {
+      "types": "./dist/notifications.d.ts",
+      "import": "./dist/notifications.js"
     }
   },
   "scripts": {
@@ -69,7 +77,6 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@repo/data-ops": "workspace:*",
     "zod": "^4.1.9"
   },
   "devDependencies": {

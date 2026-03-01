@@ -369,17 +369,17 @@ describe('Device Scan Statistics (Integration)', () => {
     expect(device?.scanStats).toBeDefined();
 
     // Should show LATEST scan (5 ports), not first scan (2 ports)
-    expect(device!.scanStats!.openPortCount).toBe(5);
+    expect(device!.scanStats!.portScanStats.totalOpenPorts).toBe(5);
     expect(device!.scanStats!.scanCount).toBe(2); // Total number of scans
-    expect(device!.scanStats!.ports).toHaveLength(5);
+    expect(device!.scanStats!.portSnapshots).toHaveLength(5);
 
     // Verify it has the latest scan's ports (service is now an object)
-    const ports = device!.scanStats!.ports;
-    expect(ports).toContainEqual(expect.objectContaining({
+    const snapshots = device!.scanStats!.portSnapshots;
+    expect(snapshots).toContainEqual(expect.objectContaining({
       port: 3306,
       service: expect.objectContaining({ name: 'mysql' })
     }));
-    expect(ports).toContainEqual(expect.objectContaining({
+    expect(snapshots).toContainEqual(expect.objectContaining({
       port: 5432,
       service: expect.objectContaining({ name: 'postgresql' })
     }));
@@ -387,7 +387,7 @@ describe('Device Scan Statistics (Integration)', () => {
     console.log('✅ Latest scan stats:', {
       name: device!.name,
       scanCount: device!.scanStats!.scanCount,
-      openPortCount: device!.scanStats!.openPortCount,
+      totalOpenPorts: device!.scanStats!.portScanStats.totalOpenPorts,
       lastScanAt: device!.scanStats!.lastScanAt,
     });
   });
@@ -400,15 +400,15 @@ describe('Device Scan Statistics (Integration)', () => {
     expect(device?.scanStats).toBeDefined();
 
     // Should have scan stats even with 0 ports
-    expect(device!.scanStats!.openPortCount).toBe(0);
-    expect(device!.scanStats!.ports).toEqual([]);
+    expect(device!.scanStats!.portScanStats.totalOpenPorts).toBe(0);
+    expect(device!.scanStats!.portSnapshots).toEqual([]);
     expect(device!.scanStats!.scanCount).toBe(1);
     expect(device!.scanStats!.lastScanAt).toBeInstanceOf(Date);
 
     console.log('✅ Device with no ports:', {
       name: device!.name,
-      openPortCount: device!.scanStats!.openPortCount,
-      portsArray: device!.scanStats!.ports,
+      totalOpenPorts: device!.scanStats!.portScanStats.totalOpenPorts,
+      portSnapshots: device!.scanStats!.portSnapshots,
     });
   });
 
@@ -419,9 +419,9 @@ describe('Device Scan Statistics (Integration)', () => {
     expect(device).toBeDefined();
     expect(device?.scanStats).toBeDefined();
 
-    expect(device!.scanStats!.openPortCount).toBe(1);
-    expect(device!.scanStats!.ports).toHaveLength(1);
-    expect(device!.scanStats!.ports[0]).toEqual(
+    expect(device!.scanStats!.portScanStats.totalOpenPorts).toBe(1);
+    expect(device!.scanStats!.portSnapshots).toHaveLength(1);
+    expect(device!.scanStats!.portSnapshots[0]).toEqual(
       expect.objectContaining({
         port: 443,
         service: expect.objectContaining({ name: 'https' }),
@@ -431,7 +431,7 @@ describe('Device Scan Statistics (Integration)', () => {
 
     console.log('✅ Device with single port:', {
       name: device!.name,
-      port: device!.scanStats!.ports[0],
+      port: device!.scanStats!.portSnapshots[0],
     });
   });
 
@@ -449,10 +449,10 @@ describe('Device Scan Statistics (Integration)', () => {
     const result = await getDevicesForTenant(testOrgId);
     const device = result.items.find((d: any) => d.name === 'test-device-multiple-scans');
 
-    const ports = device!.scanStats!.ports;
+    const snapshots = device!.scanStats!.portSnapshots;
 
     // Each port should have required fields (service is now an object)
-    ports.forEach((port: any) => {
+    snapshots.forEach((port: any) => {
       expect(port).toHaveProperty('port');
       expect(port).toHaveProperty('service');
       expect(port).toHaveProperty('state');
@@ -461,7 +461,7 @@ describe('Device Scan Statistics (Integration)', () => {
       expect(port.state).toBe('open');
     });
 
-    console.log('✅ Port details verified:', ports);
+    console.log('✅ Port details verified:', snapshots);
   });
 
   it('should calculate total scan count correctly', async () => {

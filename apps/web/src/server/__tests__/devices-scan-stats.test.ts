@@ -125,13 +125,13 @@ describe('Device Scan Statistics (TDD)', () => {
     expect(result.items[0].scanStats).toBeDefined();
 
     // CRITICAL: Should use port count from LATEST scan (3), not older scan (5)
-    expect(result.items[0].scanStats?.openPortCount).toBe(3);
+    expect(result.items[0].scanStats?.portScanStats.totalOpenPorts).toBe(3);
 
     // Should have correct timestamp from latest scan
     expect(result.items[0].scanStats?.lastScanAt).toEqual(newerScan.completedAt);
 
-    // Should have correct ports array
-    expect(result.items[0].scanStats?.ports).toHaveLength(3);
+    // Should have correct portSnapshots array
+    expect(result.items[0].scanStats?.portSnapshots).toHaveLength(3);
 
     // Should have total scan count
     expect(result.items[0].scanStats?.scanCount).toBeGreaterThan(0);
@@ -282,6 +282,6 @@ describe('Device Scan Statistics (TDD)', () => {
     // Assert: Should only count SUCCEEDED scans
     expect(result.items).toHaveLength(1);
     expect(result.items[0].scanStats).toBeDefined();
-    expect(result.items[0].scanStats?.openPortCount).toBe(3);
+    expect(result.items[0].scanStats?.portScanStats.totalOpenPorts).toBe(3);
   });
 });

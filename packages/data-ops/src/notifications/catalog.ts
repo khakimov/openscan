@@ -13,12 +13,11 @@
  */
 
 // ============================================================================
-// Types
+// Types (canonical definitions in @repo/contracts/notifications)
 // ============================================================================
 
-export type NotificationSeverity = 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-export type NotificationType = 'NEW_PORT' | 'CLOSED_PORT' | 'NEW_CVE' | 'CVE_SEVERITY_INCREASE' | 'CVE_FIXED' | 'CVE_REGRESSED' | 'SERVICE_DRIFT' | 'SERVER_PROMOTED' | 'SERVICE_DOWN' | 'SERVICE_UP' | 'SERVER_IP_CHANGED' | 'APP_PRODUCT_CHANGED' | 'APP_VERSION_CHANGED' | 'WEB_TITLE_CHANGED' | 'MANUAL_EDIT';
-export type NotificationModule = 'NETWORK_SECURITY' | 'VULNERABILITY_MANAGEMENT' | 'DEVICE_LIFECYCLE' | 'CONFIGURATION';
+import type { NotificationSeverity, NotificationType, NotificationModule } from '@repo/contracts/notifications';
+export type { NotificationSeverity, NotificationType, NotificationModule };
 
 interface NotificationDescriptor {
   type: NotificationType;

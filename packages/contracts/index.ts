@@ -8,6 +8,9 @@
 // Shared result types
 export * from './result';
 
+// Port scan types (shared across all apps)
+export * from './port';
+
 // Domain types (shared across all apps)
 export * from './device';
 export * from './project';

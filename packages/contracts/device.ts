@@ -1,4 +1,4 @@
-import type { PortSnapshot, PortScanStats } from '@repo/data-ops';
+import type { PortSnapshot, PortScanStats } from './port';
 import type { Result, ResultWithMessage } from './result';
 
 /**
