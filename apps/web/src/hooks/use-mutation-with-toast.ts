@@ -1,6 +1,7 @@
 import { useMutation, type UseMutationOptions, useQueryClient, type QueryKey } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { createLogger } from "@repo/logger";
+import { invalidateTRPCQuery } from "@/lib/query-utils";
 
 const logger = createLogger({ name: "mutation-helper" });
 
@@ -131,29 +132,28 @@ export function useMutationWithToast<TData, TVariables = void, TContext = unknow
         await onSuccess(data, variables, context);
       }
 
-      // Invalidate queries with tRPC-aware path matching
-      // tRPC keys are [['procedure', 'path'], { input, type }]
-      // Base keys are ['procedure', 'path'] (flat path for prefix matching)
-      // We extract the path from both and compare as prefix
+      // Invalidate queries with format-aware matching:
+      // - Full tRPC tuple [['path'], { input }] → exact match using built-in queryKey
+      // - Flat base path ['device', 'list'] → prefix match using invalidateTRPCQuery
       await Promise.all(
-        invalidateKeys.map((key) =>
-          queryClient.invalidateQueries({
-            predicate: (query) => {
-              const qk = query.queryKey;
-              // Extract tRPC path: [['a','b'], {...}] → ['a','b']
-              // Or simple path: ['a','b'] → ['a','b']
-              const toPath = (k: QueryKey): string[] | null => {
-                if (!Array.isArray(k)) return null;
-                return Array.isArray(k[0]) ? k[0] as string[] : k as string[];
-              };
-              const invalidatePath = toPath(key);
-              const queryPath = toPath(qk);
-              if (!invalidatePath || !queryPath) return false;
-              if (invalidatePath.length > queryPath.length) return false;
-              return invalidatePath.every((seg, i) => queryPath[i] === seg);
-            }
-          })
-        )
+        invalidateKeys.map((key) => {
+          // Full tRPC tuple: [['procedure', 'path'], { input, type }]
+          // Use exact matching via built-in queryKey (TanStack Query handles this correctly)
+          if (
+            Array.isArray(key) &&
+            Array.isArray(key[0]) &&
+            key.length === 2 &&
+            typeof key[1] === 'object' &&
+            key[1] !== null
+          ) {
+            return queryClient.invalidateQueries({ queryKey: key });
+          }
+          // Flat base path: ['procedure', 'path']
+          // Use prefix matching to invalidate all queries under this path
+          return queryClient.invalidateQueries(
+            invalidateTRPCQuery(key, { prefix: true })
+          );
+        })
       );
     },
     async onError(error, variables, context) {

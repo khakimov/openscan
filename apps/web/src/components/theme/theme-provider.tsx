@@ -190,7 +190,10 @@ export function ThemeScript({
     } else {
       root.setAttribute(attribute, resolved);
     }
-  } catch (err) {}
+  } catch (err) {
+    // Non-critical: theme will fall back to default
+    console.debug('Theme script injection failed:', err);
+  }
 })();`;
 
   return (

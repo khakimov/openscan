@@ -52,7 +52,7 @@ export function ModalHeader({
       <div className="flex relative w-full items-start justify-between gap-4">
         <div className="flex flex-col mt-1 flex-1 gap-2">
           <div className="text-xl font-semibold">{title}</div>
-          {!!text && (
+          {text && (
             <div className="text-lg text-muted-foreground leading-normal">
               {text}
             </div>

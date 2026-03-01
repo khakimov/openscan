@@ -37,7 +37,7 @@ export const notificationQueries = {
   list: {
     // Base key for invalidating all notification list queries
     // Matches the tRPC procedure path
-    all: [['notification', 'list']] as const,
+    base: ['notification', 'list'] as const,
 
     // Specific key for a query with params
     // Matches: context.trpc.notification.list.queryOptions({ ...params }).queryKey
@@ -114,7 +114,7 @@ export const useMarkNotificationAsReadMutation = () => {
       trpcClient.notification.markAsRead.mutate({ notificationId }),
     successMessage: 'Notification marked as read',
     invalidateKeys: [
-      notificationQueries.list.all,
+      notificationQueries.list.base,
       notificationQueries.unreadCount.base,
     ],
     toastOnSuccess: false, // Silent for better UX
@@ -132,7 +132,7 @@ export const useMarkAllNotificationsAsReadMutation = () => {
     mutationFn: () => trpcClient.notification.markAllAsRead.mutate(),
     successMessage: 'All notifications marked as read',
     invalidateKeys: [
-      notificationQueries.list.all,
+      notificationQueries.list.base,
       notificationQueries.unreadCount.base,
     ],
   });

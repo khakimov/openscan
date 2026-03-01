@@ -1,4 +1,4 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { Padding } from "@/components/ui/padding";
 import { Button } from "@/components/ui/button";
 import { PlusIcon, FolderIcon } from "lucide-react";
@@ -66,9 +66,13 @@ function OrganizationIndex() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {projects.map((project: ProjectEntity) => (
-          <a
+          <Link
             key={project.id}
-            href={`/${organization.slug || organization.id}/${project.id}/servers/discovery`}
+            to="/$organizationId/$projectId/servers/discovery"
+            params={{
+              organizationId: organization.slug || organization.id,
+              projectId: project.id,
+            }}
             className="block p-6 rounded-lg border border-border bg-card hover:border-primary hover:shadow-md transition-all"
           >
             <div className="flex items-start justify-between mb-2">
@@ -90,7 +94,7 @@ function OrganizationIndex() {
                 Created {new Date(project.createdAt).toLocaleDateString()}
               </div>
             )}
-          </a>
+          </Link>
         ))}
       </div>
     </Padding>

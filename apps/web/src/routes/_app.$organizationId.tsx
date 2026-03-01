@@ -28,7 +28,10 @@ export const Route = createFileRoute("/_app/$organizationId")({
       .ensureQueryData(
         context.trpc.project.listByOrg.queryOptions({ organizationId: organization.id })
       )
-      .catch(() => [] as any[]);
+      .catch((err) => {
+        console.error('Failed to fetch projects:', err);
+        return [] as any[];
+      });
 
     // Redirect ID → slug for cleaner URLs
     if (organization.slug && identifier === organization.id) {
@@ -49,7 +52,9 @@ export const Route = createFileRoute("/_app/$organizationId")({
         body: JSON.stringify({
           json: { organizationId: identifier, currentSessionOrgId },
         }),
-      }).catch(() => {});
+      }).catch((err) => {
+        console.error('Failed to sync active organization:', err);
+      });
     }
 
     return { organization, projects } satisfies Pick<

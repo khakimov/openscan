@@ -31,7 +31,10 @@ export const Route = createRootRouteWithContext<RouterContext>()({
       ),
       context.queryClient
         .ensureQueryData(context.trpc.organization.list.queryOptions())
-        .catch(() => ({ organizations: [], activeOrganizationId: null })),
+        .catch((err) => {
+          console.error('Failed to fetch organizations:', err);
+          return { organizations: [], activeOrganizationId: null };
+        }),
     ]);
     return { session, organizations: orgData.organizations };
   },
