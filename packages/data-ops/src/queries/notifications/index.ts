@@ -15,6 +15,9 @@ export {
   createNotification,
   upsertNotification,
   createNotifications,
+  SUPPRESS_WINDOWS,
+  getSuppressWindowDuration,
+  calculateSuppressUntil,
   type UpsertNotificationResult,
 } from './crud';
 

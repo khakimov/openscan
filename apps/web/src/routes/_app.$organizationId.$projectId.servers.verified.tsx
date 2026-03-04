@@ -64,6 +64,7 @@ function ServersVerified() {
     pushModal("AddDiscovery", {
       organizationId: organization.id,
       projectId: project.id,
+      target: project.domain || undefined,
       onConfirm: handleDiscoveryCreated,
       onDevicesAdded: handleDevicesAdded,
     });
@@ -132,7 +133,7 @@ function DevicesContent({
       <ServersTabHeader
         organizationId={organizationId}
         projectId={projectId}
-        foundCount={counts ? counts.CANDIDATE + counts.EXCLUDED : undefined}
+        foundCount={counts?.CANDIDATE}
         monitoredCount={counts?.VERIFIED}
         onStartDiscovery={onStartDiscovery}
       />

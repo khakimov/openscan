@@ -13,9 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { DeviceCard } from "./device-card";
 import { DeviceOpenPorts } from "./device-open-ports";
-import { pushModal } from "@/modals";
-import { Pencil, Trash2, Scan, ExternalLink } from "lucide-react";
-import { toast } from "sonner";
+import { DeviceActionButtons } from "./device-actions";
+import { ExternalLink } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useTRPC } from "@/integrations/trpc/react";
 import { Link } from "@tanstack/react-router";
@@ -84,26 +83,6 @@ function DeviceDetailSheetItem({
     staleTime: 5 * 60 * 1000,
   });
 
-  // Action handlers
-  const handleEdit = () => {
-    pushModal("EditDevice", {
-      deviceId: device.id,
-      device: device,
-    });
-  };
-
-  const handleDelete = () => {
-    pushModal("DeleteDeviceConfirm", {
-      deviceId: device.id,
-      deviceName: device.name,
-    });
-  };
-
-  const handleScan = () => {
-    toast.info("Scan functionality coming soon!");
-    // TODO: Implement scan functionality
-  };
-
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
       <SheetTrigger asChild>
@@ -122,35 +101,7 @@ function DeviceDetailSheetItem({
               View device details, open ports, and security information
             </SheetDescription>
 
-            <div className="flex flex-wrap items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleScan}
-                className="flex items-center gap-2"
-              >
-                <Scan className="h-4 w-4" />
-                <span className="hidden sm:inline">Scan</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleEdit}
-                className="flex items-center gap-2"
-              >
-                <Pencil className="h-4 w-4" />
-                <span className="hidden sm:inline">Edit</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleDelete}
-                className="flex items-center gap-2 text-destructive hover:text-destructive"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span className="hidden sm:inline">Delete</span>
-              </Button>
-            </div>
+            <DeviceActionButtons device={device} />
           </div>
         </SheetHeader>
 

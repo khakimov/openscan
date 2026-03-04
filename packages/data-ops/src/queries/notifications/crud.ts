@@ -1,4 +1,4 @@
-import { and, eq, lt } from 'drizzle-orm';
+import { and, eq, lt, sql } from 'drizzle-orm';
 import { createId } from '@paralleldrive/cuid2';
 
 import { getDb } from '../../database/setup';
@@ -52,6 +52,52 @@ export interface UpsertNotificationResult {
   wasDuplicate: boolean;
 }
 
+/**
+ * Suppress window durations in milliseconds
+ */
+export const SUPPRESS_WINDOWS = {
+  // Availability notifications: 15 minutes (fast alerts for outages/recovery)
+  SERVICE_DOWN: 15 * 60 * 1000,
+  SERVICE_UP: 15 * 60 * 1000,
+  // Port changes: 6 hours
+  NEW_PORT: 6 * 60 * 60 * 1000,
+  CLOSED_PORT: 6 * 60 * 60 * 1000,
+  // CVE notifications: 24 hours
+  NEW_CVE: 24 * 60 * 60 * 1000,
+  CVE_SEVERITY_INCREASE: 24 * 60 * 60 * 1000,
+  CVE_FIXED: 24 * 60 * 60 * 1000,
+  CVE_REGRESSED: 24 * 60 * 60 * 1000,
+  // Service drift: 6 hours
+  SERVICE_DRIFT: 6 * 60 * 60 * 1000,
+  // Configuration drift
+  SERVER_IP_CHANGED: 24 * 60 * 60 * 1000,
+  APP_PRODUCT_CHANGED: 12 * 60 * 60 * 1000,
+  APP_VERSION_CHANGED: 6 * 60 * 60 * 1000,
+  WEB_TITLE_CHANGED: 6 * 60 * 60 * 1000,
+  MANUAL_EDIT: 0,
+  // Device lifecycle
+  SERVER_PROMOTED: 24 * 60 * 60 * 1000,
+} as const;
+
+/**
+ * Get suppress window duration for a notification type
+ */
+export function getSuppressWindowDuration(type: string): number {
+  return SUPPRESS_WINDOWS[type as keyof typeof SUPPRESS_WINDOWS] ?? 24 * 60 * 60 * 1000;
+}
+
+/**
+ * Calculate suppress until timestamp using database time for consistency
+ * 
+ * Uses UTC to avoid timezone issues between application server and database.
+ * The suppressUntil is calculated as: NOW (in UTC) + duration milliseconds.
+ */
+export function calculateSuppressUntil(type: string): Date {
+  const duration = getSuppressWindowDuration(type);
+  // Use UTC to ensure consistency regardless of server timezone
+  return new Date(Date.now() + duration);
+}
+
 export async function upsertNotification(
   input: CreateNotificationInput
 ): Promise<UpsertNotificationResult | null> {
@@ -62,6 +108,8 @@ export async function upsertNotification(
     const id = createId();
     const messageHash = hashMessage(validated.title, validated.message);
 
+    // Step 1: Expire any existing notification that has passed its suppress window
+    // suppressUntil is stored as milliseconds integer, so compare against epoch ms
     await db
       .update(notifications)
       .set({ isActive: false })
@@ -69,11 +117,12 @@ export async function upsertNotification(
         and(
           eq(notifications.organizationId, validated.organizationId),
           eq(notifications.fingerprint, validated.fingerprint),
-          lt(notifications.suppressUntil, new Date()),
+          lt(notifications.suppressUntil, sql`(strftime('%s','now') * 1000)`),
           eq(notifications.isActive, true)
         )
       );
 
+    // Step 2: Try to insert, fall back to update on unique constraint violation
     try {
       const [inserted] = await db
         .insert(notifications)
@@ -102,7 +151,13 @@ export async function upsertNotification(
       logNotificationCreated(inserted);
       return { notification: inserted, wasDuplicate: false };
     } catch (error: any) {
-      if (error?.code === 'SQLITE_CONSTRAINT_UNIQUE' || error?.message?.includes('UNIQUE constraint failed')) {
+      // Check for unique constraint violation (active notification with same fingerprint exists)
+      const isUniqueViolation = 
+        error?.code === 'SQLITE_CONSTRAINT_UNIQUE' || 
+        error?.message?.includes('UNIQUE constraint failed');
+
+      if (isUniqueViolation) {
+        // Update existing notification (extend suppress window)
         const [updated] = await db
           .update(notifications)
           .set({
@@ -116,7 +171,7 @@ export async function upsertNotification(
             module: validated.module,
             suppressUntil: validated.suppressUntil,
             isActive: true,
-            updatedAt: new Date(),
+            updatedAt: sql`CURRENT_TIMESTAMP`,
           })
           .where(
             and(
@@ -132,20 +187,14 @@ export async function upsertNotification(
           validated.organizationId,
           validated.suppressUntil
         );
-
         return { notification: updated, wasDuplicate: true };
       }
 
       throw error;
     }
   } catch (outerError) {
-    logNotificationError(outerError, {
-      fingerprint: input.fingerprint,
-      organizationId: input.organizationId,
-      type: input.type,
-      severity: input.severity,
-    });
-
+    // Don't log here — callers (createNotifications, logConfigurationDrift) handle logging
+    // to avoid duplicate error logs for the same failure
     throw outerError;
   }
 }
@@ -175,6 +224,12 @@ export async function createNotifications(
       }
     } catch (error) {
       errors++;
+      logNotificationError(error, {
+        fingerprint: input.fingerprint,
+        organizationId: input.organizationId,
+        type: input.type,
+        severity: input.severity,
+      });
     }
   }
 

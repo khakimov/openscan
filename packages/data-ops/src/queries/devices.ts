@@ -1,6 +1,6 @@
 import { eq, desc, asc, and, or, inArray, sql, SQL } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies, notifications } from '../schema';
+import { devices, deviceIps, deviceTags, tags, scanRuns, scanRunDevices, scanSchedules, projects, scanArtifacts, httpxProbes, httpxTechDetections, technologies, notifications, hostingProviders } from '../schema';
 import { createInsertSchema } from 'drizzle-zod';
 import { z } from 'zod';
 import { derivePortStats, type PortSnapshot } from '../types/cve-enrichment';
@@ -144,6 +144,16 @@ export type EnrichedDevice = Device & {
     };
     portSnapshots: PortSnapshot[];
   };
+  hostingProvider?: {
+    id: string;
+    name: string;
+    category: string;
+    asn: string | null;
+    asOrganization: string | null;
+    iconKey: string | null;
+    region: string | null;
+    detectedAt: Date | null;
+  };
 };
 
 export type DeviceUpdateData = {
@@ -234,12 +244,20 @@ export async function getDevicesForTenant(
     .limit(pageSize)
     .offset(offset);
 
-  // Get primary IPs for each device
+  // Get primary IPs for each device (with hosting provider info)
   const deviceIds = (deviceList as Device[]).map((d) => d.id);
-  const ips = deviceIds.length > 0
+  type IpWithHosting = {
+    deviceIp: typeof deviceIps.$inferSelect;
+    hostingProvider: typeof hostingProviders.$inferSelect | null;
+  };
+  const ips: IpWithHosting[] = deviceIds.length > 0
     ? await db
-        .select()
+        .select({
+          deviceIp: deviceIps,
+          hostingProvider: hostingProviders,
+        })
         .from(deviceIps)
+        .leftJoin(hostingProviders, eq(deviceIps.hostingProviderId, hostingProviders.id))
         .where(and(
           inArray(deviceIps.deviceId, deviceIds),
           eq(deviceIps.primary, sql`1`)
@@ -259,7 +277,38 @@ export async function getDevicesForTenant(
     : [];
 
   // Map IPs and tags to devices
-  const ipMap = new Map((ips as Array<{ deviceId: string; ip: string }>).map((ip) => [ip.deviceId, ip.ip]));
+  const ipMap = new Map<string, string | null>(
+    ips.map((row) => [row.deviceIp.deviceId, row.deviceIp.ip])
+  );
+  const hostingProviderMap = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      category: string;
+      asn: string | null;
+      asOrganization: string | null;
+      iconKey: string | null;
+      region: string | null;
+      detectedAt: Date | null;
+    }
+  >(
+    ips
+      .filter((row): row is IpWithHosting & { hostingProvider: NonNullable<IpWithHosting['hostingProvider']> } => !!row.hostingProvider)
+      .map((row) => [
+        row.deviceIp.deviceId,
+        {
+          id: row.hostingProvider.id,
+          name: row.hostingProvider.name,
+          category: row.hostingProvider.category,
+          asn: row.hostingProvider.asn,
+          asOrganization: row.hostingProvider.asOrganization,
+          iconKey: row.hostingProvider.iconKey,
+          region: null, // Region is stored in hostingRawData, not in hostingProviders table
+          detectedAt: row.deviceIp.hostingDetectedAt,
+        },
+      ])
+  );
   const tagsMap = new Map<string, string[]>();
   (deviceTagsData as Array<{ deviceId: string; tag: { name: string } }>).forEach(({ deviceId, tag }) => {
     if (!tagsMap.has(deviceId)) tagsMap.set(deviceId, []);
@@ -349,9 +398,10 @@ export async function getDevicesForTenant(
   // Combine data
   const items: EnrichedDevice[] = (deviceList as Device[]).map((device) => ({
     ...device,
-    ip: ipMap.get(device.id) || null,
+    ip: (ipMap.get(device.id) as string | null) ?? null,
     tags: tagsMap.get(device.id) || [],
     scanStats: scanStatsMap.get(device.id) || undefined,
+    hostingProvider: hostingProviderMap.get(device.id),
   }));
 
   return {
@@ -380,10 +430,14 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
 
   if (!device) return null;
 
-  // Get primary IP
-  const [primaryIp] = await db
-    .select()
+  // Get primary IP with hosting provider
+  const [ipWithHosting] = await db
+    .select({
+      deviceIp: deviceIps,
+      hostingProvider: hostingProviders,
+    })
     .from(deviceIps)
+    .leftJoin(hostingProviders, eq(deviceIps.hostingProviderId, hostingProviders.id))
     .where(and(
       eq(deviceIps.deviceId, deviceId),
       eq(deviceIps.primary, sql`1`)
@@ -553,11 +607,26 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
     };
   }
 
+  // Build hosting provider data
+  const hostingProvider = ipWithHosting?.hostingProvider
+    ? {
+        id: ipWithHosting.hostingProvider.id,
+        name: ipWithHosting.hostingProvider.name,
+        category: ipWithHosting.hostingProvider.category,
+        asn: ipWithHosting.hostingProvider.asn,
+        asOrganization: ipWithHosting.hostingProvider.asOrganization,
+        iconKey: ipWithHosting.hostingProvider.iconKey,
+        region: null, // Region is stored in hostingRawData, not in hostingProviders table
+        detectedAt: ipWithHosting.deviceIp.hostingDetectedAt,
+      }
+    : undefined;
+
   return {
     ...device,
-    ip: primaryIp?.ip || null,
+    ip: ipWithHosting?.deviceIp?.ip || null,
     tags: deviceTagsData.map(({ tag }: any) => tag.name),
     scanStats: deviceScanStats,
+    hostingProvider,
   };
 }
 
@@ -577,10 +646,14 @@ export async function getDeviceByIdGlobal(deviceId: string) {
 
   if (!device) return null;
 
-  // Get primary IP
-  const [primaryIp] = await db
-    .select()
+  // Get primary IP with hosting provider
+  const [ipWithHosting] = await db
+    .select({
+      deviceIp: deviceIps,
+      hostingProvider: hostingProviders,
+    })
     .from(deviceIps)
+    .leftJoin(hostingProviders, eq(deviceIps.hostingProviderId, hostingProviders.id))
     .where(and(
       eq(deviceIps.deviceId, deviceId),
       eq(deviceIps.primary, sql`1`)
@@ -594,10 +667,25 @@ export async function getDeviceByIdGlobal(deviceId: string) {
     .innerJoin(tags, eq(deviceTags.tagId, tags.id))
     .where(eq(deviceTags.deviceId, deviceId));
 
+  // Build hosting provider data
+  const hostingProvider = ipWithHosting?.hostingProvider
+    ? {
+        id: ipWithHosting.hostingProvider.id,
+        name: ipWithHosting.hostingProvider.name,
+        category: ipWithHosting.hostingProvider.category,
+        asn: ipWithHosting.hostingProvider.asn,
+        asOrganization: ipWithHosting.hostingProvider.asOrganization,
+        iconKey: ipWithHosting.hostingProvider.iconKey,
+        region: null, // Region is stored in hostingRawData, not in hostingProviders table
+        detectedAt: ipWithHosting.deviceIp.hostingDetectedAt,
+      }
+    : undefined;
+
   return {
     ...device,
-    ip: primaryIp?.ip || null,
+    ip: ipWithHosting?.deviceIp?.ip || null,
     tags: deviceTagsData.map(({ tag }: any) => tag.name),
+    hostingProvider,
   };
 }
 

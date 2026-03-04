@@ -271,9 +271,11 @@ export const scheduleRouter = createTRPCRouter({
           });
 
           // Return partial success - schedule exists in DB but timer not started
+          // User can resume the schedule later to retry Restate timer creation
           return {
-            success: false,
-            error: 'Failed to start schedule timer',
+            success: true, // DB record created successfully
+            restateFailed: true, // But Restate timer failed
+            error: 'Timer service temporarily unavailable. Schedule created in paused state.',
             schedule: normalizeSchedule({
               ...dbSchedule,
               status: 'PAUSED',

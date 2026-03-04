@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { protectedProcedure, createTRPCRouter } from '../trpc';
-import { getProjectsForOrganization, validateProjectAccess, createProject, validateOrganizationAccess } from '@repo/data-ops';
+import { getProjectsForOrganization, validateProjectAccess, createProject, validateOrganizationAccess, deleteProject, updateProject } from '@repo/data-ops';
 import { createLogger } from '@repo/logger';
 import { getErrorMessage } from '@/lib/utils';
 
@@ -111,6 +111,144 @@ export const projectRouter = createTRPCRouter({
 
         const errorMessage = getErrorMessage(error);
         logger.error('Failed to create project', {
+          error: errorMessage,
+          input,
+        });
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: errorMessage,
+        });
+      }
+    }),
+
+  /**
+   * Update an existing project
+   */
+  update: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string(),
+        projectId: z.string(),
+        name: z.string().min(1, 'Project name is required').max(100, 'Project name is too long').optional(),
+        description: z.string().optional(),
+        domain: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Validate project access first
+        const projectAccess = await validateProjectAccess(
+          ctx.user.id,
+          input.projectId,
+          input.organizationId
+        );
+
+        if (!projectAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Project not found or access denied',
+          });
+        }
+
+        const updatedProject = await updateProject(
+          input.projectId,
+          projectAccess.organization.id,
+          {
+            name: input.name,
+            description: input.description,
+            domain: input.domain,
+          }
+        );
+
+        if (!updatedProject) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Project not found',
+          });
+        }
+
+        logger.info('Project updated', {
+          organizationId: projectAccess.organization.id,
+          projectId: input.projectId,
+          userId: ctx.user.id,
+        });
+
+        return { project: updatedProject };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        const errorMessage = getErrorMessage(error);
+        logger.error('Failed to update project', {
+          error: errorMessage,
+          input,
+        });
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: errorMessage,
+        });
+      }
+    }),
+
+  /**
+   * Delete a project
+   */
+  delete: protectedProcedure
+    .input(
+      z.object({
+        organizationId: z.string(),
+        projectId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      try {
+        // Validate project access first
+        const projectAccess = await validateProjectAccess(
+          ctx.user.id,
+          input.projectId,
+          input.organizationId
+        );
+
+        if (!projectAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Project not found or access denied',
+          });
+        }
+
+        // Prevent deletion of default projects as a safety measure
+        if (projectAccess.project.isDefault) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Default projects cannot be deleted',
+          });
+        }
+
+        const deleted = await deleteProject(
+          input.projectId,
+          projectAccess.organization.id
+        );
+
+        if (!deleted) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Project not found',
+          });
+        }
+
+        logger.info('Project deleted', {
+          organizationId: projectAccess.organization.id,
+          projectId: input.projectId,
+          userId: ctx.user.id,
+        });
+
+        return { success: true };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        const errorMessage = getErrorMessage(error);
+        logger.error('Failed to delete project', {
           error: errorMessage,
           input,
         });

@@ -54,10 +54,12 @@ export {
 // Re-export onboardingQueries from organization-queries for backward compatibility
 // (previously defined in organization-mutations.ts)
 
-// Schedule mutation hooks
+// Schedule mutation hooks and types
 export {
   useCreateScheduleMutation,
   usePauseScheduleMutation,
   useResumeScheduleMutation,
   useDeleteScheduleMutation,
+  type CreateScheduleInput,
+  type CreateScheduleResult,
 } from './schedule-queries';

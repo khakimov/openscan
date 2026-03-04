@@ -25,20 +25,20 @@ export default function DeleteDeviceConfirm({
   const deleteMutation = useDeleteDeviceMutation();
 
   const handleDelete = async () => {
-    deleteMutation.mutate(
-      { deviceId },
-      {
-        onSuccess: async () => {
-          toast.success("Device deleted", {
-            description: `${deviceName} has been removed from your inventory.`,
-          });
+    // Close modal immediately for responsive UX
+    popModal("DeleteDeviceConfirm");
 
-          // Ensure queries are invalidated before navigation
+    // Use toast.promise with mutateAsync for proper Promise-based handling
+    toast.promise(
+      // Call mutateAsync which returns a proper Promise
+      deleteMutation.mutateAsync({ deviceId }),
+      {
+        loading: `Deleting ${deviceName}...`,
+        success: async () => {
+          // Invalidate queries in background
           await queryClient.invalidateQueries({
             queryKey: deviceQueries.list.base,
           });
-
-          popModal("DeleteDeviceConfirm");
 
           // Redirect to discovery page if we have org and project params
           if (params.organizationId && params.projectId) {
@@ -50,17 +50,15 @@ export default function DeleteDeviceConfirm({
               },
             });
           } else {
-            // Fallback: just invalidate router if params missing
             await router.invalidate();
           }
 
           onSuccess?.();
+
+          return `${deviceName} has been removed from your inventory.`;
         },
-        onError: (error: any) => {
-          toast.error("Failed to delete device", {
-            description: error instanceof Error ? error.message : "Please try again",
-          });
-        },
+        error: (err) =>
+          err instanceof Error ? err.message : "Failed to delete device",
       }
     );
   };
@@ -101,7 +99,6 @@ export default function DeleteDeviceConfirm({
           type="button"
           variant="outline"
           onClick={handleCancel}
-          disabled={deleteMutation.isPending}
           className="flex-1"
         >
           Cancel
@@ -110,10 +107,9 @@ export default function DeleteDeviceConfirm({
           type="button"
           variant="destructive"
           onClick={handleDelete}
-          disabled={deleteMutation.isPending}
           className="flex-1"
         >
-          {deleteMutation.isPending ? "Deleting..." : "Delete Device"}
+          Delete Device
         </Button>
       </div>
     </ModalContent>

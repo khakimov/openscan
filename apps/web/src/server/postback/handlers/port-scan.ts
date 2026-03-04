@@ -514,8 +514,8 @@ export class PortScanPostbackHandler
           changes: filteredChanges.map((c) => ({ type: c.type, severity: c.severity })),
         });
 
-        // Calculate suppress window based on change type
-        const now = Date.now();
+        // Calculate suppress window based on change type using shared config
+        const { calculateSuppressUntil } = await import('@repo/data-ops');
         const notificationInputs = filteredChanges.map((change) => ({
           organizationId,
           deviceId,
@@ -527,15 +527,8 @@ export class PortScanPostbackHandler
           message: change.message ?? null,
           data: change.data,
           fingerprint: change.fingerprint,
-          // Suppress windows: 15min for availability, 6h for ports, 24h for CVEs
-          suppressUntil: new Date(
-            now +
-              (change.type === 'SERVICE_DOWN' || change.type === 'SERVICE_UP'
-                ? 15 * 60 * 1000 // 15 minutes (fast alerts for outages/recovery)
-                : change.type.includes('PORT')
-                ? 6 * 60 * 60 * 1000 // 6 hours
-                : 24 * 60 * 60 * 1000) // 24 hours
-          ),
+          // Use shared suppress window calculation for consistency
+          suppressUntil: calculateSuppressUntil(change.type),
         }));
 
         const createdNotifications = await createNotifications(notificationInputs);

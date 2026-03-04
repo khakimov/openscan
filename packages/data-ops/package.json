@@ -5,32 +5,36 @@
   "description": "Manage auth, database, schemas, and queries",
   "exports": {
     ".": {
-      "default": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./auth/*": {
-      "default": "./dist/auth/*.js",
-      "types": "./dist/auth/*.d.ts"
+      "types": "./dist/auth/*.d.ts",
+      "default": "./dist/auth/*.js"
     },
     "./database/*": {
-      "default": "./dist/database/*.js",
-      "types": "./dist/database/*.d.ts"
+      "types": "./dist/database/*.d.ts",
+      "default": "./dist/database/*.js"
     },
     "./drizzle/*": {
-      "default": "./dist/drizzle/*.js",
-      "types": "./dist/drizzle/*.d.ts"
+      "types": "./dist/drizzle/*.d.ts",
+      "default": "./dist/drizzle/*.js"
     },
     "./schema": {
-      "default": "./dist/schema/index.js",
-      "types": "./dist/schema/index.d.ts"
+      "types": "./dist/schema/index.d.ts",
+      "default": "./dist/schema/index.js"
     },
     "./schema/*": {
-      "default": "./dist/schema/*.js",
-      "types": "./dist/schema/*.d.ts"
+      "types": "./dist/schema/*.d.ts",
+      "default": "./dist/schema/*.js"
     },
     "./queries/*": {
-      "default": "./dist/queries/*.js",
-      "types": "./dist/queries/*.d.ts"
+      "types": "./dist/queries/*.d.ts",
+      "default": "./dist/queries/*.js"
+    },
+    "./hosting": {
+      "types": "./dist/hosting/index.d.ts",
+      "default": "./dist/hosting/index.js"
     }
   },
   "scripts": {

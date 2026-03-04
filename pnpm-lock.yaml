@@ -89,6 +89,9 @@ importers:
       '@repo/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@repo/data-ops':
+        specifier: workspace:*
+        version: link:../../packages/data-ops
       '@repo/logger':
         specifier: workspace:*
         version: link:../../packages/logger

@@ -149,6 +149,12 @@ export function diffPorts(
 
       // SERVICE_DOWN: was open, now not open
       if (wasOpen && !isNowOpen) {
+        // Skip notification for standard ports (expected infrastructure)
+        // Mirrors NEW_PORT/CLOSED_PORT filtering to avoid noise from common services
+        if (STANDARD_PORTS_ALLOWLIST.has(port.port)) {
+          continue;
+        }
+
         const serviceName = port.service?.name ?? port.service?.product ?? undefined;
         const notification = createServiceDownNotification({
           deviceName,
@@ -176,8 +182,14 @@ export function diffPorts(
         });
       }
 
-      // SERVICE_UP: was not open, now open (recovery)
-      if (!wasOpen && isNowOpen) {
+      // SERVICE_UP: was not open, now open (recovery) - must exist in both scans
+      if (!wasOpen && isNowOpen && prevPortMap.has(key)) {
+        // Skip notification for standard ports (expected infrastructure)
+        // Mirrors NEW_PORT/CLOSED_PORT filtering to avoid noise from common services
+        if (STANDARD_PORTS_ALLOWLIST.has(currentPort.port)) {
+          continue;
+        }
+
         const serviceName = currentPort.service?.name ?? currentPort.service?.product ?? undefined;
         const notification = createServiceUpNotification({
           deviceName,

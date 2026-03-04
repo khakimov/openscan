@@ -81,6 +81,10 @@ export {
   upsertNotification,
   backfillMessageHashes,
   expireNotifications,
+  // Suppress window utilities
+  SUPPRESS_WINDOWS,
+  getSuppressWindowDuration,
+  calculateSuppressUntil,
 } from './queries/notifications';
 export type { UpsertNotificationResult } from './queries/notifications';
 
@@ -165,6 +169,9 @@ export {
   buildPortEnrichmentMap,
   derivePortStats,
 } from './types/cve-enrichment';
+
+// Export hosting provider detection
+export * from './hosting';
 
 // Export notification catalog (sec-or9 refactor)
 export * from './notifications/catalog';

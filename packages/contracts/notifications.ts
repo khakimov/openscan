@@ -101,3 +101,44 @@ export function validateNotificationTypeModule(
 ): boolean {
   return MODULE_TYPE_MAP[module]?.has(type) ?? false;
 }
+
+// ============================================================================
+// Notification Delivery Types (shared between web and data-service)
+// ============================================================================
+
+/**
+ * Individual notification within a batch (for email delivery)
+ */
+export interface NotificationBatchItem {
+  notificationId: string;
+  deviceId?: string;
+  severity: NotificationSeverity;
+  eventType: string;
+  title: string;
+  message?: string;
+  payload: Record<string, unknown>;
+}
+
+/**
+ * Notification delivery message (consumed from queue by data-service)
+ * 
+ * This is the unified type used across:
+ * - apps/web/src/server/notifications/delivery-queue.ts (producer)
+ * - apps/data-service/types.ts (consumer)
+ */
+export interface NotificationDeliveryMessage {
+  notificationId: string;
+  organizationId: string;
+  deviceId?: string;
+  severity: NotificationSeverity;
+  targetChannels: ('email' | 'telegram')[];
+  recipients: string[];
+  eventType: string;
+  payload: Record<string, unknown>;
+  notificationTitle: string;
+  notificationMessage?: string;
+  // Batch fields
+  scanRunId?: string;
+  isBatch?: boolean;
+  batchItems?: NotificationBatchItem[];
+}

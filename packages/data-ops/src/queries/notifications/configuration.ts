@@ -26,7 +26,7 @@ import {
   type NotificationSeverity,
   type NotificationModule,
 } from '../../notifications/catalog';
-import { createNotification } from './crud';
+import { createNotification, upsertNotification, SUPPRESS_WINDOWS, type UpsertNotificationResult } from './crud';
 import type { CreateNotificationInput } from './schemas';
 
 /**
@@ -109,6 +109,8 @@ function generateConfigDriftFingerprint(payload: ConfigurationDriftPayload): str
 /**
  * Calculate suppress window for configuration drift notifications
  *
+ * Uses shared SUPPRESS_WINDOWS from crud.ts for consistency.
+ * 
  * Suppress windows prevent notification spam for repeated changes:
  * - SERVER_IP_CHANGED: 24 hours (IPs don't change frequently)
  * - APP_PRODUCT_CHANGED: 12 hours (suspicious changes should be investigated)
@@ -117,16 +119,9 @@ function generateConfigDriftFingerprint(payload: ConfigurationDriftPayload): str
  * - MANUAL_EDIT: 0 minutes (always create for audit trail)
  */
 function getConfigDriftSuppressWindow(type: ConfigurationDriftType): Date {
-  const now = Date.now();
-  const windows = {
-    SERVER_IP_CHANGED: 24 * 60 * 60 * 1000, // 24 hours
-    APP_PRODUCT_CHANGED: 12 * 60 * 60 * 1000, // 12 hours
-    APP_VERSION_CHANGED: 6 * 60 * 60 * 1000, // 6 hours
-    WEB_TITLE_CHANGED: 6 * 60 * 60 * 1000, // 6 hours
-    MANUAL_EDIT: 0, // No suppression (audit trail)
-  };
-
-  return new Date(now + (windows[type] || 6 * 60 * 60 * 1000));
+  // Use UTC to ensure consistency regardless of server timezone
+  const duration = SUPPRESS_WINDOWS[type as keyof typeof SUPPRESS_WINDOWS] ?? 6 * 60 * 60 * 1000;
+  return new Date(Date.now() + duration);
 }
 
 /**
@@ -166,7 +161,7 @@ function getConfigDriftSuppressWindow(type: ConfigurationDriftType): Date {
  */
 export async function logConfigurationDrift(
   payload: ConfigurationDriftPayload
-): Promise<typeof import('../../schema/notifications').notifications.$inferSelect | null> {
+): Promise<UpsertNotificationResult['notification'] | null> {
   // Generate notification descriptor using catalog builders
   let descriptor;
 
@@ -256,10 +251,15 @@ export async function logConfigurationDrift(
     },
   };
 
-  // Create notification (deduplication handled by upsertNotification)
+  // Create notification with deduplication
+  // MANUAL_EDIT uses unique fingerprints (audit trail) so createNotification is fine
+  // All other types use upsertNotification for suppress window deduplication
   try {
-    const notification = await createNotification(input);
-    return notification;
+    if (payload.type === 'MANUAL_EDIT') {
+      return await createNotification(input);
+    }
+    const result = await upsertNotification(input);
+    return result?.notification ?? null;
   } catch (error) {
     // Log error but don't throw (configuration drift notifications are non-critical)
     console.error('Failed to create configuration drift notification', {

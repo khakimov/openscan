@@ -47,6 +47,28 @@ export const devices = sqliteTable('devices', {
   projectIdx: index('devices_project_idx').on(t.projectId),
 }));
 
+// Hosting provider categories
+export const HOSTING_CATEGORIES = ['CDN', 'CLOUD', 'HOSTING', 'DATACENTER', 'UNKNOWN'] as const;
+
+// Hosting providers lookup table (normalized)
+export const hostingProviders = sqliteTable('hosting_providers', {
+  id: cuidText().primaryKey(),
+  // Canonical provider name
+  name: text('name').notNull(), // "Cloudflare", "AWS", "GCP"
+  // Provider category
+  category: text('category', { enum: HOSTING_CATEGORIES }).notNull().default('UNKNOWN'),
+  // Official ASN
+  asn: text('asn'), // "AS13335"
+  // ASN organization name
+  asOrganization: text('as_organization'), // "Cloudflare, Inc."
+  // Icon/logo identifier
+  iconKey: text('icon_key'), // "cloudflare", "aws", "gcp"
+  createdAt: now(),
+}, (t) => ({
+  nameIdx: index('hosting_providers_name_idx').on(t.name),
+  asnIdx: index('hosting_providers_asn_idx').on(t.asn),
+}));
+
 export const deviceIps = sqliteTable('device_ips', {
   id: cuidText().primaryKey(),
   organizationId: text('organization_id').notNull().references(() => organization.id, { onDelete: 'cascade' }),
@@ -55,9 +77,16 @@ export const deviceIps = sqliteTable('device_ips', {
   primary: integer('primary', { mode: 'boolean' }).notNull().default(sql`0`),
   lastScanned: integer('last_scanned', { mode: 'timestamp_ms' }),
   reverseDns: text('reverse_dns'),
+  // Hosting provider detection fields
+  hostingProviderId: text('hosting_provider_id').references(() => hostingProviders.id),
+  hostingDetectedAt: integer('hosting_detected_at', { mode: 'timestamp_ms' }),
+  hostingDetectionSource: text('hosting_detection_source'), // 'IP_API', 'WHOIS', 'MANUAL'
+  // Raw detection data (cached)
+  hostingRawData: text('hosting_raw_data'), // JSON string of API response
 }, (t) => ({
   orgIpIdx: index('device_ips_org_ip_idx').on(t.organizationId, t.ip),
   deviceIpUq: uniqueIndex('device_ips_device_ip_uq').on(t.organizationId, t.deviceId, t.ip),
+  hostingProviderIdx: index('device_ips_hosting_provider_idx').on(t.hostingProviderId),
 }));
 
 export const deviceHostnames = sqliteTable('device_hostnames', {
@@ -132,6 +161,10 @@ export const devicesRelations = relations(devices, ({ one, many }) => ({
   applications: many(applications),
 }));
 
+export const hostingProvidersRelations = relations(hostingProviders, ({ many }) => ({
+  deviceIps: many(deviceIps),
+}));
+
 export const deviceIpsRelations = relations(deviceIps, ({ one }) => ({
   organization: one(organization, {
     fields: [deviceIps.organizationId],
@@ -140,6 +173,10 @@ export const deviceIpsRelations = relations(deviceIps, ({ one }) => ({
   device: one(devices, {
     fields: [deviceIps.deviceId],
     references: [devices.id],
+  }),
+  hostingProvider: one(hostingProviders, {
+    fields: [deviceIps.hostingProviderId],
+    references: [hostingProviders.id],
   }),
 }));
 

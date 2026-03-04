@@ -23,8 +23,10 @@ import AddDiscovery from "./AddDiscovery";
 import AddDevice from "./AddDevice";
 import AddProject from "./AddProject";
 import DeleteDeviceConfirm from "./DeleteDeviceConfirm";
+import DeleteProjectConfirm from "./DeleteProjectConfirm";
 import EditDevice from "./EditDevice";
 import CreateSchedule from "./CreateSchedule";
+import ManageProjects from "./ManageProjects";
 
 // Define available modals - add your modals here
 const modals = {
@@ -34,8 +36,10 @@ const modals = {
   AddDevice: AddDevice, // Direct import, no loading state
   AddProject: AddProject, // Direct import, no loading state
   DeleteDeviceConfirm: DeleteDeviceConfirm, // Direct import, no loading state
+  DeleteProjectConfirm: DeleteProjectConfirm, // Direct import, no loading state
   EditDevice: EditDevice, // Direct import, no loading state
   CreateSchedule: CreateSchedule, // Direct import, no loading state
+  ManageProjects: ManageProjects, // Direct import, no loading state
   // Add more modals as needed:
   // EditProfile: lazy(() => import('./EditProfile')),
 };
@@ -246,3 +250,23 @@ export interface EditDeviceProps {
 
 export const showEditDevice = (props: EditDeviceProps) =>
   pushModal("EditDevice", props);
+
+// Helper for manage projects modal
+export interface ManageProjectsProps {
+  projects: import("@repo/contracts/project").ProjectEntity[];
+  activeProjectId?: string;
+}
+
+export const showManageProjects = (props: ManageProjectsProps) =>
+  pushModal("ManageProjects", props);
+
+// Helper for delete project confirm modal
+export interface DeleteProjectConfirmProps {
+  projectId: string;
+  projectName: string;
+  isActive?: boolean;
+  onSuccess?: () => void;
+}
+
+export const showDeleteProjectConfirm = (props: DeleteProjectConfirmProps) =>
+  pushModal("DeleteProjectConfirm", props);

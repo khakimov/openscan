@@ -13,9 +13,8 @@ import {
 } from "@/components/ui/select";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
-import { useCreateScheduleMutation } from "@/queries";
+import { useCreateScheduleMutation } from "@/queries/schedule-queries";
 import { Loader2, Clock } from "lucide-react";
-import { toast } from "sonner";
 
 // Form validation schema
 const CreateScheduleSchema = z.object({
@@ -80,7 +79,7 @@ export default function CreateSchedule({
 
   const createMutation = useCreateScheduleMutation();
 
-  const onSubmit = async (data: CreateScheduleFormData) => {
+  const onSubmit = (data: CreateScheduleFormData) => {
     createMutation.mutate(
       {
         deviceId,
@@ -90,24 +89,13 @@ export default function CreateSchedule({
         startImmediately: true,
       },
       {
-        onSuccess: (response) => {
-          if (response.success) {
-            toast.success("Schedule created successfully", {
-              description: `${deviceName || 'Device'} will be scanned ${getFrequencyDescription(data.scheduleFrequency, data.dailyTime)}`,
-            });
+        onSuccess: (result) => {
+          if (result.success) {
+            // Close modal and call success callback
             onSuccess?.();
             popModal("CreateSchedule");
-          } else {
-            toast.error("Failed to create schedule", {
-              description: response.error || "Please try again",
-            });
           }
-        },
-        onError: (error: any) => {
-          toast.error("Failed to create schedule", {
-            description:
-              error instanceof Error ? error.message : "Please try again",
-          });
+          // Note: Error and partial success toasts are handled by the mutation
         },
       }
     );

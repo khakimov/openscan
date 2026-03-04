@@ -29,8 +29,9 @@ const ServersDiscoveryPending = () => {
   );
 };
 
-// Discovery tab shows CANDIDATE and EXCLUDED devices
-const verificationStatus: ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[] = ["CANDIDATE", "EXCLUDED"];
+// Discovery tab shows only CANDIDATE devices (pending review)
+// EXCLUDED devices are hidden to avoid clutter
+const verificationStatus: ("CANDIDATE" | "VERIFIED" | "EXCLUDED")[] = ["CANDIDATE"];
 
 export const Route = createFileRoute("/_app/$organizationId/$projectId/servers/discovery")({
   pendingComponent: ServersDiscoveryPending,
@@ -65,6 +66,7 @@ function ServersDiscovery() {
     pushModal("AddDiscovery", {
       organizationId: organization.id,
       projectId: project.id,
+      target: project.domain || undefined,
       onConfirm: handleDiscoveryCreated,
       onDevicesAdded: handleDevicesAdded,
     });
@@ -153,7 +155,7 @@ function DevicesContent({
         organizationId={organizationId}
         projectId={projectId}
         showActions={showActions}
-        foundCount={counts ? counts.CANDIDATE + counts.EXCLUDED : undefined}
+        foundCount={counts?.CANDIDATE}
         monitoredCount={counts?.VERIFIED}
         onStartDiscovery={onStartDiscovery}
         onAddDevice={onAddDevice}

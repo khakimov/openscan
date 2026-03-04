@@ -19,10 +19,9 @@
 import {
   resolveEmailSeverities,
   getOrganizationMemberEmails,
-  getOrganizationById,
   getDeviceById,
-  type NotificationSeverity,
 } from '@repo/data-ops';
+import type { NotificationSeverity, NotificationDeliveryMessage, NotificationBatchItem } from '@repo/contracts/notifications';
 import type { notifications } from '@repo/data-ops/schema/notifications';
 import { createLogger } from '@repo/logger';
 
@@ -32,37 +31,9 @@ const logger = createLogger({ name: 'delivery-queue' });
  * Notification delivery job payload
  *
  * Sent to Cloudflare Queue → consumed by data-service worker
+ * Uses shared types from @repo/contracts for consistency
  */
-export interface NotificationDeliveryJob {
-  notificationId: string;
-  organizationId: string;
-  deviceId?: string;
-  severity: NotificationSeverity;
-  targetChannels: ('email' | 'telegram')[];
-  recipients: string[];
-  eventType: string;
-  payload: Record<string, unknown>;
-  // Catalog-derived notification text (single source of truth)
-  notificationTitle: string;
-  notificationMessage?: string;
-  // Optional: group notifications from the same scan
-  scanRunId?: string;
-  isBatch?: boolean; // True if this job represents multiple notifications
-  batchItems?: NotificationBatchItem[]; // Individual notifications in the batch
-}
-
-/**
- * Individual notification within a batch
- */
-export interface NotificationBatchItem {
-  notificationId: string;
-  deviceId?: string;
-  severity: NotificationSeverity;
-  eventType: string;
-  title: string;
-  message?: string;
-  payload: Record<string, unknown>;
-}
+export type NotificationDeliveryJob = NotificationDeliveryMessage;
 
 type DbNotification = typeof notifications.$inferSelect;
 
@@ -147,9 +118,51 @@ export async function enqueueNotificationDelivery(
       recipients: recipients.length,
     });
 
-    // Load organization info for URL building (use data-ops query)
+    // Load organization info for URL building
+    // Organization slug is used for building user-facing URLs
+    const { getOrganizationById } = await import('@repo/data-ops');
     const org = await getOrganizationById(organizationId);
     const orgSlugOrId = org?.slug || organizationId;
+
+    // Pre-fetch all devices to avoid N+1 queries
+    const deviceIds = [...new Set(filtered.map((n) => n.deviceId).filter(Boolean))];
+    const devices = await Promise.all(
+      deviceIds.map((id) => getDeviceById(id!, organizationId))
+    );
+    const deviceMap = new Map(devices.filter(Boolean).map((d) => [d!.id, d!]));
+
+    // Helper function to enrich payload with device info
+    const enrichPayload = (
+      notification: StoredNotification,
+      basePayload: Record<string, unknown>
+    ): Record<string, unknown> => {
+      let enrichedPayload: Record<string, unknown> = { ...basePayload };
+
+      // Map notification.data fields to email template expected fields
+      if (notification.type === 'NEW_PORT' && enrichedPayload.port) {
+        enrichedPayload.portDisplay = String(enrichedPayload.port);
+        enrichedPayload.detectedService = enrichedPayload.service;
+      }
+
+      if (notification.deviceId) {
+        const device = deviceMap.get(notification.deviceId);
+        if (device) {
+          const deviceNameOrIp = device.name || device.ip || 'Unknown server';
+          const activityUrl = device.projectId
+            ? `https://sec.rocks/${orgSlugOrId}/${device.projectId}/servers/${notification.deviceId}/activity`
+            : `https://sec.rocks/${orgSlugOrId}/servers/${notification.deviceId}/activity`;
+
+          enrichedPayload = {
+            ...enrichedPayload,
+            deviceName: deviceNameOrIp,
+            deviceIp: device.ip,
+            scanLink: activityUrl,
+          };
+        }
+      }
+
+      return enrichedPayload;
+    };
 
     // If scanRunId is provided and we have multiple notifications, batch them
     const shouldBatch = options?.scanRunId && filtered.length > 1;
@@ -171,30 +184,7 @@ export async function enqueueNotificationDelivery(
           notification.data && typeof notification.data === 'object'
             ? { ...notification.data }
             : {};
-        let enrichedPayload: Record<string, unknown> = basePayload;
-
-        // Map notification.data fields to email template expected fields
-        if (notification.type === 'NEW_PORT' && enrichedPayload.port) {
-          enrichedPayload.portDisplay = String(enrichedPayload.port);
-          enrichedPayload.detectedService = enrichedPayload.service;
-        }
-
-        if (notification.deviceId) {
-          const device = await getDeviceById(notification.deviceId, organizationId);
-          if (device) {
-            const deviceNameOrIp = device.name || device.ip || 'Unknown server';
-            const activityUrl = device.projectId
-              ? `https://sec.rocks/${orgSlugOrId}/${device.projectId}/servers/${notification.deviceId}/activity`
-              : `https://sec.rocks/${orgSlugOrId}/servers/${notification.deviceId}/activity`;
-
-            enrichedPayload = {
-              ...enrichedPayload,
-              deviceName: deviceNameOrIp,
-              deviceIp: device.ip,
-              scanLink: activityUrl,
-            };
-          }
-        }
+        const enrichedPayload = enrichPayload(notification, basePayload);
 
         batchItems.push({
           notificationId: notification.id,
@@ -234,35 +224,7 @@ export async function enqueueNotificationDelivery(
         notification.data && typeof notification.data === 'object'
           ? { ...notification.data }
           : {};
-      let enrichedPayload: Record<string, unknown> = basePayload;
-
-      // Map notification.data fields to email template expected fields
-      // Port notifications: port → portDisplay, service → detectedService
-      if (notification.type === 'NEW_PORT' && enrichedPayload.port) {
-        enrichedPayload.portDisplay = String(enrichedPayload.port);
-        enrichedPayload.detectedService = enrichedPayload.service;
-      }
-
-      if (notification.deviceId) {
-        // Use data-ops query instead of raw SQL
-        const device = await getDeviceById(notification.deviceId, organizationId);
-
-        if (device) {
-          const deviceNameOrIp = device.name || device.ip || 'Unknown server';
-
-          // Build activity URL: /{orgSlug}/{projectId}/servers/{deviceId}/activity
-          const activityUrl = device.projectId
-            ? `https://sec.rocks/${orgSlugOrId}/${device.projectId}/servers/${notification.deviceId}/activity`
-            : `https://sec.rocks/${orgSlugOrId}/servers/${notification.deviceId}/activity`;
-
-          enrichedPayload = {
-            ...enrichedPayload,
-            deviceName: deviceNameOrIp,
-            deviceIp: device.ip,
-            scanLink: activityUrl,
-          };
-        }
-      }
+      const enrichedPayload = enrichPayload(notification, basePayload);
 
         jobs.push({
           notificationId: notification.id,

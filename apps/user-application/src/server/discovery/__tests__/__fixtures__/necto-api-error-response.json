@@ -1,6 +1,0 @@
-{
-  "error": "Linux failed vulnerability mapping processing",
-  "details": "CPE matching indices not available. Please wait for CVE database initialization to complete.",
-  "status": 503,
-  "retryAfter": 3600
-}

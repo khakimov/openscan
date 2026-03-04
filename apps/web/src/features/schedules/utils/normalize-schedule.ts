@@ -51,6 +51,8 @@ export interface NormalizedSchedule {
   createdAt: string;
   updatedAt: string | null; // Can be null in database
   createdBy?: string | null;
+  /** Internal flag for optimistic pending state - not persisted to server */
+  _isPending?: boolean;
   [key: string]: any;
 }
 

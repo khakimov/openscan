@@ -264,6 +264,7 @@ export const riskLevelBorderStyles = {
   HIGH: 'border-orange-500/50 border-2',
   MEDIUM: 'border-amber-500/50 border-2',
   LOW: 'border-green-500/50 border-2',
+  SECURE: 'border-emerald-500/30',
   UNKNOWN: 'border-zinc-300/50 border-2',
 } as const;
 
@@ -333,9 +334,19 @@ export function getVulnStateBadgeClass(state?: string): string {
   return `inline-flex items-center px-2 py-1 text-xs font-medium rounded-md ${getStateStyle(state)}`;
 }
 
+// Risk Level Badge Styles (maps risk levels including SECURE)
+export const riskLevelStyles: Record<string, string> = {
+  CRITICAL: cveSeverityStyles.CRITICAL,
+  HIGH: cveSeverityStyles.HIGH,
+  MEDIUM: cveSeverityStyles.MEDIUM,
+  LOW: cveSeverityStyles.LOW,
+  SECURE: 'uppercase border bg-emerald-500/10 text-emerald-400 border-emerald-400/10 bg-opacity-10',
+  UNKNOWN: cveSeverityStyles.UNKNOWN,
+};
+
 export function getRiskLevelBadgeClass(riskLevel: string): string {
-  const normalizedRiskLevel = riskLevel?.toUpperCase() as CVESeverity;
-  const riskStyle = cveSeverityStyles[normalizedRiskLevel] || cveSeverityStyles.UNKNOWN;
+  const normalizedRiskLevel = riskLevel?.toUpperCase();
+  const riskStyle = riskLevelStyles[normalizedRiskLevel] || riskLevelStyles.UNKNOWN;
   return `inline-flex items-center px-2 py-1 text-xs font-medium rounded-md ${riskStyle}`;
 }
 

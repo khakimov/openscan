@@ -267,29 +267,21 @@ export function Sidebar({ className }: SidebarProps = {}) {
         )}
       >
         {/* Toggle Button */}
-        <div className="absolute -right-16 flex h-16 items-center gap-2 lg:hidden">
+        <div className="absolute -right-12 flex h-16 items-center lg:hidden">
           <Button
             variant="outline"
             size="icon"
             onClick={() => setIsMobileMenuOpen((prev) => !prev)}
             className="h-10 w-10 bg-background"
           >
-            {isMobileMenuOpen ? (
-              <XIcon className="h-3 w-3" />
+            {routerState.isLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : isMobileMenuOpen ? (
+              <XIcon className="h-4 w-4" />
             ) : (
-              <Menu className="h-2 w-2" />
+              <Menu className="h-4 w-4" />
             )}
           </Button>
-          {routerState.isLoading && (
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-10 w-10 bg-background"
-              disabled
-            >
-              <Loader2 className="h-4 w-4 animate-spin" />
-            </Button>
-          )}
         </div>
 
         {/* Header */}

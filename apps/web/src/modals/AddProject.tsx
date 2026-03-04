@@ -14,6 +14,7 @@ import { useAppParams } from "@/hooks/use-app-params";
 import { useMutationWithToast } from "@/hooks/use-mutation-with-toast";
 import { useTRPCClient } from "@/integrations/trpc/react";
 import { projectQueries } from "@/queries/project-queries";
+import { getProjectDefaultRouteParams } from "@/lib/navigation";
 
 // Form validation schema
 const AddProjectSchema = z.object({
@@ -55,32 +56,24 @@ export default function AddProject() {
         description: data.description,
         domain: data.domain,
       }),
-    // Invalidate the project list query for this organization
+    // Invalidate all project list queries (base key matches regardless of org slug vs ID)
     invalidateKeys: [
-      projectQueries.listByOrg.key(params.organizationId),
+      projectQueries.listByOrg.base,
     ],
     toastOnSuccess: false, // We'll show custom toast with navigation action
     onSuccess: async (response) => {
       const orgIdentifier = params.organizationId;
 
-      // Show success toast with action to navigate
-      toast.success("Project created successfully", {
-        description: response.project.name,
-        action: {
-          label: "View project",
-          onClick: () => {
-            navigate({
-              to: "/$organizationId/$projectId",
-              params: {
-                organizationId: orgIdentifier,
-                projectId: response.project.id,
-              },
-            });
-          },
-        },
+      popModal("AddProject");
+
+      // Navigate to the new project's servers page
+      navigate({
+        ...getProjectDefaultRouteParams(orgIdentifier, response.project.id),
       });
 
-      popModal("AddProject");
+      toast.success("Project created successfully", {
+        description: response.project.name,
+      });
     },
   });
 

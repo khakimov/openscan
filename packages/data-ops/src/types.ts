@@ -14,6 +14,10 @@ export type NewTag = typeof schema.tags.$inferInsert;
 export type DeviceTag = typeof schema.deviceTags.$inferSelect;
 export type Application = typeof schema.applications.$inferSelect;
 
+// Hosting provider types
+export type HostingProvider = typeof schema.hostingProviders.$inferSelect;
+export type NewHostingProvider = typeof schema.hostingProviders.$inferInsert;
+
 // Scanner types
 export type Scanner = typeof schema.scanners.$inferSelect;
 export type NewScanner = typeof schema.scanners.$inferInsert;

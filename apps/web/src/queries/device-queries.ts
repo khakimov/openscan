@@ -1,6 +1,7 @@
 import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useTRPCClient } from '@/integrations/trpc/react';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
+import { toast } from 'sonner';
 
 import { invalidateTRPCQuery } from '@/lib/query-utils';
 
@@ -80,10 +81,11 @@ export const deviceQueries = {
  */
 
 /**
- * Delete device - Pattern 1: Simple Invalidation
+ * Delete device - Optimistic: Remove from list immediately
  */
 export const useDeleteDeviceMutation = () => {
   const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
 
   return useMutationWithToast({
     mutationKey: ['device', 'delete'],
@@ -91,6 +93,38 @@ export const useDeleteDeviceMutation = () => {
       trpcClient.device.remove.mutate(data),
     successMessage: 'Device deleted successfully',
     invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
+
+    // Optimistic update: Remove device from list immediately
+    onMutate: async (variables) => {
+      // Cancel in-flight queries to prevent race conditions
+      await queryClient.cancelQueries({ queryKey: deviceQueries.listWithDetails.base });
+
+      // Snapshot previous data for rollback
+      const previousQueries = queryClient.getQueriesData({ queryKey: deviceQueries.listWithDetails.base });
+
+      // Optimistically remove device from all list queries
+      queryClient.setQueriesData(
+        { queryKey: deviceQueries.listWithDetails.base },
+        (old: any) => {
+          if (!old?.items) return old;
+          return {
+            ...old,
+            items: old.items.filter((d: any) => d.id !== variables.deviceId),
+            // Decrement total count
+            totalCount: Math.max(0, (old.totalCount ?? 0) - 1),
+          };
+        }
+      );
+
+      return { previousQueries };
+    },
+
+    // Rollback on error
+    onError: (_err, _vars, context) => {
+      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
   });
 };
 
@@ -309,11 +343,92 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
 };
 
 /**
- * Create devices from discovery - Pattern 1: Simple Invalidation
+ * Shared optimistic update logic for device creation mutations.
+ * Adds skeleton devices to the listWithDetails cache immediately.
  */
-export const useCreateDevicesFromDiscoveryMutation = () => {
+function createSkeletonDevicesOptimisticUpdate(queryClient: ReturnType<typeof useQueryClient>) {
+  return async (variables: {
+    targets: Array<{ host: string; ip?: string }>;
+    projectId: string;
+    options?: {
+      source?: string;
+      scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
+      verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
+    };
+  }) => {
+    await queryClient.cancelQueries({ queryKey: deviceQueries.listWithDetails.base });
+    const previousQueries = queryClient.getQueriesData({ queryKey: deviceQueries.listWithDetails.base });
+
+    const tempDevices = variables.targets.map((target, index) => ({
+      id: `temp-${Date.now()}-${index}`,
+      name: target.host,
+      ip: target.ip || null,
+      projectId: variables.projectId,
+      organizationId: '',
+      verificationStatus: variables.options?.verificationStatus || 'CANDIDATE',
+      discoveredAt: Date.now(),
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      isScanned: false,
+      respondsToPing: null,
+      riskLevel: 'UNKNOWN',
+      state: null,
+      status: 'pending',
+      scope: variables.options?.scope || 'EXTERNAL',
+      source: variables.options?.source || 'MANUAL',
+      tags: [],
+      activeScans: [],
+      scanHistory: [],
+      _isPending: true,
+    }));
+
+    queryClient.setQueriesData(
+      { queryKey: deviceQueries.listWithDetails.base },
+      (old: any) => {
+        if (!old?.items) return old;
+        return {
+          ...old,
+          items: [...tempDevices, ...old.items],
+          totalCount: (old.totalCount ?? 0) + tempDevices.length,
+        };
+      }
+    );
+
+    return { previousQueries, tempDeviceIds: tempDevices.map(d => d.id) };
+  };
+}
+
+interface UseCreateDevicesFromDiscoveryMutationOptions {
+  /** Disable built-in toasts for custom toast handling (e.g., modal closes early) */
+  disableToasts?: boolean;
+}
+
+/**
+ * Create devices from discovery - Pattern 1: Simple Invalidation
+ *
+ * @param options - Optional configuration for the mutation
+ * @returns Mutation object with mutate function
+ *
+ * @example
+ * // Default usage (with built-in toasts)
+ * const mutation = useCreateDevicesFromDiscoveryMutation();
+ *
+ * @example
+ * // Custom toast handling (modal closes early, shows loading toast)
+ * const mutation = useCreateDevicesFromDiscoveryMutation({ disableToasts: true });
+ * // Then in your component:
+ * // toast.loading('Adding...', { id: toastId });
+ * // mutation.mutate(data, {
+ * //   onSuccess: () => toast.success('Added', { id: toastId }),
+ * //   onError: () => toast.error('Failed', { id: toastId }),
+ * // });
+ */
+export const useCreateDevicesFromDiscoveryMutation = (
+  options: UseCreateDevicesFromDiscoveryMutationOptions = {}
+) => {
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
+  const { disableToasts = false } = options;
 
   return useMutationWithToast({
     mutationKey: ['device', 'create-from-discovery'],
@@ -332,14 +447,112 @@ export const useCreateDevicesFromDiscoveryMutation = () => {
       }
       return response;
     },
-    successMessage: (response) =>
-      `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
+    successMessage: disableToasts
+      ? undefined
+      : (response) =>
+          `Added ${response.count} ${response.count === 1 ? 'device' : 'devices'}`,
     invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
+    toastOnSuccess: !disableToasts,
+    toastOnError: !disableToasts,
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: [['onboarding', 'status'], { input: undefined, type: 'query' as const }] });
       await queryClient.invalidateQueries(
         invalidateTRPCQuery(['onboarding', 'discoveryDevices'])
       );
+    },
+
+    onMutate: createSkeletonDevicesOptimisticUpdate(queryClient),
+
+    // On error, remove skeleton devices
+    onError: (_err, _vars, context) => {
+      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+        queryClient.setQueryData(key, data);
+      });
+    },
+  });
+};
+
+/**
+ * Create devices from discovery with deferred toast (modal closes immediately)
+ * 
+ * This version shows a loading toast that stays visible while the modal closes,
+ * then updates to success/error when complete. Provides better UX for bulk operations.
+ *
+ * @returns Mutation object with mutateAsync that returns a toastId for tracking
+ *
+ * @example
+ * const mutation = useCreateDevicesFromDiscoveryWithToast();
+ * 
+ * // In your component:
+ * const toastId = toast.loading(`Adding ${targets.length} devices...`);
+ * mutation.mutate(
+ *   { targets, projectId, toastId },
+ *   {
+ *     onSuccess: (response) => {
+ *       toast.success(`Added ${response.count} devices`, { id: toastId });
+ *       popModal();
+ *     },
+ *     onError: (error) => {
+ *       toast.error(`Failed: ${error.message}`, { id: toastId });
+ *     },
+ *   }
+ * );
+ */
+export const useCreateDevicesFromDiscoveryWithToast = () => {
+  const trpcClient = useTRPCClient();
+  const queryClient = useQueryClient();
+
+  return useMutationWithToast({
+    mutationKey: ['device', 'create-from-discovery', 'with-toast'],
+    mutationFn: async (data: {
+      targets: Array<{ host: string; ip?: string }>;
+      projectId: string;
+      toastId: string | number;
+      options?: {
+        source?: string;
+        scope?: 'INTERNAL' | 'EXTERNAL' | 'HYBRID';
+        verificationStatus?: 'CANDIDATE' | 'VERIFIED' | 'EXCLUDED';
+      };
+    }) => {
+      const { toastId: _, ...apiData } = data;
+      const response = await trpcClient.device.createFromDiscovery.mutate(apiData);
+      if (!response.success) {
+        throw new Error('Failed to create devices');
+      }
+      return response;
+    },
+    // No built-in toasts - caller manages them
+    successMessage: undefined,
+    toastOnSuccess: false,
+    toastOnError: false,
+    invalidateKeys: [deviceQueries.list.base, deviceQueries.listWithDetails.base, deviceQueries.counts.base],
+    onSuccess: async (_data, variables) => {
+      // Update the loading toast to success
+      toast.success(
+        `Added ${_data.count} ${_data.count === 1 ? 'device' : 'devices'} to inventory`,
+        { id: variables.toastId }
+      );
+
+      // Invalidate queries
+      await queryClient.invalidateQueries({ queryKey: [['onboarding', 'status'], { input: undefined, type: 'query' as const }] });
+      await queryClient.invalidateQueries(
+        invalidateTRPCQuery(['onboarding', 'discoveryDevices'])
+      );
+    },
+    onMutate: createSkeletonDevicesOptimisticUpdate(queryClient),
+
+    // On error, update toast and remove skeleton devices
+    onError: (error, variables, context) => {
+      // Update the loading toast to error
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to add devices',
+        { id: variables.toastId }
+      );
+      
+      // Rollback optimistic update
+      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+        queryClient.setQueryData(key, data);
+      });
     },
   });
 };

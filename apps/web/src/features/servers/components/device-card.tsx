@@ -13,6 +13,7 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
@@ -45,6 +46,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getScanTarget } from "./device-actions";
 
 type ScanHistoryItem = {
   id: string;
@@ -56,25 +58,9 @@ type ScanHistoryItem = {
 interface DeviceCardProps {
   device: TransformedDevice & {
     scanHistory?: ScanHistoryItem[]; // Optional - will poll if not provided
+    _isPending?: boolean; // Internal flag for optimistic pending state
   };
   isNewlyAdded?: boolean; // Visual indicator for newly added devices
-}
-
-// Helper to get scan target from device
-function getScanTarget(device: TransformedDevice): string | null {
-  let target = device.name;
-
-  // Clean up name with parentheses
-  if (target?.includes("(")) {
-    target = target.split("(")[0].trim();
-  }
-
-  // Use IP if name doesn't look like a hostname
-  if (!target || !target.includes(".")) {
-    target = device.ip;
-  }
-
-  return target || null;
 }
 
 // Aggregate CVE counts from port snapshots
@@ -214,6 +200,54 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
     );
   };
 
+  // Pending/skeleton device rendering
+  if (device._isPending) {
+    return (
+      <div className="w-full">
+        <div
+          className="relative rounded-lg w-full border border-dashed border-blue-500/30 animate-pulse bg-card"
+        >
+          {/* Header */}
+          <div className="p-4">
+            <div className="flex justify-between items-start mb-2">
+              <div className="col min-w-0 flex-1 pr-10">
+                <div className="font-medium leading-[28px] truncate text-blue-400">
+                  {device.name}
+                </div>
+                <div className="text-sm text-muted-foreground">
+                  Adding device...
+                </div>
+              </div>
+            </div>
+
+            {/* Pending Badge */}
+            <div className="flex flex-wrap gap-2 mt-2">
+              <span className="px-2 py-1 text-xs rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/30 flex items-center gap-1">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                Adding
+              </span>
+            </div>
+          </div>
+
+          {/* Skeleton Stats Grid */}
+          <div className="grid grid-cols-3 items-start gap-x-6 gap-y-1 px-4 py-3 sm:px-6">
+            <div className="text-xs uppercase tracking-wider text-muted-foreground/70">services</div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground/70">status</div>
+            <div className="text-xs uppercase tracking-wider text-muted-foreground/70">discovered</div>
+
+            <div className="font-mono text-xl text-muted-foreground">-</div>
+            <div className="text-sm whitespace-nowrap text-muted-foreground">
+              Adding...
+            </div>
+            <div className="text-sm whitespace-nowrap text-muted-foreground">
+              Just now
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={
@@ -236,10 +270,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
       }
     >
       <div
-        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 border ${!isActivelyScanning && !isNewlyAdded ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'} ${device.isScanned ? 'min-h-[340px]' : ''}`}
-        style={{
-          backgroundColor: '#262626'
-        }}
+        className={`relative rounded-lg w-full transition-all hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/20 border bg-card ${!isActivelyScanning && !isNewlyAdded ? getRiskLevelBorderClass(device.riskLevel) : 'border-transparent'} ${device.isScanned ? 'min-h-[340px]' : ''}`}
         data-tour="device-card"
       >
         {/* Header */}
@@ -249,7 +280,30 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
             <div className="font-medium leading-[28px] truncate">
               {device.name}
             </div>
-            <div className="text-sm text-muted-foreground">{device.ip}</div>
+            <div className="text-sm text-muted-foreground">
+              {device.ip}
+              {device.hostingProvider && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="ml-1.5 text-muted-foreground/80 cursor-help">· {device.hostingProvider.name}</span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-xs">
+                    <div className="text-sm space-y-1">
+                      <p className="font-medium">{device.hostingProvider.name}</p>
+                      {device.hostingProvider.asn && (
+                        <p className="text-muted-foreground">{device.hostingProvider.asn}</p>
+                      )}
+                      {device.hostingProvider.region && (
+                        <p className="text-muted-foreground">Region: {device.hostingProvider.region}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground capitalize">
+                        {device.hostingProvider.category.toLowerCase()}
+                      </p>
+                    </div>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
           </div>
         </div>
 
@@ -334,18 +388,19 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
               {device.scanStats.portScanStats.scanPattern}
             </span>
           )}
+
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-3 items-start gap-x-6 gap-y-1 p-4 sm:p-6">
-        <div className="text-sm text-muted-foreground">services</div>
-        <div className="text-sm text-muted-foreground">
-          {hasScanHistory ? "last scan" : "scan status"}
+      <div className="grid grid-cols-3 items-start gap-x-6 gap-y-1 px-4 py-3 sm:px-6">
+        <div className="text-xs uppercase tracking-wider text-muted-foreground/70">services</div>
+        <div className="text-xs uppercase tracking-wider text-muted-foreground/70">
+          {hasScanHistory ? "last scan" : "status"}
         </div>
-        <div className="text-sm text-muted-foreground">discovered</div>
+        <div className="text-xs uppercase tracking-wider text-muted-foreground/70">discovered</div>
 
-        <div className="font-mono text-xl px-2">
+        <div className="font-mono text-xl tabular-nums">
           {device.isScanned ? servicesDetected : "-"}
         </div>
         <div className="text-sm whitespace-nowrap">
@@ -353,7 +408,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
             ? format(new Date(lastScanAt), "MMM dd, yyyy")
             : hasScanHistory
               ? "Unknown"
-              : "Not scanned yet"}
+              : <span className="text-muted-foreground">Not scanned</span>}
         </div>
         <div className="text-sm whitespace-nowrap">
           {device.discoveredOn
@@ -370,11 +425,11 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
 
       {/* Scan Chart - show when 2+ scans, or placeholder for scanned devices */}
       {device.isScanned && (
-        <div className="p-4 py-3">
+        <div className="mx-4 sm:mx-6 py-3 border-t border-border/50">
           {totalScans > 1 && scanHistory.length > 0 ? (
             <>
               <div className="flex items-center justify-between mb-2">
-                <div className="text-sm font-medium">Ports Activity</div>
+                <div className="text-xs uppercase tracking-wider text-muted-foreground/70">Ports Activity</div>
                 <div className="text-xs text-muted-foreground">
                   {scanHistory.length} {scanHistory.length === 1 ? "scan" : "scans"}
                 </div>
@@ -393,7 +448,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
 
       {/* Tags */}
       {device.tags && device.tags.length > 0 && (
-        <div className="p-4 pt-2">
+        <div className="px-4 sm:px-6 pb-3 pt-1">
           <div className="flex flex-wrap gap-1">
             {device.tags.map((tag, index) => (
               <span key={index} className={getTagBadgeClass()}>
@@ -412,14 +467,14 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
       >
         <DropdownMenu>
           <DropdownMenuTrigger
-            className="flex h-8 w-8 items-center justify-center rounded hover:border focus:outline-none focus:ring-0 focus:border-transparent"
+            className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors focus:outline-none focus:ring-0"
             data-tour="card-menu-trigger"
           >
             <MoreHorizontal size={16} />
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-[200px]">
             <DropdownMenuGroup>
-              <DropdownMenuItem className="w-full text-blue-600" asChild>
+              <DropdownMenuItem className="w-full" asChild>
                 <button
                   type="button"
                   onClick={handleScan}
@@ -432,9 +487,9 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
                   }
                 >
                   {scanMutation.isPending ? (
-                    <Loader2 size={16} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin text-blue-400" />
                   ) : (
-                    <Radar size={16} />
+                    <Radar size={16} className="text-blue-400" />
                   )}
                   {isActivelyScanning ? "Scanning..." : "Scan"}
                 </button>
@@ -452,8 +507,10 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
                 </button>
               </DropdownMenuItem>
 
+              <DropdownMenuSeparator />
+
               {device.verificationStatus !== "VERIFIED" && (
-                <DropdownMenuItem className="w-full text-green-600" asChild>
+                <DropdownMenuItem className="w-full" asChild>
                   <button
                     type="button"
                     onClick={() =>
@@ -477,14 +534,14 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
                     }
                     disabled={verificationToggleMutation.isPending}
                   >
-                    <CheckCircle2 size={16} />
+                    <CheckCircle2 size={16} className="text-emerald-400" />
                     Verify & Monitor
                   </button>
                 </DropdownMenuItem>
               )}
 
               {device.verificationStatus === "VERIFIED" && (
-                <DropdownMenuItem className="w-full text-gray-600" asChild>
+                <DropdownMenuItem className="w-full" asChild>
                   <button
                     type="button"
                     onClick={() =>
@@ -514,7 +571,7 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
               )}
 
               {device.verificationStatus === "CANDIDATE" && (
-                <DropdownMenuItem className="w-full text-orange-600" asChild>
+                <DropdownMenuItem className="w-full" asChild>
                   <button
                     type="button"
                     onClick={() =>
@@ -549,7 +606,9 @@ export function DeviceCard({ device, isNewlyAdded = false }: DeviceCardProps) {
                 </DropdownMenuItem>
               )}
 
-              <DropdownMenuItem className="w-full text-destructive" asChild>
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem variant="destructive" className="w-full" asChild>
                 <button
                   type="button"
                   onClick={() =>

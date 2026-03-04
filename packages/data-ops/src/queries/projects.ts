@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { getDb } from '../database/setup';
-import { projects } from '../schema';
+import { projects, devices } from '../schema';
 import { validateOrganizationAccess } from './organizations/access';
 
 export type ProjectCreateData = {
@@ -181,6 +181,17 @@ export async function deleteProject(
   organizationId: string
 ) {
   const db = getDb();
+
+  // Delete devices in this project first
+  // (cascades to device_ips, device_hostnames, scan_runs, etc.)
+  await db
+    .delete(devices)
+    .where(
+      and(
+        eq(devices.projectId, projectId),
+        eq(devices.organizationId, organizationId)
+      )
+    );
 
   const result = await db
     .delete(projects)

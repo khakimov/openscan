@@ -1,5 +1,4 @@
 import { cn } from '@/utils/cn';
-import { Loader2 } from 'lucide-react';
 
 interface SpinnerProps {
   /**
@@ -25,31 +24,13 @@ interface SpinnerProps {
 }
 
 const sizeClasses = {
-  sm: 'w-4 h-4',
-  md: 'w-6 h-6',
-  lg: 'w-8 h-8',
+  sm: 'w-6 h-6',
+  md: 'w-10 h-10',
+  lg: 'w-14 h-14',
 };
 
 /**
- * Reusable spinner component with smooth fade-in/out transitions
- *
- * Features:
- * - Configurable delay before showing (prevents flash on fast operations)
- * - Smooth opacity transitions
- * - Multiple sizes
- * - TanStack Router compatible
- *
- * @example
- * // Basic usage
- * <Spinner />
- *
- * @example
- * // With delay and size
- * <Spinner wait="delay-500" size="lg" />
- *
- * @example
- * // Conditional display
- * <Spinner show={isLoading} wait="delay-300" />
+ * Rock hand spinner with pulse animation
  */
 export function Spinner({
   show = true,
@@ -62,16 +43,15 @@ export function Spinner({
       className={cn(
         'inline-flex items-center justify-center transition-opacity',
         show
-          ? `opacity-100 duration-500 ${wait}` // Fade in with delay
-          : 'opacity-0 duration-500 delay-0',    // Fade out immediately
+          ? `opacity-100 duration-500 ${wait}`
+          : 'opacity-0 duration-500 delay-0',
         className
       )}
     >
-      <Loader2
-        className={cn(
-          'animate-spin text-muted-foreground',
-          sizeClasses[size]
-        )}
+      <img
+        src="/favicon.svg"
+        alt=""
+        className={cn('animate-pulse', sizeClasses[size])}
       />
     </div>
   );

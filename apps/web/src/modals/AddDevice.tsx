@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { popModal } from ".";
 import { ModalContent, ModalHeader } from "./Modal/Container";
 import { useCreateDevicesFromDiscoveryMutation } from "@/queries/device-queries";
-import { Loader2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import { useParams } from "@tanstack/react-router";
 
@@ -46,8 +46,8 @@ export default function AddDevice({ onDevicesAdded }: AddDeviceProps = {}) {
   // Get current project ID from route params
   const { projectId } = useParams({ strict: false });
 
-  // Create device mutation (using centralized hook)
-  const createDeviceMutation = useCreateDevicesFromDiscoveryMutation();
+  // Create device mutation (using centralized hook with custom toast handling)
+  const createDeviceMutation = useCreateDevicesFromDiscoveryMutation({ disableToasts: true });
 
   const onSubmit = async (data: AddDeviceFormData) => {
     // ✅ Enforce projectId at runtime (compile-time already enforced by mutation hook)
@@ -65,33 +65,31 @@ export default function AddDevice({ onDevicesAdded }: AddDeviceProps = {}) {
       .filter(t => t.length > 0)
       .map(host => ({ host }));
 
-    createDeviceMutation.mutate(
-      {
+    // Close modal immediately for responsive UX
+    popModal("AddDevice");
+
+    const targetCount = targets.length;
+
+    // Use toast.promise with mutateAsync for proper Promise-based handling
+    toast.promise(
+      // Call mutateAsync which returns a proper Promise
+      createDeviceMutation.mutateAsync({
         targets,
         projectId, // ✅ TypeScript knows this is string (not undefined) after guard above
-      },
+      }),
       {
-        onSuccess: async (response) => {
+        loading: `Adding ${targetCount} device${targetCount > 1 ? 's' : ''}...`,
+        success: (response) => {
           const deviceCount = response.devices?.length ?? 0;
           const deviceIds = response.devices?.map((d: { id: string }) => d.id) ?? [];
-
-          toast.success("Devices added successfully", {
-            description: `${deviceCount} device(s) created and scans initiated.`,
-          });
 
           // Notify parent of newly added device IDs (for glow animation)
           onDevicesAdded?.(deviceIds);
 
-          popModal("AddDevice");
-
-          // Let the mutation hook's invalidateKeys handle the refetch
-          // This allows the page to show loading state properly
+          return `${deviceCount} device${deviceCount !== 1 ? 's' : ''} created and scans initiated.`;
         },
-        onError: (error: any) => {
-          toast.error("Failed to add devices", {
-            description: error instanceof Error ? error.message : "Please try again",
-          });
-        },
+        error: (err) =>
+          err instanceof Error ? err.message : "Failed to add devices",
       }
     );
   };
@@ -123,27 +121,16 @@ export default function AddDevice({ onDevicesAdded }: AddDeviceProps = {}) {
             type="button"
             variant="outline"
             onClick={() => popModal("AddDevice")}
-            disabled={createDeviceMutation.isPending}
             className="flex-1"
           >
             Cancel
           </Button>
           <Button
             type="submit"
-            disabled={createDeviceMutation.isPending}
             className="flex-1"
           >
-            {createDeviceMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Devices
-              </>
-            )}
+            <Plus className="mr-2 h-4 w-4" />
+            Add Devices
           </Button>
         </div>
       </form>

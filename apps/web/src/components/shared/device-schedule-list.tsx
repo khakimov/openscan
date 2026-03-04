@@ -7,14 +7,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -24,8 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Clock, Play, Pause, Trash2, Plus, Loader2 } from "lucide-react";
 import { pushModal } from "@/modals";
-import { toast } from "sonner";
-import { format } from "date-fns";
+import { formatDistanceToNow } from "date-fns";
 import { useState } from "react";
 
 interface DeviceScheduleListProps {
@@ -33,56 +24,81 @@ interface DeviceScheduleListProps {
   deviceName?: string;
 }
 
+/**
+ * Get friendly interval description from cron or label string
+ */
+function getIntervalDescription(interval: string): string {
+  // Already a label (from optimistic update)
+  if (interval.startsWith('Every') || interval.startsWith('Daily')) {
+    return interval;
+  }
+  // Parse cron patterns
+  if (interval.startsWith('*/')) {
+    const minutes = interval.split(' ')[0].slice(2);
+    return minutes === '1' ? 'Every minute' : `Every ${minutes} min`;
+  }
+  if (interval.startsWith('0 */')) {
+    const hours = interval.split(' ')[1].slice(2);
+    return hours === '1' ? 'Hourly' : `Every ${hours}h`;
+  }
+  // Daily pattern: m H * * *
+  const parts = interval.split(' ');
+  if (parts.length === 5 && parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
+    const hours = parts[1].padStart(2, '0');
+    const minutes = parts[0].padStart(2, '0');
+    return `Daily at ${hours}:${minutes} UTC`;
+  }
+  return interval;
+}
+
+/**
+ * Format next run as relative time: "in 2h", "in 15 min"
+ */
+function formatNextRun(nextRunAt: string | null, isPending?: boolean): string {
+  if (isPending) return 'Pending...';
+  if (!nextRunAt) return '—';
+  try {
+    return formatDistanceToNow(new Date(nextRunAt), { addSuffix: true });
+  } catch {
+    return '—';
+  }
+}
+
+/**
+ * Format last run as relative time: "3d ago", "Never"
+ */
+function formatLastRun(lastRunAt?: string | null): string {
+  if (!lastRunAt) return 'No previous runs';
+  try {
+    return `Last ran ${formatDistanceToNow(new Date(lastRunAt), { addSuffix: false })} ago`;
+  } catch {
+    return 'No previous runs';
+  }
+}
+
 export function DeviceScheduleList({
   deviceId,
   deviceName,
 }: DeviceScheduleListProps) {
-  // Fetch schedules for this device using centralized hook
   const { data: schedules = [], isLoading } = useScheduleListByDevice(deviceId);
 
   const pauseMutation = usePauseScheduleMutation();
   const resumeMutation = useResumeScheduleMutation();
   const deleteMutation = useDeleteScheduleMutation();
 
-  // Delete confirmation dialog state
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
 
   const handleCreateSchedule = () => {
-    pushModal("CreateSchedule", {
-      deviceId,
-      deviceName,
-    });
+    pushModal("CreateSchedule", { deviceId, deviceName });
   };
 
   const handlePause = (scheduleId: string) => {
-    pauseMutation.mutate(
-      { scheduleId },
-      {
-        onSuccess: (result) => {
-          if (result.success) {
-            toast.success("Schedule paused");
-          } else {
-            toast.error("Failed to pause schedule");
-          }
-        },
-      }
-    );
+    pauseMutation.mutate({ scheduleId });
   };
 
   const handleResume = (scheduleId: string) => {
-    resumeMutation.mutate(
-      { scheduleId },
-      {
-        onSuccess: (result) => {
-          if (result.success) {
-            toast.success("Schedule resumed");
-          } else {
-            toast.error("Failed to resume schedule");
-          }
-        },
-      }
-    );
+    resumeMutation.mutate({ scheduleId });
   };
 
   const handleDeleteClick = (schedule: any) => {
@@ -92,21 +108,12 @@ export function DeviceScheduleList({
 
   const handleConfirmDelete = () => {
     if (!scheduleToDelete) return;
-
     deleteMutation.mutate(
       { scheduleId: scheduleToDelete.scheduleId },
       {
-        onSuccess: (result) => {
-          if (result.success) {
-            toast.success("Schedule deleted");
-            setDeleteDialogOpen(false);
-            setScheduleToDelete(null);
-          } else {
-            toast.error("Failed to delete schedule");
-          }
-        },
-        onError: () => {
-          toast.error("Failed to delete schedule");
+        onSuccess: () => {
+          setDeleteDialogOpen(false);
+          setScheduleToDelete(null);
         },
       }
     );
@@ -115,27 +122,6 @@ export function DeviceScheduleList({
   const handleCancelDelete = () => {
     setDeleteDialogOpen(false);
     setScheduleToDelete(null);
-  };
-
-  // Get friendly interval description from cron
-  const getIntervalDescription = (interval: string): string => {
-    // Parse common patterns
-    if (interval.startsWith('*/')) {
-      const minutes = interval.split(' ')[0].slice(2);
-      return minutes === '1' ? 'Every minute' : `Every ${minutes} minutes`;
-    }
-    if (interval.startsWith('0 */')) {
-      const hours = interval.split(' ')[1].slice(2);
-      return hours === '1' ? 'Every hour' : `Every ${hours} hours`;
-    }
-    // Daily pattern: m H * * *
-    const parts = interval.split(' ');
-    if (parts.length === 5 && parts[2] === '*' && parts[3] === '*' && parts[4] === '*') {
-      const hours = parts[1].padStart(2, '0');
-      const minutes = parts[0].padStart(2, '0');
-      return `Daily at ${hours}:${minutes} UTC`;
-    }
-    return interval; // Fallback to cron string
   };
 
   if (isLoading) {
@@ -153,7 +139,7 @@ export function DeviceScheduleList({
         <div>
           <h3 className="text-lg font-semibold">Scan Schedules</h3>
           <p className="text-sm text-muted-foreground">
-            Active automated recurring scans for this device
+            Automated recurring scans for this device
           </p>
         </div>
         <Button onClick={handleCreateSchedule} size="sm" className="gap-2">
@@ -162,7 +148,7 @@ export function DeviceScheduleList({
         </Button>
       </div>
 
-      {/* Schedule List */}
+      {/* Schedule Cards */}
       {!schedules || schedules.length === 0 ? (
         <div className="rounded-lg border border-dashed p-12 text-center">
           <Clock className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
@@ -176,22 +162,34 @@ export function DeviceScheduleList({
           </Button>
         </div>
       ) : (
-        <div className="rounded-lg border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Preset</TableHead>
-                <TableHead>Interval</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Next Run</TableHead>
-                <TableHead>Last Run</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {schedules.map((schedule: any) => (
-                <TableRow key={schedule.id}>
-                  <TableCell className="font-medium">
+        <div className="space-y-2">
+          {schedules.map((schedule: any) => {
+            const isActive = schedule.status === 'ACTIVE';
+            const isPending = schedule._isPending;
+            const isPaused = schedule.status === 'PAUSED' || schedule.status === 'AUTO_PAUSED';
+
+            return (
+              <div
+                key={schedule.id}
+                className={`rounded-lg border p-4 transition-opacity ${
+                  isPending ? 'opacity-60' : ''
+                }`}
+              >
+                {/* Row 1: Status dot + Preset + Interval + Actions */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {/* Status indicator dot */}
+                    {isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin text-muted-foreground shrink-0" />
+                    ) : (
+                      <span
+                        className={`h-2 w-2 rounded-full shrink-0 ${
+                          isActive ? 'bg-emerald-500' : 'bg-muted-foreground/40'
+                        }`}
+                      />
+                    )}
+
+                    {/* Preset badge */}
                     <Badge
                       variant={
                         schedule.preset === 'QUICK'
@@ -200,88 +198,78 @@ export function DeviceScheduleList({
                             ? 'default'
                             : 'outline'
                       }
+                      className="shrink-0"
                     >
                       {schedule.preset}
                     </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <span className="text-sm">
+
+                    {/* Interval */}
+                    <span className="text-sm text-muted-foreground truncate">
                       {getIntervalDescription(schedule.interval)}
                     </span>
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={schedule.status === 'ACTIVE' ? 'default' : 'secondary'}
-                    >
-                      {schedule.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {schedule.nextRunAt ? (
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(schedule.nextRunAt), 'MMM d, HH:mm')}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    {schedule.lastRunAt ? (
-                      <span className="text-sm text-muted-foreground">
-                        {format(new Date(schedule.lastRunAt), 'MMM d, HH:mm')}
-                      </span>
-                    ) : (
-                      <span className="text-sm text-muted-foreground">Never</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      {schedule.status === 'ACTIVE' ? (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handlePause(schedule.scheduleId)}
-                          disabled={pauseMutation.isPending}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Pause className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleResume(schedule.scheduleId)}
-                          disabled={resumeMutation.isPending}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteClick(schedule)}
-                        disabled={deleteMutation.isPending}
-                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                  </div>
 
-      {/* Info Note */}
-      {schedules && schedules.length > 0 && (
-        <div className="rounded-lg bg-muted p-4">
-          <p className="text-xs text-muted-foreground">
-            <strong>Note:</strong> Maximum of 5 concurrent scans per organization.
-            If concurrency limit is reached, scheduled scans will wait until a slot is available.
-          </p>
+                  {/* Actions */}
+                  <div className="flex items-center gap-1 shrink-0">
+                    {isPending ? (
+                      <>
+                        <Button variant="ghost" size="sm" disabled className="h-8 w-8 p-0">
+                          <Pause className="h-4 w-4 opacity-30" />
+                        </Button>
+                        <Button variant="ghost" size="sm" disabled className="h-8 w-8 p-0">
+                          <Trash2 className="h-4 w-4 opacity-30" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        {isActive ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handlePause(schedule.scheduleId)}
+                            disabled={pauseMutation.isPending}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Pause className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleResume(schedule.scheduleId)}
+                            disabled={resumeMutation.isPending}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteClick(schedule)}
+                          disabled={deleteMutation.isPending}
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Row 2: Next run + Last run (secondary info) */}
+                <div className="mt-1.5 ml-[18px] flex items-center gap-2 text-xs text-muted-foreground">
+                  {isPaused && !isPending ? (
+                    <span>Paused</span>
+                  ) : (
+                    <span>Next {formatNextRun(schedule.nextRunAt, isPending)}</span>
+                  )}
+                  <span>·</span>
+                  <span>{formatLastRun(schedule.lastRunAt)}</span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 

@@ -23,6 +23,7 @@ import {
 } from '@repo/contracts/network/dns-resolver';
 import { createLogger } from '@repo/logger';
 import { createId } from '@paralleldrive/cuid2';
+import { detectHostingProvider, upsertHostingProvider, updateDeviceIpHosting } from '../../hosting/detector';
 
 const logger = createLogger({ name: 'device-resolution' });
 
@@ -73,6 +74,12 @@ export interface ResolveOptions {
    * If false, creates device anyway with whatever we have
    */
   throwOnDnsError?: boolean;
+
+  /**
+   * Batch size for parallel processing (defaults to 5)
+   * Controls how many targets are resolved concurrently
+   */
+  batchSize?: number;
 }
 
 /**
@@ -437,10 +444,15 @@ async function ensureDevice(
     .limit(1);
 
   if (existing) {
-    // Update lastSeenAt
+    // Update lastSeenAt and re-assign to project if provided
+    // (handles orphaned devices after project deletion)
     await db
       .update(devices)
-      .set({ lastSeenAt: new Date(), updatedAt: new Date() })
+      .set({
+        lastSeenAt: new Date(),
+        updatedAt: new Date(),
+        ...(options?.projectId ? { projectId: options.projectId } : {}),
+      })
       .where(eq(devices.id, existing.id));
 
     return { deviceId: existing.id, isNew: false };
@@ -474,6 +486,19 @@ async function upsertIps(
 ): Promise<void> {
   const db = getDb();
 
+  // Clear all primary flags first to avoid stale primaries
+  // when the resolved IP set changes
+  if (ips.length > 0) {
+    await db
+      .update(deviceIps)
+      .set({ primary: false })
+      .where(and(
+        eq(deviceIps.organizationId, organizationId),
+        eq(deviceIps.deviceId, deviceId),
+        eq(deviceIps.primary, sql`1`)
+      ));
+  }
+
   for (let i = 0; i < ips.length; i++) {
     const { ip, reverseDns } = ips[i];
     const isPrimary = i === 0; // First IP is primary
@@ -489,7 +514,10 @@ async function upsertIps(
       ))
       .limit(1);
 
+    let deviceIpId: string;
+
     if (existing) {
+      deviceIpId = existing.id;
       // Update existing IP
       await db
         .update(deviceIps)
@@ -499,9 +527,10 @@ async function upsertIps(
         })
         .where(eq(deviceIps.id, existing.id));
     } else {
+      deviceIpId = createId();
       // Insert new IP
       await db.insert(deviceIps).values({
-        id: createId(),
+        id: deviceIpId,
         organizationId,
         deviceId,
         ip,
@@ -516,6 +545,29 @@ async function upsertIps(
       isPrimary,
       reverseDns,
     });
+
+    // Detect hosting provider for primary IP (non-blocking)
+    if (isPrimary) {
+      try {
+        const detection = await detectHostingProvider(ip);
+        if (detection) {
+          const provider = await upsertHostingProvider(detection);
+          await updateDeviceIpHosting(deviceIpId, detection, provider.id);
+          logger.info('Hosting provider detected', {
+            deviceId,
+            ip,
+            provider: detection.provider,
+            category: detection.category,
+          });
+        }
+      } catch (error) {
+        logger.error('Hosting detection failed (non-critical)', {
+          deviceId,
+          ip,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
   }
 }
 
@@ -570,10 +622,26 @@ async function upsertHostnames(
 }
 
 /**
- * Resolve and upsert multiple targets atomically
+ * Batch size for parallel processing
+ * Higher for targets with IPs (no DNS), lower when DNS resolution needed
+ */
+const DEFAULT_BATCH_SIZE = 10;
+
+/**
+ * Result of processing a single target
+ */
+interface TargetResult {
+  deviceId?: string;
+  isNew: boolean;
+  host: string;
+  error?: string;
+}
+
+/**
+ * Resolve and upsert multiple targets in parallel with batching
  *
  * This is the main entry point for bulk device creation.
- * Each target is resolved and upserted independently.
+ * Targets are processed in parallel within batches for optimal performance.
  *
  * @param targets - Array of targets with host and optional IP fallback
  * @param organizationId - Organization owning the devices
@@ -585,51 +653,136 @@ export async function resolveAndUpsertTargets(
   organizationId: string,
   options?: ResolveOptions
 ): Promise<string[]> {
-  const newDeviceIds: string[] = [];
+  const batchSize = options?.batchSize ?? DEFAULT_BATCH_SIZE;
+  const results: TargetResult[] = [];
 
-  for (const target of targets) {
-    try {
-      // Resolve target with fallback IP for private zones
-      const resolved = await resolveTarget(target.host, {
-        dnsTimeout: options?.dnsTimeout,
-        throwOnDnsError: options?.throwOnDnsError,
-        fallbackIp: target.ip,
-      });
+  // Process targets in batches to control concurrency
+  for (let i = 0; i < targets.length; i += batchSize) {
+    const batch = targets.slice(i, i + batchSize);
 
-      // Upsert device and track if it was newly created
-      const { deviceId, isNew } = await upsertResolvedDevice(
-        organizationId,
-        resolved,
-        options
-      );
+    // Use allSettled to collect all results even if some targets fail
+    const settled = await Promise.allSettled(
+      batch.map(target => processSingleTarget(target, organizationId, options))
+    );
 
-      // Only include newly created devices (legacy behavior)
-      if (isNew) {
-        newDeviceIds.push(deviceId);
+    for (const result of settled) {
+      if (result.status === 'fulfilled') {
+        results.push(result.value);
       } else {
-        logger.info('Device already exists, skipping', {
-          deviceId,
-          host: target.host,
+        // Extract host from the batch entry at same index for error reporting
+        const idx = settled.indexOf(result);
+        const host = batch[idx]?.host ?? 'unknown';
+        results.push({
+          isNew: false,
+          host,
+          error: result.reason instanceof Error ? result.reason.message : String(result.reason),
         });
-      }
-    } catch (error) {
-      logger.error('Failed to resolve and upsert target', {
-        target: target.host,
-        error: error instanceof Error ? error.message : String(error),
-      });
-
-      // Continue with other targets unless throwOnDnsError is true
-      if (options?.throwOnDnsError) {
-        throw error;
       }
     }
   }
 
+  // Collect all successfully processed device IDs (new + existing/adopted)
+  const allDeviceIds = results
+    .filter(r => r.deviceId)
+    .map(r => r.deviceId!);
+
+  const newCount = results.filter(r => r.isNew && r.deviceId).length;
+
+  // Log failures
+  const failures = results.filter(r => r.error);
+  if (failures.length > 0) {
+    logger.warn('Some targets failed to resolve', {
+      total: targets.length,
+      failed: failures.length,
+      failures: failures.map(f => ({ host: f.host, error: f.error })),
+    });
+  }
+
   logger.info('Batch resolution complete', {
     total: targets.length,
-    newDevices: newDeviceIds.length,
-    skipped: targets.length - newDeviceIds.length,
+    processed: allDeviceIds.length,
+    newDevices: newCount,
+    existing: allDeviceIds.length - newCount,
+    failed: failures.length,
+    batchSize,
+    totalBatches: Math.ceil(targets.length / batchSize),
   });
 
-  return newDeviceIds;
+  return allDeviceIds;
+}
+
+/**
+ * Process a single target - resolve DNS and upsert device
+ *
+ * When a fallback IP is provided (e.g. from discovery results),
+ * DNS resolution is skipped entirely for performance. This is critical
+ * for bulk operations on Cloudflare Workers where DNS round-trips
+ * per target would exceed the 30s execution limit.
+ */
+async function processSingleTarget(
+  target: { host: string; ip?: string },
+  organizationId: string,
+  options?: ResolveOptions
+): Promise<TargetResult> {
+  try {
+    let resolved: ResolutionResult;
+
+    if (target.ip && isIP(target.ip)) {
+      // Fast path: skip DNS when we already have a valid IP (e.g. from discovery)
+      const version = isIPv4(target.ip) ? 4 : 6;
+      const hostIsIp = isIP(target.host);
+
+      resolved = {
+        kind: hostIsIp ? 'address' : 'hostname',
+        originalInput: target.host,
+        primaryName: target.host,
+        ips: [{ ip: target.ip, version }],
+        hostnames: hostIsIp
+          ? []
+          : [{ hostname: target.host, type: 'INPUT' as const }],
+      };
+
+      logger.info('Using provided IP, skipping DNS', {
+        host: target.host,
+        ip: target.ip,
+      });
+    } else {
+      // Slow path: full DNS resolution
+      resolved = await resolveTarget(target.host, {
+        dnsTimeout: options?.dnsTimeout,
+        throwOnDnsError: options?.throwOnDnsError,
+        fallbackIp: target.ip,
+      });
+    }
+
+    // Upsert device and track if it was newly created
+    const { deviceId, isNew } = await upsertResolvedDevice(
+      organizationId,
+      resolved,
+      options
+    );
+
+    if (!isNew) {
+      logger.info('Device already exists, skipping', {
+        deviceId,
+        host: target.host,
+      });
+    }
+
+    return { deviceId, isNew, host: target.host };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
+    logger.error('Failed to resolve and upsert target', {
+      target: target.host,
+      error: errorMessage,
+    });
+
+    // Re-throw if throwOnDnsError is enabled
+    if (options?.throwOnDnsError) {
+      throw error;
+    }
+
+    return { isNew: false, host: target.host, error: errorMessage };
+  }
 }

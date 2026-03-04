@@ -119,6 +119,20 @@ export function shouldDiscardServiceDetection(det: ServiceDetection): boolean {
 }
 
 /**
+ * Hosting provider information for a device
+ */
+export type HostingProvider = {
+  id: string;
+  name: string;              // "Cloudflare", "AWS", "GCP"
+  category: 'CDN' | 'CLOUD' | 'HOSTING' | 'DATACENTER' | 'UNKNOWN';
+  asn?: string;              // "AS13335"
+  asOrganization?: string;   // "Cloudflare, Inc."
+  iconKey?: string;          // "cloudflare", "aws", "gcp"
+  region?: string;           // "us-east-1" (for cloud providers)
+  detectedAt?: string;       // ISO 8601 string
+};
+
+/**
  * Transformed device type with UI-friendly properties.
  * Returned by transformDeviceForUI and used throughout the UI.
  *
@@ -158,6 +172,8 @@ export type TransformedDevice = {
   verifiedBy: string | null;
   verificationNote: string | null;
   isVerified: boolean;
+  // Hosting provider detection
+  hostingProvider?: HostingProvider;
 };
 
 /**

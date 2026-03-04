@@ -1,5 +1,5 @@
 import type { PortSnapshot, EnrichedDevice } from '@repo/data-ops';
-import type { TransformedDevice } from '@repo/contracts/device';
+import type { TransformedDevice, HostingProvider } from '@repo/contracts/device';
 
 /**
  * Transform database device to match UI expectations.
@@ -46,6 +46,26 @@ export function transformDeviceForUI(dbDevice: EnrichedDevice): TransformedDevic
       }
     : undefined;
 
+  // Transform hosting provider data if available
+  let hostingProvider: HostingProvider | undefined;
+  if (dbDevice.hostingProvider) {
+    const hp = dbDevice.hostingProvider;
+    hostingProvider = {
+      id: hp.id,
+      name: hp.name,
+      category: hp.category as HostingProvider['category'],
+      asn: hp.asn ?? undefined,
+      asOrganization: hp.asOrganization ?? undefined,
+      iconKey: hp.iconKey ?? undefined,
+      region: hp.region ?? undefined,
+      detectedAt: hp.detectedAt instanceof Date 
+        ? hp.detectedAt.toISOString() 
+        : hp.detectedAt 
+          ? new Date(hp.detectedAt).toISOString() 
+          : undefined,
+    };
+  }
+
   return {
     id: dbDevice.id,
     name: dbDevice.name,
@@ -70,5 +90,6 @@ export function transformDeviceForUI(dbDevice: EnrichedDevice): TransformedDevic
     verifiedBy: dbDevice.verifiedBy,
     verificationNote: dbDevice.verificationNote,
     isVerified: dbDevice.verificationStatus === 'VERIFIED',
+    hostingProvider,
   };
 }

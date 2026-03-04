@@ -63,9 +63,13 @@ export default function AddDiscovery({
     popModal("AddDiscovery");
   };
 
-  const handleAddDevicesClick = async () => {
-    await addDevices();
-    // Close modal after devices are added
+  const handleAddDevicesClick = () => {
+    // Start adding devices - this shows a loading toast immediately
+    // and returns a promise we don't need to await
+    addDevices();
+    
+    // Close modal immediately for better UX
+    // The toast will show progress and update when complete
     popModal("AddDiscovery");
   };
 

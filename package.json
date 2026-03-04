@@ -5,8 +5,8 @@
   "scripts": {
     "setup": "pnpm i && pnpm run build:data-ops",
     "build:data-ops": "pnpm run --filter data-ops build",
-    "dev:user-application": "pnpm run --filter user-application dev",
-    "deploy:user-application": "VITE_BUILD_VERSION=$(git rev-parse --short HEAD) pnpm run build:data-ops && VITE_BUILD_VERSION=$(git rev-parse --short HEAD) pnpm run --filter user-application deploy",
+    "dev:web": "pnpm run --filter web dev",
+    "deploy:web": "VITE_BUILD_VERSION=$(git rev-parse --short HEAD) pnpm run build:data-ops && VITE_BUILD_VERSION=$(git rev-parse --short HEAD) pnpm run --filter web deploy",
     "deploy:data-service": "pnpm run --filter data-service deploy",
     "deploy:screenshot-worker": "pnpm run --filter screenshot-worker deploy",
     "dev:worker": "pnpm run --filter restate-worker dev",

@@ -1,3 +1,5 @@
+import type { NotificationDeliveryMessage } from '@repo/contracts/notifications';
+
 interface Env {
   DB: D1Database;
   NOTIFICATION_DELIVERY: Queue<NotificationDeliveryMessage>;
@@ -7,18 +9,3 @@ interface Env {
   RESEND_EMAIL_FROM?: string;
   TELEGRAM_BOT_TOKEN?: string;
 }
-
-interface NotificationDeliveryMessage {
-  notificationId: string;
-  organizationId: string;
-  deviceId?: string;
-  severity: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW' | 'INFO';
-  targetChannels: NotificationDeliveryChannel[];
-  recipients: string[];
-  eventType: string;
-  payload: Record<string, unknown>;
-  notificationTitle?: string;
-  notificationMessage?: string;
-}
-
-type NotificationDeliveryChannel = 'email' | 'telegram';

@@ -21,6 +21,8 @@ interface ServersTabHeaderProps {
   onStartDiscovery?: () => void;
   /** Show action buttons (only on discovery tab) */
   showActions?: boolean;
+  /** Project domain to pre-fill in discovery modal */
+  projectDomain?: string | null;
 }
 
 export function ServersTabHeader({
@@ -32,6 +34,7 @@ export function ServersTabHeader({
   onAddDevice,
   onStartDiscovery,
   showActions = false,
+  projectDomain,
 }: ServersTabHeaderProps) {
   const handleAddDevice = () => {
     if (onAddDevice) {
@@ -45,7 +48,9 @@ export function ServersTabHeader({
     if (onStartDiscovery) {
       onStartDiscovery();
     } else {
-      pushModal("AddDiscovery", {});
+      pushModal("AddDiscovery", {
+        target: projectDomain || undefined,
+      });
     }
   };
 

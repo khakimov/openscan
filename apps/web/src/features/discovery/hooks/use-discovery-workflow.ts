@@ -5,7 +5,7 @@ import {
   useDiscoveryWorkflowStatus,
   useDiscoveryWorkflowResults,
 } from '@/queries/discovery-queries';
-import { useCreateDevicesFromDiscoveryMutation } from '@/queries/device-queries';
+import { useCreateDevicesFromDiscoveryWithToast } from '@/queries/device-queries';
 import type { DiscoveryResultItem } from '@/components/discovery/discovery-results-table';
 
 export interface UseDiscoveryWorkflowProps {
@@ -73,7 +73,7 @@ export function useDiscoveryWorkflow({
 
   // Mutations
   const startDiscoveryMutation = useStartDiscoveryMutation();
-  const addDevicesMutation = useCreateDevicesFromDiscoveryMutation();
+  const addDevicesMutation = useCreateDevicesFromDiscoveryWithToast();
 
   // Database polling for workflow status via tRPC (postback updates database)
   // Always call hook, push condition into enabled (Rules of Hooks)
@@ -214,6 +214,9 @@ export function useDiscoveryWorkflow({
 
   /**
    * Add selected results as devices
+   * 
+   * Shows a loading toast immediately, closes modal, then updates toast when complete.
+   * This provides better UX for bulk operations by not blocking the UI.
    */
   const handleAddDevices = () => {
     const selectedTargets = Array.from(selectedResults);
@@ -232,10 +235,18 @@ export function useDiscoveryWorkflow({
       };
     });
 
-    return addDevicesMutation.mutateAsync(
+    // Show loading toast immediately
+    const toastId = toast.loading(
+      `Adding ${selectedTargets.length} ${selectedTargets.length === 1 ? 'device' : 'devices'} to inventory...`
+    );
+
+    // Start the mutation with toastId for tracking
+    // The modal can close immediately while this runs in background
+    addDevicesMutation.mutate(
       {
         targets: targetsData,
         projectId,
+        toastId,
         options: deviceOptions,
       },
       {
@@ -247,16 +258,8 @@ export function useDiscoveryWorkflow({
             const deviceIds = devices.map((d: any) => d.id);
             onDevicesAdded(deviceIds);
           }
-
-          toast.success('Devices created successfully', {
-            description: `${response.count} device${response.count !== 1 ? 's' : ''} added to inventory`,
-          });
         },
-        onError: (err: any) => {
-          toast.error('Failed to create devices', {
-            description: err instanceof Error ? err.message : 'Please try again',
-          });
-        },
+        // Error handling is done by the mutation itself (updates toast)
       }
     );
   };

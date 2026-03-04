@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { TransformedDevice } from "@repo/contracts/device";
+import { Loader2 } from "lucide-react";
 import { OpenPortsTable } from "./open-ports-table";
 import type { PortDetail } from "./types";
 
@@ -54,7 +55,10 @@ export function DeviceOpenPorts({
       </div>
 
       {isLoading && !deviceDetail ? (
-        <div className="flex h-24 items-center justify-center">Loading open ports…</div>
+        <div className="flex h-24 items-center justify-center gap-2 text-blue-400">
+          <Loader2 className="w-4 h-4 animate-spin" />
+          Loading open ports…
+        </div>
       ) : openPorts.length > 0 ? (
         <OpenPortsTable
           ports={openPorts}

@@ -15,6 +15,7 @@ import {
   CheckIcon,
   ChevronsUpDownIcon,
   PlusIcon,
+  Settings2Icon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useNavigate, useParams } from "@tanstack/react-router";
@@ -172,6 +173,20 @@ export function LayoutProjectSelector({
               <PlusIcon size={16} />
             </DropdownMenuShortcut>
           </DropdownMenuItem>
+
+          {projects.length > 0 && (
+            <DropdownMenuItem
+              onSelect={() => {
+                setOpen(false);
+                pushModal("ManageProjects", { projects, activeProjectId });
+              }}
+            >
+              Manage projects
+              <DropdownMenuShortcut>
+                <Settings2Icon size={16} />
+              </DropdownMenuShortcut>
+            </DropdownMenuItem>
+          )}
         </DropdownMenuGroup>
       </DropdownMenuContent>
     </DropdownMenu>
