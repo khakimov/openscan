@@ -111,7 +111,7 @@ export async function createScanRun(params: {
   workflowKind: 'DISCOVERY' | 'RESCAN' | 'EXTEND_SCAN' | 'BULK_IMPORT' | 'SYNC_QUALYS';
   scanType: 'DISCOVERY' | 'PORT' | 'WEB' | 'ADVANCED';
   scope: ScanScope;
-  requestedById: string;
+  requestedById: string | null;
   target?: string;
   workflowMetadata?: Record<string, any>;
 }): Promise<ScanRun> {

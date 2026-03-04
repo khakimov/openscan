@@ -137,7 +137,7 @@ export class PortScanPostbackHandler
         workflowKind: 'RESCAN',
         scanType: 'PORT',
         scope: 'EXTERNAL',
-        requestedById: 'system:scheduled-scan',
+        requestedById: null, // No user — triggered by scheduler
         target: data.target,
         workflowMetadata: { source: 'scheduled-scan', deviceId },
       });
@@ -649,7 +649,7 @@ export class PortScanPostbackHandler
         workflowKind: 'RESCAN',
         scanType: 'PORT',
         scope: 'EXTERNAL',
-        requestedById: 'system:scheduled-scan',
+        requestedById: null, // No user — triggered by scheduler
         workflowMetadata: { source: 'scheduled-scan', deviceId },
       });
     }
