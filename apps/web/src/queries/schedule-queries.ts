@@ -322,21 +322,29 @@ export const usePauseScheduleMutation = () => {
     mutationKey: ['schedule', 'pause'],
     mutationFn: (data) => trpcClient.schedule.pause.mutate(data),
     successMessage: 'Schedule paused successfully',
-    invalidateKeys: [scheduleQueries.list.base],
+    invalidateKeys: [scheduleQueries.list.base, scheduleQueries.listByDevice.base],
 
     onMutate: async (variables) => {
+      // Cancel both list and listByDevice queries
+      await queryClient.cancelQueries({ queryKey: scheduleQueries.listByDevice.base });
       await queryClient.cancelQueries({ queryKey: scheduleQueries.list.base });
 
-      const previousQueries = queryClient.getQueriesData({ queryKey: scheduleQueries.list.base });
+      const previousQueries = [
+        ...queryClient.getQueriesData({ queryKey: scheduleQueries.listByDevice.base }),
+        ...queryClient.getQueriesData({ queryKey: scheduleQueries.list.base }),
+      ];
 
-      queryClient.setQueriesData({ queryKey: scheduleQueries.list.base }, (old: any) => {
+      const updater = (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((item: any) =>
           item.scheduleId === variables.scheduleId
             ? { ...item, status: 'PAUSED', isActive: false }
             : item
         );
-      });
+      };
+
+      queryClient.setQueriesData({ queryKey: scheduleQueries.listByDevice.base }, updater);
+      queryClient.setQueriesData({ queryKey: scheduleQueries.list.base }, updater);
 
       return { previousQueries };
     },
@@ -369,21 +377,28 @@ export const useResumeScheduleMutation = () => {
     mutationKey: ['schedule', 'resume'],
     mutationFn: (data) => trpcClient.schedule.resume.mutate(data),
     successMessage: 'Schedule resumed successfully',
-    invalidateKeys: [scheduleQueries.list.base],
+    invalidateKeys: [scheduleQueries.list.base, scheduleQueries.listByDevice.base],
 
     onMutate: async (variables) => {
+      await queryClient.cancelQueries({ queryKey: scheduleQueries.listByDevice.base });
       await queryClient.cancelQueries({ queryKey: scheduleQueries.list.base });
 
-      const previousQueries = queryClient.getQueriesData({ queryKey: scheduleQueries.list.base });
+      const previousQueries = [
+        ...queryClient.getQueriesData({ queryKey: scheduleQueries.listByDevice.base }),
+        ...queryClient.getQueriesData({ queryKey: scheduleQueries.list.base }),
+      ];
 
-      queryClient.setQueriesData({ queryKey: scheduleQueries.list.base }, (old: any) => {
+      const updater = (old: any) => {
         if (!Array.isArray(old)) return old;
         return old.map((item: any) =>
           item.scheduleId === variables.scheduleId
             ? { ...item, status: 'ACTIVE', isActive: true, consecutiveFailures: 0 }
             : item
         );
-      });
+      };
+
+      queryClient.setQueriesData({ queryKey: scheduleQueries.listByDevice.base }, updater);
+      queryClient.setQueriesData({ queryKey: scheduleQueries.list.base }, updater);
 
       return { previousQueries };
     },
@@ -412,23 +427,23 @@ export const useDeleteScheduleMutation = () => {
     mutationFn: (data: { scheduleId: string }) =>
       trpcClient.schedule.delete.mutate(data),
     successMessage: 'Schedule deleted successfully',
-    invalidateKeys: [scheduleQueries.list.base],
+    invalidateKeys: [scheduleQueries.list.base, scheduleQueries.listByDevice.base],
 
     // Optimistic update: Remove from list immediately
     onMutate: async (variables) => {
-      await queryClient.cancelQueries({ 
-        queryKey: scheduleQueries.listByDevice.base 
+      await queryClient.cancelQueries({
+        queryKey: scheduleQueries.listByDevice.base
       });
 
-      const previousQueries = queryClient.getQueriesData({ 
-        queryKey: scheduleQueries.listByDevice.base 
+      const previousQueries = queryClient.getQueriesData({
+        queryKey: scheduleQueries.listByDevice.base
       });
 
       queryClient.setQueriesData(
         { queryKey: scheduleQueries.listByDevice.base },
         (old: any) => {
           if (!Array.isArray(old)) return old;
-          return old.filter((item: any) => 
+          return old.filter((item: any) =>
             item.scheduleId !== variables.scheduleId
           );
         }

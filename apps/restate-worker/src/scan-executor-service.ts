@@ -344,7 +344,7 @@ export const scanExecutor = restate.service({
             scanId: `${input.scheduleId}-${Date.now()}`,
             deviceId: input.deviceId,
             organizationId: input.organizationId,
-            callbackUrl: `${TANSTACK_APP_URL}/api/postback/scheduled-scan`,
+            callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
           });
         } catch (error) {
           // Step 3a: Release slot on failure

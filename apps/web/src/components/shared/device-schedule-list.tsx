@@ -58,7 +58,12 @@ function formatNextRun(nextRunAt: string | null, isPending?: boolean): string {
   if (isPending) return 'Pending...';
   if (!nextRunAt) return '—';
   try {
-    return formatDistanceToNow(new Date(nextRunAt), { addSuffix: true });
+    const runDate = new Date(nextRunAt);
+    if (isNaN(runDate.getTime())) return '—';
+    if (runDate <= new Date()) {
+      return 'Overdue';
+    }
+    return formatDistanceToNow(runDate, { addSuffix: true });
   } catch {
     return '—';
   }
