@@ -25,18 +25,10 @@
 import * as restate from '@restatedev/restate-sdk';
 import type { ObjectContext, ObjectSharedContext } from '@restatedev/restate-sdk';
 import { createLogger } from '@repo/logger';
-import { portScanner } from './port-scanner';
-import { postUniversalPostback } from './postback';
-import {
-  buildScheduledScanExecutedPostbackPayload,
-  buildScheduleAutoPausedPostbackPayload,
-} from '@repo/contracts/postbacks';
+import { scanExecutor } from './scan-executor-service';
+import type { ScanExecutorResult } from './scan-executor-service';
 
 const logger = createLogger({ name: 'device-scanner' });
-
-// Environment configuration
-const TANSTACK_APP_URL = process.env.TANSTACK_APP_URL || 'http://localhost:3000';
-const WORKER_API_KEY = process.env.WORKER_API_KEY || '';
 
 // State keys for ctx.get/set (runtime state only)
 const STATE_KEYS = {
@@ -102,24 +94,12 @@ interface ExecuteScanInput {
   preset: SchedulePreset;
 }
 
-// Failure Classification
-interface ClassifiedError {
-  type: 'TRANSIENT' | 'PERMANENT' | 'CONCURRENCY_LIMIT';
-  message: string;
-  shouldRetry: boolean;
-  backoffMs?: number; // For transient errors
-}
-
-// Auto-pause thresholds by preset
+// Auto-pause thresholds by preset (passed to ScanExecutor)
 const AUTO_PAUSE_THRESHOLDS: Record<SchedulePreset, number> = {
   QUICK: 3,
   STANDARD: 5,
   THOROUGH: 8,
 };
-
-// Exponential backoff configuration
-const BACKOFF_BASE_MS = 5 * 60 * 1000; // 5 minutes
-const BACKOFF_MAX_MS = 60 * 60 * 1000; // 1 hour
 
 /**
  * DeviceScanner Virtual Object
@@ -202,11 +182,14 @@ export const deviceScanner = restate.object({
      * Execute a scheduled scan (called by durable timer)
      *
      * Uses reschedule-first pattern:
-     * 1. Schedule next execution FIRST
-     * 2. Check concurrency via HTTP API
-     * 3. Run scan
-     * 4. Postback results to TanStack app
-     * 5. Handle failures with backoff
+     * 1. Check if paused / get config (stable journal entries)
+     * 2. Schedule next execution FIRST
+     * 3. Delegate to ScanExecutor service (single service call)
+     * 4. Update state based on result
+     *
+     * This handler is intentionally thin (~10 journal entries) so that
+     * code changes to scan logic (in ScanExecutor) don't shift journal
+     * indices and break active durable timers.
      */
     executeScan: async (
       ctx: ObjectContext,
@@ -223,21 +206,21 @@ export const deviceScanner = restate.object({
         preset: input.preset,
       });
 
-      // Check if paused
+      // Journal 1: Check if paused
       const isPaused = await ctx.get<boolean>(STATE_KEYS.IS_PAUSED);
       if (isPaused) {
         logger.info('Schedule is paused, skipping execution', { scheduleId });
         return { success: false, status: 'PAUSED' };
       }
 
-      // Get schedule config from state
+      // Journal 2: Get schedule config from state
       const config = await ctx.get<ScheduleConfig>(STATE_KEYS.SCHEDULE_CONFIG);
       if (!config) {
         logger.error('Schedule config not found in state', { scheduleId });
         return { success: false, status: 'CONFIG_MISSING' };
       }
 
-      // RESCHEDULE-FIRST PATTERN: Schedule next execution BEFORE running current scan
+      // Journal 3-5: RESCHEDULE-FIRST PATTERN — schedule next execution BEFORE running current scan
       const nextRunTime = calculateNextExecutionTime(config.interval, baseTime);
       const delay = Math.max(0, nextRunTime.getTime() - baseTime);
 
@@ -255,155 +238,52 @@ export const deviceScanner = restate.object({
         nextInvocationId,
       });
 
-      // Step 1: Check concurrency via HTTP API
-      const canExecute = await ctx.run('check-concurrency', async () => {
-        try {
-          const response = await fetch(`${TANSTACK_APP_URL}/api/internal/schedules/can-execute`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'x-worker-key': WORKER_API_KEY,
-            },
-            body: JSON.stringify({
-              organizationId: input.organizationId,
-              scheduleId: input.scheduleId,
-              deviceId: input.deviceId,
-              preset: input.preset,
-            }),
-          });
+      // Journal 6: Get current failure count
+      const consecutiveFailures = (await ctx.get<number>(STATE_KEYS.CONSECUTIVE_FAILURES)) || 0;
 
-          if (response.status === 429) {
-            return { allowed: false, reason: 'CONCURRENCY_LIMIT' };
-          }
-
-          if (!response.ok) {
-            throw new Error(`Concurrency check failed: ${response.status}`);
-          }
-
-          const data = (await response.json()) as { leaseId: string };
-          return { allowed: true, leaseId: data.leaseId };
-        } catch (error: any) {
-          logger.error('Concurrency check failed', { scheduleId, error });
-          throw error;
-        }
+      // Journal 7: Delegate ALL volatile logic to ScanExecutor service
+      // This is a top-level service call — Restate guarantees delivery.
+      // ScanExecutor is a plain service (no replay), so its code can change freely across deploys.
+      const result: ScanExecutorResult = await ctx.serviceClient(scanExecutor).run({
+        scheduleId: input.scheduleId,
+        deviceId: input.deviceId,
+        deviceTarget: input.deviceTarget,
+        organizationId: input.organizationId,
+        preset: input.preset,
+        consecutiveFailures,
+        autoPauseThreshold: AUTO_PAUSE_THRESHOLDS[input.preset],
+        nextRunAt: nextRunTime.toISOString(),
       });
 
-      if (!canExecute.allowed) {
-        logger.warn('Concurrency limit reached, deferring scan', {
-          scheduleId,
-          organizationId: input.organizationId,
-        });
-        // Don't count as failure - next timer will try again
-        return { success: false, status: 'CONCURRENCY_LIMIT_REACHED' };
-      }
+      // Journal 8-10: Update state based on result
+      ctx.set(STATE_KEYS.CONSECUTIVE_FAILURES, result.consecutiveFailures);
 
-      const leaseId = canExecute.leaseId;
-      ctx.set(STATE_KEYS.LEASE_ID, leaseId);
-
-      // Step 2: Run the scan
-      let scanSuccess = false;
-      let scanId: string | undefined;
-
-      try {
-        const scanResult = await ctx.run('execute-port-scan', async () => {
-          const scanId = `${scheduleId}-${Date.now()}`;
-
-          // Invoke PortScanner service
-          await ctx.serviceClient(portScanner).scan({
-            target: input.deviceTarget,
-            ports: getPortsForPreset(input.preset),
-            aggressive: input.preset === 'THOROUGH',
-            timeout: getTimeoutForPreset(input.preset),
-            scanId,
-            deviceId: input.deviceId,
-            organizationId: input.organizationId,
-            callbackUrl: `${TANSTACK_APP_URL}/api/postback/scheduled-scan`,
-          });
-
-          return { scanId };
-        });
-
-        scanId = scanResult.scanId;
-        scanSuccess = true;
-
-        logger.info('Scan completed successfully', {
-          scheduleId,
-          scanId,
-        });
-      } catch (error) {
-        const classified = classifyError(error);
-
-        logger.error('Scan execution failed', {
-          scheduleId,
-          errorType: classified.type,
-          error: classified.message,
-        });
-
-        await handleFailure(ctx, scheduleId, config, classified, baseTime);
-      } finally {
-        // Step 3: Always release slot via HTTP (TanStack app manages DB)
-        if (leaseId) {
-          try {
-            await ctx.run('release-slot', async () => {
-              await fetch(`${TANSTACK_APP_URL}/api/internal/schedules/release-slot`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'x-worker-key': WORKER_API_KEY,
-                },
-                body: JSON.stringify({
-                  leaseId,
-                  organizationId: input.organizationId,
-                }),
-              });
-            });
-
-            ctx.clear(STATE_KEYS.LEASE_ID);
-            logger.info('Concurrency slot released', { scheduleId, leaseId });
-          } catch (error) {
-            logger.error('Failed to release slot', { scheduleId, leaseId, error });
-            // Don't throw - lease will expire automatically
-          }
-        }
-      }
-
-      // Step 4: Update success state
-      if (scanSuccess) {
-        ctx.set(STATE_KEYS.CONSECUTIVE_FAILURES, 0);
-        ctx.set(STATE_KEYS.LAST_RUN_STATUS, 'SUCCESS');
+      if (result.outcome !== 'CONCURRENCY_LIMIT') {
+        ctx.set(STATE_KEYS.LAST_RUN_STATUS, result.outcome === 'SUCCESS' ? 'SUCCESS' : 'FAILED');
         ctx.set(STATE_KEYS.LAST_RUN_AT, new Date(baseTime).toISOString());
-
-        // Postback success to TanStack app (updates DB)
-        await ctx.run('postback-success', async () => {
-          const successPayload = buildScheduledScanExecutedPostbackPayload({
-            type: 'SCHEDULED_SCAN_EXECUTED',
-            scanId: scanId!,
-            organizationId: input.organizationId,
-            timestamp: new Date(baseTime).toISOString(),
-            status: 'SUCCESS',
-            deviceId: input.deviceId,
-            data: {
-              scheduleId: input.scheduleId,
-              status: 'SUCCESS',
-              consecutiveFailures: 0,
-              lastRunAt: new Date(baseTime).toISOString(),
-              nextRunAt: nextRunTime.toISOString(),
-            },
-          });
-
-          await postUniversalPostback({
-            callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
-            ...successPayload,
-          });
-        });
-
-        logger.info('Scan executed successfully', { scheduleId, scanId });
       }
+
+      // Journal 11 (conditional): Auto-pause — cancel next timer and set paused flag
+      if (result.shouldPause) {
+        logger.info('Auto-pausing schedule after threshold reached', { scheduleId });
+        ctx.cancel(nextInvocationId as any);
+        ctx.set(STATE_KEYS.IS_PAUSED, true);
+        ctx.clear(STATE_KEYS.NEXT_EXECUTION_ID);
+        ctx.clear(STATE_KEYS.NEXT_EXECUTION_TIME);
+      }
+
+      ctx.clear(STATE_KEYS.LEASE_ID);
+
+      logger.info('Scan execution complete', {
+        scheduleId,
+        outcome: result.outcome,
+        consecutiveFailures: result.consecutiveFailures,
+      });
 
       return {
-        success: scanSuccess,
-        status: scanSuccess ? 'SUCCESS' : 'FAILED',
-        scanId,
+        success: result.outcome === 'SUCCESS',
+        status: result.outcome,
+        scanId: result.scanId,
       };
     },
 
@@ -594,217 +474,3 @@ function convertToMilliseconds(value: number, unit: 'minutes' | 'hours' | 'days'
   return value * multipliers[unit];
 }
 
-/**
- * Get ports to scan based on preset
- */
-function getPortsForPreset(preset: SchedulePreset): string {
-  const portConfigs: Record<SchedulePreset, string> = {
-    QUICK: '21,22,23,25,53,80,110,143,443,445,3389,8080,8443', // Top 13 ports
-    STANDARD: '1-1000', // Top 1000 ports
-    THOROUGH: '1-65535', // All ports
-  };
-  return portConfigs[preset];
-}
-
-/**
- * Get timeout based on preset
- */
-function getTimeoutForPreset(preset: SchedulePreset): number {
-  const timeouts: Record<SchedulePreset, number> = {
-    QUICK: 30000, // 30 seconds
-    STANDARD: 120000, // 2 minutes
-    THOROUGH: 300000, // 5 minutes
-  };
-  return timeouts[preset];
-}
-
-/**
- * Classify error as transient or permanent
- *
- * Transient: Network timeouts, rate limits, temporary unavailability
- * Permanent: Invalid configuration, authentication failures, missing resources
- * Concurrency: Organization scan limit reached (handled separately)
- */
-function classifyError(error: any): ClassifiedError {
-  const message = error?.message?.toLowerCase() || String(error).toLowerCase();
-
-  // Check for concurrency limit (HTTP 429)
-  if (message.includes('429') || message.includes('concurrency')) {
-    return {
-      type: 'CONCURRENCY_LIMIT',
-      message: error?.message || String(error),
-      shouldRetry: true,
-    };
-  }
-
-  // Permanent errors (don't retry with backoff)
-  const permanentPatterns = [
-    /not found/,
-    /invalid configuration/,
-    /authentication failed/,
-    /unauthorized/,
-    /forbidden/,
-    /device.*deleted/,
-    /schedule.*deleted/,
-  ];
-
-  for (const pattern of permanentPatterns) {
-    if (pattern.test(message)) {
-      return {
-        type: 'PERMANENT',
-        message: error?.message || String(error),
-        shouldRetry: false,
-      };
-    }
-  }
-
-  // Transient errors (retry with backoff)
-  const transientPatterns = [
-    /timeout/,
-    /network/,
-    /econnrefused/,
-    /enotfound/,
-    /rate limit/,
-    /temporarily unavailable/,
-    /service unavailable/,
-  ];
-
-  for (const pattern of transientPatterns) {
-    if (pattern.test(message)) {
-      return {
-        type: 'TRANSIENT',
-        message: error?.message || String(error),
-        shouldRetry: true,
-      };
-    }
-  }
-
-  // Default to transient (safer to retry)
-  return {
-    type: 'TRANSIENT',
-    message: error?.message || String(error),
-    shouldRetry: true,
-  };
-}
-
-/**
- * Handle scan failure with exponential backoff or auto-pause
- *
- * Postbacks failure info to TanStack app for database updates
- *
- * @param ctx - Restate context
- * @param scheduleId - Schedule ID
- * @param config - Schedule configuration
- * @param error - Classified error
- * @param baseTime - Deterministic base time (milliseconds since epoch)
- */
-async function handleFailure(
-  ctx: ObjectContext,
-  scheduleId: string,
-  config: ScheduleConfig,
-  error: ClassifiedError,
-  baseTime: number
-): Promise<void> {
-  const currentFailures = (await ctx.get<number>(STATE_KEYS.CONSECUTIVE_FAILURES)) || 0;
-  const newFailureCount = currentFailures + 1;
-
-  ctx.set(STATE_KEYS.CONSECUTIVE_FAILURES, newFailureCount);
-  ctx.set(STATE_KEYS.LAST_RUN_STATUS, 'FAILED');
-  ctx.set(STATE_KEYS.LAST_RUN_AT, new Date(baseTime).toISOString());
-
-  logger.warn('Scan failed', {
-    scheduleId,
-    errorType: error.type,
-    consecutiveFailures: newFailureCount,
-    autoPauseThreshold: AUTO_PAUSE_THRESHOLDS[config.preset],
-  });
-
-  // Check if auto-pause threshold reached
-  if (newFailureCount >= AUTO_PAUSE_THRESHOLDS[config.preset]) {
-    logger.error('Auto-pause threshold reached', {
-      scheduleId,
-      consecutiveFailures: newFailureCount,
-      preset: config.preset,
-    });
-
-    // Cancel next execution
-    const nextExecutionId = await ctx.get<string>(STATE_KEYS.NEXT_EXECUTION_ID);
-    if (nextExecutionId) {
-      ctx.cancel(nextExecutionId as any); // InvocationId is a branded type
-    }
-
-    ctx.set(STATE_KEYS.IS_PAUSED, true);
-    ctx.clear(STATE_KEYS.NEXT_EXECUTION_ID);
-    ctx.clear(STATE_KEYS.NEXT_EXECUTION_TIME);
-
-    // Postback auto-pause to TanStack app
-    await ctx.run('postback-auto-pause', async () => {
-      const autoPausedPayload = buildScheduleAutoPausedPostbackPayload({
-        type: 'SCHEDULE_AUTO_PAUSED',
-        scanId: `${scheduleId}-autopause`,
-        organizationId: config.organizationId,
-        timestamp: new Date(baseTime).toISOString(),
-        status: 'FAILED',
-        deviceId: config.deviceId,
-        data: {
-          scheduleId: config.scheduleId,
-          reason: `Auto-paused after ${newFailureCount} consecutive failures: ${error.message}`,
-          consecutiveFailures: newFailureCount,
-        },
-      });
-
-      await postUniversalPostback({
-        callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
-        ...autoPausedPayload,
-      });
-    });
-
-    return;
-  }
-
-  // Calculate backoff for transient errors
-  const backoffMs = error.type === 'TRANSIENT'
-    ? Math.min(BACKOFF_BASE_MS * Math.pow(2, newFailureCount - 1), BACKOFF_MAX_MS)
-    : 0;
-
-  // Postback failure to TanStack app (updates DB)
-  await ctx.run('postback-failure', async () => {
-    const nextRunTime = error.type === 'TRANSIENT'
-      ? new Date(baseTime + backoffMs)
-      : calculateNextExecutionTime(config.interval, baseTime);
-
-    const failurePayload = buildScheduledScanExecutedPostbackPayload({
-      type: 'SCHEDULED_SCAN_EXECUTED',
-      scanId: `${scheduleId}-${baseTime}`,
-      organizationId: config.organizationId,
-      timestamp: new Date(baseTime).toISOString(),
-      status: 'FAILED',
-      deviceId: config.deviceId,
-      data: {
-        scheduleId: config.scheduleId,
-        status: 'FAILED',
-        error: error.message,
-        errorType: error.type,
-        consecutiveFailures: newFailureCount,
-        lastRunAt: new Date(baseTime).toISOString(),
-        nextRunAt: nextRunTime.toISOString(),
-        backoffApplied: backoffMs > 0,
-        backoffMs,
-      },
-    });
-
-    await postUniversalPostback({
-      callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
-      ...failurePayload,
-    });
-  });
-
-  if (backoffMs > 0) {
-    logger.info('Exponential backoff applied', {
-      scheduleId,
-      consecutiveFailures: newFailureCount,
-      backoffMs,
-      backoffMinutes: Math.round(backoffMs / 60000),
-    });
-  }
-}

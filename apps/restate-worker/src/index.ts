@@ -3,6 +3,7 @@ import { portScanner } from './port-scanner';
 import { discoveryService } from './discovery-service';
 import { httpxService } from './httpx-service';
 import { deviceScanner } from './device-scanner-service';
+import { scanExecutor } from './scan-executor-service';
 import { hostingEnrichmentService } from './hosting-enrichment-service';
 import { createLogger } from '@repo/logger';
 import { checkDeploymentStatus, logDeploymentGuidance } from './deployment-checker';
@@ -38,6 +39,7 @@ const endpoint = restate
   .bind(discoveryService)
   .bind(httpxService)
   .bind(deviceScanner)
+  .bind(scanExecutor)
   .bind(hostingEnrichmentService);
 
 endpoint
@@ -60,6 +62,10 @@ endpoint
       {
         name: 'DeviceScanner',
         handlers: ['scheduleDeviceScan', 'executeScan', 'pauseSchedule', 'resumeSchedule', 'deleteSchedule', 'getScheduleState'],
+      },
+      {
+        name: 'ScanExecutor',
+        handlers: ['run'],
       },
       {
         name: 'HostingEnrichment',
