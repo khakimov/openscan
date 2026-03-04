@@ -6,7 +6,6 @@ import { getErrorMessage } from '@/lib/utils';
 import {
   getDevicesForTenant,
   getDeviceCounts,
-  validateProjectAccess,
   getDeviceById,
   getDeviceTagSuggestions,
   getDeviceScanHistory,
@@ -81,15 +80,9 @@ export const deviceRouter = createTRPCRouter({
       projectId: z.string().optional(),
     }))
     .query(async ({ ctx, input }) => {
-      const user = ctx.user;
-      const organizationId = requireOrganizationId(ctx);
+      const { organizationId, projectId } = await resolveProjectContext(ctx, input.projectId);
 
-      // If projectId provided, validate access
-      if (input.projectId) {
-        await validateProjectAccess(user.id, input.projectId, organizationId);
-      }
-
-      const counts = await getDeviceCounts(organizationId, input.projectId);
+      const counts = await getDeviceCounts(organizationId, projectId);
       return counts;
     }),
 

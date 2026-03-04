@@ -8,6 +8,7 @@
 import {
   updateDevice,
   getScanRunByRestateWorkflowId,
+  createScanRun,
   updateScanRunStatus,
   updateScanWorkflowStatus,
 } from '@repo/data-ops';
@@ -120,26 +121,26 @@ export class PortScanPostbackHandler
     });
 
     // Step 1: Find the scan run by Restate workflow ID (workflow data is now embedded)
-    const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
+    // For scheduled scans, the record doesn't exist yet — create it on the fly.
+    let scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
     if (!scanRun) {
-      ctx.logger.warn('Scan run not found for postback', {
+      ctx.logger.info('Scan run not found, creating on-the-fly (scheduled scan)', {
         scanId,
         organizationId,
+        deviceId,
       });
 
-      return {
-        success: false,
-        message: `Scan run not found: ${scanId}`,
-        analytics: buildFailureAnalytics(
-          AnalyticsEventTypes.PORTSCAN_DEVICE_NOT_FOUND,
-          {
-            scanId,
-            entityId: deviceId,
-            error: 'Scan run not found',
-          }
-        ),
-      };
+      scanRun = await createScanRun({
+        organizationId,
+        restateWorkflowId: scanId,
+        workflowKind: 'RESCAN',
+        scanType: 'PORT',
+        scope: 'EXTERNAL',
+        requestedById: 'system:scheduled-scan',
+        target: data.target,
+        workflowMetadata: { source: 'scheduled-scan', deviceId },
+      });
     }
 
     // Universal filtering: only store ports with service information
@@ -632,26 +633,25 @@ export class PortScanPostbackHandler
     });
 
     // Find scan run and mark it as failed (workflow data is now embedded)
-    const scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
+    // For scheduled scans, the record doesn't exist yet — create it on the fly.
+    let scanRun = await getScanRunByRestateWorkflowId(organizationId, scanId);
 
     if (!scanRun) {
-      ctx.logger.warn('Scan run not found for failure postback', {
+      ctx.logger.info('Scan run not found for failure, creating on-the-fly (scheduled scan)', {
         scanId,
         organizationId,
+        deviceId,
       });
 
-      return {
-        success: true, // We processed the postback successfully even though scan run wasn't found
-        message: 'Scan run not found for failed scan',
-        analytics: buildFailureAnalytics(
-          AnalyticsEventTypes.PORTSCAN_DEVICE_NOT_FOUND,
-          {
-            scanId,
-            entityId: deviceId,
-            error: 'Scan run not found',
-          }
-        ),
-      };
+      scanRun = await createScanRun({
+        organizationId,
+        restateWorkflowId: scanId,
+        workflowKind: 'RESCAN',
+        scanType: 'PORT',
+        scope: 'EXTERNAL',
+        requestedById: 'system:scheduled-scan',
+        workflowMetadata: { source: 'scheduled-scan', deviceId },
+      });
     }
 
     // Update workflow status to FAILED
