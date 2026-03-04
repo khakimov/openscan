@@ -69,24 +69,49 @@ export function normalizeServiceDetections(
 }
 
 /**
+ * Known non-HTTP services that should never be probed by httpx.
+ * These are well-known protocols that don't speak HTTP.
+ */
+const NON_HTTP_SERVICES = new Set([
+  'ssh', 'ftp', 'smtp', 'pop3', 'imap', 'dns', 'mysql', 'postgresql',
+  'redis', 'mongodb', 'memcached', 'ldap', 'smb', 'netbios-ssn',
+  'microsoft-ds', 'ntp', 'snmp', 'telnet', 'vnc', 'rdp', 'ms-wbt-server',
+  'xmpp-client', 'xmpp-server', 'rwhois', 'kerberos', 'sip',
+  'rtsp', 'mqtt', 'amqp', 'bgp', 'dhcp', 'tftp',
+]);
+
+/**
  * Returns the list of ports that should be probed via httpx based on service detection.
+ * Filters out known non-HTTP services (SSH, SMTP, XMPP, etc.) to avoid wasted probes.
  */
 export function extractPortsForHttpx(
   ports: Array<{ port: number; state: string; service?: unknown }>
 ): number[] {
   return ports
-    .filter((p) => p.state === 'open' && hasServiceMetadata(p.service))
+    .filter((p) => p.state === 'open' && isHttpCandidate(p.service))
     .map((p) => p.port)
     .sort((a, b) => a - b);
 }
 
-function hasServiceMetadata(service: unknown): service is { name?: string; product?: string } {
+function isHttpCandidate(service: unknown): boolean {
   if (!service || typeof service !== 'object') {
-    return false;
+    // No service info — still worth probing (could be HTTP on a non-standard port)
+    return true;
   }
 
   const candidate = service as { name?: string; product?: string };
-  return !!(candidate.name || candidate.product);
+
+  // No service name detected — probe it
+  if (!candidate.name && !candidate.product) {
+    return false;
+  }
+
+  // Skip known non-HTTP services
+  if (candidate.name && NON_HTTP_SERVICES.has(candidate.name.toLowerCase())) {
+    return false;
+  }
+
+  return true;
 }
 
 /**

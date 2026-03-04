@@ -493,10 +493,11 @@ async function runHttpx(options: {
             stderrLength: stderr.length,
           });
 
-          if (code === 0 || stdout.length > 0) {
+          if (code === 0 || code === 2 || stdout.length > 0) {
+            // code 0 = success, code 2 = no results found (valid — no HTTP on probed ports)
             resolve({ stdout, stderr });
           } else {
-            reject(new Error(`HTTPx exited with code ${code}`));
+            reject(new Error(`HTTPx exited with code ${code}: ${stderr.substring(0, 500)}`));
           }
         });
 
@@ -513,7 +514,7 @@ async function runHttpx(options: {
     ]);
 
     if (result.stderr) {
-      logger.debug('HTTPx stderr output', { stderr: result.stderr.substring(0, 1000) });
+      logger.warn('HTTPx stderr output', { stderr: result.stderr.substring(0, 1000) });
     }
 
     // Parse JSON output (one JSON object per line)
