@@ -161,6 +161,8 @@ export function LayoutProjectSelector({
             ))
           )}
 
+          <DropdownMenuSeparator />
+
           <DropdownMenuItem
             className="text-emerald-600"
             onSelect={() => {

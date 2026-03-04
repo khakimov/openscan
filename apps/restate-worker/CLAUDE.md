@@ -128,66 +128,91 @@ npx @restatedev/restate deployments register \
 4. **Verify registration**:
    ```bash
    npx @restatedev/restate services list
-   # Should show: PortScanner, Discovery
+   # Should show: PortScanner, Discovery, Httpx, DeviceScanner, HostingEnrichment
    ```
 
 ### Production Deployment (Restate Cloud with Tunnel)
 
 **IMPORTANT**: We use Restate Cloud with a secure tunnel. Never expose worker directly to internet.
 
-1. **Commit all changes**:
+**CRITICAL**: The server must always run the `main` branch. Feature branches get merged to main first, then deployed.
+
+#### Step-by-step deployment:
+
+1. **Ensure changes are on `main`**:
    ```bash
-   git status  # ⚠️ Check for untracked service files!
-   git add .
-   git commit -m "feat: add new service"
-   git push
+   # On your local machine - merge/PR feature branch into main first
+   git checkout main
+   git pull origin main
    ```
 
-2. **SSH to server and pull changes**:
+2. **SSH to server and update**:
    ```bash
    ssh your-server
-   cd /path/to/sec/apps/restate-worker
-   git pull origin <branch>
+   cd ~/openscan
+
+   # Switch to main (server may be on an old feature branch)
+   git checkout main
+   git pull origin main
    ```
 
-3. **Restart tunnel with tunnel.env** (if not already running):
+3. **Build workspace dependencies** (required after pulling new code):
    ```bash
-   # Stop old tunnel if running
-   docker stop restate-tunnel && docker rm restate-tunnel
+   # From monorepo root ~/openscan (NOT from apps/restate-worker)
+   cd ~/openscan
+   pnpm install
+   pnpm run build:data-ops
+   ```
 
-   # Start tunnel with environment file
+   **Why**: The worker imports `@repo/data-ops`, `@repo/contracts`, and `@repo/logger` as workspace packages. `data-ops` must be compiled (TypeScript → JavaScript) before the worker can start. Without this step, you'll get `ERR_MODULE_NOT_FOUND: Cannot find package '@repo/data-ops'`.
+
+4. **Start or restart the worker**:
+   ```bash
+   # Using monorepo script (preferred)
+   cd ~/openscan
+   pnpm run dev:worker
+
+   # OR with pm2
+   pm2 restart restate-worker
+
+   # OR directly from worker dir
+   cd ~/openscan/apps/restate-worker
+   pnpm dev
+   ```
+
+   **Verify worker started**: Look for log output showing all services:
+   ```
+   {"services": ["PortScanner", "Discovery", "Httpx", "DeviceScanner", "HostingEnrichment"]}
+   ```
+
+5. **Restart tunnel** (if not already running):
+   ```bash
+   # Check if tunnel is running
+   docker ps | grep restate-tunnel
+
+   # If not running, start it:
+   cd ~/openscan/apps/restate-worker
    docker run \
      --env-file tunnel.env \
-     -p 8080:8080 \
-     -p 9090:9090 \
-     -p 9070:9070 \
      --network=host \
      --restart unless-stopped \
      -d \
      --name restate-tunnel \
      ghcr.io/restatedev/restate-cloud-tunnel-client:latest
 
-   # Verify tunnel is connected (should see no errors)
+   # Verify tunnel is connected
    docker logs -f restate-tunnel
    ```
 
-4. **Restart worker**:
-   ```bash
-   pm2 restart restate-worker
-   # OR without pm2:
-   # pkill -f "tsx watch" && pnpm dev
-   ```
+6. **Re-register with Restate Cloud** (required when services change):
 
-5. **Re-register with Restate Cloud via tunnel**:
-
-   **CRITICAL**: Use the tunnel URL format with correct values from `tunnel.env`:
+   **CRITICAL**: The worker must be running and reachable on port 9080 before registering.
 
    ```bash
    # Get tunnel name from tunnel.env
-   cat tunnel.env | grep TUNNEL_NAME
-   # Example: RESTATE_TUNNEL_NAME=prod-tunnel
+   cat ~/openscan/apps/restate-worker/tunnel.env | grep TUNNEL_NAME
 
-   # Register using tunnel URL (replace values from tunnel.env)
+   # Register (replace tunnel name if different from prod-tunnel)
    npx @restatedev/restate deployments register \
      https://tunnel.us.restate.cloud:9080/201k7hktgm99xk9cb3f5btv7x9w/prod-tunnel/http/localhost/9080 \
      --force
@@ -199,20 +224,38 @@ npx @restatedev/restate deployments register \
    - `prod-tunnel` - Tunnel name from `RESTATE_TUNNEL_NAME` in tunnel.env
    - `http://localhost/9080` - Worker endpoint (as seen from tunnel container)
 
-6. **Verify registration**:
+7. **Verify registration**:
    ```bash
    npx @restatedev/restate services list
-   # Should show: PortScanner, Discovery, Httpx, DeviceScanner
-
-   # Check worker logs show all services
-   pm2 logs restate-worker --lines 10
-   # Should see: {"services": ["PortScanner", "Discovery", "Httpx", "DeviceScanner"]}
+   # Should show: PortScanner, Discovery, Httpx, DeviceScanner, HostingEnrichment
    ```
 
-**Common Registration Errors**:
-- `Tunnel not found` → Wrong tunnel name, check `tunnel.env`
-- `Connection refused` → Worker not running, restart worker
-- `Bad status code 403` → Wrong environment ID or missing `env_` prefix
+#### Troubleshooting
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `ERR_MODULE_NOT_FOUND: @repo/data-ops` | Workspace deps not built | Run `pnpm run build:data-ops` from monorepo root |
+| `502 Bad Gateway` during registration | Worker not running on port 9080 | Start worker first, verify with `ss -tlnp \| grep 9080` |
+| `Tunnel not found` | Wrong tunnel name | Check `RESTATE_TUNNEL_NAME` in tunnel.env |
+| `Connection refused` | Worker crashed | Check `pm2 logs` or terminal output for errors |
+| `Service mismatch` in deployment-checker | Registered services don't match code | Re-register with `--force` |
+| `Bad status code 403` | Wrong environment ID | Check env ID doesn't have `env_` prefix |
+
+#### Quick Reference (copy-paste for common redeploy)
+
+```bash
+# Full redeploy from scratch on server:
+cd ~/openscan
+git checkout main && git pull origin main
+pnpm install
+pnpm run build:data-ops
+pnpm run dev:worker &
+# Wait for "Restate worker started" log, then:
+npx @restatedev/restate deployments register \
+  https://tunnel.us.restate.cloud:9080/201k7hktgm99xk9cb3f5btv7x9w/prod-tunnel/http/localhost/9080 \
+  --force
+npx @restatedev/restate services list
+```
 
 ## Common Gotchas & Fixes
 

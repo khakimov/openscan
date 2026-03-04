@@ -51,11 +51,21 @@ export const projectRouter = createTRPCRouter({
    */
   listByOrg: protectedProcedure
     .input(z.object({ organizationId: z.string() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       try {
-        const projects = await getProjectsForOrganization(input.organizationId);
+        // Validate caller is a member of this organization
+        const orgAccess = await validateOrganizationAccess(ctx.user.id, input.organizationId);
+        if (!orgAccess) {
+          throw new TRPCError({
+            code: 'FORBIDDEN',
+            message: 'Organization not found or access denied',
+          });
+        }
+
+        const projects = await getProjectsForOrganization(orgAccess.id);
         return projects;
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: error instanceof Error ? error.message : 'Failed to load projects',

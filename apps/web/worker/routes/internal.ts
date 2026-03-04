@@ -15,12 +15,12 @@ const logger = createLogger({ name: "api-internal" });
 export const internalHandler = new Hono<{ Bindings: Env }>();
 
 /**
- * Authenticate request using WORKER_API_KEY
+ * Authenticate request using WORKER_API_KEY from env bindings
  */
-function authenticateWorkerRequest(request: Request): boolean {
-  const apiKey = process.env.WORKER_API_KEY;
+function authenticateWorkerRequest(request: Request, env: Env): boolean {
+  const apiKey = env.WORKER_API_KEY;
   if (!apiKey) {
-    logger.error("WORKER_API_KEY not configured");
+    logger.error("WORKER_API_KEY not configured in env bindings");
     return false;
   }
 
@@ -54,7 +54,7 @@ internalHandler.post("/schedules/can-execute", async (c) => {
   const startTime = Date.now();
   initDatabase(c.env.DB);
 
-  if (!authenticateWorkerRequest(c.req.raw)) {
+  if (!authenticateWorkerRequest(c.req.raw, c.env)) {
     logger.warn("Unauthorized can-execute request");
     return c.json({ error: "Unauthorized" }, 401);
   }
@@ -144,7 +144,7 @@ internalHandler.post("/schedules/release-slot", async (c) => {
   const startTime = Date.now();
   initDatabase(c.env.DB);
 
-  if (!authenticateWorkerRequest(c.req.raw)) {
+  if (!authenticateWorkerRequest(c.req.raw, c.env)) {
     logger.warn("Unauthorized release-slot request");
     return c.json({ error: "Unauthorized" }, 401);
   }

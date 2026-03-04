@@ -2,8 +2,10 @@ import { useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { useTRPCClient } from '@/integrations/trpc/react';
 import { useMutationWithToast } from '@/hooks/use-mutation-with-toast';
 import { toast } from 'sonner';
+import type { inferRouterOutputs } from '@trpc/server';
 
 import { invalidateTRPCQuery } from '@/lib/query-utils';
+import type { AppRouter } from '@/trpc/router';
 
 /**
  * Device query key factory (tRPC pattern)
@@ -16,6 +18,43 @@ import { invalidateTRPCQuery } from '@/lib/query-utils';
  * - `base`: Simple path like `['device', 'list']` - use for invalidation (matches all params)
  * - `key()`: Full tRPC tuple like `[['device', 'list'], { input: {...} }]` - use for specific cache operations
  */
+// ============================================================================
+// Types
+// ============================================================================
+
+/** tRPC device router output types */
+type DeviceRouterOutputs = inferRouterOutputs<AppRouter>['device'];
+
+/** Device with details returned by listWithDetails query */
+type DeviceWithDetails = DeviceRouterOutputs['listWithDetails']['items'][number];
+
+/** Response shape for listWithDetails queries (used in optimistic updates) */
+interface DeviceListResponse {
+  items: DeviceWithDetails[];
+  totalCount: number;
+  counts?: {
+    total: number;
+    candidate: number;
+    verified: number;
+    excluded: number;
+  };
+}
+
+/** Shared context type for simple device mutations */
+interface DeviceMutationContext {
+  previousQueries: [QueryKey, unknown][];
+}
+
+/** Context for mutations that affect both list and listWithDetails */
+interface DeviceDualListContext {
+  previousListQueries: [QueryKey, unknown][];
+  previousDetailQueries: [QueryKey, unknown][];
+}
+
+// ============================================================================
+// Query Keys
+// ============================================================================
+
 export const deviceQueries = {
   list: {
     base: ['device', 'list'] as const,
@@ -105,23 +144,25 @@ export const useDeleteDeviceMutation = () => {
       // Optimistically remove device from all list queries
       queryClient.setQueriesData(
         { queryKey: deviceQueries.listWithDetails.base },
-        (old: any) => {
+        (old: DeviceListResponse | undefined) => {
           if (!old?.items) return old;
           return {
             ...old,
-            items: old.items.filter((d: any) => d.id !== variables.deviceId),
+            items: old.items.filter((d) => d.id !== variables.deviceId),
             // Decrement total count
             totalCount: Math.max(0, (old.totalCount ?? 0) - 1),
           };
         }
       );
 
-      return { previousQueries };
+      return { previousQueries } as DeviceMutationContext;
     },
 
     // Rollback on error
     onError: (_err, _vars, context) => {
-      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousQueries } = context as DeviceMutationContext;
+      previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },
@@ -206,11 +247,11 @@ export const useVerifyDeviceMutation = () => {
       const previousDetailQueries = queryClient.getQueriesData({ queryKey: deviceQueries.listWithDetails.base });
 
       // Optimistically update both query types
-      const updater = (old: any) => {
+      const updater = (old: DeviceListResponse | undefined) => {
         if (!old?.items) return old;
         return {
           ...old,
-          items: old.items.map((d: any) =>
+          items: old.items.map((d) =>
             d.id === variables.deviceId
               ? { ...d, verificationStatus: variables.status }
               : d
@@ -220,15 +261,17 @@ export const useVerifyDeviceMutation = () => {
       queryClient.setQueriesData({ queryKey: deviceQueries.list.base }, updater);
       queryClient.setQueriesData({ queryKey: deviceQueries.listWithDetails.base }, updater);
 
-      return { previousListQueries, previousDetailQueries };
+      return { previousListQueries, previousDetailQueries } as DeviceDualListContext;
     },
 
     // Rollback on error
     onError: (_err, _vars, context) => {
-      context?.previousListQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousListQueries, previousDetailQueries } = context as DeviceDualListContext;
+      previousListQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
-      context?.previousDetailQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      previousDetailQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },
@@ -269,11 +312,11 @@ export const useToggleDeviceVerificationMutation = () => {
       const previousListQueries = queryClient.getQueriesData({ queryKey: deviceQueries.list.base });
       const previousDetailQueries = queryClient.getQueriesData({ queryKey: deviceQueries.listWithDetails.base });
 
-      const updater = (old: any) => {
+      const updater = (old: DeviceListResponse | undefined) => {
         if (!old?.items) return old;
         return {
           ...old,
-          items: old.items.map((d: any) =>
+          items: old.items.map((d) =>
             d.id === variables.deviceId
               ? { ...d, verificationStatus: variables.verify ? 'VERIFIED' : 'CANDIDATE' }
               : d
@@ -283,14 +326,16 @@ export const useToggleDeviceVerificationMutation = () => {
       queryClient.setQueriesData({ queryKey: deviceQueries.list.base }, updater);
       queryClient.setQueriesData({ queryKey: deviceQueries.listWithDetails.base }, updater);
 
-      return { previousListQueries, previousDetailQueries };
+      return { previousListQueries, previousDetailQueries } as DeviceDualListContext;
     },
 
     onError: (_err, _vars, context) => {
-      context?.previousListQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousListQueries, previousDetailQueries } = context as DeviceDualListContext;
+      previousListQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
-      context?.previousDetailQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      previousDetailQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },
@@ -319,11 +364,11 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
 
       const previousQueries = queryClient.getQueriesData({ queryKey: deviceQueries.listWithDetails.base });
 
-      queryClient.setQueriesData({ queryKey: deviceQueries.listWithDetails.base }, (old: any) => {
+      queryClient.setQueriesData({ queryKey: deviceQueries.listWithDetails.base }, (old: DeviceListResponse | undefined) => {
         if (!old?.items) return old;
         return {
           ...old,
-          items: old.items.map((d: any) =>
+          items: old.items.map((d) =>
             d.id === variables.deviceId
               ? { ...d, activeScans: [...(d.activeScans ?? []), `pending-${variables.deviceId}`] }
               : d
@@ -331,11 +376,13 @@ export const useStartDeviceScanMutation = (deviceId: string) => {
         };
       });
 
-      return { previousQueries };
+      return { previousQueries } as DeviceMutationContext;
     },
 
     onError: (_err, _vars, context) => {
-      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousQueries } = context as DeviceMutationContext;
+      previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },
@@ -384,7 +431,7 @@ function createSkeletonDevicesOptimisticUpdate(queryClient: ReturnType<typeof us
 
     queryClient.setQueriesData(
       { queryKey: deviceQueries.listWithDetails.base },
-      (old: any) => {
+      (old: DeviceListResponse | undefined) => {
         if (!old?.items) return old;
         return {
           ...old,
@@ -465,7 +512,9 @@ export const useCreateDevicesFromDiscoveryMutation = (
 
     // On error, remove skeleton devices
     onError: (_err, _vars, context) => {
-      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousQueries } = context as DeviceMutationContext;
+      previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },
@@ -550,7 +599,9 @@ export const useCreateDevicesFromDiscoveryWithToast = () => {
       );
       
       // Rollback optimistic update
-      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousQueries } = context as DeviceMutationContext;
+      previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },

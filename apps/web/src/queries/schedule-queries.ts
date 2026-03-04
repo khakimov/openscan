@@ -157,6 +157,13 @@ interface CreateScheduleContext {
 }
 
 /**
+ * Shared context type for simple optimistic updates (pause/resume/delete)
+ */
+interface ScheduleMutationContext {
+  previousQueries: [QueryKey, unknown][];
+}
+
+/**
  * Create schedule - Pattern 1 + Optimistic Update
  * 
  * Adds schedule to list immediately with pending state, updates when server confirms.
@@ -202,9 +209,8 @@ export const useCreateScheduleMutation = () => {
       // Add to all device schedule lists
       queryClient.setQueriesData(
         { queryKey: scheduleQueries.listByDevice.base },
-        (old: any) => {
-          if (!old) return [optimisticSchedule];
-          if (!Array.isArray(old)) return old;
+        (old: NormalizedSchedule[] | undefined) => {
+          if (!Array.isArray(old)) return [optimisticSchedule];
           return [...old, optimisticSchedule];
         }
       );
@@ -222,9 +228,9 @@ export const useCreateScheduleMutation = () => {
         // Full success - replace optimistic schedule with real one
         queryClient.setQueriesData(
           { queryKey: scheduleQueries.listByDevice.base },
-          (old: any) => {
+          (old: NormalizedSchedule[] | undefined) => {
             if (!Array.isArray(old)) return old;
-            return old.map((schedule: NormalizedSchedule) =>
+            return old.map((schedule) =>
               schedule.scheduleId === tempScheduleId
                 ? { ...result.schedule, _isPending: false }
                 : schedule
@@ -240,9 +246,9 @@ export const useCreateScheduleMutation = () => {
         // Partial success - DB record exists but Restate timer failed
         queryClient.setQueriesData(
           { queryKey: scheduleQueries.listByDevice.base },
-          (old: any) => {
+          (old: NormalizedSchedule[] | undefined) => {
             if (!Array.isArray(old)) return old;
-            return old.map((schedule: NormalizedSchedule) =>
+            return old.map((schedule) =>
               schedule.scheduleId === tempScheduleId
                 ? { 
                     ...result.schedule, 
@@ -273,9 +279,9 @@ export const useCreateScheduleMutation = () => {
         // Complete failure - remove optimistic schedule
         queryClient.setQueriesData(
           { queryKey: scheduleQueries.listByDevice.base },
-          (old: any) => {
+          (old: NormalizedSchedule[] | undefined) => {
             if (!Array.isArray(old)) return old;
-            return old.filter((schedule: NormalizedSchedule) => 
+            return old.filter((schedule) => 
               schedule.scheduleId !== tempScheduleId
             );
           }
@@ -304,12 +310,7 @@ export const useCreateScheduleMutation = () => {
   });
 };
 
-/**
- * Context type for pause schedule mutation (for optimistic updates)
- */
-interface PauseScheduleContext {
-  previousQueries: [QueryKey, unknown][];
-}
+
 
 /**
  * Pause schedule - Pattern 1 + Optimistic Update
@@ -318,7 +319,7 @@ export const usePauseScheduleMutation = () => {
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
-  return useMutationWithToast<{ success: boolean }, { scheduleId: string }, PauseScheduleContext>({
+  return useMutationWithToast<{ success: boolean }, { scheduleId: string }, ScheduleMutationContext>({
     mutationKey: ['schedule', 'pause'],
     mutationFn: (data) => trpcClient.schedule.pause.mutate(data),
     successMessage: 'Schedule paused successfully',
@@ -334,9 +335,9 @@ export const usePauseScheduleMutation = () => {
         ...queryClient.getQueriesData({ queryKey: scheduleQueries.list.base }),
       ];
 
-      const updater = (old: any) => {
+      const updater = (old: NormalizedSchedule[] | undefined) => {
         if (!Array.isArray(old)) return old;
-        return old.map((item: any) =>
+        return old.map((item) =>
           item.scheduleId === variables.scheduleId
             ? { ...item, status: 'PAUSED', isActive: false }
             : item
@@ -351,7 +352,7 @@ export const usePauseScheduleMutation = () => {
 
     onError: (_err, _variables, context) => {
       if (!context) return;
-      const { previousQueries } = context as PauseScheduleContext;
+      const { previousQueries } = context as ScheduleMutationContext;
       previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
@@ -359,12 +360,7 @@ export const usePauseScheduleMutation = () => {
   });
 };
 
-/**
- * Context type for resume schedule mutation (for optimistic updates)
- */
-interface ResumeScheduleContext {
-  previousQueries: [QueryKey, unknown][];
-}
+
 
 /**
  * Resume schedule - Pattern 1 + Optimistic Update
@@ -373,7 +369,7 @@ export const useResumeScheduleMutation = () => {
   const trpcClient = useTRPCClient();
   const queryClient = useQueryClient();
 
-  return useMutationWithToast<{ success: boolean }, { scheduleId: string }, ResumeScheduleContext>({
+  return useMutationWithToast<{ success: boolean }, { scheduleId: string }, ScheduleMutationContext>({
     mutationKey: ['schedule', 'resume'],
     mutationFn: (data) => trpcClient.schedule.resume.mutate(data),
     successMessage: 'Schedule resumed successfully',
@@ -388,9 +384,9 @@ export const useResumeScheduleMutation = () => {
         ...queryClient.getQueriesData({ queryKey: scheduleQueries.list.base }),
       ];
 
-      const updater = (old: any) => {
+      const updater = (old: NormalizedSchedule[] | undefined) => {
         if (!Array.isArray(old)) return old;
-        return old.map((item: any) =>
+        return old.map((item) =>
           item.scheduleId === variables.scheduleId
             ? { ...item, status: 'ACTIVE', isActive: true, consecutiveFailures: 0 }
             : item
@@ -405,7 +401,7 @@ export const useResumeScheduleMutation = () => {
 
     onError: (_err, _variables, context) => {
       if (!context) return;
-      const { previousQueries } = context as ResumeScheduleContext;
+      const { previousQueries } = context as ScheduleMutationContext;
       previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
@@ -441,9 +437,9 @@ export const useDeleteScheduleMutation = () => {
 
       queryClient.setQueriesData(
         { queryKey: scheduleQueries.listByDevice.base },
-        (old: any) => {
+        (old: NormalizedSchedule[] | undefined) => {
           if (!Array.isArray(old)) return old;
-          return old.filter((item: any) =>
+          return old.filter((item) =>
             item.scheduleId !== variables.scheduleId
           );
         }
@@ -454,7 +450,9 @@ export const useDeleteScheduleMutation = () => {
 
     // Rollback on error
     onError: (_err, _variables, context) => {
-      context?.previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
+      if (!context) return;
+      const { previousQueries } = context as ScheduleMutationContext;
+      previousQueries?.forEach(([key, data]: [QueryKey, unknown]) => {
         queryClient.setQueryData(key, data);
       });
     },

@@ -60,7 +60,7 @@ const BasePostbackRequestSchema = z.object({
  */
 export async function handleUniversalPostback(
   request: Request,
-  env?: { ANALYTICS?: AnalyticsEngineDataset }
+  env?: { ANALYTICS?: AnalyticsEngineDataset; WORKER_API_KEY?: string }
 ): Promise<Response> {
   const startTime = Date.now();
   let postbackType = 'unknown';
@@ -74,7 +74,7 @@ export async function handleUniversalPostback(
 
   try {
     // Step 1: Authenticate request
-    if (!authenticateRequest(request)) {
+    if (!authenticateRequest(request, env)) {
       logger.error('Postback authentication failed - returning 401');
 
       // Track authentication failure

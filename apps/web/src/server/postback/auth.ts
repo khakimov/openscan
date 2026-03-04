@@ -26,16 +26,9 @@ const logger = createLogger({ name: 'postback-auth' });
  *   return Response.json({ error: 'Unauthorized' }, { status: 401 });
  * }
  */
-export function authenticateRequest(request: Request): boolean {
+export function authenticateRequest(request: Request, env?: { WORKER_API_KEY?: string }): boolean {
   const authHeader = request.headers.get('Authorization');
-  const expectedKey = process.env.WORKER_API_KEY;
-
-  logger.info('Authenticating postback request', {
-    hasAuthHeader: !!authHeader,
-    authHeaderPrefix: authHeader?.substring(0, 10) + '...',
-    hasExpectedKey: !!expectedKey,
-    expectedKeyPrefix: expectedKey?.substring(0, 10) + '...',
-  });
+  const expectedKey = env?.WORKER_API_KEY ?? process.env.WORKER_API_KEY;
 
   // Check environment variable is configured
   if (!expectedKey) {
@@ -52,23 +45,11 @@ export function authenticateRequest(request: Request): boolean {
   // Parse header (format: "Bearer <token>")
   const [scheme, token] = authHeader.split(' ');
 
-  logger.info('Auth header parsed', {
-    scheme,
-    tokenPrefix: token?.substring(0, 10) + '...',
-    expectedKeyPrefix: expectedKey?.substring(0, 10) + '...',
-    tokensMatch: token === expectedKey,
-  });
-
   // Validate scheme and token
   if (scheme !== 'Bearer' || token !== expectedKey) {
-    logger.warn('Invalid API key in postback request', {
-      scheme,
-      isBearer: scheme === 'Bearer',
-      tokenMatch: token === expectedKey,
-    });
+    logger.warn('Invalid API key in postback request');
     return false;
   }
 
-  logger.info('Postback authentication successful');
   return true;
 }

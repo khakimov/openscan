@@ -320,7 +320,11 @@ export function Sidebar({ className }: SidebarProps = {}) {
                 >
                   <item.icon className="h-4 w-4 flex-shrink-0" />
                   <span className="truncate">{item.name}</span>
-                  {item.name === "Servers" && <NotificationIndicator />}
+                  {item.name === "Servers" && (
+                    <NotificationIndicator
+                      activeOrganizationId={session?.activeOrganizationId}
+                    />
+                  )}
                 </Button>
               );
             })}

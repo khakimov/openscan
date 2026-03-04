@@ -41,7 +41,7 @@ export const useScanList = (params?: { projectId?: string }) => {
       if (!Array.isArray(data)) return false;
 
       const hasActiveScans = data.some(
-        (scan: any) => scan.workflowStatus === 'PENDING' || scan.workflowStatus === 'RUNNING'
+        (scan) => scan.workflowStatus === 'PENDING' || scan.workflowStatus === 'RUNNING'
       );
 
       return hasActiveScans ? 30000 : false; // 30 seconds

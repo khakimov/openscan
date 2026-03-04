@@ -11,6 +11,7 @@ import {
   createScanRun,
   updateScanRunStatus,
   updateScanWorkflowStatus,
+  addDeviceToScanRun,
 } from '@repo/data-ops';
 import type { PostbackHandler, HandlerContext, HandlerResult } from './base';
 import type { PortScanPostback } from '../types';
@@ -140,6 +141,13 @@ export class PortScanPostbackHandler
         requestedById: null, // No user — triggered by scheduler
         target: data.target,
         workflowMetadata: { source: 'scheduled-scan', deviceId },
+      });
+
+      // Create the device mapping required for change detection queries
+      await addDeviceToScanRun({
+        scanRunId: scanRun.id,
+        deviceId,
+        organizationId,
       });
     }
 
@@ -651,6 +659,13 @@ export class PortScanPostbackHandler
         scope: 'EXTERNAL',
         requestedById: null, // No user — triggered by scheduler
         workflowMetadata: { source: 'scheduled-scan', deviceId },
+      });
+
+      // Create the device mapping for data consistency
+      await addDeviceToScanRun({
+        scanRunId: scanRun.id,
+        deviceId,
+        organizationId,
       });
     }
 
