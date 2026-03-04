@@ -583,12 +583,7 @@ export async function getDeviceById(deviceId: string, organizationId: string) {
           httpxProbe: httpxProbe || undefined,
           // Override service with resolved determination
           service: resolved ? {
-            // When resolution returns "unknown", fall back to original nmap service name
-            // (e.g. "xmpp-server", "rwhois") instead of generic "Unknown service"
-            name: resolved.kind === 'unknown' && snapshot.service?.name
-              ? snapshot.service.name
-              : resolved.displayName,
-            product: resolved.kind !== 'unknown' ? resolved.displayName : undefined,
+            name: resolved.displayName,
             confidence: resolved.confidence,
             quality: resolved.quality,
             source: resolved.kind,
