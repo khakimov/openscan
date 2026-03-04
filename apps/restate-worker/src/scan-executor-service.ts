@@ -256,11 +256,17 @@ export const scanExecutor = restate.service({
         abortTimeout: 120000, // 2 minutes
       },
       async (ctx: Context, input: ScanExecutorInput): Promise<ScanExecutorResult> => {
+        // Generate scanId deterministically — Date.now() changes on replay, causing journal mismatch.
+        // ctx.date.now() is deterministic across Restate replays.
+        const baseTime = await ctx.date.now();
+        const scanId = `${input.scheduleId}-${baseTime}`;
+
         logger.info('ScanExecutor starting', {
           scheduleId: input.scheduleId,
           deviceId: input.deviceId,
           preset: input.preset,
           consecutiveFailures: input.consecutiveFailures,
+          scanId,
         });
 
         // Step 1: Check concurrency via HTTP API
@@ -341,7 +347,7 @@ export const scanExecutor = restate.service({
             ports: getPortsForPreset(input.preset),
             aggressive: input.preset === 'THOROUGH',
             timeout: getTimeoutForPreset(input.preset),
-            scanId: `${input.scheduleId}-${Date.now()}`,
+            scanId,
             deviceId: input.deviceId,
             organizationId: input.organizationId,
             callbackUrl: `${TANSTACK_APP_URL}/api/internal/scan-results`,
@@ -365,7 +371,6 @@ export const scanExecutor = restate.service({
         await releaseSlot();
 
         // Step 4: Postback success
-        const scanId = `${input.scheduleId}-${Date.now()}`;
         await ctx.run('postback-success', async () => {
           const now = new Date().toISOString();
           const successPayload = buildScheduledScanExecutedPostbackPayload({
