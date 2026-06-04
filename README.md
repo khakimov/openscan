@@ -1,5 +1,9 @@
 # OpenScan 🤘
 
+<p align="center">
+  <img src=".github/hero.png" alt="OpenScan" width="80%" />
+</p>
+
 **OpenScan** is an open-source security scanning and asset discovery platform. It continuously monitors your internet-facing assets — domains, subdomains, IPs, and ports — and alerts you when things change.
 
 > **"Monitor your websites and servers in one place. Lock the doors before anyone gets in."**
